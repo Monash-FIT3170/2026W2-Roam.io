@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import 'features/auth/presentation/providers/auth_provider.dart';
+import 'features/auth/presentation/screens/signup_screen.dart';
 import 'firebase_options.dart';
 
 Future<void> main() async {
@@ -23,21 +24,7 @@ class MyApp extends StatelessWidget {
       child: MaterialApp(
         title: 'Roam.io',
         theme: ThemeData(colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple)),
-        home: Scaffold(
-          body: Center(
-            child: Consumer<AuthProvider>(
-              builder: (context, auth, _) {
-                if (auth.viewState == AuthViewState.loading) {
-                  return const CircularProgressIndicator();
-                }
-                final statusText = auth.isAuthenticated
-                    ? 'Signed in as ${auth.currentUser?.email ?? "unknown"}'
-                    : 'Not signed in yet. Auth screens come next.';
-                return Text(statusText, textAlign: TextAlign.center);
-              },
-            ),
-          ),
-        ),
+        home: const SignupScreen(),
       ),
     );
   }
