@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/foundation.dart';
 
 import '../../data/auth_repository.dart';
@@ -122,7 +123,9 @@ class AuthProvider extends ChangeNotifier {
     try {
       await action();
     } on FirebaseAuthException catch (e) {
-      _errorMessage = e.message ?? e.code;
+      _errorMessage = _friendlyAuthMessage(e);
+    } on FirebaseException catch (e) {
+      _errorMessage = _friendlyFirestoreMessage(e);
     } catch (e) {
       _errorMessage = e.toString();
     } finally {
@@ -146,5 +149,39 @@ class AuthProvider extends ChangeNotifier {
   void dispose() {
     _authStateSub?.cancel();
     super.dispose();
+  }
+
+  String _friendlyAuthMessage(FirebaseAuthException e) {
+    switch (e.code) {
+      case 'invalid-email':
+        return 'Please enter a valid email address.';
+      case 'user-not-found':
+      case 'wrong-password':
+      case 'invalid-credential':
+        return 'Invalid email or password.';
+      case 'email-already-in-use':
+        return 'An account with this email already exists.';
+      case 'weak-password':
+        return 'Password is too weak. Use at least 8 characters.';
+      case 'too-many-requests':
+        return 'Too many attempts. Please try again shortly.';
+      case 'network-request-failed':
+        return 'Network error. Check your internet connection and try again.';
+      case 'requires-recent-login':
+        return 'For security, please log in again before changing your password.';
+      default:
+        return 'Authentication failed. Please try again.';
+    }
+  }
+
+  String _friendlyFirestoreMessage(FirebaseException e) {
+    switch (e.code) {
+      case 'permission-denied':
+        return 'You do not have permission to perform this action.';
+      case 'unavailable':
+        return 'Service is temporarily unavailable. Please try again.';
+      default:
+        return 'We could not save your data right now. Please try again.';
+    }
   }
 }
