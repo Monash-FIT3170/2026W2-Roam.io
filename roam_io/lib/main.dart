@@ -1,6 +1,8 @@
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 
+import 'features/auth/presentation/providers/auth_provider.dart';
 import 'firebase_options.dart';
 
 Future<void> main() async {
@@ -16,12 +18,25 @@ class MyApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      title: 'Roam.io',
-      theme: ThemeData(colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple)),
-      home: const Scaffold(
-        body: Center(
-          child: Text('Firebase is connected. Auth screens come next.'),
+    return ChangeNotifierProvider<AuthProvider>(
+      create: (_) => AuthProvider(),
+      child: MaterialApp(
+        title: 'Roam.io',
+        theme: ThemeData(colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple)),
+        home: Scaffold(
+          body: Center(
+            child: Consumer<AuthProvider>(
+              builder: (context, auth, _) {
+                if (auth.viewState == AuthViewState.loading) {
+                  return const CircularProgressIndicator();
+                }
+                final statusText = auth.isAuthenticated
+                    ? 'Signed in as ${auth.currentUser?.email ?? "unknown"}'
+                    : 'Not signed in yet. Auth screens come next.';
+                return Text(statusText, textAlign: TextAlign.center);
+              },
+            ),
+          ),
         ),
       ),
     );
