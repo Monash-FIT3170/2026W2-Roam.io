@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../../../auth/presentation/screens/change_password_screen.dart';
 import '../../../auth/presentation/providers/auth_provider.dart';
 
 class HomeScreen extends StatefulWidget {
@@ -70,6 +71,19 @@ class _HomeScreenState extends State<HomeScreen> {
                 const SizedBox(height: 8),
                 Text('Display name: ${profile?.displayName ?? '-'}'),
                 const SizedBox(height: 24),
+                ElevatedButton(
+                  onPressed: auth.isBusy
+                      ? null
+                      : () {
+                          Navigator.of(context).push(
+                            MaterialPageRoute<void>(
+                              builder: (_) => const ChangePasswordScreen(),
+                            ),
+                          );
+                        },
+                  child: const Text('Change password'),
+                ),
+                const SizedBox(height: 12),
                 const Text(
                   'This is the MVP profile placeholder shown after login.',
                 ),
