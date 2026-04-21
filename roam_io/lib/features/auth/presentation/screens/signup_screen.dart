@@ -53,6 +53,9 @@ class _SignupScreenState extends State<SignupScreen> {
         ),
       ),
     );
+
+    // Return to the root AuthGate route so it can show VerifyEmailScreen.
+    Navigator.of(context).popUntil((route) => route.isFirst);
   }
 
   @override
