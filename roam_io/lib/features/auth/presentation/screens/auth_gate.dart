@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
-import '../../../home/presentation/screens/home_screen.dart';
+import '../../../home/presentation/screens/map_home.dart';
 import '../providers/auth_provider.dart';
 import 'login_screen.dart';
 import 'verify_email_screen.dart';
@@ -40,7 +40,7 @@ class _AuthGateState extends State<AuthGate> {
           return const VerifyEmailScreen();
         }
 
-        return const HomeScreen();
+        return const MapHome();
       },
     );
   }
