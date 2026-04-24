@@ -2,6 +2,10 @@ import 'package:flutter/material.dart';
 
 import '../../../home/presentation/screens/home_screen.dart';
 import '../../../../shared/widgets/app_bottom_nav_bar.dart';
+import '../../../home/presentation/screens/journeys_screen.dart';
+import '../../../home/presentation/screens/quests_screen.dart';
+import '../../../home/presentation/screens/analytics_screen.dart';
+import '../../../home/presentation/screens/profile_screen.dart';
 
 class MainShellScreen extends StatefulWidget {
   const MainShellScreen({super.key});
@@ -14,37 +18,20 @@ class _MainShellScreenState extends State<MainShellScreen> {
   int selectedIndex = 2;
 
   final pages = const [
-    Center(child: Text('Journeys')),
-    Center(child: Text('Quests')),
+    JourneysScreen(),
+    QuestsScreen(),
     HomeScreen(),
-    Center(child: Text('Stats')),
-    Center(child: Text('You')),
+    AnalyticsScreen(),
+    ProfileScreen(),
   ];
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       extendBody: true,
-      body: AnimatedSwitcher(
-        duration: const Duration(milliseconds: 260),
-        switchInCurve: Curves.easeOutCubic,
-        switchOutCurve: Curves.easeInCubic,
-        transitionBuilder: (child, animation) {
-          return FadeTransition(
-            opacity: animation,
-            child: SlideTransition(
-              position: Tween<Offset>(
-                begin: const Offset(0.04, 0),
-                end: Offset.zero,
-              ).animate(animation),
-              child: child,
-            ),
-          );
-        },
-        child: KeyedSubtree(
-          key: ValueKey<int>(selectedIndex),
-          child: pages[selectedIndex],
-        ),
+      body: IndexedStack(
+        index: selectedIndex,
+        children: pages,
       ),
       bottomNavigationBar: AppBottomNavBar(
         currentIndex: selectedIndex,
