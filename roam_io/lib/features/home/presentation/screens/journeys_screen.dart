@@ -13,7 +13,7 @@ class JourneysScreen extends StatelessWidget {
           children: [
             AppPageHeader(
               title: 'Journeys',
-              subtitle: 'Your past urban explorations and discoveres',
+              subtitle: 'Your past urban explorations and discoveries',
             ),
 
             SizedBox(height: 12),

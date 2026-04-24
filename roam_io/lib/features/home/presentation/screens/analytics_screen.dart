@@ -12,7 +12,7 @@ class AnalyticsScreen extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             AppPageHeader(
-              title: 'Your map',
+              title: 'Your Analytics',
               subtitle: 'Stats & progress',
             ),
 
