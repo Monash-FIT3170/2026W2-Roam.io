@@ -37,67 +37,126 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return SafeArea(
-      child: Consumer<AuthProvider>(
-        builder: (context, auth, _) {
-          final profile = auth.currentProfile;
+    return Container(
+      color: AppColors.cream,
+      child: SafeArea(
+        child: Consumer<AuthProvider>(
+          builder: (context, auth, _) {
+            final profile = auth.currentProfile;
 
-          if (auth.isBusy && profile == null) {
-            return const Center(child: CircularProgressIndicator());
-          }
+            if (auth.isBusy && profile == null) {
+              return const Center(child: CircularProgressIndicator());
+            }
 
-          return SingleChildScrollView(
-            padding: const EdgeInsets.only(bottom: 110), 
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const AppPageHeader(
-                  title: 'Profile Settings',
-                  subtitle:
-                      'Manage your identity and exploration preferences.',
-                ),
+            final email = auth.currentUser?.email ?? '-';
+            final username = profile?.username ?? '-';
+            final displayName = profile?.displayName ?? '-';
 
-                const SizedBox(height: 16),
+            return SingleChildScrollView(
+              padding: const EdgeInsets.only(bottom: 110),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const AppPageHeader(
+                    title: 'Profile Settings',
+                    subtitle:
+                        'Manage your identity and account preferences.',
+                  ),
 
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 20),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text('Email: ${auth.currentUser?.email ?? '-'}'),
-                      const SizedBox(height: 8),
-                      Text('Username: ${profile?.username ?? '-'}'),
-                      const SizedBox(height: 8),
-                      Text('Display name: ${profile?.displayName ?? '-'}'),
+                  const SizedBox(height: 16),
 
-                      const SizedBox(height: 32),
-
-                      SizedBox(
-                        width: double.infinity,
-                        height: 52,
-                        child: ElevatedButton(
-                          onPressed: auth.isBusy ? null : () {},
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: AppColors.sage,
-                            foregroundColor: Colors.white,
-                            elevation: 0,
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(28),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 20),
+                    child: Column(
+                      children: [
+                        // 🟫 Profile Card
+                        Container(
+                          width: double.infinity,
+                          padding: const EdgeInsets.all(24),
+                          decoration: BoxDecoration(
+                            color: AppColors.sand,
+                            borderRadius: BorderRadius.circular(28),
+                            border: Border.all(
+                              color: AppColors.sage.withOpacity(0.12),
                             ),
                           ),
-                          child: const Text(
-                            'Save Changes',
-                            style: TextStyle(fontWeight: FontWeight.w700),
+                          child: Column(
+                            children: [
+                              // 🔥 Avatar (NOW CREAM)
+                              Container(
+                                width: 92,
+                                height: 92,
+                                decoration: BoxDecoration(
+                                  shape: BoxShape.circle,
+                                  color: AppColors.cream,
+                                  border: Border.all(
+                                    color: AppColors.sage,
+                                    width: 2,
+                                  ),
+                                ),
+                                child: Icon(
+                                  Icons.person_rounded,
+                                  size: 48,
+                                  color: AppColors.sage,
+                                ),
+                              ),
+
+                              const SizedBox(height: 14),
+
+                              Text(
+                                displayName,
+                                style: TextStyle(
+                                  fontSize: 22,
+                                  fontWeight: FontWeight.w800,
+                                  color: AppColors.ink,
+                                ),
+                              ),
+
+                              const SizedBox(height: 4),
+
+                              Text(
+                                '@$username',
+                                style: TextStyle(
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w600,
+                                  color:
+                                      AppColors.ink.withOpacity(0.45),
+                                ),
+                              ),
+
+                              const SizedBox(height: 20),
+
+                              _ProfileInfoTile(
+                                icon: Icons.email_outlined,
+                                label: 'Email',
+                                value: email,
+                              ),
+
+                              const SizedBox(height: 10),
+
+                              _ProfileInfoTile(
+                                icon: Icons.alternate_email_rounded,
+                                label: 'Username',
+                                value: username,
+                              ),
+
+                              const SizedBox(height: 10),
+
+                              _ProfileInfoTile(
+                                icon: Icons.badge_outlined,
+                                label: 'Display Name',
+                                value: displayName,
+                              ),
+                            ],
                           ),
                         ),
-                      ),
 
-                      const SizedBox(height: 12),
+                        const SizedBox(height: 24),
 
-                      SizedBox(
-                        width: double.infinity,
-                        height: 48,
-                        child: OutlinedButton(
+                        // 🔥 PRIMARY CTA (SAGE BUTTON)
+                        _SecondaryProfileButton(
+                          label: 'Change Password',
+                          icon: Icons.lock_outline_rounded,
                           onPressed: auth.isBusy
                               ? null
                               : () {
@@ -108,43 +167,146 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                     ),
                                   );
                                 },
-                          style: OutlinedButton.styleFrom(
-                            foregroundColor: AppColors.ink,
-                            side: BorderSide(
-                              color: AppColors.ink.withOpacity(0.18),
-                            ),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(24),
-                            ),
-                          ),
-                          child: const Text(
-                            'Change Password',
-                            style: TextStyle(fontWeight: FontWeight.w700),
-                          ),
                         ),
-                      ),
 
-                      const SizedBox(height: 8),
+                        const SizedBox(height: 18),
 
-                      Center(
-                        child: TextButton(
-                          onPressed: auth.isBusy ? null : _logout,
+                        // 🔴 Minimal logout
+                        TextButton.icon(
+                          onPressed:
+                              auth.isBusy ? null : _logout,
+                          icon: Icon(
+                            Icons.logout_rounded,
+                            size: 16,
+                            color: AppColors.clay,
+                          ),
+                          label: Text(
+                            'Log out',
+                            style: TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w600,
+                              color: AppColors.clay.withOpacity(0.85),
+                            ),
+                          ),
                           style: TextButton.styleFrom(
-                            foregroundColor: AppColors.clay,
-                          ),
-                          child: const Text(
-                            'Log Out',
-                            style: TextStyle(fontWeight: FontWeight.w700),
+                            padding:
+                                const EdgeInsets.symmetric(
+                              horizontal: 8,
+                              vertical: 4,
+                            ),
+                            minimumSize: Size.zero,
+                            tapTargetSize:
+                                MaterialTapTargetSize
+                                    .shrinkWrap,
                           ),
                         ),
-                      ),
-                    ],
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            );
+          },
+        ),
+      ),
+    );
+  }
+}
+
+// 🧾 Info tile
+class _ProfileInfoTile extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final String value;
+
+  const _ProfileInfoTile({
+    required this.icon,
+    required this.label,
+    required this.value,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding:
+          const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+      decoration: BoxDecoration(
+        color: AppColors.cream,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: AppColors.sage.withOpacity(0.08),
+        ),
+      ),
+      child: Row(
+        children: [
+          Icon(icon, size: 22, color: AppColors.sage),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment:
+                  CrossAxisAlignment.start,
+              children: [
+                Text(
+                  label,
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w700,
+                    color: AppColors.ink.withOpacity(0.45),
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  value,
+                  style: TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w700,
+                    color: AppColors.ink,
                   ),
                 ),
               ],
             ),
-          );
-        },
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// 🔥 SAGE BUTTON (primary)
+class _SecondaryProfileButton extends StatelessWidget {
+  final String label;
+  final IconData icon;
+  final VoidCallback? onPressed;
+
+  const _SecondaryProfileButton({
+    required this.label,
+    required this.icon,
+    required this.onPressed,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: SizedBox(
+        width: 220,
+        height: 48,
+        child: ElevatedButton.icon(
+          onPressed: onPressed,
+          icon: Icon(icon, size: 18),
+          label: Text(label),
+          style: ElevatedButton.styleFrom(
+            backgroundColor: AppColors.sage,
+            foregroundColor: Colors.white,
+            elevation: 0,
+            textStyle: const TextStyle(
+              fontWeight: FontWeight.w700,
+              fontSize: 14,
+            ),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(16),
+            ),
+          ),
+        ),
       ),
     );
   }
