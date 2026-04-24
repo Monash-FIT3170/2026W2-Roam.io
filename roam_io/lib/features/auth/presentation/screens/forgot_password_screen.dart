@@ -1,0 +1,98 @@
+import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+
+import '../providers/auth_provider.dart';
+
+class ForgotPasswordScreen extends StatefulWidget {
+  const ForgotPasswordScreen({super.key});
+
+  @override
+  State<ForgotPasswordScreen> createState() => _ForgotPasswordScreenState();
+}
+
+class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
+  final _formKey = GlobalKey<FormState>();
+  final _emailController = TextEditingController();
+
+  @override
+  void dispose() {
+    _emailController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _submit() async {
+    if (!_formKey.currentState!.validate()) return;
+
+    final auth = context.read<AuthProvider>();
+    await auth.sendPasswordResetEmail(_emailController.text.trim());
+
+    if (!mounted) return;
+
+    if (auth.errorMessage != null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(auth.errorMessage!)),
+      );
+      return;
+    }
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text(
+          'If an account exists for this email, a reset link has been sent.',
+        ),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: const Text('Reset Password')),
+      body: Consumer<AuthProvider>(
+        builder: (context, auth, _) {
+          return SingleChildScrollView(
+            padding: const EdgeInsets.all(16),
+            child: Form(
+              key: _formKey,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  const Text(
+                    'Enter your email. If an account exists, we will send a password reset link.',
+                  ),
+                  const SizedBox(height: 16),
+                  TextFormField(
+                    controller: _emailController,
+                    keyboardType: TextInputType.emailAddress,
+                    textInputAction: TextInputAction.done,
+                    decoration: const InputDecoration(labelText: 'Email'),
+                    validator: (value) {
+                      final text = value?.trim() ?? '';
+                      if (text.isEmpty) return 'Email is required.';
+                      if (!text.contains('@') || !text.contains('.')) {
+                        return 'Enter a valid email address.';
+                      }
+                      return null;
+                    },
+                    onFieldSubmitted: (_) => _submit(),
+                  ),
+                  const SizedBox(height: 20),
+                  ElevatedButton(
+                    onPressed: auth.isBusy ? null : _submit,
+                    child: auth.isBusy
+                        ? const SizedBox(
+                            height: 20,
+                            width: 20,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : const Text('Send reset email'),
+                  ),
+                ],
+              ),
+            ),
+          );
+        },
+      ),
+    );
+  }
+}
