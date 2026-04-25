@@ -47,3 +47,10 @@ secrets.properties
 /android/app/debug
 /android/app/profile
 /android/app/release
+
+
+**/GeneratedPluginRegistrant.*
+**/generated_plugin_registrant.*
+**/generated_plugins.cmake
+android/build/
+*.html

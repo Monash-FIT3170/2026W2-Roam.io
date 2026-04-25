@@ -26,13 +26,7 @@ class _MapHomeState extends State<MapHome> {
   @override
   void initState() {
     super.initState();
-    _centerMapOnUserLocation();
-    _loadSA2Overlay();
-  }
-
-  void _onMapCreated(GoogleMapController controller) {
-    _mapController = controller;
-    _moveCameraTo(_cameraTarget);
+    _initMap();
   }
 
   @override
@@ -41,13 +35,87 @@ class _MapHomeState extends State<MapHome> {
     super.dispose();
   }
 
-  Future<void> _loadSA2Overlay() async {
+  // Single entry point — waits for location before loading polygons
+  Future<void> _initMap() async {
+    final LatLng location = await _centerMapOnUserLocation();
+    await _loadSA2Overlay(location: location);
+  }
+
+  void _onMapCreated(GoogleMapController controller) {
+    _mapController = controller;
+    _moveCameraTo(_cameraTarget);
+  }
+
+  // Returns the resolved user location (or fallback)
+  Future<LatLng> _centerMapOnUserLocation() async {
+    try {
+      final bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
+      if (!serviceEnabled) {
+        _setLocationState(
+          hasPermission: false,
+          isFetching: false,
+          message: 'Turn on location services to open the map around you.',
+        );
+        return _fallbackCenter;
+      }
+
+      LocationPermission permission = await Geolocator.checkPermission();
+      if (permission == LocationPermission.denied) {
+        permission = await Geolocator.requestPermission();
+      }
+
+      if (permission == LocationPermission.denied) {
+        _setLocationState(
+          hasPermission: false,
+          isFetching: false,
+          message: 'Location permission was denied, so the default map view is shown.',
+        );
+        return _fallbackCenter;
+      }
+
+      if (permission == LocationPermission.deniedForever) {
+        _setLocationState(
+          hasPermission: false,
+          isFetching: false,
+          message: 'Location permission is permanently denied. Enable it in settings to center the map on you.',
+        );
+        return _fallbackCenter;
+      }
+
+      final Position position = await Geolocator.getCurrentPosition(
+        locationSettings: const LocationSettings(accuracy: LocationAccuracy.high),
+      );
+
+      final LatLng userTarget = LatLng(position.latitude, position.longitude);
+      if (!mounted) return _fallbackCenter;
+
+      setState(() {
+        _cameraTarget = userTarget;
+        _hasLocationPermission = true;
+        _isFetchingLocation = false;
+        _locationMessage = null;
+      });
+
+      _moveCameraTo(userTarget);
+      return userTarget;
+    } catch (_) {
+      _setLocationState(
+        hasPermission: false,
+        isFetching: false,
+        message: 'We could not determine your current location, so the default map view is shown.',
+      );
+      return _fallbackCenter;
+    }
+  }
+
+  Future<void> _loadSA2Overlay({required LatLng location}) async {
+    if (!mounted) return;
     setState(() => _isLoadingSA2 = true);
 
-    try {
-      // Determine which state to load based on the user's location (or fallback to Victoria)
-      final String filterState = _resolveStateFromTarget(_cameraTarget);
+    final String filterState = _resolveStateFromTarget(location);
+    debugPrint('Loading SA2 for: $filterState at $location');
 
+    try {
       final Set<Polygon> polygons = await SA2Overlay.loadPolygons(
         strokeColor: Colors.red,
         fillColor: const Color(0x00000000),
@@ -72,18 +140,26 @@ class _MapHomeState extends State<MapHome> {
   }
 
   /// Maps a LatLng to an Australian state name for SA2 filtering.
-  /// Boundaries are approximate bounding boxes — good enough for this purpose.
+  /// Checks more specific/smaller regions first to avoid bounding box overlaps.
   String _resolveStateFromTarget(LatLng target) {
-    final lat = target.latitude;
-    final lng = target.longitude;
+    final double lat = target.latitude;
+    final double lng = target.longitude;
 
+    // ACT — check before NSW as it's entirely surrounded by it
+    if (lat >= -35.9 && lat <= -35.1 && lng >= 148.7 && lng <= 149.4) {
+      return 'Australian Capital Territory';
+    }
+    // Tasmania — isolated, check early
+    if (lat >= -43.7 && lat <= -39.5 && lng >= 143.8 && lng <= 148.5) {
+      return 'Tasmania';
+    }
+    // NSW — check before Victoria (overlapping bounding boxes in SE corner)
+    if (lat >= -37.5 && lat <= -28.2 && lng >= 141.0 && lng <= 153.6) {
+      return 'New South Wales';
+    }
     // Victoria
     if (lat >= -39.2 && lat <= -33.9 && lng >= 140.9 && lng <= 150.0) {
       return 'Victoria';
-    }
-    // New South Wales
-    if (lat >= -37.5 && lat <= -28.2 && lng >= 140.9 && lng <= 153.6) {
-      return 'New South Wales';
     }
     // Queensland
     if (lat >= -29.2 && lat <= -10.0 && lng >= 137.9 && lng <= 153.6) {
@@ -97,81 +173,12 @@ class _MapHomeState extends State<MapHome> {
     if (lat >= -35.1 && lat <= -13.7 && lng >= 112.9 && lng <= 129.0) {
       return 'Western Australia';
     }
-    // Tasmania
-    if (lat >= -43.7 && lat <= -39.5 && lng >= 143.8 && lng <= 148.5) {
-      return 'Tasmania';
-    }
     // Northern Territory
     if (lat >= -26.0 && lat <= -10.9 && lng >= 129.0 && lng <= 138.0) {
       return 'Northern Territory';
     }
-    // ACT
-    if (lat >= -35.9 && lat <= -35.1 && lng >= 148.7 && lng <= 149.4) {
-      return 'Australian Capital Territory';
-    }
 
-    // Default to Victoria (matches fallback LatLng)
-    return 'Victoria';
-  }
-
-  Future<void> _centerMapOnUserLocation() async {
-    try {
-      final bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
-      if (!serviceEnabled) {
-        _setLocationState(
-          hasPermission: false,
-          isFetching: false,
-          message: 'Turn on location services to open the map around you.',
-        );
-        return;
-      }
-
-      LocationPermission permission = await Geolocator.checkPermission();
-      if (permission == LocationPermission.denied) {
-        permission = await Geolocator.requestPermission();
-      }
-
-      if (permission == LocationPermission.denied) {
-        _setLocationState(
-          hasPermission: false,
-          isFetching: false,
-          message: 'Location permission was denied, so the default map view is shown.',
-        );
-        return;
-      }
-
-      if (permission == LocationPermission.deniedForever) {
-        _setLocationState(
-          hasPermission: false,
-          isFetching: false,
-          message: 'Location permission is permanently denied. Enable it in settings to center the map on you.',
-        );
-        return;
-      }
-
-      final Position position = await Geolocator.getCurrentPosition(
-        locationSettings: const LocationSettings(
-          accuracy: LocationAccuracy.high,
-        ),
-      );
-
-      final LatLng userTarget = LatLng(position.latitude, position.longitude);
-      if (!mounted) return;
-
-      setState(() {
-        _cameraTarget = userTarget;
-        _hasLocationPermission = true;
-        _isFetchingLocation = false;
-        _locationMessage = null;
-      });
-      _moveCameraTo(userTarget);
-    } catch (_) {
-      _setLocationState(
-        hasPermission: false,
-        isFetching: false,
-        message: 'We could not determine your current location, so the default map view is shown.',
-      );
-    }
+    return 'Victoria'; // fallback
   }
 
   void _setLocationState({
