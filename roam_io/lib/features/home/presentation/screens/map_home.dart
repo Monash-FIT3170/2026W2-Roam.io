@@ -2,9 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:roam_io/sa2_overlay.dart';
-import 'dart:convert';
-import 'package:flutter/services.dart';
-
 
 class MapHome extends StatefulWidget {
   const MapHome({super.key});
@@ -29,7 +26,6 @@ class _MapHomeState extends State<MapHome> {
   @override
   void initState() {
     super.initState();
-    _debugGeoJson(); // temporary
     _centerMapOnUserLocation();
     _loadSA2Overlay();
   }
@@ -49,10 +45,14 @@ class _MapHomeState extends State<MapHome> {
     setState(() => _isLoadingSA2 = true);
 
     try {
+      // Determine which state to load based on the user's location (or fallback to Victoria)
+      final String filterState = _resolveStateFromTarget(_cameraTarget);
+
       final Set<Polygon> polygons = await SA2Overlay.loadPolygons(
-        strokeColor: Colors.blue,
-        fillColor: const Color(0x226200EE),
-        strokeWidth: 1.0,
+        strokeColor: Colors.red,
+        fillColor: const Color(0x00000000),
+        strokeWidth: 3.0,
+        filterState: filterState,
         onTap: (String name) {
           if (!mounted) return;
           setState(() => _tappedSA2Name = name);
@@ -69,6 +69,49 @@ class _MapHomeState extends State<MapHome> {
       setState(() => _isLoadingSA2 = false);
       debugPrint('Failed to load SA2 overlay: $error');
     }
+  }
+
+  /// Maps a LatLng to an Australian state name for SA2 filtering.
+  /// Boundaries are approximate bounding boxes — good enough for this purpose.
+  String _resolveStateFromTarget(LatLng target) {
+    final lat = target.latitude;
+    final lng = target.longitude;
+
+    // Victoria
+    if (lat >= -39.2 && lat <= -33.9 && lng >= 140.9 && lng <= 150.0) {
+      return 'Victoria';
+    }
+    // New South Wales
+    if (lat >= -37.5 && lat <= -28.2 && lng >= 140.9 && lng <= 153.6) {
+      return 'New South Wales';
+    }
+    // Queensland
+    if (lat >= -29.2 && lat <= -10.0 && lng >= 137.9 && lng <= 153.6) {
+      return 'Queensland';
+    }
+    // South Australia
+    if (lat >= -38.1 && lat <= -25.9 && lng >= 129.0 && lng <= 141.0) {
+      return 'South Australia';
+    }
+    // Western Australia
+    if (lat >= -35.1 && lat <= -13.7 && lng >= 112.9 && lng <= 129.0) {
+      return 'Western Australia';
+    }
+    // Tasmania
+    if (lat >= -43.7 && lat <= -39.5 && lng >= 143.8 && lng <= 148.5) {
+      return 'Tasmania';
+    }
+    // Northern Territory
+    if (lat >= -26.0 && lat <= -10.9 && lng >= 129.0 && lng <= 138.0) {
+      return 'Northern Territory';
+    }
+    // ACT
+    if (lat >= -35.9 && lat <= -35.1 && lng >= 148.7 && lng <= 149.4) {
+      return 'Australian Capital Territory';
+    }
+
+    // Default to Victoria (matches fallback LatLng)
+    return 'Victoria';
   }
 
   Future<void> _centerMapOnUserLocation() async {
@@ -92,8 +135,7 @@ class _MapHomeState extends State<MapHome> {
         _setLocationState(
           hasPermission: false,
           isFetching: false,
-          message:
-              'Location permission was denied, so the default map view is shown.',
+          message: 'Location permission was denied, so the default map view is shown.',
         );
         return;
       }
@@ -102,8 +144,7 @@ class _MapHomeState extends State<MapHome> {
         _setLocationState(
           hasPermission: false,
           isFetching: false,
-          message:
-              'Location permission is permanently denied. Enable it in settings to center the map on you.',
+          message: 'Location permission is permanently denied. Enable it in settings to center the map on you.',
         );
         return;
       }
@@ -128,30 +169,8 @@ class _MapHomeState extends State<MapHome> {
       _setLocationState(
         hasPermission: false,
         isFetching: false,
-        message:
-            'We could not determine your current location, so the default map view is shown.',
+        message: 'We could not determine your current location, so the default map view is shown.',
       );
-    }
-  }
-
-  Future<void> _debugGeoJson() async {
-    final String data = await rootBundle.loadString('assets/SA2_2021_AUST_GDA2020.json');
-    final decoded = jsonDecode(data);
-
-    debugPrint('Top-level type: ${decoded.runtimeType}');
-    
-    if (decoded is Map) {
-      debugPrint('Top-level keys: ${decoded.keys.toList()}');
-      
-      final features = decoded['features'];
-      if (features != null && features is List && features.isNotEmpty) {
-        final first = features[0];
-        debugPrint('First feature keys: ${first.keys.toList()}');
-        debugPrint('Geometry type: ${first['geometry']?['type']}');
-        debugPrint('Properties: ${first['properties']}');
-      }
-    } else if (decoded is List) {
-      debugPrint('Root is a List, first item keys: ${decoded[0].keys.toList()}');
     }
   }
 
@@ -215,9 +234,7 @@ class _MapHomeState extends State<MapHome> {
               left: 0,
               right: 0,
               child: _StatusBanner(
-                icon: _hasLocationPermission
-                    ? Icons.my_location
-                    : Icons.location_off,
+                icon: _hasLocationPermission ? Icons.my_location : Icons.location_off,
                 message: locationBannerText,
               ),
             ),

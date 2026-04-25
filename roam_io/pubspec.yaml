@@ -40,6 +40,7 @@ dependencies:
   provider: ^6.1.5+1
   google_maps_flutter: ^2.6.0
   geolocator: ^14.0.2
+  flutter_dotenv: ^6.0.1
 
 dev_dependencies:
   flutter_test:
@@ -60,6 +61,7 @@ flutter:
 
   assets:
     - assets/SA2_2021_AUST_GDA2020.json
+    - .env
 
   # The following line ensures that the Material Icons font is
   # included with your application, so that you can use the icons in
