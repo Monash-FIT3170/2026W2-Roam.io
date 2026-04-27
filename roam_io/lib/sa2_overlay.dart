@@ -12,7 +12,9 @@ class SA2Overlay {
     String? filterState,
     Function(String sa2Name)? onTap,
   }) async {
-    final String data = await rootBundle.loadString('assets/SA2_2021_AUST_GDA2020.json');
+    final String data = await rootBundle.loadString(
+      'assets/SA2_2021_AUST_GDA2020.json',
+    );
 
     final polygons = await compute(_parseGeoJson, {
       'data': data,
@@ -36,7 +38,8 @@ Set<Polygon> _parseGeoJson(Map<String, dynamic> args) {
   final Color strokeColor = Color(strokeColorValue);
   final Color fillColor = Color(fillColorValue);
 
-  final Map<String, dynamic> geoJson = jsonDecode(rawData) as Map<String, dynamic>;
+  final Map<String, dynamic> geoJson =
+      jsonDecode(rawData) as Map<String, dynamic>;
   final List<dynamic> features = geoJson['features'] as List<dynamic>;
   final Set<Polygon> polygons = {};
 
@@ -48,7 +51,8 @@ Set<Polygon> _parseGeoJson(Map<String, dynamic> args) {
     if (geometry == null || properties == null) continue;
 
     // Filter by state early to skip unnecessary processing
-    if (filterState != null && properties['STE_NAME21'] != filterState) continue;
+    if (filterState != null && properties['STE_NAME21'] != filterState)
+      continue;
 
     final String sa2Code = properties['SA2_CODE21']?.toString() ?? '';
     final String geometryType = geometry['type'] as String? ?? '';
@@ -98,9 +102,9 @@ Polygon? _buildPolygon({
 
   final List<List<LatLng>> holes = rings.length > 1
       ? rings
-          .sublist(1)
-          .map<List<LatLng>>((r) => _toLatLngList(r as List<dynamic>))
-          .toList()
+            .sublist(1)
+            .map<List<LatLng>>((r) => _toLatLngList(r as List<dynamic>))
+            .toList()
       : [];
 
   return Polygon(
@@ -114,15 +118,14 @@ Polygon? _buildPolygon({
   );
 }
 
-// Simplify coordinates by only keeping every Nth point
-List<LatLng> _toLatLngList(List<dynamic> coords, {int step = 3}) {
+// Preserve the original boundary vertices so adjacent SA2 edges stay aligned.
+List<LatLng> _toLatLngList(List<dynamic> coords) {
   final list = <LatLng>[];
-  for (int i = 0; i < coords.length; i += step) {
+  for (int i = 0; i < coords.length; i++) {
     final point = coords[i] as List<dynamic>;
-    list.add(LatLng(
-      (point[1] as num).toDouble(),
-      (point[0] as num).toDouble(),
-    ));
+    list.add(
+      LatLng((point[1] as num).toDouble(), (point[0] as num).toDouble()),
+    );
   }
   return list;
 }
