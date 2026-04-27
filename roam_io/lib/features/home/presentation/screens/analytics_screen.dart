@@ -1,24 +1,25 @@
 import 'package:flutter/material.dart';
 import '../../../../shared/widgets/app_page_header.dart';
 
-class HomeScreen extends StatelessWidget {
-  const HomeScreen({super.key});
+class AnalyticsScreen extends StatelessWidget {
+  const AnalyticsScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
     return const SafeArea(
       child: SingleChildScrollView(
-        padding: EdgeInsets.only(bottom: 110),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             AppPageHeader(
-              title: 'Map',
-              subtitle: 'Explore nearby places and routes.',
+              title: 'Your Analytics',
+              subtitle: 'Stats & progress',
             ),
-            SizedBox(height: 12),
+
+            SizedBox(height: 16),
+
             Center(
-              child: Text('Map content goes here'),
+              child: Text('Analytics content goes here'),
             ),
           ],
         ),
