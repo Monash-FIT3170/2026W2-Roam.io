@@ -20,9 +20,43 @@ class AnalyticsScreen extends StatelessWidget {
             ),
             const SizedBox(height: 24),
             
-            // TODO: Add Summary Stats
-            
-            // TODO: Add Heatmap
+            // Summary Stats Row
+            Padding(
+              padding: const EdgeInsets.only(right: 24.0, left: 24.0, bottom: 24.0),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: _buildStatCard(
+                      context,
+                      title: 'XP Count',
+                      value: '2,450',
+                      icon: Icons.bolt,
+                      color: AppColors.sage,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: _buildStatCard(
+                      context,
+                      title: 'Tiles Visited',
+                      value: '48',
+                      icon: Icons.map_outlined,
+                      color: AppColors.clay,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: _buildStatCard(
+                      context,
+                      title: 'Total Visits',
+                      value: '156',
+                      icon: Icons.repeat,
+                      color: AppColors.ink,
+                    ),
+                  ),
+                ],
+              ),
+            ),
             
             // Milestones Section
             Padding(
@@ -77,36 +111,39 @@ class AnalyticsScreen extends StatelessWidget {
   Widget _buildStatCard(BuildContext context, {required String title, required String value, required IconData icon, required Color color}) {
     final theme = Theme.of(context);
     return Container(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(12), // Reduced padding for 3 columns
       decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.5), // Updated to use the cream background
+        color: Colors.white.withOpacity(0.75), 
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
-            color: AppColors.ink.withOpacity(0.05), // Updated shadow to use ink
+            color: AppColors.ink.withOpacity(0.05),
             blurRadius: 10,
             offset: const Offset(0, 4),
           ),
         ],
       ),
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+        crossAxisAlignment: CrossAxisAlignment.center, // Centered for smaller cards
         children: [
-          Icon(icon, color: color, size: 28),
-          const SizedBox(height: 12),
+          Icon(icon, color: color, size: 24), // Slightly smaller icon
+          const SizedBox(height: 8),
           Text(
             value, 
-            style: theme.textTheme.headlineSmall?.copyWith(
+            style: theme.textTheme.titleLarge?.copyWith( // Scaled down from headlineSmall
               fontWeight: FontWeight.bold,
-              color: AppColors.ink, // Ensure text pops against cream
+              color: AppColors.ink,
             )
           ),
           const SizedBox(height: 4),
           Text(
             title, 
-            style: theme.textTheme.bodyMedium?.copyWith(
-              color: AppColors.ink.withOpacity(0.62), // Matches your navbar unselected text style
-            )
+            style: theme.textTheme.labelMedium?.copyWith(
+              color: AppColors.ink.withOpacity(0.62),
+            ),
+            textAlign: TextAlign.center,
+            maxLines: 1, // Prevents text from wrapping and breaking height
+            overflow: TextOverflow.ellipsis,
           ),
         ],
       ),
