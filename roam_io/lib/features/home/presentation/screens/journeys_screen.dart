@@ -61,4 +61,85 @@ class JourneysScreen extends StatelessWidget {
       ),
     );
   }
+
+  Widget _buildJourneyCard(
+    BuildContext context, {
+    required String title,
+    required String date,
+    required String stats,
+    required IconData icon,
+    required Color iconColor,
+  }) {
+    final theme = Theme.of(context);
+    
+    return Container(
+      margin: const EdgeInsets.only(bottom: 16.0),
+      padding: const EdgeInsets.all(16.0),
+      decoration: BoxDecoration(
+        color: Colors.white, // Pure white as requested previously
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: [
+          BoxShadow(
+            color: AppColors.ink.withOpacity(0.04), // Clean ink shadow
+            blurRadius: 12,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Row(
+        children: [
+          // Icon Container
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: iconColor.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(16),
+            ),
+            child: Icon(icon, color: iconColor, size: 28),
+          ),
+          const SizedBox(width: 16),
+          
+          // Details
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: theme.textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.w700,
+                    color: AppColors.ink,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  date,
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: AppColors.ink.withOpacity(0.6),
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Row(
+                  children: [
+                    Icon(Icons.directions_walk, size: 14, color: AppColors.ink.withOpacity(0.5)),
+                    const SizedBox(width: 4),
+                    Text(
+                      stats,
+                      style: theme.textTheme.labelMedium?.copyWith(
+                        color: AppColors.ink.withOpacity(0.8),
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+          
+          // Chevron
+          Icon(Icons.chevron_right, color: AppColors.ink.withOpacity(0.3)),
+        ],
+      ),
+    );
+  }
 }
