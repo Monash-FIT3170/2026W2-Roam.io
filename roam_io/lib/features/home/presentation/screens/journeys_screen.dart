@@ -24,7 +24,39 @@ class JourneysScreen extends StatelessWidget {
             _buildFilterChips(),
             const SizedBox(height: 24),
             
-            // TODO: Add Journeys List
+            // Journeys List
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 24.0),
+              child: Column(
+                children: [
+                  _buildJourneyCard(
+                    context,
+                    title: 'Clayton Campus Loop',
+                    date: 'Yesterday, 4:30 PM',
+                    stats: '3.2 km • 45 mins',
+                    icon: Icons.school_outlined,
+                    iconColor: AppColors.clay,
+                  ),
+                  _buildJourneyCard(
+                    context,
+                    title: 'Mulgrave Reserve Run',
+                    date: 'Oct 12, 2026',
+                    stats: '5.0 km • 32 mins',
+                    icon: Icons.park_outlined,
+                    iconColor: AppColors.sage,
+                  ),
+                  _buildJourneyCard(
+                    context,
+                    title: 'CBD Discovery Walk',
+                    date: 'Oct 05, 2026',
+                    stats: '8.4 km • 2 hrs 15 mins',
+                    icon: Icons.location_city_outlined,
+                    iconColor: AppColors.ink,
+                  ),
+                  const SizedBox(height: 32),
+                ],
+              ),
+            ),
           ],
         ),
       ),
@@ -76,7 +108,7 @@ class JourneysScreen extends StatelessWidget {
       margin: const EdgeInsets.only(bottom: 16.0),
       padding: const EdgeInsets.all(16.0),
       decoration: BoxDecoration(
-        color: Colors.white, // Pure white as requested previously
+        color: Colors.white.withOpacity(0.75),// Pure white as requested previously
         borderRadius: BorderRadius.circular(20),
         boxShadow: [
           BoxShadow(
