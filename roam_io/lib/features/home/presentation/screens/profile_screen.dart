@@ -53,7 +53,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
             final displayName = profile?.displayName ?? '-';
 
             return SingleChildScrollView(
-              padding: const EdgeInsets.only(bottom: 110),
+              padding: const EdgeInsets.only(bottom: 90), // 🔥 reduced from 110
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -69,7 +69,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     padding: const EdgeInsets.symmetric(horizontal: 20),
                     child: Column(
                       children: [
-                        // 🟫 Profile Card
+                        // Profile Card
                         Container(
                           width: double.infinity,
                           padding: const EdgeInsets.all(24),
@@ -82,7 +82,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           ),
                           child: Column(
                             children: [
-                              // 🔥 Avatar (NOW CREAM)
                               Container(
                                 width: 92,
                                 height: 92,
@@ -153,7 +152,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
                         const SizedBox(height: 24),
 
-                        // 🔥 PRIMARY CTA (SAGE BUTTON)
                         _SecondaryProfileButton(
                           label: 'Change Password',
                           icon: Icons.lock_outline_rounded,
@@ -169,9 +167,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                 },
                         ),
 
-                        const SizedBox(height: 18),
+                        const SizedBox(height: 10), // 🔥 reduced from 18
 
-                        // 🔴 Minimal logout
+                        // Logout moved up
                         TextButton.icon(
                           onPressed:
                               auth.isBusy ? null : _logout,
@@ -196,8 +194,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                             ),
                             minimumSize: Size.zero,
                             tapTargetSize:
-                                MaterialTapTargetSize
-                                    .shrinkWrap,
+                                MaterialTapTargetSize.shrinkWrap,
                           ),
                         ),
                       ],
@@ -213,7 +210,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 }
 
-// 🧾 Info tile
+// Info tile
 class _ProfileInfoTile extends StatelessWidget {
   final IconData icon;
   final String label;
@@ -272,7 +269,7 @@ class _ProfileInfoTile extends StatelessWidget {
   }
 }
 
-// 🔥 SAGE BUTTON (primary)
+// Button
 class _SecondaryProfileButton extends StatelessWidget {
   final String label;
   final IconData icon;

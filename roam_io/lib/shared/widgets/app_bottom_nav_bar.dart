@@ -12,11 +12,11 @@ class AppBottomNavBar extends StatelessWidget {
   });
 
   static const items = [
-    _NavItem(Icons.route_outlined, 'JOURNEYS'),
-    _NavItem(Icons.explore_outlined, 'QUESTS'),
-    _NavItem(Icons.map_outlined, 'MAP'),
-    _NavItem(Icons.bar_chart_outlined, 'ANALYTICS'),
-    _NavItem(Icons.person_outline, 'PROFILE'),
+    _NavItem(Icons.route_outlined, Icons.route, 'JOURNEYS'),
+    _NavItem(Icons.explore_outlined, Icons.explore, 'QUESTS'),
+    _NavItem(Icons.public_outlined, Icons.public, 'MAP'), // 🌍 map replacement
+    _NavItem(Icons.query_stats_outlined, Icons.query_stats, 'ANALYTICS'),
+    _NavItem(Icons.person_outline, Icons.person, 'PROFILE'),
   ];
 
   @override
@@ -30,6 +30,7 @@ class AppBottomNavBar extends StatelessWidget {
           clipBehavior: Clip.none,
           alignment: Alignment.bottomCenter,
           children: [
+            // NAV BAR BACKGROUND
             Positioned(
               left: 0,
               right: 0,
@@ -69,7 +70,9 @@ class AppBottomNavBar extends StatelessWidget {
                               duration: const Duration(milliseconds: 180),
                               curve: Curves.easeOutCubic,
                               child: Icon(
-                                item.icon,
+                                isSelected
+                                    ? item.filledIcon
+                                    : item.outlinedIcon,
                                 size: 25,
                                 color: isSelected
                                     ? AppColors.sage
@@ -101,6 +104,7 @@ class AppBottomNavBar extends StatelessWidget {
               ),
             ),
 
+            // MAP BUTTON
             Positioned(
               top: 0,
               child: GestureDetector(
@@ -118,7 +122,9 @@ class AppBottomNavBar extends StatelessWidget {
                         color: AppColors.sage,
                         shape: BoxShape.circle,
                         border: Border.all(
-                          color: AppColors.cream,
+                          color: currentIndex == 2
+                              ? AppColors.sage
+                              : AppColors.cream,
                           width: 4,
                         ),
                         boxShadow: [
@@ -129,8 +135,10 @@ class AppBottomNavBar extends StatelessWidget {
                           ),
                         ],
                       ),
-                      child: const Icon(
-                        Icons.map_outlined,
+                      child: Icon(
+                        currentIndex == 2
+                            ? Icons.public
+                            : Icons.public_outlined,
                         color: Colors.white,
                         size: 32,
                       ),
@@ -161,8 +169,9 @@ class AppBottomNavBar extends StatelessWidget {
 }
 
 class _NavItem {
-  final IconData icon;
+  final IconData outlinedIcon;
+  final IconData filledIcon;
   final String label;
 
-  const _NavItem(this.icon, this.label);
+  const _NavItem(this.outlinedIcon, this.filledIcon, this.label);
 }
