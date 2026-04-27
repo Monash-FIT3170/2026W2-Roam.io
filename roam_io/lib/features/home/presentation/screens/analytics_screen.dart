@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../../../shared/widgets/app_page_header.dart';
+import '../../../../theme/app_colours.dart';
 
 class AnalyticsScreen extends StatelessWidget {
   const AnalyticsScreen({super.key});
@@ -28,12 +29,44 @@ class AnalyticsScreen extends StatelessWidget {
               padding: const EdgeInsets.symmetric(horizontal: 24.0),
               child: Text(
                 'Recent Milestones',
-                style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
+                style: theme.textTheme.titleLarge?.copyWith(
+                  fontWeight: FontWeight.bold,
+                ),
               ),
             ),
             const SizedBox(height: 16),
-            _buildMilestoneItem(context, 'Explored 10 new areas', '2 days ago'),
-            _buildMilestoneItem(context, '7 day streak achieved', '1 week ago'),
+            
+            // The Green Bubble Wrapper
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 24.0),
+              child: Container(
+                padding: const EdgeInsets.symmetric(vertical: 16.0),
+                decoration: BoxDecoration(
+                  color: AppColors.sage, // The green from the navbar
+                  borderRadius: BorderRadius.circular(24),
+                  boxShadow: [
+                    BoxShadow(
+                      color: AppColors.ink.withOpacity(0.15),
+                      blurRadius: 12,
+                      offset: const Offset(0, 6),
+                    ),
+                  ],
+                ),
+                child: Column(
+                  children: [
+                    _buildMilestoneItem(context, 'Explored 10 new areas', '2 days ago'),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 24.0),
+                      child: Divider(
+                        color: AppColors.cream.withOpacity(0.3), 
+                        height: 1,
+                      ),
+                    ),
+                    _buildMilestoneItem(context, '7 day streak achieved', '1 week ago'),
+                  ],
+                ),
+              ),
+            ),
             const SizedBox(height: 32),
           ],
         ),
@@ -46,10 +79,14 @@ class AnalyticsScreen extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: theme.cardColor,
+        color: Colors.white.withOpacity(0.5), // Updated to use the cream background
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
-          BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 10, offset: const Offset(0, 4)),
+          BoxShadow(
+            color: AppColors.ink.withOpacity(0.05), // Updated shadow to use ink
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
         ],
       ),
       child: Column(
@@ -57,9 +94,20 @@ class AnalyticsScreen extends StatelessWidget {
         children: [
           Icon(icon, color: color, size: 28),
           const SizedBox(height: 12),
-          Text(value, style: theme.textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.bold)),
+          Text(
+            value, 
+            style: theme.textTheme.headlineSmall?.copyWith(
+              fontWeight: FontWeight.bold,
+              color: AppColors.ink, // Ensure text pops against cream
+            )
+          ),
           const SizedBox(height: 4),
-          Text(title, style: theme.textTheme.bodyMedium?.copyWith(color: Colors.grey.shade600)),
+          Text(
+            title, 
+            style: theme.textTheme.bodyMedium?.copyWith(
+              color: AppColors.ink.withOpacity(0.62), // Matches your navbar unselected text style
+            )
+          ),
         ],
       ),
     );
@@ -94,45 +142,60 @@ class AnalyticsScreen extends StatelessWidget {
   }
 
   Color _getHeatmapColor(BuildContext context, int intensity) {
-    final primary = Theme.of(context).primaryColor;
     switch (intensity) {
       case 0:
-        return Colors.grey.shade200;
+        return AppColors.ink;
       case 1:
-        return primary.withOpacity(0.3);
+        return AppColors.ink.withOpacity(0.3);
       case 2:
-        return primary.withOpacity(0.5);
+        return AppColors.ink.withOpacity(0.5);
       case 3:
-        return primary.withOpacity(0.8);
+        return AppColors.ink.withOpacity(0.8);
       case 4:
-        return primary;
+        return AppColors.ink;
       default:
-        return Colors.grey.shade200;
+        return AppColors.ink;
     }
   }
 
   Widget _buildMilestoneItem(BuildContext context, String title, String date) {
-    final theme = Theme.of(context);
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 8.0),
+      padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 12.0),
       child: Row(
         children: [
           Container(
             padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: theme.primaryColor.withOpacity(0.1),
+            decoration: const BoxDecoration(
+              color: AppColors.cream, // Cream circle
               shape: BoxShape.circle,
             ),
-            child: Icon(Icons.star, color: theme.primaryColor, size: 20),
+            child: const Icon(
+              Icons.emoji_events_outlined, // Updated to a milestone-style icon
+              color: AppColors.sage, // Sage icon inside the cream circle
+              size: 20,
+            ),
           ),
           const SizedBox(width: 16),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(title, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 16)),
+                Text(
+                  title, 
+                  style: const TextStyle(
+                    fontWeight: FontWeight.w600, 
+                    fontSize: 16, 
+                    color: AppColors.cream, // White text for contrast
+                  ),
+                ),
                 const SizedBox(height: 4),
-                Text(date, style: TextStyle(color: Colors.grey.shade600, fontSize: 14)),
+                Text(
+                  date, 
+                  style: TextStyle(
+                    color: AppColors.cream.withOpacity(0.85), // Slightly faded cream for date
+                    fontSize: 14,
+                  ),
+                ),
               ],
             ),
           ),
