@@ -6,21 +6,24 @@ class AnalyticsScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const SafeArea(
+    final theme = Theme.of(context); // Added theme reference
+
+    return SafeArea(
       child: SingleChildScrollView(
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            AppPageHeader(
+            const AppPageHeader(
               title: 'Your Analytics',
               subtitle: 'Stats & progress',
             ),
-
-            SizedBox(height: 16),
-
-            Center(
-              child: Text('Analytics content goes here'),
-            ),
+            const SizedBox(height: 24),
+            
+            // TODO: Add Summary Stats
+            
+            // TODO: Add Heatmap
+            
+            // TODO: Add Milestones
           ],
         ),
       ),
