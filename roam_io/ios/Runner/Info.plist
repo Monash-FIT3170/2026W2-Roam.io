@@ -6,6 +6,8 @@
 	<true/>
 	<key>CFBundleDevelopmentRegion</key>
 	<string>$(DEVELOPMENT_LANGUAGE)</string>
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>Roam.io uses your location to unlock nearby map regions.</string>
 	<key>CFBundleDisplayName</key>
 	<string>Roam Io</string>
 	<key>CFBundleExecutable</key>
