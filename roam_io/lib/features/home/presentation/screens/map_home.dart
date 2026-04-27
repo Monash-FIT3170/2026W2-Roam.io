@@ -19,9 +19,11 @@ class _MapHomeState extends State<MapHome> {
 
   GoogleMapController? _mapController;
   LatLng _cameraTarget = _fallbackCenter;
+  double _cameraZoom = 11;
   bool _isFetchingLocation = true;
   bool _hasLocationPermission = false;
   String? _locationMessage;
+  int _overlayRequestId = 0;
 
   @override
   void initState() {
@@ -35,18 +37,32 @@ class _MapHomeState extends State<MapHome> {
     super.dispose();
   }
 
-  // Single entry point — waits for location before loading polygons
   Future<void> _initMap() async {
     final LatLng location = await _centerMapOnUserLocation();
-    await _loadSA2Overlay(location: location);
+    if (!mounted) return;
+
+    _cameraTarget = location;
+    if (_mapController != null) {
+      await _moveCameraTo(location);
+      await _refreshVisibleOverlay();
+    }
   }
 
   void _onMapCreated(GoogleMapController controller) {
     _mapController = controller;
     _moveCameraTo(_cameraTarget);
+    _refreshVisibleOverlay();
   }
 
-  // Returns the resolved user location (or fallback)
+  void _onCameraMove(CameraPosition position) {
+    _cameraTarget = position.target;
+    _cameraZoom = position.zoom;
+  }
+
+  Future<void> _onCameraIdle() async {
+    await _refreshVisibleOverlay();
+  }
+
   Future<LatLng> _centerMapOnUserLocation() async {
     try {
       final bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
@@ -68,7 +84,8 @@ class _MapHomeState extends State<MapHome> {
         _setLocationState(
           hasPermission: false,
           isFetching: false,
-          message: 'Location permission was denied, so the default map view is shown.',
+          message:
+              'Location permission was denied, so the default map view is shown.',
         );
         return _fallbackCenter;
       }
@@ -77,13 +94,16 @@ class _MapHomeState extends State<MapHome> {
         _setLocationState(
           hasPermission: false,
           isFetching: false,
-          message: 'Location permission is permanently denied. Enable it in settings to center the map on you.',
+          message:
+              'Location permission is permanently denied. Enable it in settings to center the map on you.',
         );
         return _fallbackCenter;
       }
 
       final Position position = await Geolocator.getCurrentPosition(
-        locationSettings: const LocationSettings(accuracy: LocationAccuracy.high),
+        locationSettings: const LocationSettings(
+          accuracy: LocationAccuracy.high,
+        ),
       );
 
       final LatLng userTarget = LatLng(position.latitude, position.longitude);
@@ -102,83 +122,89 @@ class _MapHomeState extends State<MapHome> {
       _setLocationState(
         hasPermission: false,
         isFetching: false,
-        message: 'We could not determine your current location, so the default map view is shown.',
+        message:
+            'We could not determine your current location, so the default map view is shown.',
       );
       return _fallbackCenter;
     }
   }
 
-  Future<void> _loadSA2Overlay({required LatLng location}) async {
+  Future<void> _refreshVisibleOverlay() async {
     if (!mounted) return;
+
+    final int requestId = ++_overlayRequestId;
+    final String filterState = _resolveStateFromTarget(_cameraTarget);
+    final LatLngBounds? visibleBounds = await _getVisibleBounds();
+
+    if (!mounted || requestId != _overlayRequestId) return;
     setState(() => _isLoadingSA2 = true);
 
-    final String filterState = _resolveStateFromTarget(location);
-    debugPrint('Loading SA2 for: $filterState at $location');
+    debugPrint(
+      'Loading visible SA2s for $filterState at zoom ${_cameraZoom.toStringAsFixed(1)}',
+    );
 
     try {
       final Set<Polygon> polygons = await SA2Overlay.loadPolygons(
         strokeColor: Colors.red,
         fillColor: const Color(0x00000000),
-        strokeWidth: 3.0,
+        strokeWidth: 2,
         filterState: filterState,
-        onTap: (String name) {
-          if (!mounted) return;
-          setState(() => _tappedSA2Name = name);
-        },
+        visibleBounds: visibleBounds,
       );
 
-      if (!mounted) return;
+      if (!mounted || requestId != _overlayRequestId) return;
       setState(() {
         _sa2Polygons = polygons;
         _isLoadingSA2 = false;
       });
     } catch (error) {
-      if (!mounted) return;
+      if (!mounted || requestId != _overlayRequestId) return;
       setState(() => _isLoadingSA2 = false);
       debugPrint('Failed to load SA2 overlay: $error');
     }
   }
 
-  /// Maps a LatLng to an Australian state name for SA2 filtering.
-  /// Checks more specific/smaller regions first to avoid bounding box overlaps.
+  Future<LatLngBounds?> _getVisibleBounds() async {
+    final GoogleMapController? controller = _mapController;
+    if (controller == null) return null;
+
+    try {
+      return await controller.getVisibleRegion();
+    } catch (_) {
+      return null;
+    }
+  }
+
   String _resolveStateFromTarget(LatLng target) {
     final double lat = target.latitude;
     final double lng = target.longitude;
 
-    // ACT — check before NSW as it's entirely surrounded by it
     if (lat >= -35.9 && lat <= -35.1 && lng >= 148.7 && lng <= 149.4) {
       return 'Australian Capital Territory';
     }
-    // Tasmania — isolated, check early
     if (lat >= -43.7 && lat <= -39.5 && lng >= 143.8 && lng <= 148.5) {
       return 'Tasmania';
     }
-    // NSW — check before Victoria (overlapping bounding boxes in SE corner)
     if (lat >= -37.5 && lat <= -28.2 && lng >= 141.0 && lng <= 153.6) {
       return 'New South Wales';
     }
-    // Victoria
     if (lat >= -39.2 && lat <= -33.9 && lng >= 140.9 && lng <= 150.0) {
       return 'Victoria';
     }
-    // Queensland
     if (lat >= -29.2 && lat <= -10.0 && lng >= 137.9 && lng <= 153.6) {
       return 'Queensland';
     }
-    // South Australia
     if (lat >= -38.1 && lat <= -25.9 && lng >= 129.0 && lng <= 141.0) {
       return 'South Australia';
     }
-    // Western Australia
     if (lat >= -35.1 && lat <= -13.7 && lng >= 112.9 && lng <= 129.0) {
       return 'Western Australia';
     }
-    // Northern Territory
     if (lat >= -26.0 && lat <= -10.9 && lng >= 129.0 && lng <= 138.0) {
       return 'Northern Territory';
     }
 
-    return 'Victoria'; // fallback
+    return 'Victoria';
   }
 
   void _setLocationState({
@@ -208,20 +234,19 @@ class _MapHomeState extends State<MapHome> {
     final bool showLocationBanner = locationBannerText != null;
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Roam Map'),
-        elevation: 2,
-      ),
+      appBar: AppBar(title: const Text('Roam Map'), elevation: 2),
       body: Stack(
         children: <Widget>[
           GoogleMap(
             onMapCreated: _onMapCreated,
+            onCameraMove: _onCameraMove,
+            onCameraIdle: _onCameraIdle,
             myLocationEnabled: _hasLocationPermission,
             myLocationButtonEnabled: _hasLocationPermission,
             polygons: _sa2Polygons,
             initialCameraPosition: CameraPosition(
               target: _cameraTarget,
-              zoom: 11,
+              zoom: _cameraZoom,
             ),
           ),
           if (_isLoadingSA2)
@@ -231,7 +256,7 @@ class _MapHomeState extends State<MapHome> {
               right: 0,
               child: _StatusBanner(
                 icon: Icons.layers,
-                message: 'Loading SA2 boundaries...',
+                message: 'Loading visible SA2 boundaries...',
                 showSpinner: true,
               ),
             ),
@@ -241,7 +266,9 @@ class _MapHomeState extends State<MapHome> {
               left: 0,
               right: 0,
               child: _StatusBanner(
-                icon: _hasLocationPermission ? Icons.my_location : Icons.location_off,
+                icon: _hasLocationPermission
+                    ? Icons.my_location
+                    : Icons.location_off,
                 message: locationBannerText,
               ),
             ),
@@ -299,10 +326,7 @@ class _StatusBanner extends StatelessWidget {
           color: Colors.white,
           borderRadius: BorderRadius.circular(20),
           boxShadow: const <BoxShadow>[
-            BoxShadow(
-              blurRadius: 6,
-              color: Colors.black26,
-            ),
+            BoxShadow(blurRadius: 6, color: Colors.black26),
           ],
         ),
         child: Row(
