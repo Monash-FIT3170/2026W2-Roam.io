@@ -19,6 +19,21 @@ class AnalyticsScreen extends StatelessWidget {
               subtitle: 'Stats & progress',
             ),
             const SizedBox(height: 24),
+
+            // Heatmap Section
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 24.0),
+              child: Text(
+                'Activity Map',
+                style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
+              ),
+            ),
+            const SizedBox(height: 16),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 24.0),
+              child: _buildHeatmap(context),
+            ),
+            const SizedBox(height: 32),
             
             // Summary Stats Row
             Padding(
