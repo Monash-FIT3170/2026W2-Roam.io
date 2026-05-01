@@ -1,7 +1,6 @@
 import 'dart:async';
 
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/foundation.dart';
 
 import '../../data/auth_repository.dart';
@@ -17,7 +16,7 @@ enum AuthViewState { loading, authenticated, unauthenticated }
 /// - auth actions used by future screens
 class AuthProvider extends ChangeNotifier {
   AuthProvider({AuthRepository? authRepository})
-      : _authRepository = authRepository ?? AuthRepository() {
+    : _authRepository = authRepository ?? AuthRepository() {
     _authStateSub = _authRepository.authStateChanges().listen(_handleAuthState);
   }
 
@@ -60,10 +59,7 @@ class AuthProvider extends ChangeNotifier {
     });
   }
 
-  Future<void> signIn({
-    required String email,
-    required String password,
-  }) async {
+  Future<void> signIn({required String email, required String password}) async {
     await _runAuthAction(() async {
       await _authRepository.signIn(email: email, password: password);
       await refreshCurrentUser();
@@ -104,6 +100,22 @@ class AuthProvider extends ChangeNotifier {
         newPassword: newPassword,
       ),
     );
+  }
+
+  Future<void> updateDisplayName(String displayName) async {
+    await _runAuthAction(() async {
+      await _authRepository.updateDisplayName(displayName);
+      await _authRepository.reloadCurrentUser();
+
+      final user = _authRepository.currentUser;
+      _currentUser = user;
+      _currentProfile = user == null
+          ? null
+          : await _authRepository.getCurrentUserProfile();
+      _viewState = user == null
+          ? AuthViewState.unauthenticated
+          : AuthViewState.authenticated;
+    });
   }
 
   Future<void> signOut() async {

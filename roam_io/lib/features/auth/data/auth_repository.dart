@@ -11,11 +11,9 @@ import '../../../services/profile_service.dart';
 /// - Multi-step backend flows live in one place.
 /// - Service implementations can change without rewriting UI logic.
 class AuthRepository {
-  AuthRepository({
-    AuthService? authService,
-    ProfileService? profileService,
-  })  : _authService = authService ?? AuthService(),
-        _profileService = profileService ?? ProfileService();
+  AuthRepository({AuthService? authService, ProfileService? profileService})
+    : _authService = authService ?? AuthService(),
+      _profileService = profileService ?? ProfileService();
 
   final AuthService _authService;
   final ProfileService _profileService;
@@ -63,10 +61,7 @@ class AuthRepository {
   }
 
   /// Email/password sign in.
-  Future<void> signIn({
-    required String email,
-    required String password,
-  }) async {
+  Future<void> signIn({required String email, required String password}) async {
     await _authService.signInWithEmailAndPassword(
       email: email,
       password: password,
@@ -93,6 +88,20 @@ class AuthRepository {
       currentPassword: currentPassword,
       newPassword: newPassword,
     );
+  }
+
+  /// Updates the signed-in user's display name in Firestore and Firebase Auth.
+  Future<void> updateDisplayName(String displayName) async {
+    final user = currentUser;
+    if (user == null) {
+      throw FirebaseAuthException(
+        code: 'user-not-found',
+        message: 'No logged in user found.',
+      );
+    }
+
+    await _profileService.updateDisplayName(user.uid, displayName);
+    await _authService.updateDisplayName(displayName);
   }
 
   /// Loads signed-in user's profile from Firestore.

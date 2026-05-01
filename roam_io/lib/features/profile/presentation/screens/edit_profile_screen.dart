@@ -1,11 +1,12 @@
 import 'package:flutter/material.dart';
-import 'package:firebase_auth/firebase_auth.dart';
-//import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:roam_io/services/profile_service.dart';
+import 'package:provider/provider.dart';
+import 'package:roam_io/features/auth/presentation/providers/auth_provider.dart';
 
 class EditProfileScreen extends StatefulWidget {
+  const EditProfileScreen({super.key});
+
   @override
-  _EditProfileScreenState createState() => _EditProfileScreenState();
+  State<EditProfileScreen> createState() => _EditProfileScreenState();
 }
 
 class _EditProfileScreenState extends State<EditProfileScreen> {
@@ -19,30 +20,35 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     _loadCurrentDisplayName();
   }
 
-  Future<void> _loadCurrentDisplayName() async {
-  final uid = FirebaseAuth.instance.currentUser?.uid;
-  if (uid == null) return;
-
-  final profile = await ProfileService().getProfile(uid);
-
-  if (!mounted) return;
-
-  setState(() {
-    _displayNameController.text = profile?.displayName ?? '';
-  });
-}
+  void _loadCurrentDisplayName() {
+    _displayNameController.text =
+        context.read<AuthProvider>().currentProfile?.displayName ?? '';
+  }
 
   Future<void> _save() async {
     if (!_formKey.currentState!.validate()) return;
     setState(() => _loading = true);
-    final uid = FirebaseAuth.instance.currentUser?.uid;
-    if (uid != null) {
-      await ProfileService().updateDisplayName(uid, _displayNameController.text.trim());
-      // Optionally update Firebase Auth displayName too:
-      await FirebaseAuth.instance.currentUser?.updateDisplayName(_displayNameController.text.trim());
-      Navigator.pop(context); // Go back after saving
-    }
+
+    final auth = context.read<AuthProvider>();
+    await auth.updateDisplayName(_displayNameController.text.trim());
+
+    if (!mounted) return;
+
     setState(() => _loading = false);
+
+    if (auth.errorMessage == null) {
+      Navigator.pop(context);
+    } else {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(auth.errorMessage!)));
+    }
+  }
+
+  @override
+  void dispose() {
+    _displayNameController.dispose();
+    super.dispose();
   }
 
   @override
@@ -57,16 +63,15 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
             children: [
               TextFormField(
                 controller: _displayNameController,
-                decoration: InputDecoration(labelText: 'Display Name'),
-                validator: (value) => value == null || value.isEmpty ? 'Enter a name' : null,
+                decoration: const InputDecoration(labelText: 'Display Name'),
+                validator: (value) => value == null || value.trim().isEmpty
+                    ? 'Enter a name'
+                    : null,
               ),
-              SizedBox(height: 20),
+              const SizedBox(height: 20),
               _loading
-                  ? CircularProgressIndicator()
-                  : ElevatedButton(
-                      onPressed: _save,
-                      child: Text('Save'),
-                    ),
+                  ? const CircularProgressIndicator()
+                  : ElevatedButton(onPressed: _save, child: const Text('Save')),
             ],
           ),
         ),
