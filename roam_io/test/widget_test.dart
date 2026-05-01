@@ -1,30 +1,32 @@
-// This is a basic Flutter widget test.
-//
-// To perform an interaction with a widget in your test, use the WidgetTester
-// utility in the flutter_test package. For example, you can send tap and scroll
-// gestures. You can also use WidgetTester to find child widgets in the widget
-// tree, read text, and verify that the values of widget properties are correct.
-
-import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-
-import 'package:roam_io/main.dart';
+import 'package:roam_io/features/profile/domain/profile_model.dart';
 
 void main() {
-  testWidgets('Counter increments smoke test', (WidgetTester tester) async {
-    // Build our app and trigger a frame.
-    await tester.pumpWidget(const MyApp());
+  test('ProfileModel defaults missing dark mode preference to false', () {
+    final profile = ProfileModel.fromMap(<String, dynamic>{
+      'uid': 'user-1',
+      'username': 'traveller',
+      'displayName': 'Traveller',
+      'email': 'traveller@example.com',
+      'createdAt': '2026-05-01T10:00:00.000',
+      'updatedAt': '2026-05-01T10:00:00.000',
+    });
 
-    // Verify that our counter starts at 0.
-    expect(find.text('0'), findsOneWidget);
-    expect(find.text('1'), findsNothing);
+    expect(profile.darkModeEnabled, isFalse);
+  });
 
-    // Tap the '+' icon and trigger a frame.
-    await tester.tap(find.byIcon(Icons.add));
-    await tester.pump();
+  test('ProfileModel writes dark mode preference to Firestore map', () {
+    final now = DateTime(2026, 5, 1, 10);
+    final profile = ProfileModel(
+      uid: 'user-1',
+      username: 'traveller',
+      displayName: 'Traveller',
+      email: 'traveller@example.com',
+      createdAt: now,
+      updatedAt: now,
+      darkModeEnabled: true,
+    );
 
-    // Verify that our counter has incremented.
-    expect(find.text('0'), findsNothing);
-    expect(find.text('1'), findsOneWidget);
+    expect(profile.toMap()['darkModeEnabled'], isTrue);
   });
 }
