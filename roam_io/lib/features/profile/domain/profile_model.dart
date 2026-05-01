@@ -11,6 +11,7 @@ class ProfileModel {
     required this.email,
     required this.createdAt,
     required this.updatedAt,
+    this.darkModeEnabled = false,
   });
 
   final String uid;
@@ -19,6 +20,27 @@ class ProfileModel {
   final String email;
   final DateTime createdAt;
   final DateTime updatedAt;
+  final bool darkModeEnabled;
+
+  ProfileModel copyWith({
+    String? uid,
+    String? username,
+    String? displayName,
+    String? email,
+    DateTime? createdAt,
+    DateTime? updatedAt,
+    bool? darkModeEnabled,
+  }) {
+    return ProfileModel(
+      uid: uid ?? this.uid,
+      username: username ?? this.username,
+      displayName: displayName ?? this.displayName,
+      email: email ?? this.email,
+      createdAt: createdAt ?? this.createdAt,
+      updatedAt: updatedAt ?? this.updatedAt,
+      darkModeEnabled: darkModeEnabled ?? this.darkModeEnabled,
+    );
+  }
 
   /// Converts this profile to a Firestore-friendly map.
   Map<String, dynamic> toMap() {
@@ -29,6 +51,7 @@ class ProfileModel {
       'email': email,
       'createdAt': createdAt.toIso8601String(),
       'updatedAt': updatedAt.toIso8601String(),
+      'darkModeEnabled': darkModeEnabled,
     };
   }
 
@@ -39,8 +62,13 @@ class ProfileModel {
       username: (map['username'] ?? '') as String,
       displayName: (map['displayName'] ?? '') as String,
       email: (map['email'] ?? '') as String,
-      createdAt: DateTime.tryParse((map['createdAt'] ?? '') as String) ?? DateTime.now(),
-      updatedAt: DateTime.tryParse((map['updatedAt'] ?? '') as String) ?? DateTime.now(),
+      createdAt:
+          DateTime.tryParse((map['createdAt'] ?? '') as String) ??
+          DateTime.now(),
+      updatedAt:
+          DateTime.tryParse((map['updatedAt'] ?? '') as String) ??
+          DateTime.now(),
+      darkModeEnabled: (map['darkModeEnabled'] ?? false) as bool,
     );
   }
 }

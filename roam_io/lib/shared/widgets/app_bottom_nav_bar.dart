@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import '../../theme/app_colours.dart';
 
 class AppBottomNavBar extends StatelessWidget {
   final int currentIndex;
@@ -14,13 +13,22 @@ class AppBottomNavBar extends StatelessWidget {
   static const items = [
     _NavItem(Icons.route_outlined, Icons.route, 'JOURNEYS'),
     _NavItem(Icons.explore_outlined, Icons.explore, 'QUESTS'),
-    _NavItem(Icons.public_outlined, Icons.public, 'MAP'), // 🌍 map replacement
+    _NavItem(Icons.public_outlined, Icons.public, 'MAP'),
     _NavItem(Icons.query_stats_outlined, Icons.query_stats, 'ANALYTICS'),
     _NavItem(Icons.person_outline, Icons.person, 'PROFILE'),
   ];
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    final navTheme = theme.bottomNavigationBarTheme;
+    final backgroundColor = navTheme.backgroundColor ?? colorScheme.surface;
+    final selectedColor = navTheme.selectedItemColor ?? colorScheme.primary;
+    final unselectedColor =
+        navTheme.unselectedItemColor ??
+        colorScheme.onSurface.withValues(alpha: 0.62);
+
     return SafeArea(
       top: false,
       minimum: const EdgeInsets.fromLTRB(14, 0, 14, 8),
@@ -38,11 +46,11 @@ class AppBottomNavBar extends StatelessWidget {
               child: Container(
                 height: 74,
                 decoration: BoxDecoration(
-                  color: AppColors.cream,
+                  color: backgroundColor,
                   borderRadius: BorderRadius.circular(28),
                   boxShadow: [
                     BoxShadow(
-                      color: AppColors.ink.withOpacity(0.10),
+                      color: Colors.black.withValues(alpha: 0.18),
                       blurRadius: 24,
                       offset: const Offset(0, 8),
                     ),
@@ -75,8 +83,8 @@ class AppBottomNavBar extends StatelessWidget {
                                     : item.outlinedIcon,
                                 size: 25,
                                 color: isSelected
-                                    ? AppColors.sage
-                                    : AppColors.ink.withOpacity(0.62),
+                                    ? selectedColor
+                                    : unselectedColor,
                               ),
                             ),
                             const SizedBox(height: 5),
@@ -90,8 +98,8 @@ class AppBottomNavBar extends StatelessWidget {
                                     : FontWeight.w700,
                                 letterSpacing: 0.45,
                                 color: isSelected
-                                    ? AppColors.sage
-                                    : AppColors.ink.withOpacity(0.62),
+                                    ? selectedColor
+                                    : unselectedColor,
                               ),
                               child: Text(item.label),
                             ),
@@ -119,17 +127,17 @@ class AppBottomNavBar extends StatelessWidget {
                       width: 66,
                       height: 66.5,
                       decoration: BoxDecoration(
-                        color: AppColors.sage,
+                        color: selectedColor,
                         shape: BoxShape.circle,
                         border: Border.all(
                           color: currentIndex == 2
-                              ? AppColors.sage
-                              : AppColors.cream,
+                              ? selectedColor
+                              : backgroundColor,
                           width: 4,
                         ),
                         boxShadow: [
                           BoxShadow(
-                            color: AppColors.ink.withOpacity(0.18),
+                            color: Colors.black.withValues(alpha: 0.22),
                             blurRadius: 16,
                             offset: const Offset(0, 6),
                           ),
@@ -147,15 +155,15 @@ class AppBottomNavBar extends StatelessWidget {
                     Text(
                       'MAP',
                       style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                            fontSize: 9,
-                            fontWeight: currentIndex == 2
-                                ? FontWeight.w800
-                                : FontWeight.w700,
-                            letterSpacing: 0.5,
-                            color: currentIndex == 2
-                                ? AppColors.sage
-                                : AppColors.ink.withOpacity(0.62),
-                          ),
+                        fontSize: 9,
+                        fontWeight: currentIndex == 2
+                            ? FontWeight.w800
+                            : FontWeight.w700,
+                        letterSpacing: 0.5,
+                        color: currentIndex == 2
+                            ? selectedColor
+                            : unselectedColor,
+                      ),
                     ),
                   ],
                 ),

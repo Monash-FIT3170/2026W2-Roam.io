@@ -8,7 +8,7 @@ import '../features/profile/domain/profile_model.dart';
 /// do not depend on Firestore APIs directly.
 class ProfileService {
   ProfileService({FirebaseFirestore? firestore})
-      : _firestore = firestore ?? FirebaseFirestore.instance;
+    : _firestore = firestore ?? FirebaseFirestore.instance;
 
   final FirebaseFirestore _firestore;
 
@@ -26,13 +26,22 @@ class ProfileService {
     required String username,
     required String displayName,
   }) {
-    return _profiles.doc(uid).update(
-      <String, dynamic>{
-        'username': username,
-        'displayName': displayName,
-        'updatedAt': DateTime.now().toIso8601String(),
-      },
-    );
+    return _profiles.doc(uid).update(<String, dynamic>{
+      'username': username,
+      'displayName': displayName,
+      'updatedAt': DateTime.now().toIso8601String(),
+    });
+  }
+
+  /// Updates the user's saved theme preference.
+  Future<void> updateDarkModePreference({
+    required String uid,
+    required bool enabled,
+  }) {
+    return _profiles.doc(uid).update(<String, dynamic>{
+      'darkModeEnabled': enabled,
+      'updatedAt': DateTime.now().toIso8601String(),
+    });
   }
 
   /// Reads a profile by uid. Returns null when not found.
