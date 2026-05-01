@@ -11,11 +11,9 @@ import '../../../services/profile_service.dart';
 /// - Multi-step backend flows live in one place.
 /// - Service implementations can change without rewriting UI logic.
 class AuthRepository {
-  AuthRepository({
-    AuthService? authService,
-    ProfileService? profileService,
-  })  : _authService = authService ?? AuthService(),
-        _profileService = profileService ?? ProfileService();
+  AuthRepository({AuthService? authService, ProfileService? profileService})
+    : _authService = authService ?? AuthService(),
+      _profileService = profileService ?? ProfileService();
 
   final AuthService _authService;
   final ProfileService _profileService;
@@ -57,16 +55,14 @@ class AuthRepository {
       email: email,
       createdAt: now,
       updatedAt: now,
+      darkModeEnabled: false,
     );
     await _profileService.createProfile(profile);
     await _authService.sendEmailVerification();
   }
 
   /// Email/password sign in.
-  Future<void> signIn({
-    required String email,
-    required String password,
-  }) async {
+  Future<void> signIn({required String email, required String password}) async {
     await _authService.signInWithEmailAndPassword(
       email: email,
       password: password,
@@ -100,6 +96,22 @@ class AuthRepository {
     final user = currentUser;
     if (user == null) return null;
     return _profileService.getProfile(user.uid);
+  }
+
+  /// Persists the signed-in user's dark mode preference.
+  Future<void> updateDarkModePreference(bool enabled) async {
+    final user = currentUser;
+    if (user == null) {
+      throw FirebaseAuthException(
+        code: 'user-not-found',
+        message: 'No authenticated user is available.',
+      );
+    }
+
+    await _profileService.updateDarkModePreference(
+      uid: user.uid,
+      enabled: enabled,
+    );
   }
 
   /// Signs out from Firebase.

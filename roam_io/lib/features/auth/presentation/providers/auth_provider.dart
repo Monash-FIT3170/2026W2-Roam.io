@@ -1,7 +1,6 @@
 import 'dart:async';
 
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/foundation.dart';
 
 import '../../data/auth_repository.dart';
@@ -17,7 +16,7 @@ enum AuthViewState { loading, authenticated, unauthenticated }
 /// - auth actions used by future screens
 class AuthProvider extends ChangeNotifier {
   AuthProvider({AuthRepository? authRepository})
-      : _authRepository = authRepository ?? AuthRepository() {
+    : _authRepository = authRepository ?? AuthRepository() {
     _authStateSub = _authRepository.authStateChanges().listen(_handleAuthState);
   }
 
@@ -37,6 +36,7 @@ class AuthProvider extends ChangeNotifier {
   ProfileModel? get currentProfile => _currentProfile;
   bool get isAuthenticated => _currentUser != null;
   bool get isEmailVerified => _currentUser?.emailVerified ?? false;
+  bool get darkModeEnabled => _currentProfile?.darkModeEnabled ?? false;
 
   void clearError() {
     _errorMessage = null;
@@ -60,10 +60,7 @@ class AuthProvider extends ChangeNotifier {
     });
   }
 
-  Future<void> signIn({
-    required String email,
-    required String password,
-  }) async {
+  Future<void> signIn({required String email, required String password}) async {
     await _runAuthAction(() async {
       await _authRepository.signIn(email: email, password: password);
       await refreshCurrentUser();
@@ -104,6 +101,16 @@ class AuthProvider extends ChangeNotifier {
         newPassword: newPassword,
       ),
     );
+  }
+
+  Future<void> updateDarkModePreference(bool enabled) async {
+    await _runAuthAction(() async {
+      await _authRepository.updateDarkModePreference(enabled);
+      _currentProfile = _currentProfile?.copyWith(
+        darkModeEnabled: enabled,
+        updatedAt: DateTime.now(),
+      );
+    });
   }
 
   Future<void> signOut() async {
