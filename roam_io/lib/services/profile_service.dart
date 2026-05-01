@@ -45,9 +45,12 @@ class ProfileService {
 
   Future<void> updateDisplayName(String uid, String displayName) async {
   await FirebaseFirestore.instance
-      .collection('users')
-      .doc(uid)
-      .update({'displayName': displayName});
+    .collection('profiles')
+    .doc(uid)
+    .update({
+      'displayName': displayName,
+      'updatedAt': DateTime.now().toIso8601String(),
+    });
   }
 
 }
