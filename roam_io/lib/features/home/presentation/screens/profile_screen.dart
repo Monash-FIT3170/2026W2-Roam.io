@@ -5,7 +5,7 @@ import '../../../../shared/widgets/app_page_header.dart';
 import '../../../../theme/app_colours.dart';
 import '../../../auth/presentation/providers/auth_provider.dart';
 import '../../../auth/presentation/screens/change_password_screen.dart';
-import 'edit_profile_screen.dart';
+import '../../../profile/presentation/screens/edit_profile_screen.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
