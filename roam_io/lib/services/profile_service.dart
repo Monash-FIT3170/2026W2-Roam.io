@@ -42,4 +42,13 @@ class ProfileService {
     if (data == null) return null;
     return ProfileModel.fromMap(data);
   }
+
+  Future<void> updateDisplayName(String uid, String displayName) async {
+  await FirebaseFirestore.instance
+      .collection('users')
+      .doc(uid)
+      .update({'displayName': displayName});
+  }
+
 }
+

@@ -5,6 +5,7 @@ import '../../../../shared/widgets/app_page_header.dart';
 import '../../../../theme/app_colours.dart';
 import '../../../auth/presentation/providers/auth_provider.dart';
 import '../../../auth/presentation/screens/change_password_screen.dart';
+import 'edit_profile_screen.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
@@ -152,6 +153,21 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         ),
 
                         const SizedBox(height: 24),
+
+                        // CHANGE DISPLAY NAME BUTTON
+                        _SecondaryProfileButton(
+                          label: 'Edit Profile',
+                          icon: Icons.edit_rounded,
+                          onPressed: auth.isBusy
+                              ? null
+                              : () {
+                                  Navigator.of(context).push(
+                                    MaterialPageRoute(
+                                      builder: (_) => EditProfileScreen(),
+                                    ),
+                                  );
+                                },
+                        ),
 
                         // 🔥 PRIMARY CTA (SAGE BUTTON)
                         _SecondaryProfileButton(
