@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
 
 import '../../../../shared/widgets/app_page_header.dart';
@@ -20,6 +21,33 @@ class _ProfileScreenState extends State<ProfileScreen> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       context.read<AuthProvider>().refreshCurrentUser();
     });
+  }
+
+  Future<void> _changeProfilePhoto() async {
+    final auth = context.read<AuthProvider>();
+    if (auth.isBusy) return;
+
+    final pickedFile = await ImagePicker().pickImage(
+      source: ImageSource.gallery,
+      maxWidth: 1200,
+      maxHeight: 1200,
+      imageQuality: 80,
+    );
+    if (pickedFile == null) return;
+
+    await auth.uploadProfilePicture(pickedFile);
+    if (!mounted) return;
+
+    if (auth.errorMessage != null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(auth.errorMessage!)),
+      );
+      return;
+    }
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Profile photo updated successfully.')),
+    );
   }
 
   Future<void> _logout() async {
@@ -83,21 +111,67 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           child: Column(
                             children: [
                               // 🔥 Avatar (NOW CREAM)
-                              Container(
+                              SizedBox(
                                 width: 92,
                                 height: 92,
-                                decoration: BoxDecoration(
-                                  shape: BoxShape.circle,
-                                  color: AppColors.cream,
-                                  border: Border.all(
-                                    color: AppColors.sage,
-                                    width: 2,
-                                  ),
-                                ),
-                                child: Icon(
-                                  Icons.person_rounded,
-                                  size: 48,
-                                  color: AppColors.sage,
+                                child: Stack(
+                                  clipBehavior: Clip.none,
+                                  children: [
+                                    GestureDetector(
+                                      onTap: auth.isBusy ? null : _changeProfilePhoto,
+                                      child: Container(
+                                        width: 92,
+                                        height: 92,
+                                        decoration: BoxDecoration(
+                                          shape: BoxShape.circle,
+                                          color: AppColors.cream,
+                                          border: Border.all(
+                                            color: AppColors.sage,
+                                            width: 2,
+                                          ),
+                                        ),
+                                        child: ClipOval(
+                                          child: profile?.photoUrl != null
+                                              ? Image.network(
+                                                  profile!.photoUrl!,
+                                                  fit: BoxFit.cover,
+                                                  width: 92,
+                                                  height: 92,
+                                                  errorBuilder: (context, error, stackTrace) => Icon(
+                                                    Icons.person_rounded,
+                                                    size: 48,
+                                                    color: AppColors.sage,
+                                                  ),
+                                                )
+                                              : Icon(
+                                                  Icons.person_rounded,
+                                                  size: 48,
+                                                  color: AppColors.sage,
+                                                ),
+                                        ),
+                                      ),
+                                    ),
+                                    Positioned(
+                                      right: -4,
+                                      bottom: -4,
+                                      child: Material(
+                                        color: AppColors.sand,
+                                        shape: const CircleBorder(),
+                                        child: InkWell(
+                                          customBorder: const CircleBorder(),
+                                          onTap: auth.isBusy ? null : _changeProfilePhoto,
+                                          child: Padding(
+                                            padding: const EdgeInsets.all(8),
+                                            child: Icon(
+                                              Icons.camera_alt_rounded,
+                                              size: 18,
+                                              color: AppColors.ink,
+                                            ),
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                  ],
                                 ),
                               ),
 

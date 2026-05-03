@@ -25,11 +25,26 @@ class ProfileService {
     required String uid,
     required String username,
     required String displayName,
+    String? photoUrl,
+  }) {
+    final data = <String, dynamic>{
+      'username': username,
+      'displayName': displayName,
+      'updatedAt': DateTime.now().toIso8601String(),
+    };
+    if (photoUrl != null) {
+      data['photoUrl'] = photoUrl;
+    }
+    return _profiles.doc(uid).update(data);
+  }
+
+  Future<void> updateProfilePhoto({
+    required String uid,
+    required String photoUrl,
   }) {
     return _profiles.doc(uid).update(
       <String, dynamic>{
-        'username': username,
-        'displayName': displayName,
+        'photoUrl': photoUrl,
         'updatedAt': DateTime.now().toIso8601String(),
       },
     );
