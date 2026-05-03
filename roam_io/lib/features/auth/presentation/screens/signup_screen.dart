@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../../../../shared/widgets/app_toast.dart';
 import '../providers/auth_provider.dart';
 
 class SignupScreen extends StatefulWidget {
@@ -40,18 +41,13 @@ class _SignupScreenState extends State<SignupScreen> {
     if (!mounted) return;
 
     if (auth.errorMessage != null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(auth.errorMessage!)),
-      );
+      AppToast.error(context, auth.errorMessage!);
       return;
     }
 
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text(
-          'Account created. Verification email sent. Please verify before logging in.',
-        ),
-      ),
+    AppToast.success(
+      context,
+      'Account created. Verification email sent. Please verify before logging in.',
     );
 
     // Return to the root AuthGate route so it can show VerifyEmailScreen.
@@ -78,7 +74,9 @@ class _SignupScreenState extends State<SignupScreen> {
                     validator: (value) {
                       final text = value?.trim() ?? '';
                       if (text.isEmpty) return 'Username is required.';
-                      if (text.length < 3) return 'Username must be at least 3 characters.';
+                      if (text.length < 3) {
+                        return 'Username must be at least 3 characters.';
+                      }
                       return null;
                     },
                   ),
@@ -86,7 +84,9 @@ class _SignupScreenState extends State<SignupScreen> {
                   TextFormField(
                     controller: _displayNameController,
                     textInputAction: TextInputAction.next,
-                    decoration: const InputDecoration(labelText: 'Display name'),
+                    decoration: const InputDecoration(
+                      labelText: 'Display name',
+                    ),
                     validator: (value) {
                       final text = value?.trim() ?? '';
                       if (text.isEmpty) return 'Display name is required.';
@@ -117,7 +117,9 @@ class _SignupScreenState extends State<SignupScreen> {
                     validator: (value) {
                       final text = value ?? '';
                       if (text.isEmpty) return 'Password is required.';
-                      if (text.length < 8) return 'Password must be at least 8 characters.';
+                      if (text.length < 8) {
+                        return 'Password must be at least 8 characters.';
+                      }
                       return null;
                     },
                     onFieldSubmitted: (_) => _submit(),
