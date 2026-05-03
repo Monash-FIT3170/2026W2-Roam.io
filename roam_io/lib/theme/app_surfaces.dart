@@ -10,14 +10,17 @@ class AppSurfaces {
     return Theme.of(context).scaffoldBackgroundColor;
   }
 
+  // Level 1: main cards, e.g. profile card, journey card, analytics stat card
   static Color card(BuildContext context) {
     return isDark(context) ? const Color(0xFF171A20) : AppColors.sand;
   }
 
+  // Level 2: nested cards/fields inside a main card
   static Color innerCard(BuildContext context) {
     return isDark(context) ? const Color(0xFF242832) : const Color(0xFFF6EBD8);
   }
 
+  // Level 3: subtle standalone surfaces, e.g. chips, controls, secondary cards
   static Color softCard(BuildContext context) {
     return isDark(context) ? const Color(0xFF20242C) : AppColors.cream;
   }
