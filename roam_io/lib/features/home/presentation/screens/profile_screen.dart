@@ -54,6 +54,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
       return;
     }
 
+    if (auth.wasLastProfilePhotoUploadUnchanged) {
+      AppToast.show(context, 'That photo is already your profile picture.');
+      return;
+    }
+
     AppToast.success(context, 'Profile picture updated successfully.');
   }
 

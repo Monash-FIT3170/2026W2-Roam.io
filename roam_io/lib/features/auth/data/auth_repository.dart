@@ -1,4 +1,5 @@
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:crypto/crypto.dart';
 import 'package:image_picker/image_picker.dart';
 
 import '../../profile/domain/profile_model.dart';
@@ -17,9 +18,9 @@ class AuthRepository {
     AuthService? authService,
     ProfileService? profileService,
     StorageService? storageService,
-  })  : _authService = authService ?? AuthService(),
-        _profileService = profileService ?? ProfileService(),
-        _storageService = storageService ?? StorageService();
+  }) : _authService = authService ?? AuthService(),
+       _profileService = profileService ?? ProfileService(),
+       _storageService = storageService ?? StorageService();
 
   final AuthService _authService;
   final ProfileService _profileService;
@@ -68,10 +69,7 @@ class AuthRepository {
   }
 
   /// Email/password sign in.
-  Future<void> signIn({
-    required String email,
-    required String password,
-  }) async {
+  Future<void> signIn({required String email, required String password}) async {
     await _authService.signInWithEmailAndPassword(
       email: email,
       password: password,
@@ -107,7 +105,9 @@ class AuthRepository {
     return _profileService.getProfile(user.uid);
   }
 
-  Future<String> uploadProfilePicture({required XFile image}) async {
+  Future<ProfilePhotoUploadResult> uploadProfilePicture({
+    required XFile image,
+  }) async {
     final user = currentUser;
     if (user == null) {
       throw FirebaseAuthException(
@@ -116,20 +116,57 @@ class AuthRepository {
       );
     }
 
+    final imageBytes = await image.readAsBytes();
+    final photoHash = sha256.convert(imageBytes).toString();
+    final currentProfile = await getCurrentUserProfile();
+
+    if (currentProfile?.photoHash == photoHash) {
+      return ProfilePhotoUploadResult.unchanged;
+    }
+
+    final currentPhotoUrl = currentProfile?.photoUrl;
+    if (currentProfile?.photoHash == null &&
+        currentPhotoUrl != null &&
+        currentPhotoUrl.isNotEmpty) {
+      final currentPhotoHash = await _tryHashCurrentProfilePhoto(
+        currentPhotoUrl,
+      );
+      if (currentPhotoHash == photoHash) {
+        await _profileService.updateProfilePhotoHash(
+          uid: user.uid,
+          photoHash: photoHash,
+        );
+        return ProfilePhotoUploadResult.unchanged;
+      }
+    }
+
     final photoUrl = await _storageService.uploadProfilePhoto(
       uid: user.uid,
-      bytes: await image.readAsBytes(),
+      bytes: imageBytes,
       filename: image.name,
     );
 
     await _profileService.updateProfilePhoto(
       uid: user.uid,
       photoUrl: photoUrl,
+      photoHash: photoHash,
     );
 
-    return photoUrl;
+    return ProfilePhotoUploadResult.updated;
+  }
+
+  Future<String?> _tryHashCurrentProfilePhoto(String photoUrl) async {
+    try {
+      final bytes = await _storageService.downloadBytesFromUrl(photoUrl);
+      if (bytes == null) return null;
+      return sha256.convert(bytes).toString();
+    } catch (_) {
+      return null;
+    }
   }
 
   /// Signs out from Firebase.
   Future<void> signOut() => _authService.signOut();
 }
+
+enum ProfilePhotoUploadResult { updated, unchanged }

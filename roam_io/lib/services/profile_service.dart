@@ -8,7 +8,7 @@ import '../features/profile/domain/profile_model.dart';
 /// do not depend on Firestore APIs directly.
 class ProfileService {
   ProfileService({FirebaseFirestore? firestore})
-      : _firestore = firestore ?? FirebaseFirestore.instance;
+    : _firestore = firestore ?? FirebaseFirestore.instance;
 
   final FirebaseFirestore _firestore;
 
@@ -41,13 +41,23 @@ class ProfileService {
   Future<void> updateProfilePhoto({
     required String uid,
     required String photoUrl,
+    required String photoHash,
   }) {
-    return _profiles.doc(uid).update(
-      <String, dynamic>{
-        'photoUrl': photoUrl,
-        'updatedAt': DateTime.now().toIso8601String(),
-      },
-    );
+    return _profiles.doc(uid).update(<String, dynamic>{
+      'photoUrl': photoUrl,
+      'photoHash': photoHash,
+      'updatedAt': DateTime.now().toIso8601String(),
+    });
+  }
+
+  Future<void> updateProfilePhotoHash({
+    required String uid,
+    required String photoHash,
+  }) {
+    return _profiles.doc(uid).update(<String, dynamic>{
+      'photoHash': photoHash,
+      'updatedAt': DateTime.now().toIso8601String(),
+    });
   }
 
   /// Reads a profile by uid. Returns null when not found.

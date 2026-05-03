@@ -10,6 +10,7 @@ class ProfileModel {
     required this.displayName,
     required this.email,
     this.photoUrl,
+    this.photoHash,
     required this.createdAt,
     required this.updatedAt,
   });
@@ -19,6 +20,7 @@ class ProfileModel {
   final String displayName;
   final String email;
   final String? photoUrl;
+  final String? photoHash;
   final DateTime createdAt;
   final DateTime updatedAt;
 
@@ -35,6 +37,9 @@ class ProfileModel {
     if (photoUrl != null) {
       data['photoUrl'] = photoUrl;
     }
+    if (photoHash != null) {
+      data['photoHash'] = photoHash;
+    }
     return data;
   }
 
@@ -46,8 +51,13 @@ class ProfileModel {
       displayName: (map['displayName'] ?? '') as String,
       email: (map['email'] ?? '') as String,
       photoUrl: map['photoUrl'] as String?,
-      createdAt: DateTime.tryParse((map['createdAt'] ?? '') as String) ?? DateTime.now(),
-      updatedAt: DateTime.tryParse((map['updatedAt'] ?? '') as String) ?? DateTime.now(),
+      photoHash: map['photoHash'] as String?,
+      createdAt:
+          DateTime.tryParse((map['createdAt'] ?? '') as String) ??
+          DateTime.now(),
+      updatedAt:
+          DateTime.tryParse((map['updatedAt'] ?? '') as String) ??
+          DateTime.now(),
     );
   }
 }

@@ -17,7 +17,7 @@ enum AuthViewState { loading, authenticated, unauthenticated }
 /// - auth actions used by future screens
 class AuthProvider extends ChangeNotifier {
   AuthProvider({AuthRepository? authRepository})
-      : _authRepository = authRepository ?? AuthRepository() {
+    : _authRepository = authRepository ?? AuthRepository() {
     _authStateSub = _authRepository.authStateChanges().listen(_handleAuthState);
   }
 
@@ -29,12 +29,17 @@ class AuthProvider extends ChangeNotifier {
   String? _errorMessage;
   User? _currentUser;
   ProfileModel? _currentProfile;
+  ProfilePhotoUploadResult? _lastProfilePhotoUploadResult;
 
   AuthViewState get viewState => _viewState;
   bool get isBusy => _isBusy;
   String? get errorMessage => _errorMessage;
   User? get currentUser => _currentUser;
   ProfileModel? get currentProfile => _currentProfile;
+  ProfilePhotoUploadResult? get lastProfilePhotoUploadResult =>
+      _lastProfilePhotoUploadResult;
+  bool get wasLastProfilePhotoUploadUnchanged =>
+      _lastProfilePhotoUploadResult == ProfilePhotoUploadResult.unchanged;
   bool get isAuthenticated => _currentUser != null;
   bool get isEmailVerified => _currentUser?.emailVerified ?? false;
 
@@ -60,10 +65,7 @@ class AuthProvider extends ChangeNotifier {
     });
   }
 
-  Future<void> signIn({
-    required String email,
-    required String password,
-  }) async {
+  Future<void> signIn({required String email, required String password}) async {
     await _runAuthAction(() async {
       await _authRepository.signIn(email: email, password: password);
       await refreshCurrentUser();
@@ -107,8 +109,10 @@ class AuthProvider extends ChangeNotifier {
   }
 
   Future<void> uploadProfilePicture(XFile image) async {
+    _lastProfilePhotoUploadResult = null;
     await _runAuthAction(() async {
-      await _authRepository.uploadProfilePicture(image: image);
+      _lastProfilePhotoUploadResult = await _authRepository
+          .uploadProfilePicture(image: image);
       _currentProfile = await _authRepository.getCurrentUserProfile();
     });
   }
