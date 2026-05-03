@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
 
 import '../../../../shared/widgets/app_page_header.dart';
+import '../../../../shared/widgets/app_toast.dart';
 import '../../../../theme/app_colours.dart';
 import '../../../auth/presentation/providers/auth_provider.dart';
 import '../../../auth/presentation/screens/change_password_screen.dart';
@@ -22,6 +24,44 @@ class _ProfileScreenState extends State<ProfileScreen> {
     });
   }
 
+  Future<void> _changeProfilePhoto() async {
+    final auth = context.read<AuthProvider>();
+    if (auth.isBusy) return;
+
+    final XFile? pickedFile;
+    try {
+      pickedFile = await ImagePicker().pickImage(
+        source: ImageSource.gallery,
+        maxWidth: 1200,
+        maxHeight: 1200,
+        imageQuality: 80,
+      );
+    } catch (_) {
+      if (!mounted) return;
+      AppToast.error(
+        context,
+        'Could not open photo library. Please check photo permissions and try again.',
+      );
+      return;
+    }
+    if (pickedFile == null) return;
+
+    await auth.uploadProfilePicture(pickedFile);
+    if (!mounted) return;
+
+    if (auth.errorMessage != null) {
+      AppToast.error(context, auth.errorMessage!);
+      return;
+    }
+
+    if (auth.wasLastProfilePhotoUploadUnchanged) {
+      AppToast.show(context, 'That photo is already your profile picture.');
+      return;
+    }
+
+    AppToast.success(context, 'Profile picture updated successfully.');
+  }
+
   Future<void> _logout() async {
     final auth = context.read<AuthProvider>();
     await auth.signOut();
@@ -29,9 +69,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     if (!mounted) return;
 
     if (auth.errorMessage != null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(auth.errorMessage!)),
-      );
+      AppToast.error(context, auth.errorMessage!);
     }
   }
 
@@ -59,8 +97,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 children: [
                   const AppPageHeader(
                     title: 'Profile Settings',
-                    subtitle:
-                        'Manage your identity and account preferences.',
+                    subtitle: 'Manage your identity and account preferences.',
                   ),
 
                   const SizedBox(height: 16),
@@ -83,21 +120,76 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           child: Column(
                             children: [
                               // 🔥 Avatar (NOW CREAM)
-                              Container(
+                              SizedBox(
                                 width: 92,
                                 height: 92,
-                                decoration: BoxDecoration(
-                                  shape: BoxShape.circle,
-                                  color: AppColors.cream,
-                                  border: Border.all(
-                                    color: AppColors.sage,
-                                    width: 2,
-                                  ),
-                                ),
-                                child: Icon(
-                                  Icons.person_rounded,
-                                  size: 48,
-                                  color: AppColors.sage,
+                                child: Stack(
+                                  clipBehavior: Clip.none,
+                                  children: [
+                                    GestureDetector(
+                                      onTap: auth.isBusy
+                                          ? null
+                                          : _changeProfilePhoto,
+                                      child: Container(
+                                        width: 92,
+                                        height: 92,
+                                        decoration: BoxDecoration(
+                                          shape: BoxShape.circle,
+                                          color: AppColors.cream,
+                                          border: Border.all(
+                                            color: AppColors.sage,
+                                            width: 2,
+                                          ),
+                                        ),
+                                        child: ClipOval(
+                                          child: profile?.photoUrl != null
+                                              ? Image.network(
+                                                  profile!.photoUrl!,
+                                                  fit: BoxFit.cover,
+                                                  width: 92,
+                                                  height: 92,
+                                                  errorBuilder:
+                                                      (
+                                                        context,
+                                                        error,
+                                                        stackTrace,
+                                                      ) => Icon(
+                                                        Icons.person_rounded,
+                                                        size: 48,
+                                                        color: AppColors.sage,
+                                                      ),
+                                                )
+                                              : Icon(
+                                                  Icons.person_rounded,
+                                                  size: 48,
+                                                  color: AppColors.sage,
+                                                ),
+                                        ),
+                                      ),
+                                    ),
+                                    Positioned(
+                                      right: -4,
+                                      bottom: -4,
+                                      child: Material(
+                                        color: AppColors.sand,
+                                        shape: const CircleBorder(),
+                                        child: InkWell(
+                                          customBorder: const CircleBorder(),
+                                          onTap: auth.isBusy
+                                              ? null
+                                              : _changeProfilePhoto,
+                                          child: Padding(
+                                            padding: const EdgeInsets.all(8),
+                                            child: Icon(
+                                              Icons.camera_alt_rounded,
+                                              size: 18,
+                                              color: AppColors.ink,
+                                            ),
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                  ],
                                 ),
                               ),
 
@@ -119,8 +211,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                 style: TextStyle(
                                   fontSize: 14,
                                   fontWeight: FontWeight.w600,
-                                  color:
-                                      AppColors.ink.withOpacity(0.45),
+                                  color: AppColors.ink.withOpacity(0.45),
                                 ),
                               ),
 
@@ -173,8 +264,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
                         // 🔴 Minimal logout
                         TextButton.icon(
-                          onPressed:
-                              auth.isBusy ? null : _logout,
+                          onPressed: auth.isBusy ? null : _logout,
                           icon: Icon(
                             Icons.logout_rounded,
                             size: 16,
@@ -189,15 +279,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
                             ),
                           ),
                           style: TextButton.styleFrom(
-                            padding:
-                                const EdgeInsets.symmetric(
+                            padding: const EdgeInsets.symmetric(
                               horizontal: 8,
                               vertical: 4,
                             ),
                             minimumSize: Size.zero,
-                            tapTargetSize:
-                                MaterialTapTargetSize
-                                    .shrinkWrap,
+                            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                           ),
                         ),
                       ],
@@ -228,14 +315,11 @@ class _ProfileInfoTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding:
-          const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
       decoration: BoxDecoration(
         color: AppColors.cream,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(
-          color: AppColors.sage.withOpacity(0.08),
-        ),
+        border: Border.all(color: AppColors.sage.withOpacity(0.08)),
       ),
       child: Row(
         children: [
@@ -243,8 +327,7 @@ class _ProfileInfoTile extends StatelessWidget {
           const SizedBox(width: 12),
           Expanded(
             child: Column(
-              crossAxisAlignment:
-                  CrossAxisAlignment.start,
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
                   label,

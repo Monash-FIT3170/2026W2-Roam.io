@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../../../../shared/widgets/app_toast.dart';
 import '../providers/auth_provider.dart';
 
 class ChangePasswordScreen extends StatefulWidget {
@@ -36,15 +37,11 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
     if (!mounted) return;
 
     if (auth.errorMessage != null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(auth.errorMessage!)),
-      );
+      AppToast.error(context, auth.errorMessage!);
       return;
     }
 
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Password updated successfully.')),
-    );
+    AppToast.success(context, 'Password updated successfully.');
     Navigator.of(context).pop();
   }
 
@@ -65,9 +62,13 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
                     controller: _currentPasswordController,
                     obscureText: true,
                     textInputAction: TextInputAction.next,
-                    decoration: const InputDecoration(labelText: 'Current password'),
+                    decoration: const InputDecoration(
+                      labelText: 'Current password',
+                    ),
                     validator: (value) {
-                      if ((value ?? '').isEmpty) return 'Current password is required.';
+                      if ((value ?? '').isEmpty) {
+                        return 'Current password is required.';
+                      }
                       return null;
                     },
                   ),
@@ -76,11 +77,15 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
                     controller: _newPasswordController,
                     obscureText: true,
                     textInputAction: TextInputAction.next,
-                    decoration: const InputDecoration(labelText: 'New password'),
+                    decoration: const InputDecoration(
+                      labelText: 'New password',
+                    ),
                     validator: (value) {
                       final text = value ?? '';
                       if (text.isEmpty) return 'New password is required.';
-                      if (text.length < 8) return 'New password must be at least 8 characters.';
+                      if (text.length < 8) {
+                        return 'New password must be at least 8 characters.';
+                      }
                       return null;
                     },
                   ),
@@ -89,10 +94,14 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
                     controller: _confirmPasswordController,
                     obscureText: true,
                     textInputAction: TextInputAction.done,
-                    decoration: const InputDecoration(labelText: 'Confirm new password'),
+                    decoration: const InputDecoration(
+                      labelText: 'Confirm new password',
+                    ),
                     validator: (value) {
                       final text = value ?? '';
-                      if (text.isEmpty) return 'Please confirm your new password.';
+                      if (text.isEmpty) {
+                        return 'Please confirm your new password.';
+                      }
                       if (text != _newPasswordController.text) {
                         return 'Passwords do not match.';
                       }
