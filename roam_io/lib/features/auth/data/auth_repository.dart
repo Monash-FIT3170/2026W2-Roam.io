@@ -1,8 +1,10 @@
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:image_picker/image_picker.dart';
 
 import '../../profile/domain/profile_model.dart';
 import '../../../services/auth_service.dart';
 import '../../../services/profile_service.dart';
+import '../../../services/storage_service.dart';
 
 /// Repository that orchestrates auth + profile workflows.
 ///
@@ -14,11 +16,14 @@ class AuthRepository {
   AuthRepository({
     AuthService? authService,
     ProfileService? profileService,
+    StorageService? storageService,
   })  : _authService = authService ?? AuthService(),
-        _profileService = profileService ?? ProfileService();
+        _profileService = profileService ?? ProfileService(),
+        _storageService = storageService ?? StorageService();
 
   final AuthService _authService;
   final ProfileService _profileService;
+  final StorageService _storageService;
 
   /// Exposes auth state changes for app-level auth gating.
   Stream<User?> authStateChanges() => _authService.authStateChanges();
@@ -100,6 +105,29 @@ class AuthRepository {
     final user = currentUser;
     if (user == null) return null;
     return _profileService.getProfile(user.uid);
+  }
+
+  Future<String> uploadProfilePicture({required XFile image}) async {
+    final user = currentUser;
+    if (user == null) {
+      throw FirebaseAuthException(
+        code: 'user-not-found',
+        message: 'No logged in user found.',
+      );
+    }
+
+    final photoUrl = await _storageService.uploadProfilePhoto(
+      uid: user.uid,
+      bytes: await image.readAsBytes(),
+      filename: image.name,
+    );
+
+    await _profileService.updateProfilePhoto(
+      uid: user.uid,
+      photoUrl: photoUrl,
+    );
+
+    return photoUrl;
   }
 
   /// Signs out from Firebase.
