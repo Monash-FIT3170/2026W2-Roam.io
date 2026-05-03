@@ -1,8 +1,8 @@
 import 'dart:async';
 
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/foundation.dart';
+import 'package:image_picker/image_picker.dart';
 
 import '../../data/auth_repository.dart';
 import '../../../profile/domain/profile_model.dart';
@@ -104,6 +104,13 @@ class AuthProvider extends ChangeNotifier {
         newPassword: newPassword,
       ),
     );
+  }
+
+  Future<void> uploadProfilePicture(XFile image) async {
+    await _runAuthAction(() async {
+      await _authRepository.uploadProfilePicture(image: image);
+      _currentProfile = await _authRepository.getCurrentUserProfile();
+    });
   }
 
   Future<void> signOut() async {
