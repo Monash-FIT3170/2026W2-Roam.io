@@ -27,6 +27,20 @@ class ProfileService {
     required String displayName,
     String? photoUrl,
   }) {
+    return _profiles.doc(uid).update(<String, dynamic>{
+      'username': username,
+      'displayName': displayName,
+      'updatedAt': DateTime.now().toIso8601String(),
+    });
+  }
+
+  /// Updates the user's saved theme preference.
+  Future<void> updateDarkModePreference({
+    required String uid,
+    required bool enabled,
+  }) {
+    return _profiles.doc(uid).update(<String, dynamic>{
+      'darkModeEnabled': enabled,
     final data = <String, dynamic>{
       'username': username,
       'displayName': displayName,
@@ -67,4 +81,16 @@ class ProfileService {
     if (data == null) return null;
     return ProfileModel.fromMap(data);
   }
+
+  Future<void> updateDisplayName(String uid, String displayName) async {
+  await FirebaseFirestore.instance
+    .collection('profiles')
+    .doc(uid)
+    .update({
+      'displayName': displayName,
+      'updatedAt': DateTime.now().toIso8601String(),
+    });
+  }
+
 }
+

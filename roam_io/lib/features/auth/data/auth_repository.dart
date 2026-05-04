@@ -63,6 +63,7 @@ class AuthRepository {
       email: email,
       createdAt: now,
       updatedAt: now,
+      darkModeEnabled: false,
     );
     await _profileService.createProfile(profile);
     await _authService.sendEmailVerification();
@@ -98,16 +99,8 @@ class AuthRepository {
     );
   }
 
-  /// Loads signed-in user's profile from Firestore.
-  Future<ProfileModel?> getCurrentUserProfile() async {
-    final user = currentUser;
-    if (user == null) return null;
-    return _profileService.getProfile(user.uid);
-  }
-
-  Future<ProfilePhotoUploadResult> uploadProfilePicture({
-    required XFile image,
-  }) async {
+  /// Updates the signed-in user's display name in Firestore and Firebase Auth.
+  Future<void> updateDisplayName(String displayName) async {
     final user = currentUser;
     if (user == null) {
       throw FirebaseAuthException(
@@ -116,6 +109,37 @@ class AuthRepository {
       );
     }
 
+    await _profileService.updateDisplayName(user.uid, displayName);
+    await _authService.updateDisplayName(displayName);
+  }
+
+  /// Loads signed-in user's profile from Firestore.
+  Future<ProfileModel?> getCurrentUserProfile() async {
+    final user = currentUser;
+    if (user == null) return null;
+    return _profileService.getProfile(user.uid);
+  }
+
+  /// Persists the signed-in user's dark mode preference.
+  Future<void> updateDarkModePreference(bool enabled) async {
+    await _profileService.updateDarkModePreference(
+      uid: user.uid,
+      enabled: enabled,
+    );
+        message: 'No logged in user found.',
+      );
+    }
+  
+  Future<ProfilePhotoUploadResult> uploadProfilePicture({
+    required XFile image,
+  }) async {
+    final user = currentUser;
+    if (user == null) {
+      throw FirebaseAuthException(
+        code: 'user-not-found',
+        message: 'No authenticated user is available.',
+      );
+    }
     final imageBytes = await image.readAsBytes();
     final photoHash = sha256.convert(imageBytes).toString();
     final currentProfile = await getCurrentUserProfile();
