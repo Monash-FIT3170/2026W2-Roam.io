@@ -63,6 +63,7 @@ class AuthRepository {
       email: email,
       createdAt: now,
       updatedAt: now,
+      darkModeEnabled: false,
     );
     await _profileService.createProfile(profile);
     await _authService.sendEmailVerification();
@@ -105,6 +106,16 @@ class AuthRepository {
     return _profileService.getProfile(user.uid);
   }
 
+  /// Persists the signed-in user's dark mode preference.
+  Future<void> updateDarkModePreference(bool enabled) async {
+    await _profileService.updateDarkModePreference(
+      uid: user.uid,
+      enabled: enabled,
+    );
+        message: 'No logged in user found.',
+      );
+    }
+  
   Future<ProfilePhotoUploadResult> uploadProfilePicture({
     required XFile image,
   }) async {
@@ -112,10 +123,9 @@ class AuthRepository {
     if (user == null) {
       throw FirebaseAuthException(
         code: 'user-not-found',
-        message: 'No logged in user found.',
+        message: 'No authenticated user is available.',
       );
     }
-
     final imageBytes = await image.readAsBytes();
     final photoHash = sha256.convert(imageBytes).toString();
     final currentProfile = await getCurrentUserProfile();

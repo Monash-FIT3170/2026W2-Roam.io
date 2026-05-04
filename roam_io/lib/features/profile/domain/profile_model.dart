@@ -13,6 +13,7 @@ class ProfileModel {
     this.photoHash,
     required this.createdAt,
     required this.updatedAt,
+    this.darkModeEnabled = false,
   });
 
   final String uid;
@@ -23,6 +24,27 @@ class ProfileModel {
   final String? photoHash;
   final DateTime createdAt;
   final DateTime updatedAt;
+  final bool darkModeEnabled;
+
+  ProfileModel copyWith({
+    String? uid,
+    String? username,
+    String? displayName,
+    String? email,
+    DateTime? createdAt,
+    DateTime? updatedAt,
+    bool? darkModeEnabled,
+  }) {
+    return ProfileModel(
+      uid: uid ?? this.uid,
+      username: username ?? this.username,
+      displayName: displayName ?? this.displayName,
+      email: email ?? this.email,
+      createdAt: createdAt ?? this.createdAt,
+      updatedAt: updatedAt ?? this.updatedAt,
+      darkModeEnabled: darkModeEnabled ?? this.darkModeEnabled,
+    );
+  }
 
   /// Converts this profile to a Firestore-friendly map.
   Map<String, dynamic> toMap() {
@@ -33,6 +55,7 @@ class ProfileModel {
       'email': email,
       'createdAt': createdAt.toIso8601String(),
       'updatedAt': updatedAt.toIso8601String(),
+      'darkModeEnabled': darkModeEnabled,
     };
     if (photoUrl != null) {
       data['photoUrl'] = photoUrl;
@@ -58,6 +81,7 @@ class ProfileModel {
       updatedAt:
           DateTime.tryParse((map['updatedAt'] ?? '') as String) ??
           DateTime.now(),
+      darkModeEnabled: (map['darkModeEnabled'] ?? false) as bool,
     );
   }
 }

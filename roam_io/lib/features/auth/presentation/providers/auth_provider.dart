@@ -42,6 +42,7 @@ class AuthProvider extends ChangeNotifier {
       _lastProfilePhotoUploadResult == ProfilePhotoUploadResult.unchanged;
   bool get isAuthenticated => _currentUser != null;
   bool get isEmailVerified => _currentUser?.emailVerified ?? false;
+  bool get darkModeEnabled => _currentProfile?.darkModeEnabled ?? false;
 
   void clearError() {
     _errorMessage = null;
@@ -108,6 +109,13 @@ class AuthProvider extends ChangeNotifier {
     );
   }
 
+  Future<void> updateDarkModePreference(bool enabled) async {
+    await _runAuthAction(() async {
+      await _authRepository.updateDarkModePreference(enabled);
+      _currentProfile = _currentProfile?.copyWith(
+        darkModeEnabled: enabled,
+        updatedAt: DateTime.now(),
+      );
   Future<void> uploadProfilePicture(XFile image) async {
     _lastProfilePhotoUploadResult = null;
     await _runAuthAction(() async {
