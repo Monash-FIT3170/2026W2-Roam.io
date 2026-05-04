@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../../../../shared/widgets/app_toast.dart';
 import 'forgot_password_screen.dart';
 import '../providers/auth_provider.dart';
 import 'signup_screen.dart';
@@ -36,21 +37,17 @@ class _LoginScreenState extends State<LoginScreen> {
     if (!mounted) return;
 
     if (auth.errorMessage != null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(auth.errorMessage!)),
-      );
+      AppToast.error(context, auth.errorMessage!);
       return;
     }
 
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Login successful.')),
-    );
+    AppToast.success(context, 'Login successful.');
   }
 
   void _openSignup() {
-    Navigator.of(context).push(
-      MaterialPageRoute<void>(builder: (_) => const SignupScreen()),
-    );
+    Navigator.of(
+      context,
+    ).push(MaterialPageRoute<void>(builder: (_) => const SignupScreen()));
   }
 
   void _openForgotPassword() {

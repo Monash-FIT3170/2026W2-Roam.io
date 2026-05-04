@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
+import 'package:image_picker/image_picker.dart';
 
 import '../../data/auth_repository.dart';
 import '../../../profile/domain/profile_model.dart';
@@ -28,14 +29,20 @@ class AuthProvider extends ChangeNotifier {
   String? _errorMessage;
   User? _currentUser;
   ProfileModel? _currentProfile;
+  ProfilePhotoUploadResult? _lastProfilePhotoUploadResult;
 
   AuthViewState get viewState => _viewState;
   bool get isBusy => _isBusy;
   String? get errorMessage => _errorMessage;
   User? get currentUser => _currentUser;
   ProfileModel? get currentProfile => _currentProfile;
+  ProfilePhotoUploadResult? get lastProfilePhotoUploadResult =>
+      _lastProfilePhotoUploadResult;
+  bool get wasLastProfilePhotoUploadUnchanged =>
+      _lastProfilePhotoUploadResult == ProfilePhotoUploadResult.unchanged;
   bool get isAuthenticated => _currentUser != null;
   bool get isEmailVerified => _currentUser?.emailVerified ?? false;
+  bool get darkModeEnabled => _currentProfile?.darkModeEnabled ?? false;
 
   void clearError() {
     _errorMessage = null;
@@ -115,6 +122,19 @@ class AuthProvider extends ChangeNotifier {
       _viewState = user == null
           ? AuthViewState.unauthenticated
           : AuthViewState.authenticated;
+  Future<void> updateDarkModePreference(bool enabled) async {
+    await _runAuthAction(() async {
+      await _authRepository.updateDarkModePreference(enabled);
+      _currentProfile = _currentProfile?.copyWith(
+        darkModeEnabled: enabled,
+        updatedAt: DateTime.now(),
+      );
+  Future<void> uploadProfilePicture(XFile image) async {
+    _lastProfilePhotoUploadResult = null;
+    await _runAuthAction(() async {
+      _lastProfilePhotoUploadResult = await _authRepository
+          .uploadProfilePicture(image: image);
+      _currentProfile = await _authRepository.getCurrentUserProfile();
     });
   }
 
