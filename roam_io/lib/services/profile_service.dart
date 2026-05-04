@@ -27,20 +27,6 @@ class ProfileService {
     required String displayName,
     String? photoUrl,
   }) {
-    return _profiles.doc(uid).update(<String, dynamic>{
-      'username': username,
-      'displayName': displayName,
-      'updatedAt': DateTime.now().toIso8601String(),
-    });
-  }
-
-  /// Updates the user's saved theme preference.
-  Future<void> updateDarkModePreference({
-    required String uid,
-    required bool enabled,
-  }) {
-    return _profiles.doc(uid).update(<String, dynamic>{
-      'darkModeEnabled': enabled,
     final data = <String, dynamic>{
       'username': username,
       'displayName': displayName,
@@ -50,6 +36,17 @@ class ProfileService {
       data['photoUrl'] = photoUrl;
     }
     return _profiles.doc(uid).update(data);
+  }
+
+  /// Updates the user's saved theme preference.
+  Future<void> updateDarkModePreference({
+    required String uid,
+    required bool enabled,
+  }) {
+    return _profiles.doc(uid).update(<String, dynamic>{
+      'darkModeEnabled': enabled,
+      'updatedAt': DateTime.now().toIso8601String(),
+    });
   }
 
   Future<void> updateProfilePhoto({
@@ -80,5 +77,12 @@ class ProfileService {
     final data = doc.data();
     if (data == null) return null;
     return ProfileModel.fromMap(data);
+  }
+
+  Future<void> updateDisplayName(String uid, String displayName) async {
+    await _profiles.doc(uid).update(<String, dynamic>{
+      'displayName': displayName,
+      'updatedAt': DateTime.now().toIso8601String(),
+    });
   }
 }

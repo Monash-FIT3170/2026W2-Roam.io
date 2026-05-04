@@ -1,0 +1,28 @@
+{
+    // Use IntelliSense to learn about possible attributes.
+    // Hover to view descriptions of existing attributes.
+    // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "roam_io",
+            "cwd": "roam_io",
+            "request": "launch",
+            "type": "dart"
+        },
+        {
+            "name": "roam_io (profile mode)",
+            "cwd": "roam_io",
+            "request": "launch",
+            "type": "dart",
+            "flutterMode": "profile"
+        },
+        {
+            "name": "roam_io (release mode)",
+            "cwd": "roam_io",
+            "request": "launch",
+            "type": "dart",
+            "flutterMode": "release"
+        }
+    ]
+}
