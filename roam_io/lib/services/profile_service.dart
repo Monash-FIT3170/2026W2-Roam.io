@@ -27,20 +27,6 @@ class ProfileService {
     required String displayName,
     String? photoUrl,
   }) {
-    return _profiles.doc(uid).update(<String, dynamic>{
-      'username': username,
-      'displayName': displayName,
-      'updatedAt': DateTime.now().toIso8601String(),
-    });
-  }
-
-  /// Updates the user's saved theme preference.
-  Future<void> updateDarkModePreference({
-    required String uid,
-    required bool enabled,
-  }) {
-    return _profiles.doc(uid).update(<String, dynamic>{
-      'darkModeEnabled': enabled,
     final data = <String, dynamic>{
       'username': username,
       'displayName': displayName,
@@ -50,6 +36,17 @@ class ProfileService {
       data['photoUrl'] = photoUrl;
     }
     return _profiles.doc(uid).update(data);
+  }
+
+  /// Updates the user's saved theme preference.
+  Future<void> updateDarkModePreference({
+    required String uid,
+    required bool enabled,
+  }) {
+    return _profiles.doc(uid).update(<String, dynamic>{
+      'darkModeEnabled': enabled,
+      'updatedAt': DateTime.now().toIso8601String(),
+    });
   }
 
   Future<void> updateProfilePhoto({
@@ -83,14 +80,9 @@ class ProfileService {
   }
 
   Future<void> updateDisplayName(String uid, String displayName) async {
-  await FirebaseFirestore.instance
-    .collection('profiles')
-    .doc(uid)
-    .update({
+    await _profiles.doc(uid).update(<String, dynamic>{
       'displayName': displayName,
       'updatedAt': DateTime.now().toIso8601String(),
     });
   }
-
 }
-

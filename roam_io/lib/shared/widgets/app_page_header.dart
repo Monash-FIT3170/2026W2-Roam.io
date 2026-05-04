@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../theme/app_colours.dart';
 
 class AppPageHeader extends StatelessWidget {
   final String title;
@@ -14,8 +15,6 @@ class AppPageHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-
     return Padding(
       padding: const EdgeInsets.fromLTRB(20, 16, 20, 12),
       child: Column(

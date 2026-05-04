@@ -66,6 +66,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
     setState(() {
       _isEditing = false;
     });
+  }
+
   Future<void> _changeProfilePhoto() async {
     final auth = context.read<AuthProvider>();
     if (auth.isBusy) return;
@@ -142,22 +144,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
-    final isDark = theme.brightness == Brightness.dark;
-
-    final cardColor = isDark ? const Color(0xFF171A20) : AppColors.sand;
-
-    final avatarSurfaceColor =
-        isDark ? const Color(0xFF151A15) : AppColors.cream;
-
-    // Only the inner Email / Username / Display Name fields use this colour.
-    final infoTileColor =
-        isDark ? const Color(0xFF242832) : const Color(0xFFF6EBD8);
-
-    final borderColor = colorScheme.primary.withValues(
-      alpha: isDark ? 0.24 : 0.12,
-    );
-
-    final mutedTextColor = colorScheme.onSurface.withValues(alpha: 0.6);
+    final cardColor = AppSurfaces.card(context);
+    final avatarSurfaceColor = AppSurfaces.softCard(context);
+    final infoTileColor = AppSurfaces.innerCard(context);
+    final borderColor = AppSurfaces.border(context);
+    final mutedTextColor = AppSurfaces.textSubtle(context);
 
     return Container(
       color: theme.scaffoldBackgroundColor,
@@ -207,8 +198,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
                   const SizedBox(height: 16),
 
-                Expanded(
-                  child: Padding(
+                  Padding(
                     padding: const EdgeInsets.fromLTRB(20, 4, 20, 0),
                     child: Column(
                       children: [
@@ -216,29 +206,83 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           width: double.infinity,
                           padding: const EdgeInsets.fromLTRB(18, 18, 18, 16),
                           decoration: BoxDecoration(
-                            color: AppColors.sand,
+                            color: cardColor,
                             borderRadius: BorderRadius.circular(28),
-                            border: Border.all(
-                              color: AppColors.sage.withValues(alpha: 0.12),
-                            ),
+                            border: Border.all(color: borderColor),
                           ),
                           child: Column(
                             children: [
-                              Container(
-                                width: 70,
-                                height: 70,
-                                decoration: BoxDecoration(
-                                  shape: BoxShape.circle,
-                                  color: avatarSurfaceColor,
-                                  border: Border.all(
-                                    color: colorScheme.primary,
-                                    width: 1.8,
-                                  ),
-                                ),
-                                child: Icon(
-                                  Icons.person_rounded,
-                                  size: 38,
-                                  color: colorScheme.primary,
+                              SizedBox(
+                                width: 76,
+                                height: 76,
+                                child: Stack(
+                                  clipBehavior: Clip.none,
+                                  children: [
+                                    GestureDetector(
+                                      onTap: auth.isBusy
+                                          ? null
+                                          : _changeProfilePhoto,
+                                      child: Container(
+                                        width: 76,
+                                        height: 76,
+                                        decoration: BoxDecoration(
+                                          shape: BoxShape.circle,
+                                          color: avatarSurfaceColor,
+                                          border: Border.all(
+                                            color: colorScheme.primary,
+                                            width: 1.8,
+                                          ),
+                                        ),
+                                        child: ClipOval(
+                                          child: profile?.photoUrl != null
+                                              ? Image.network(
+                                                  profile!.photoUrl!,
+                                                  fit: BoxFit.cover,
+                                                  width: 76,
+                                                  height: 76,
+                                                  errorBuilder:
+                                                      (
+                                                        context,
+                                                        error,
+                                                        stackTrace,
+                                                      ) => Icon(
+                                                        Icons.person_rounded,
+                                                        size: 38,
+                                                        color:
+                                                            colorScheme.primary,
+                                                      ),
+                                                )
+                                              : Icon(
+                                                  Icons.person_rounded,
+                                                  size: 38,
+                                                  color: colorScheme.primary,
+                                                ),
+                                        ),
+                                      ),
+                                    ),
+                                    Positioned(
+                                      right: -4,
+                                      bottom: -4,
+                                      child: Material(
+                                        color: cardColor,
+                                        shape: const CircleBorder(),
+                                        child: InkWell(
+                                          customBorder: const CircleBorder(),
+                                          onTap: auth.isBusy
+                                              ? null
+                                              : _changeProfilePhoto,
+                                          child: Padding(
+                                            padding: const EdgeInsets.all(7),
+                                            child: Icon(
+                                              Icons.camera_alt_rounded,
+                                              size: 16,
+                                              color: colorScheme.onSurface,
+                                            ),
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                  ],
                                 ),
                               ),
 
@@ -264,7 +308,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                 style: TextStyle(
                                   fontSize: 13,
                                   fontWeight: FontWeight.w600,
-                                  color: AppColors.ink.withValues(alpha: 0.45),
+                                  color: mutedTextColor,
                                 ),
                               ),
 
@@ -299,6 +343,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                       icon: Icons.badge_outlined,
                                       label: 'Display Name',
                                       value: displayName,
+                                      surfaceColor: infoTileColor,
                                     ),
                             ],
                           ),
@@ -307,7 +352,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         const SizedBox(height: 18),
 
                         _DarkModePreferenceTile(
-                          enabled: darkModeEnabled,
+                          enabled: auth.darkModeEnabled,
                           onChanged: auth.isBusy || profile == null
                               ? null
                               : _toggleDarkMode,
@@ -359,8 +404,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       ],
                     ),
                   ),
-                ),
-              ],
+                ],
+              ),
             );
           },
         ),
@@ -498,7 +543,7 @@ class _ProfileInfoTile extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
       decoration: BoxDecoration(
-        color: AppColors.cream,
+        color: surfaceColor,
         borderRadius: BorderRadius.circular(16),
         border: Border.all(color: AppColors.sage.withValues(alpha: 0.08)),
       ),
@@ -589,10 +634,7 @@ class _DarkModePreferenceTile extends StatelessWidget {
         ),
         activeThumbColor: Colors.white,
         activeTrackColor: colorScheme.primary,
-        contentPadding: const EdgeInsets.symmetric(
-          horizontal: 14,
-          vertical: 0,
-        ),
+        contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 0),
       ),
     );
   }

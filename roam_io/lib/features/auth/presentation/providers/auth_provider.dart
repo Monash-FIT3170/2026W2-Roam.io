@@ -122,6 +122,9 @@ class AuthProvider extends ChangeNotifier {
       _viewState = user == null
           ? AuthViewState.unauthenticated
           : AuthViewState.authenticated;
+    });
+  }
+
   Future<void> updateDarkModePreference(bool enabled) async {
     await _runAuthAction(() async {
       await _authRepository.updateDarkModePreference(enabled);
@@ -129,6 +132,9 @@ class AuthProvider extends ChangeNotifier {
         darkModeEnabled: enabled,
         updatedAt: DateTime.now(),
       );
+    });
+  }
+
   Future<void> uploadProfilePicture(XFile image) async {
     _lastProfilePhotoUploadResult = null;
     await _runAuthAction(() async {
