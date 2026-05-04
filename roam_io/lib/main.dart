@@ -1,6 +1,7 @@
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:roam_io/features/mapfeature/MapPage.dart';
 
 import 'features/auth/presentation/providers/auth_provider.dart';
 import 'features/auth/presentation/screens/auth_gate.dart';
@@ -9,9 +10,13 @@ import 'theme/app_theme.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  
 
-  await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
 
+
+  await Firebase.initializeApp(
+    options: DefaultFirebaseOptions.currentPlatform,
+  );
   runApp(const MyApp());
 }
 
