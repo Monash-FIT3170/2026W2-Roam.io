@@ -99,6 +99,20 @@ class AuthRepository {
     );
   }
 
+  /// Updates the signed-in user's display name in Firestore and Firebase Auth.
+  Future<void> updateDisplayName(String displayName) async {
+    final user = currentUser;
+    if (user == null) {
+      throw FirebaseAuthException(
+        code: 'user-not-found',
+        message: 'No logged in user found.',
+      );
+    }
+
+    await _profileService.updateDisplayName(user.uid, displayName);
+    await _authService.updateDisplayName(displayName);
+  }
+
   /// Loads signed-in user's profile from Firestore.
   Future<ProfileModel?> getCurrentUserProfile() async {
     final user = currentUser;

@@ -17,14 +17,55 @@ class ProfileScreen extends StatefulWidget {
 }
 
 class _ProfileScreenState extends State<ProfileScreen> {
+  final _displayNameController = TextEditingController();
+  bool _isEditing = false;
+
   @override
   void initState() {
     super.initState();
+    _displayNameController.addListener(_handleDisplayNameChanged);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       context.read<AuthProvider>().refreshCurrentUser();
     });
   }
 
+  void _handleDisplayNameChanged() {
+    if (_isEditing) {
+      setState(() {});
+    }
+  }
+
+  void _startEditing(String displayName) {
+    _displayNameController.text = displayName == '-' ? '' : displayName;
+    setState(() {
+      _isEditing = true;
+    });
+  }
+
+  Future<void> _saveDisplayName() async {
+    final displayName = _displayNameController.text.trim();
+    if (displayName.isEmpty) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Enter a name')));
+      return;
+    }
+
+    final auth = context.read<AuthProvider>();
+    await auth.updateDisplayName(displayName);
+
+    if (!mounted) return;
+
+    if (auth.errorMessage != null) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(auth.errorMessage!)));
+      return;
+    }
+
+    setState(() {
+      _isEditing = false;
+    });
   Future<void> _changeProfilePhoto() async {
     final auth = context.read<AuthProvider>();
     if (auth.isBusy) return;
@@ -90,6 +131,14 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 
   @override
+  void dispose() {
+    _displayNameController
+      ..removeListener(_handleDisplayNameChanged)
+      ..dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
@@ -124,15 +173,39 @@ class _ProfileScreenState extends State<ProfileScreen> {
             final email = auth.currentUser?.email ?? '-';
             final username = profile?.username ?? '-';
             final displayName = profile?.displayName ?? '-';
-            final darkModeEnabled = profile?.darkModeEnabled ?? false;
+            final visibleDisplayName = _isEditing
+                ? _displayNameController.text.trim()
+                : displayName;
 
-            return Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const AppPageHeader(
-                  title: 'Profile Settings',
-                  subtitle: 'Manage your identity and account preferences.',
-                ),
+            return SingleChildScrollView(
+              padding: const EdgeInsets.only(bottom: 110),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  AppPageHeader(
+                    title: 'Profile Settings',
+                    subtitle: 'Manage your identity and account preferences.',
+                    trailing: TextButton(
+                      onPressed: auth.isBusy || profile == null
+                          ? null
+                          : _isEditing
+                          ? _saveDisplayName
+                          : () => _startEditing(displayName),
+                      style: TextButton.styleFrom(
+                        foregroundColor: AppColors.sage,
+                        textStyle: const TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w800,
+                        ),
+                        padding: const EdgeInsets.symmetric(horizontal: 8),
+                        minimumSize: const Size(48, 36),
+                        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                      ),
+                      child: Text(_isEditing ? 'Save' : 'Edit'),
+                    ),
+                  ),
+
+                  const SizedBox(height: 16),
 
                 Expanded(
                   child: Padding(
@@ -143,9 +216,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           width: double.infinity,
                           padding: const EdgeInsets.fromLTRB(18, 18, 18, 16),
                           decoration: BoxDecoration(
-                            color: cardColor,
-                            borderRadius: BorderRadius.circular(26),
-                            border: Border.all(color: borderColor),
+                            color: AppColors.sand,
+                            borderRadius: BorderRadius.circular(28),
+                            border: Border.all(
+                              color: AppColors.sage.withValues(alpha: 0.12),
+                            ),
                           ),
                           child: Column(
                             children: [
@@ -170,9 +245,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
                               const SizedBox(height: 10),
 
                               Text(
-                                displayName,
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
+                                visibleDisplayName.isEmpty
+                                    ? 'Display Name'
+                                    : visibleDisplayName,
                                 style: TextStyle(
                                   fontSize: 20,
                                   fontWeight: FontWeight.w800,
@@ -189,7 +264,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                 style: TextStyle(
                                   fontSize: 13,
                                   fontWeight: FontWeight.w600,
-                                  color: mutedTextColor,
+                                  color: AppColors.ink.withValues(alpha: 0.45),
                                 ),
                               ),
 
@@ -213,12 +288,18 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
                               const SizedBox(height: 8),
 
-                              _ProfileInfoTile(
-                                icon: Icons.badge_outlined,
-                                label: 'Display Name',
-                                value: displayName,
-                                surfaceColor: infoTileColor,
-                              ),
+                              _isEditing
+                                  ? _EditableProfileInfoTile(
+                                      icon: Icons.badge_outlined,
+                                      label: 'Display Name',
+                                      controller: _displayNameController,
+                                      enabled: !auth.isBusy,
+                                    )
+                                  : _ProfileInfoTile(
+                                      icon: Icons.badge_outlined,
+                                      label: 'Display Name',
+                                      value: displayName,
+                                    ),
                             ],
                           ),
                         ),
@@ -261,11 +342,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           label: Text(
                             'Log out',
                             style: TextStyle(
-                              fontSize: 13,
-                              fontWeight: FontWeight.w700,
-                              color: colorScheme.secondary.withValues(
-                                alpha: 0.9,
-                              ),
+                              fontSize: 14,
+                              fontWeight: FontWeight.w600,
+                              color: AppColors.clay.withValues(alpha: 0.85),
                             ),
                           ),
                           style: TextButton.styleFrom(
@@ -290,6 +369,115 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 }
 
+class _EditableProfileInfoTile extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final TextEditingController controller;
+  final bool enabled;
+
+  const _EditableProfileInfoTile({
+    required this.icon,
+    required this.label,
+    required this.controller,
+    required this.enabled,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+      decoration: BoxDecoration(
+        color: AppColors.sage.withValues(alpha: 0.10),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: AppColors.sage.withValues(alpha: 0.65),
+          width: 1.5,
+        ),
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 34,
+            height: 34,
+            decoration: BoxDecoration(
+              color: AppColors.cream,
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Icon(icon, size: 21, color: AppColors.sage),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  label,
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w700,
+                    color: AppColors.sage,
+                  ),
+                ),
+                const SizedBox(height: 6),
+                TextFormField(
+                  controller: controller,
+                  enabled: enabled,
+                  autofocus: true,
+                  cursorColor: AppColors.sage,
+                  style: TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w700,
+                    color: AppColors.ink,
+                  ),
+                  decoration: InputDecoration(
+                    filled: true,
+                    fillColor: AppColors.cream,
+                    isDense: true,
+                    contentPadding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 10,
+                    ),
+                    suffixIcon: Icon(
+                      Icons.edit_rounded,
+                      size: 18,
+                      color: AppColors.sage,
+                    ),
+                    suffixIconConstraints: const BoxConstraints(
+                      minWidth: 36,
+                      minHeight: 36,
+                    ),
+                    enabledBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: BorderSide(
+                        color: AppColors.sage.withValues(alpha: 0.35),
+                      ),
+                    ),
+                    focusedBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: const BorderSide(
+                        color: AppColors.sage,
+                        width: 1.6,
+                      ),
+                    ),
+                    disabledBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: BorderSide(
+                        color: AppColors.sage.withValues(alpha: 0.18),
+                      ),
+                    ),
+                  ),
+                  textInputAction: TextInputAction.done,
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// 🧾 Info tile
 class _ProfileInfoTile extends StatelessWidget {
   final IconData icon;
   final String label;
@@ -308,13 +496,11 @@ class _ProfileInfoTile extends StatelessWidget {
     final colorScheme = Theme.of(context).colorScheme;
 
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
       decoration: BoxDecoration(
-        color: surfaceColor,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(
-          color: colorScheme.primary.withValues(alpha: 0.12),
-        ),
+        color: AppColors.cream,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: AppColors.sage.withValues(alpha: 0.08)),
       ),
       child: Row(
         children: [
@@ -331,7 +517,7 @@ class _ProfileInfoTile extends StatelessWidget {
                   style: TextStyle(
                     fontSize: 11,
                     fontWeight: FontWeight.w700,
-                    color: colorScheme.onSurface.withValues(alpha: 0.55),
+                    color: AppColors.ink.withValues(alpha: 0.45),
                   ),
                 ),
                 const SizedBox(height: 1),
