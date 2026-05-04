@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../../../../shared/widgets/app_toast.dart';
 import '../providers/auth_provider.dart';
 
 class VerifyEmailScreen extends StatelessWidget {
@@ -28,17 +29,15 @@ class VerifyEmailScreen extends StatelessWidget {
                   onPressed: auth.isBusy
                       ? null
                       : () async {
-                          await context.read<AuthProvider>().sendVerificationEmail();
+                          await context
+                              .read<AuthProvider>()
+                              .sendVerificationEmail();
                           if (!context.mounted) return;
                           if (auth.errorMessage != null) {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(content: Text(auth.errorMessage!)),
-                            );
+                            AppToast.error(context, auth.errorMessage!);
                             return;
                           }
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(content: Text('Verification email sent.')),
-                          );
+                          AppToast.success(context, 'Verification email sent.');
                         },
                   child: const Text('Resend verification email'),
                 ),
@@ -47,7 +46,9 @@ class VerifyEmailScreen extends StatelessWidget {
                   onPressed: auth.isBusy
                       ? null
                       : () async {
-                          await context.read<AuthProvider>().refreshCurrentUser();
+                          await context
+                              .read<AuthProvider>()
+                              .refreshCurrentUser();
                         },
                   child: const Text('I have verified, refresh'),
                 ),

@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
 
 import '../../../../theme/app_surfaces.dart';
 import '../../../../shared/widgets/app_page_header.dart';
+import '../../../../shared/widgets/app_toast.dart';
 import '../../../../theme/app_colours.dart';
 import '../../../auth/presentation/providers/auth_provider.dart';
 import '../../../auth/presentation/screens/change_password_screen.dart';
@@ -21,6 +23,44 @@ class _ProfileScreenState extends State<ProfileScreen> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       context.read<AuthProvider>().refreshCurrentUser();
     });
+  }
+
+  Future<void> _changeProfilePhoto() async {
+    final auth = context.read<AuthProvider>();
+    if (auth.isBusy) return;
+
+    final XFile? pickedFile;
+    try {
+      pickedFile = await ImagePicker().pickImage(
+        source: ImageSource.gallery,
+        maxWidth: 1200,
+        maxHeight: 1200,
+        imageQuality: 80,
+      );
+    } catch (_) {
+      if (!mounted) return;
+      AppToast.error(
+        context,
+        'Could not open photo library. Please check photo permissions and try again.',
+      );
+      return;
+    }
+    if (pickedFile == null) return;
+
+    await auth.uploadProfilePicture(pickedFile);
+    if (!mounted) return;
+
+    if (auth.errorMessage != null) {
+      AppToast.error(context, auth.errorMessage!);
+      return;
+    }
+
+    if (auth.wasLastProfilePhotoUploadUnchanged) {
+      AppToast.show(context, 'That photo is already your profile picture.');
+      return;
+    }
+
+    AppToast.success(context, 'Profile picture updated successfully.');
   }
 
   Future<void> _logout() async {

@@ -25,6 +25,7 @@ class ProfileService {
     required String uid,
     required String username,
     required String displayName,
+    String? photoUrl,
   }) {
     return _profiles.doc(uid).update(<String, dynamic>{
       'username': username,
@@ -40,6 +41,35 @@ class ProfileService {
   }) {
     return _profiles.doc(uid).update(<String, dynamic>{
       'darkModeEnabled': enabled,
+    final data = <String, dynamic>{
+      'username': username,
+      'displayName': displayName,
+      'updatedAt': DateTime.now().toIso8601String(),
+    };
+    if (photoUrl != null) {
+      data['photoUrl'] = photoUrl;
+    }
+    return _profiles.doc(uid).update(data);
+  }
+
+  Future<void> updateProfilePhoto({
+    required String uid,
+    required String photoUrl,
+    required String photoHash,
+  }) {
+    return _profiles.doc(uid).update(<String, dynamic>{
+      'photoUrl': photoUrl,
+      'photoHash': photoHash,
+      'updatedAt': DateTime.now().toIso8601String(),
+    });
+  }
+
+  Future<void> updateProfilePhotoHash({
+    required String uid,
+    required String photoHash,
+  }) {
+    return _profiles.doc(uid).update(<String, dynamic>{
+      'photoHash': photoHash,
       'updatedAt': DateTime.now().toIso8601String(),
     });
   }
