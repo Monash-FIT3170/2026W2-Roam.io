@@ -7,7 +7,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 /// - Provide a single place for authentication operations.
 class AuthService {
   AuthService({FirebaseAuth? firebaseAuth})
-      : _firebaseAuth = firebaseAuth ?? FirebaseAuth.instance;
+    : _firebaseAuth = firebaseAuth ?? FirebaseAuth.instance;
 
   final FirebaseAuth _firebaseAuth;
 
@@ -74,6 +74,11 @@ class AuthService {
     );
     await user.reauthenticateWithCredential(credential);
     await user.updatePassword(newPassword);
+  }
+
+  /// Updates the Firebase Auth display name for the current user.
+  Future<void> updateDisplayName(String displayName) async {
+    await currentUser?.updateDisplayName(displayName);
   }
 
   /// Refreshes cached user data (e.g., updated emailVerified state).

@@ -8,7 +8,7 @@ import '../features/profile/domain/profile_model.dart';
 /// do not depend on Firestore APIs directly.
 class ProfileService {
   ProfileService({FirebaseFirestore? firestore})
-      : _firestore = firestore ?? FirebaseFirestore.instance;
+    : _firestore = firestore ?? FirebaseFirestore.instance;
 
   final FirebaseFirestore _firestore;
 
@@ -25,14 +25,50 @@ class ProfileService {
     required String uid,
     required String username,
     required String displayName,
+    String? photoUrl,
   }) {
-    return _profiles.doc(uid).update(
-      <String, dynamic>{
-        'username': username,
-        'displayName': displayName,
-        'updatedAt': DateTime.now().toIso8601String(),
-      },
-    );
+    final data = <String, dynamic>{
+      'username': username,
+      'displayName': displayName,
+      'updatedAt': DateTime.now().toIso8601String(),
+    };
+    if (photoUrl != null) {
+      data['photoUrl'] = photoUrl;
+    }
+    return _profiles.doc(uid).update(data);
+  }
+
+  /// Updates the user's saved theme preference.
+  Future<void> updateDarkModePreference({
+    required String uid,
+    required bool enabled,
+  }) {
+    return _profiles.doc(uid).update(<String, dynamic>{
+      'darkModeEnabled': enabled,
+      'updatedAt': DateTime.now().toIso8601String(),
+    });
+  }
+
+  Future<void> updateProfilePhoto({
+    required String uid,
+    required String photoUrl,
+    required String photoHash,
+  }) {
+    return _profiles.doc(uid).update(<String, dynamic>{
+      'photoUrl': photoUrl,
+      'photoHash': photoHash,
+      'updatedAt': DateTime.now().toIso8601String(),
+    });
+  }
+
+  Future<void> updateProfilePhotoHash({
+    required String uid,
+    required String photoHash,
+  }) {
+    return _profiles.doc(uid).update(<String, dynamic>{
+      'photoHash': photoHash,
+      'updatedAt': DateTime.now().toIso8601String(),
+    });
   }
 
   /// Reads a profile by uid. Returns null when not found.
@@ -41,5 +77,12 @@ class ProfileService {
     final data = doc.data();
     if (data == null) return null;
     return ProfileModel.fromMap(data);
+  }
+
+  Future<void> updateDisplayName(String uid, String displayName) async {
+    await _profiles.doc(uid).update(<String, dynamic>{
+      'displayName': displayName,
+      'updatedAt': DateTime.now().toIso8601String(),
+    });
   }
 }

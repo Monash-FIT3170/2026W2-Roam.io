@@ -1,8 +1,11 @@
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:crypto/crypto.dart';
+import 'package:image_picker/image_picker.dart';
 
 import '../../profile/domain/profile_model.dart';
 import '../../../services/auth_service.dart';
 import '../../../services/profile_service.dart';
+import '../../../services/storage_service.dart';
 
 /// Repository that orchestrates auth + profile workflows.
 ///
@@ -14,11 +17,14 @@ class AuthRepository {
   AuthRepository({
     AuthService? authService,
     ProfileService? profileService,
-  })  : _authService = authService ?? AuthService(),
-        _profileService = profileService ?? ProfileService();
+    StorageService? storageService,
+  }) : _authService = authService ?? AuthService(),
+       _profileService = profileService ?? ProfileService(),
+       _storageService = storageService ?? StorageService();
 
   final AuthService _authService;
   final ProfileService _profileService;
+  final StorageService _storageService;
 
   /// Exposes auth state changes for app-level auth gating.
   Stream<User?> authStateChanges() => _authService.authStateChanges();
@@ -57,16 +63,14 @@ class AuthRepository {
       email: email,
       createdAt: now,
       updatedAt: now,
+      darkModeEnabled: false,
     );
     await _profileService.createProfile(profile);
     await _authService.sendEmailVerification();
   }
 
   /// Email/password sign in.
-  Future<void> signIn({
-    required String email,
-    required String password,
-  }) async {
+  Future<void> signIn({required String email, required String password}) async {
     await _authService.signInWithEmailAndPassword(
       email: email,
       password: password,
@@ -95,6 +99,20 @@ class AuthRepository {
     );
   }
 
+  /// Updates the signed-in user's display name in Firestore and Firebase Auth.
+  Future<void> updateDisplayName(String displayName) async {
+    final user = currentUser;
+    if (user == null) {
+      throw FirebaseAuthException(
+        code: 'user-not-found',
+        message: 'No logged in user found.',
+      );
+    }
+
+    await _profileService.updateDisplayName(user.uid, displayName);
+    await _authService.updateDisplayName(displayName);
+  }
+
   /// Loads signed-in user's profile from Firestore.
   Future<ProfileModel?> getCurrentUserProfile() async {
     final user = currentUser;
@@ -102,6 +120,83 @@ class AuthRepository {
     return _profileService.getProfile(user.uid);
   }
 
+  /// Persists the signed-in user's dark mode preference.
+  Future<void> updateDarkModePreference(bool enabled) async {
+    final user = currentUser;
+    if (user == null) {
+      throw FirebaseAuthException(
+        code: 'user-not-found',
+        message: 'No logged in user found.',
+      );
+    }
+
+    await _profileService.updateDarkModePreference(
+      uid: user.uid,
+      enabled: enabled,
+    );
+  }
+
+  Future<ProfilePhotoUploadResult> uploadProfilePicture({
+    required XFile image,
+  }) async {
+    final user = currentUser;
+    if (user == null) {
+      throw FirebaseAuthException(
+        code: 'user-not-found',
+        message: 'No authenticated user is available.',
+      );
+    }
+    final imageBytes = await image.readAsBytes();
+    final photoHash = sha256.convert(imageBytes).toString();
+    final currentProfile = await getCurrentUserProfile();
+
+    if (currentProfile?.photoHash == photoHash) {
+      return ProfilePhotoUploadResult.unchanged;
+    }
+
+    final currentPhotoUrl = currentProfile?.photoUrl;
+    if (currentProfile?.photoHash == null &&
+        currentPhotoUrl != null &&
+        currentPhotoUrl.isNotEmpty) {
+      final currentPhotoHash = await _tryHashCurrentProfilePhoto(
+        currentPhotoUrl,
+      );
+      if (currentPhotoHash == photoHash) {
+        await _profileService.updateProfilePhotoHash(
+          uid: user.uid,
+          photoHash: photoHash,
+        );
+        return ProfilePhotoUploadResult.unchanged;
+      }
+    }
+
+    final photoUrl = await _storageService.uploadProfilePhoto(
+      uid: user.uid,
+      bytes: imageBytes,
+      filename: image.name,
+    );
+
+    await _profileService.updateProfilePhoto(
+      uid: user.uid,
+      photoUrl: photoUrl,
+      photoHash: photoHash,
+    );
+
+    return ProfilePhotoUploadResult.updated;
+  }
+
+  Future<String?> _tryHashCurrentProfilePhoto(String photoUrl) async {
+    try {
+      final bytes = await _storageService.downloadBytesFromUrl(photoUrl);
+      if (bytes == null) return null;
+      return sha256.convert(bytes).toString();
+    } catch (_) {
+      return null;
+    }
+  }
+
   /// Signs out from Firebase.
   Future<void> signOut() => _authService.signOut();
 }
+
+enum ProfilePhotoUploadResult { updated, unchanged }

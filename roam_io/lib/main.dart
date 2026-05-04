@@ -6,6 +6,7 @@ import 'package:roam_io/features/mapfeature/MapPage.dart';
 import 'features/auth/presentation/providers/auth_provider.dart';
 import 'features/auth/presentation/screens/auth_gate.dart';
 import 'firebase_options.dart';
+import 'theme/app_theme.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -26,10 +27,17 @@ class MyApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return ChangeNotifierProvider<AuthProvider>(
       create: (_) => AuthProvider(),
-      child: MaterialApp(
-        title: 'Roam.io',
-        theme: ThemeData(colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple)),
-        home: const MapPage(),
+      child: Consumer<AuthProvider>(
+        builder: (context, auth, _) {
+          return MaterialApp(
+            title: 'Roam.io',
+            debugShowCheckedModeBanner: false,
+            theme: AppTheme.lightTheme,
+            darkTheme: AppTheme.darkTheme,
+            themeMode: auth.darkModeEnabled ? ThemeMode.dark : ThemeMode.light,
+            home: const AuthGate(),
+          );
+        },
       ),
     );
   }
