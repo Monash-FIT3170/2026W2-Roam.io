@@ -1,8 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:roam_io/features/mapfeature/MapPage.dart';
 
-import '../../../home/presentation/screens/map_home.dart';
 import '../../../home/presentation/screens/main_shell_screen.dart';
 import '../providers/auth_provider.dart';
 import 'login_screen.dart';

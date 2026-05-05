@@ -1,3 +1,7 @@
+// Defines the region polygon model and converts backend geometry into Google
+// Maps polygons. This is needed to translate raw spatial data into something
+// the map can actually draw and interact with.
+
 import 'dart:convert';
 import 'dart:ui';
 
@@ -25,7 +29,7 @@ class RegionPolygon {
           : Map<String, dynamic>.from(rawGeometry as Map),
     );
   }
-
+  
   List<Polygon> toGooglePolygons({
     Color strokeColor = const Color(0xFF5B5BD6),
     Color fillColor = const Color(0x225B5BD6),
