@@ -10,7 +10,6 @@ import '../features/profile/domain/visited_polygon_record.dart';
 class ProfileService {
   static const String _profilesCollectionName = 'profiles';
   static const String _visitedPolygonsCollectionName = 'polygons_visited';
-  static const String _legacyVisitedPolygonsCollectionName = 'visited_polygons';
   static const String _visitedPolygonsMapField = 'visited_polygons';
 
   ProfileService({FirebaseFirestore? firestore})
@@ -23,9 +22,6 @@ class ProfileService {
 
   CollectionReference<Map<String, dynamic>> get _visitedPolygons =>
       _firestore.collection(_visitedPolygonsCollectionName);
-
-  CollectionReference<Map<String, dynamic>> get _legacyVisitedPolygons =>
-      _firestore.collection(_legacyVisitedPolygonsCollectionName);
 
   /// Creates/replaces profile document at `profiles/{uid}`.
   Future<void> createProfile(ProfileModel profile) {
@@ -87,40 +83,12 @@ class ProfileService {
   Future<List<VisitedPolygonRecord>> getVisitedPolygonRecords({
     required String profileId,
   }) async {
-    final recordsByPolygonId = <String, VisitedPolygonRecord>{};
-
     final currentData = (await _visitedPolygons.doc(profileId).get()).data();
     final rawPolygonMap = currentData?[_visitedPolygonsMapField];
-    for (final record in _recordsFromVisitedPolygonMap(
+    return _recordsFromVisitedPolygonMap(
       profileId: profileId,
       rawPolygonMap: rawPolygonMap,
-    )) {
-      recordsByPolygonId[record.polygonId] = record;
-    }
-
-    final currentSnapshot = await _visitedPolygons
-        .where('profile_id', isEqualTo: profileId)
-        .get();
-
-    for (final doc in currentSnapshot.docs) {
-      final record = _recordFromStoredMap(doc.data());
-      if (record != null) {
-        recordsByPolygonId[record.polygonId] = record;
-      }
-    }
-
-    final legacySnapshot = await _legacyVisitedPolygons
-        .where('profileId', isEqualTo: profileId)
-        .get();
-
-    for (final doc in legacySnapshot.docs) {
-      final record = _recordFromStoredMap(doc.data());
-      if (record != null) {
-        recordsByPolygonId.putIfAbsent(record.polygonId, () => record);
-      }
-    }
-
-    return recordsByPolygonId.values.toList();
+    ).toList();
   }
 
   // Insert or update a visited polygon
@@ -184,15 +152,5 @@ class ProfileService {
         visitedAt: VisitedPolygonRecord.parseVisitedAt(entry.value),
       );
     }
-  }
-
-  VisitedPolygonRecord? _recordFromStoredMap(Map<String, dynamic> data) {
-    final record = VisitedPolygonRecord.fromMap(data);
-
-    if (record.profileId.isEmpty || record.polygonId.isEmpty) {
-      return null;
-    }
-
-    return record;
   }
 }
