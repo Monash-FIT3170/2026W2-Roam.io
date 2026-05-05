@@ -1,8 +1,11 @@
+/*
+ * Author: [Insert Name Here]
+ * Last Modified: 6/05/2026
+ * Description:
+ *   Represents a user profile and maps profile data to and from Firestore.
+ */
+
 /// App-level profile entity stored in Firestore at `profiles/{uid}`.
-///
-/// This model keeps profile data mapping consistent between:
-/// - Dart objects in the app, and
-/// - Firestore documents in the backend.
 class ProfileModel {
   const ProfileModel({
     required this.uid,
@@ -26,6 +29,7 @@ class ProfileModel {
   final DateTime updatedAt;
   final bool darkModeEnabled;
 
+  /// Creates a profile copy with selected fields replaced.
   ProfileModel copyWith({
     String? uid,
     String? username,
@@ -75,12 +79,14 @@ class ProfileModel {
       email: (map['email'] ?? '') as String,
       photoUrl: map['photoUrl'] as String?,
       photoHash: map['photoHash'] as String?,
+      // Older or partial profile documents may not have valid timestamps.
       createdAt:
           DateTime.tryParse((map['createdAt'] ?? '') as String) ??
           DateTime.now(),
       updatedAt:
           DateTime.tryParse((map['updatedAt'] ?? '') as String) ??
           DateTime.now(),
+      // Older profile documents predate this optional preference field.
       darkModeEnabled: (map['darkModeEnabled'] ?? false) as bool,
     );
   }

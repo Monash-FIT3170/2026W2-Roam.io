@@ -1,9 +1,18 @@
+/*
+ * Author: [Insert Name Here]
+ * Last Modified: 6/05/2026
+ * Description:
+ *   Provides the account registration screen for creating new user accounts
+ *   and profiles.
+ */
+
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../../../shared/widgets/app_toast.dart';
 import '../providers/auth_provider.dart';
 
+/// Screen for registering a new account with profile details.
 class SignupScreen extends StatefulWidget {
   const SignupScreen({super.key});
 
@@ -27,6 +36,7 @@ class _SignupScreenState extends State<SignupScreen> {
     super.dispose();
   }
 
+  /// Validates registration fields and creates the account.
   Future<void> _submit() async {
     if (!_formKey.currentState!.validate()) return;
 

@@ -1,6 +1,15 @@
+/*
+ * Author: [Insert Name Here]
+ * Last Modified: 6/05/2026
+ * Description:
+ *   Verifies profile model mapping behaviour for the dark mode preference
+ *   stored in Firestore.
+ */
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:roam_io/features/profile/domain/profile_model.dart';
 
+/// Runs profile model serialization and compatibility tests.
 void main() {
   test('ProfileModel defaults missing dark mode preference to false', () {
     final profile = ProfileModel.fromMap(<String, dynamic>{

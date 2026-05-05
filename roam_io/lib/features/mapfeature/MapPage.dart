@@ -1,7 +1,16 @@
+/*
+ * Author: [Insert Name Here]
+ * Last Modified: 6/05/2026
+ * Description:
+ *   Hosts the map screen and connects map rendering callbacks to map state
+ *   management.
+ */
+
 import 'package:flutter/material.dart';
 import 'package:roam_io/features/mapfeature/MapController.dart';
 import 'package:roam_io/features/mapfeature/MapRender.dart';
 
+/// Screen that displays the interactive map experience.
 class MapPage extends StatefulWidget {
   const MapPage({super.key});
 
@@ -18,6 +27,7 @@ class _MapPageState extends State<MapPage> {
 
     _mapController = MapController();
     _mapController.addListener(_onMapStateChanged);
+    // Initialisation starts location and region loading after the controller is ready.
     _mapController.initialise();
   }
 
@@ -44,7 +54,6 @@ class _MapPageState extends State<MapPage> {
             onMapCreated: _mapController.onMapCreated,
             onCameraIdle: _mapController.loadViewportRegions,
           ),
-
         ],
       ),
     );

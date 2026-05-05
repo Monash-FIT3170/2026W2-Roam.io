@@ -1,3 +1,11 @@
+/*
+ * Author: [Insert Name Here]
+ * Last Modified: 6/05/2026
+ * Description:
+ *   Manages map location state, region polygon loading, viewport caching, and
+ *   Google Maps controller coordination.
+ */
+
 import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
@@ -6,9 +14,12 @@ import 'RegionPolygon.dart';
 import 'RegionService.dart';
 import 'geolocator_service.dart';
 
+/// Coordinates map state, location lookup, and region polygon loading.
 class MapController extends ChangeNotifier {
+  /// Melbourne fallback center used when location lookup is unavailable.
   static const LatLng fallbackCenter = LatLng(-37.8136, 144.9631);
 
+  /// Default zoom level for initial map positioning.
   static const double defaultZoom = 13.5;
 
   final GeoLocatorService _geoLocatorService;
@@ -17,8 +28,8 @@ class MapController extends ChangeNotifier {
   MapController({
     GeoLocatorService? geoLocatorService,
     RegionService? regionService,
-  })  : _geoLocatorService = geoLocatorService ?? GeoLocatorService(),
-        _regionService = regionService ?? RegionService();
+  }) : _geoLocatorService = geoLocatorService ?? GeoLocatorService(),
+       _regionService = regionService ?? RegionService();
 
   GoogleMapController? _googleMapController;
 
@@ -28,30 +39,27 @@ class MapController extends ChangeNotifier {
   bool isLoadingViewport = false;
   String? message;
 
-  
-
   RegionPolygon? currentRegion;
   Set<Polygon> polygons = {};
 
-
-  // cache regions and polygons to avoid constant re-fetchin
+  // Region and polygon caches prevent repeated API fetches for known areas.
   final Map<String, RegionPolygon> _regionCache = {};
   final Map<String, Polygon> _polygonCache = {};
 
   LatLngBounds? _lastLoadedBounds;
   DateTime? _lastViewportLoadTime;
 
-
-
-
+  /// Loads the current location and containing region for the initial map view.
   Future<void> initialise() async {
     await _loadInitialRegion();
   }
 
+  /// Releases the Google Maps controller when the hosting widget is disposed.
   Future<void> disposeController() async {
     _googleMapController?.dispose();
   }
 
+  /// Stores the Google Maps controller and loads polygons for the first view.
   Future<void> onMapCreated(GoogleMapController controller) async {
     _googleMapController = controller;
 
@@ -62,18 +70,11 @@ class MapController extends ChangeNotifier {
     await loadViewportRegions();
   }
 
-
-
-  // polygon for the region you are in 
-
   Future<void> _loadInitialRegion() async {
     try {
       final Position position = await _geoLocatorService.getCurrentLocation();
 
-      final userCenter = LatLng(
-        position.latitude,
-        position.longitude,
-      );
+      final userCenter = LatLng(position.latitude, position.longitude);
 
       final region = await _regionService.getContainingRegion(
         lat: position.latitude,
@@ -91,7 +92,7 @@ class MapController extends ChangeNotifier {
         message = region.name;
         _cacheRegionAsPolygons(
           region: region,
-          strokeColor: const Color(0xFFC084FC), 
+          strokeColor: const Color(0xFFC084FC),
           fillColor: const Color(0x228B5CF6),
           strokeWidth: 5,
         );
@@ -114,11 +115,7 @@ class MapController extends ChangeNotifier {
     }
   }
 
-
-
-
-  // load all other polyons in view and cache
-
+  /// Loads and caches region polygons visible in the current map viewport.
   Future<void> loadViewportRegions() async {
     final controller = _googleMapController;
 
@@ -149,7 +146,7 @@ class MapController extends ChangeNotifier {
         final wasAdded = _cacheRegionAsPolygons(
           region: region,
           strokeColor: const Color(0xFF94A3B8),
-          fillColor: const Color(0x990F172A), //simulate fake fog 
+          fillColor: const Color(0x990F172A),
           strokeWidth: 2,
         );
 
@@ -177,8 +174,11 @@ class MapController extends ChangeNotifier {
     }
   }
 
-
-
+  /// Updates the selected region message when a polygon is tapped.
+  void onRegionTapped(String regionId, String regionName) {
+    message = regionName;
+    notifyListeners();
+  }
 
   bool _cacheRegionAsPolygons({
     required RegionPolygon region,
@@ -206,10 +206,6 @@ class MapController extends ChangeNotifier {
     return true;
   }
 
-
-
-
-
   bool _isWithinDebounceWindow() {
     final now = DateTime.now();
 
@@ -228,9 +224,6 @@ class MapController extends ChangeNotifier {
     return false;
   }
 
-
-
-
   bool _isSimilarToLastBounds(LatLngBounds newBounds) {
     final oldBounds = _lastLoadedBounds;
 
@@ -238,33 +231,21 @@ class MapController extends ChangeNotifier {
 
     const threshold = 0.01;
 
-    final southDiff = (
-      newBounds.southwest.latitude - oldBounds.southwest.latitude
-    ).abs();
+    final southDiff =
+        (newBounds.southwest.latitude - oldBounds.southwest.latitude).abs();
 
-    final westDiff = (
-      newBounds.southwest.longitude - oldBounds.southwest.longitude
-    ).abs();
+    final westDiff =
+        (newBounds.southwest.longitude - oldBounds.southwest.longitude).abs();
 
-    final northDiff = (
-      newBounds.northeast.latitude - oldBounds.northeast.latitude
-    ).abs();
+    final northDiff =
+        (newBounds.northeast.latitude - oldBounds.northeast.latitude).abs();
 
-    final eastDiff = (
-      newBounds.northeast.longitude - oldBounds.northeast.longitude
-    ).abs();
+    final eastDiff =
+        (newBounds.northeast.longitude - oldBounds.northeast.longitude).abs();
 
     return southDiff < threshold &&
         westDiff < threshold &&
         northDiff < threshold &&
         eastDiff < threshold;
-  }
-
-
-
-
-  void onRegionTapped(String regionId, String regionName) {
-    message = regionName;
-    notifyListeners();
   }
 }

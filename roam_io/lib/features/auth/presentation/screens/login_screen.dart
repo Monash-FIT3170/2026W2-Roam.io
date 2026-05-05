@@ -1,3 +1,11 @@
+/*
+ * Author: [Insert Name Here]
+ * Last Modified: 6/05/2026
+ * Description:
+ *   Provides the login screen and navigation to sign-up and password recovery
+ *   flows.
+ */
+
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
@@ -6,6 +14,7 @@ import 'forgot_password_screen.dart';
 import '../providers/auth_provider.dart';
 import 'signup_screen.dart';
 
+/// Screen for signing in with email and password credentials.
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
 
@@ -25,6 +34,7 @@ class _LoginScreenState extends State<LoginScreen> {
     super.dispose();
   }
 
+  /// Validates credentials and submits the sign-in request.
   Future<void> _submit() async {
     if (!_formKey.currentState!.validate()) return;
 
@@ -44,12 +54,14 @@ class _LoginScreenState extends State<LoginScreen> {
     AppToast.success(context, 'Login successful.');
   }
 
+  /// Opens the account registration flow.
   void _openSignup() {
     Navigator.of(
       context,
     ).push(MaterialPageRoute<void>(builder: (_) => const SignupScreen()));
   }
 
+  /// Opens the password reset flow.
   void _openForgotPassword() {
     Navigator.of(context).push(
       MaterialPageRoute<void>(builder: (_) => const ForgotPasswordScreen()),

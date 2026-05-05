@@ -1,9 +1,17 @@
+/*
+ * Author: [Insert Name Here]
+ * Last Modified: 6/05/2026
+ * Description:
+ *   Provides the password reset screen where users request a recovery email.
+ */
+
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../../../shared/widgets/app_toast.dart';
 import '../providers/auth_provider.dart';
 
+/// Screen for requesting a Firebase password reset email.
 class ForgotPasswordScreen extends StatefulWidget {
   const ForgotPasswordScreen({super.key});
 
@@ -21,6 +29,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
     super.dispose();
   }
 
+  /// Validates the email field and sends the password reset request.
   Future<void> _submit() async {
     if (!_formKey.currentState!.validate()) return;
 

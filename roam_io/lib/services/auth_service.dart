@@ -1,10 +1,14 @@
+/*
+ * Author: [Insert Name Here]
+ * Last Modified: 6/05/2026
+ * Description:
+ *   Provides Firebase Authentication operations used by the authentication
+ *   repository and app-level auth state.
+ */
+
 import 'package:firebase_auth/firebase_auth.dart';
 
-/// Thin wrapper around FirebaseAuth.
-///
-/// Purpose:
-/// - Keep raw Firebase SDK calls out of UI code.
-/// - Provide a single place for authentication operations.
+/// Wraps Firebase Authentication calls behind a small app-specific API.
 class AuthService {
   AuthService({FirebaseAuth? firebaseAuth})
     : _firebaseAuth = firebaseAuth ?? FirebaseAuth.instance;
@@ -51,7 +55,7 @@ class AuthService {
     return _firebaseAuth.sendPasswordResetEmail(email: email);
   }
 
-  /// Secure password change flow.
+  /// Re-authenticates the current user and applies a new password.
   ///
   /// Firebase requires recent authentication for sensitive actions, so we:
   /// 1) re-authenticate using current password
@@ -68,6 +72,7 @@ class AuthService {
       );
     }
 
+    // Firebase requires recent authentication before password changes.
     final credential = EmailAuthProvider.credential(
       email: user.email!,
       password: currentPassword,

@@ -1,9 +1,18 @@
+/*
+ * Author: [Insert Name Here]
+ * Last Modified: 6/05/2026
+ * Description:
+ *   Provides the journeys screen UI for displaying past exploration entries
+ *   and journey filters.
+ */
+
 import 'package:flutter/material.dart';
 
 import '../../../../shared/widgets/app_page_header.dart';
 import '../../../../theme/app_colours.dart';
 import '../../../../theme/app_surfaces.dart';
 
+/// Displays the user's journey history and filter controls.
 class JourneysScreen extends StatelessWidget {
   const JourneysScreen({super.key});
 
@@ -78,10 +87,7 @@ class JourneysScreen extends StatelessWidget {
 
           return Container(
             margin: const EdgeInsets.only(right: 12),
-            padding: const EdgeInsets.symmetric(
-              horizontal: 16,
-              vertical: 8,
-            ),
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
             decoration: BoxDecoration(
               color: isSelected
                   ? Theme.of(context).colorScheme.primary
@@ -142,11 +148,7 @@ class JourneysScreen extends StatelessWidget {
               color: iconColor.withValues(alpha: 0.14),
               borderRadius: BorderRadius.circular(16),
             ),
-            child: Icon(
-              icon,
-              color: iconColor,
-              size: 28,
-            ),
+            child: Icon(icon, color: iconColor, size: 28),
           ),
 
           const SizedBox(width: 16),
@@ -197,10 +199,7 @@ class JourneysScreen extends StatelessWidget {
             ),
           ),
 
-          Icon(
-            Icons.chevron_right,
-            color: AppSurfaces.textSubtle(context),
-          ),
+          Icon(Icons.chevron_right, color: AppSurfaces.textSubtle(context)),
         ],
       ),
     );

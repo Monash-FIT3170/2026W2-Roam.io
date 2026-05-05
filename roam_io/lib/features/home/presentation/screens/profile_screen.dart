@@ -1,3 +1,11 @@
+/*
+ * Author: [Insert Name Here]
+ * Last Modified: 6/05/2026
+ * Description:
+ *   Provides the profile screen UI for managing account identity, profile
+ *   photo, password access, logout, and theme preference.
+ */
+
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
@@ -9,6 +17,7 @@ import '../../../../theme/app_colours.dart';
 import '../../../auth/presentation/providers/auth_provider.dart';
 import '../../../auth/presentation/screens/change_password_screen.dart';
 
+/// Screen for viewing and updating the current user's profile settings.
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
 
@@ -24,6 +33,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
   void initState() {
     super.initState();
     _displayNameController.addListener(_handleDisplayNameChanged);
+    // Refresh after the first frame so profile data is current when shown.
     WidgetsBinding.instance.addPostFrameCallback((_) {
       context.read<AuthProvider>().refreshCurrentUser();
     });
@@ -42,6 +52,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     });
   }
 
+  /// Saves a validated display name through the auth provider.
   Future<void> _saveDisplayName() async {
     final displayName = _displayNameController.text.trim();
     if (displayName.isEmpty) {
@@ -68,6 +79,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     });
   }
 
+  /// Opens the image picker and uploads a changed profile photo.
   Future<void> _changeProfilePhoto() async {
     final auth = context.read<AuthProvider>();
     if (auth.isBusy) return;
@@ -106,6 +118,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     AppToast.success(context, 'Profile picture updated successfully.');
   }
 
+  /// Signs out the current user.
   Future<void> _logout() async {
     final auth = context.read<AuthProvider>();
     await auth.signOut();
@@ -119,6 +132,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     }
   }
 
+  /// Persists the user's dark mode preference.
   Future<void> _toggleDarkMode(bool enabled) async {
     final auth = context.read<AuthProvider>();
     await auth.updateDarkModePreference(enabled);
@@ -522,7 +536,6 @@ class _EditableProfileInfoTile extends StatelessWidget {
   }
 }
 
-// 🧾 Info tile
 class _ProfileInfoTile extends StatelessWidget {
   final IconData icon;
   final String label;

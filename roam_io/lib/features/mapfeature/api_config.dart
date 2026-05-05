@@ -1,7 +1,16 @@
+/*
+ * Author: [Insert Name Here]
+ * Last Modified: 6/05/2026
+ * Description:
+ *   Defines configuration values for the spatial API used by map and region
+ *   features.
+ */
 
+/// Centralizes spatial API configuration for region lookup services.
 class ApiConfig {
+  /// Base URL for the spatial API, overridable with a compile-time variable.
   static const String spatialApiBaseUrl = String.fromEnvironment(
     'SPATIAL_API_BASE_URL',
-    defaultValue: 'http://localhost:3000', //'http://10.0.2.2:3000', // use local host for ios and 10.0.2.2 for android runs
+    defaultValue: 'http://localhost:3000',
   );
 }

@@ -1,9 +1,18 @@
+/*
+ * Author: [Insert Name Here]
+ * Last Modified: 6/05/2026
+ * Description:
+ *   Provides the change password screen for authenticated users updating
+ *   account credentials.
+ */
+
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../../../shared/widgets/app_toast.dart';
 import '../providers/auth_provider.dart';
 
+/// Screen for changing the current user's password.
 class ChangePasswordScreen extends StatefulWidget {
   const ChangePasswordScreen({super.key});
 
@@ -25,6 +34,7 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
     super.dispose();
   }
 
+  /// Validates password fields and submits the change request.
   Future<void> _submit() async {
     if (!_formKey.currentState!.validate()) return;
 

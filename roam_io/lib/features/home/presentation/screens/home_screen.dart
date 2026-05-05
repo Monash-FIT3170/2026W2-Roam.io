@@ -1,6 +1,15 @@
+/*
+ * Author: [Insert Name Here]
+ * Last Modified: 6/05/2026
+ * Description:
+ *   Provides the home map placeholder screen shown from the main navigation
+ *   shell.
+ */
+
 import 'package:flutter/material.dart';
 import '../../../../shared/widgets/app_page_header.dart';
 
+/// Displays the home map tab content inside the main shell.
 class HomeScreen extends StatelessWidget {
   const HomeScreen({super.key});
 
@@ -17,9 +26,7 @@ class HomeScreen extends StatelessWidget {
               subtitle: 'Explore nearby places and routes.',
             ),
             SizedBox(height: 12),
-            Center(
-              child: Text('Map content goes here'),
-            ),
+            Center(child: Text('Map content goes here')),
           ],
         ),
       ),
