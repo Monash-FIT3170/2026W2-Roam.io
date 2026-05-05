@@ -76,6 +76,10 @@ class ProfileService {
     final doc = await _profiles.doc(uid).get();
     final data = doc.data();
     if (data == null) return null;
+    if (!data.containsKey('xp') || data['xp'] == null) {
+      await _profiles.doc(uid).update(<String, dynamic>{'xp': 0});
+      data['xp'] = 0;
+    }
     return ProfileModel.fromMap(data);
   }
 

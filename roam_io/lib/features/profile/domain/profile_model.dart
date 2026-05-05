@@ -14,6 +14,7 @@ class ProfileModel {
     required this.createdAt,
     required this.updatedAt,
     this.darkModeEnabled = false,
+    this.xp = 0,
   });
 
   final String uid;
@@ -25,24 +26,31 @@ class ProfileModel {
   final DateTime createdAt;
   final DateTime updatedAt;
   final bool darkModeEnabled;
+  final int xp;
 
   ProfileModel copyWith({
     String? uid,
     String? username,
     String? displayName,
     String? email,
+    String? photoUrl,
+    String? photoHash,
     DateTime? createdAt,
     DateTime? updatedAt,
     bool? darkModeEnabled,
+    int? xp,
   }) {
     return ProfileModel(
       uid: uid ?? this.uid,
       username: username ?? this.username,
       displayName: displayName ?? this.displayName,
       email: email ?? this.email,
+      photoUrl: photoUrl ?? this.photoUrl,
+      photoHash: photoHash ?? this.photoHash,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
       darkModeEnabled: darkModeEnabled ?? this.darkModeEnabled,
+      xp: xp ?? this.xp,
     );
   }
 
@@ -56,6 +64,7 @@ class ProfileModel {
       'createdAt': createdAt.toIso8601String(),
       'updatedAt': updatedAt.toIso8601String(),
       'darkModeEnabled': darkModeEnabled,
+      'xp': xp,
     };
     if (photoUrl != null) {
       data['photoUrl'] = photoUrl;
@@ -82,6 +91,7 @@ class ProfileModel {
           DateTime.tryParse((map['updatedAt'] ?? '') as String) ??
           DateTime.now(),
       darkModeEnabled: (map['darkModeEnabled'] ?? false) as bool,
+      xp: (map['xp'] as num?)?.toInt() ?? 0,
     );
   }
 }

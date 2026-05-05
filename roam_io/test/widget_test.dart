@@ -13,9 +13,10 @@ void main() {
     });
 
     expect(profile.darkModeEnabled, isFalse);
+    expect(profile.xp, 0);
   });
 
-  test('ProfileModel writes dark mode preference to Firestore map', () {
+  test('ProfileModel writes profile fields to Firestore map', () {
     final now = DateTime(2026, 5, 1, 10);
     final profile = ProfileModel(
       uid: 'user-1',
@@ -25,8 +26,10 @@ void main() {
       createdAt: now,
       updatedAt: now,
       darkModeEnabled: true,
+      xp: 25,
     );
 
     expect(profile.toMap()['darkModeEnabled'], isTrue);
+    expect(profile.toMap()['xp'], 25);
   });
 }
