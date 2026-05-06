@@ -11,9 +11,9 @@ app.use(express.json({ limit: '2mb' }));
 
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
-  ssl: {
-    rejectUnauthorized: false,
-  },
+  ssl: process.env.DATABASE_SSL === 'true' 
+    ? { rejectUnauthorized: false } 
+    : false,
 });
 
 app.get('/health', async (req, res) => {

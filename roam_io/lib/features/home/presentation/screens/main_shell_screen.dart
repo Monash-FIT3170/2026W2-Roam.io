@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
 
-import '../../../home/presentation/screens/home_screen.dart';
 import '../../../../shared/widgets/app_bottom_nav_bar.dart';
 import '../../../home/presentation/screens/journeys_screen.dart';
 import '../../../home/presentation/screens/quests_screen.dart';
 import '../../../home/presentation/screens/analytics_screen.dart';
 import '../../../home/presentation/screens/profile_screen.dart';
+import '../../../mapfeature/MapPage.dart';
 
 class MainShellScreen extends StatefulWidget {
   const MainShellScreen({super.key});
@@ -20,7 +20,7 @@ class _MainShellScreenState extends State<MainShellScreen> {
   final pages = const [
     JourneysScreen(),
     QuestsScreen(),
-    HomeScreen(),
+    MapPage(),
     AnalyticsScreen(),
     ProfileScreen(),
   ];
