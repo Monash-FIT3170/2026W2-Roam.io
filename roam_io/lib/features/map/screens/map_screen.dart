@@ -7,18 +7,18 @@
  */
 
 import 'package:flutter/material.dart';
-import 'package:roam_io/features/mapfeature/MapController.dart';
-import 'package:roam_io/features/mapfeature/MapRender.dart';
+import '../data/map_controller.dart';
+import '../widgets/map_render.dart';
 
 /// Screen that displays the interactive map experience.
-class MapPage extends StatefulWidget {
-  const MapPage({super.key});
+class MapScreen extends StatefulWidget {
+  const MapScreen({super.key});
 
   @override
-  State<MapPage> createState() => _MapPageState();
+  State<MapScreen> createState() => _MapPageState();
 }
 
-class _MapPageState extends State<MapPage> {
+class _MapPageState extends State<MapScreen> {
   late final MapController _mapController;
 
   @override

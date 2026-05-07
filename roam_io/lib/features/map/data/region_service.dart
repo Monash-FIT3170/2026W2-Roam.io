@@ -9,8 +9,8 @@
 import 'dart:convert';
 
 import 'package:http/http.dart' as http;
-import 'package:roam_io/features/mapfeature/RegionPolygon.dart';
-import 'package:roam_io/features/mapfeature/api_config.dart';
+import '../domain/region_polygon.dart';
+import 'api_config.dart';
 
 /// Calls the spatial API and converts region responses into map polygons.
 class RegionService {

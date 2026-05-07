@@ -10,9 +10,9 @@ import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 
-import 'RegionPolygon.dart';
-import 'RegionService.dart';
-import 'geolocator_service.dart';
+import '../domain/region_polygon.dart';
+import '../data/region_service.dart';
+import '../data/geolocator_service.dart';
 
 /// Coordinates map state, location lookup, and region polygon loading.
 class MapController extends ChangeNotifier {

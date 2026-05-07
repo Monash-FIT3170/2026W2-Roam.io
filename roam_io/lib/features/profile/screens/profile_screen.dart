@@ -10,12 +10,12 @@ import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
 
-import '../../../../theme/app_surfaces.dart';
-import '../../../../shared/widgets/app_page_header.dart';
-import '../../../../shared/widgets/app_toast.dart';
-import '../../../../theme/app_colours.dart';
-import '../../../auth/presentation/providers/auth_provider.dart';
-import '../../../auth/presentation/screens/change_password_screen.dart';
+import '../../../theme/app_surfaces.dart';
+import '../../../shared/widgets/app_page_header.dart';
+import '../../../shared/widgets/app_toast.dart';
+import '../../../theme/app_colours.dart';
+import '../../auth/providers/auth_provider.dart';
+import '../../auth/screens/change_password_screen.dart';
 
 /// Screen for viewing and updating the current user's profile settings.
 class ProfileScreen extends StatefulWidget {

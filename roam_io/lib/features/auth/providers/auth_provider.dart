@@ -12,8 +12,8 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
 import 'package:image_picker/image_picker.dart';
 
-import '../../data/auth_repository.dart';
-import '../../../profile/domain/profile_model.dart';
+import '../data/auth_repository.dart';
+import '../../profile/domain/profile_model.dart';
 
 /// High-level authentication state used by auth gates and account screens.
 enum AuthViewState { loading, authenticated, unauthenticated }

@@ -9,10 +9,9 @@
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:roam_io/features/mapfeature/MapPage.dart';
 
-import 'features/auth/presentation/providers/auth_provider.dart';
-import 'features/auth/presentation/screens/auth_gate.dart';
+import 'features/auth/providers/auth_provider.dart';
+import 'features/auth/screens/auth_gate_screen.dart';
 import 'firebase_options.dart';
 import 'theme/app_theme.dart';
 
@@ -40,7 +39,7 @@ class MyApp extends StatelessWidget {
             theme: AppTheme.lightTheme,
             darkTheme: AppTheme.darkTheme,
             themeMode: auth.darkModeEnabled ? ThemeMode.dark : ThemeMode.light,
-            home: const AuthGate(),
+            home: const AuthGateScreen(),
           );
         },
       ),

@@ -8,12 +8,12 @@
 
 import 'package:flutter/material.dart';
 
-import '../../../home/presentation/screens/home_screen.dart';
-import '../../../../shared/widgets/app_bottom_nav_bar.dart';
-import '../../../home/presentation/screens/journeys_screen.dart';
-import '../../../home/presentation/screens/quests_screen.dart';
-import '../../../home/presentation/screens/analytics_screen.dart';
-import '../../../home/presentation/screens/profile_screen.dart';
+import '../../map/screens/map_screen.dart';
+import '../../../shared/widgets/app_bottom_nav_bar.dart';
+import '../../journeys/screens/journeys_screen.dart';
+import '../../quests/screens/quests_screen.dart';
+import '../../analytics/screens/analytics_screen.dart';
+import '../../profile/screens/profile_screen.dart';
 
 /// Stateful shell that keeps each main tab alive in an indexed stack.
 class MainShellScreen extends StatefulWidget {
@@ -29,7 +29,7 @@ class _MainShellScreenState extends State<MainShellScreen> {
   final pages = const [
     JourneysScreen(),
     QuestsScreen(),
-    HomeScreen(),
+    MapScreen(),
     AnalyticsScreen(),
     ProfileScreen(),
   ];

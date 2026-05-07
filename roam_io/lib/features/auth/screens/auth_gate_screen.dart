@@ -8,23 +8,21 @@
 
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:roam_io/features/mapfeature/MapPage.dart';
 
-import '../../../home/presentation/screens/map_home.dart';
-import '../../../home/presentation/screens/main_shell_screen.dart';
+import '../../navigation/screens/main_shell_screen.dart';
 import '../providers/auth_provider.dart';
 import 'login_screen.dart';
 import 'verify_email_screen.dart';
 
 /// Chooses the correct top-level screen based on authentication state.
-class AuthGate extends StatefulWidget {
-  const AuthGate({super.key});
+class AuthGateScreen extends StatefulWidget {
+  const AuthGateScreen({super.key});
 
   @override
-  State<AuthGate> createState() => _AuthGateState();
+  State<AuthGateScreen> createState() => _AuthGateState();
 }
 
-class _AuthGateState extends State<AuthGate> {
+class _AuthGateState extends State<AuthGateScreen> {
   @override
   void initState() {
     super.initState();
