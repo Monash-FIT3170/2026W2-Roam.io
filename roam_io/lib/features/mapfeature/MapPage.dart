@@ -40,9 +40,11 @@ class _MapPageState extends State<MapPage> {
           MapRender(
             initialCenter: _mapController.center,
             polygons: _mapController.polygons,
+            markers: _mapController.markers,
             myLocationEnabled: _mapController.myLocationEnabled,
             onMapCreated: _mapController.onMapCreated,
             onCameraIdle: _mapController.loadViewportRegions,
+            onCameraMove: _mapController.onCameraMove,
           ),
 
         ],

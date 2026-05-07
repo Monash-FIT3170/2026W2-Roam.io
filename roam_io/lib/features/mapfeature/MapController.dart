@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 
+import 'PlaceOfInterest.dart';
+import 'PlacesService.dart';
 import 'RegionPolygon.dart';
 import 'RegionService.dart';
 import 'geolocator_service.dart';
@@ -11,14 +13,47 @@ class MapController extends ChangeNotifier {
 
   static const double defaultZoom = 13.5;
 
+  static const String _mapStyle = '''
+[
+  {
+    "featureType": "poi",
+    "elementType": "all",
+    "stylers": [{"visibility": "off"}]
+  },
+  {
+    "featureType": "road",
+    "elementType": "labels",
+    "stylers": [{"visibility": "off"}]
+  },
+  {
+    "featureType": "administrative.locality",
+    "elementType": "labels",
+    "stylers": [{"visibility": "off"}]
+  },
+  {
+    "featureType": "administrative.neighborhood",
+    "elementType": "labels",
+    "stylers": [{"visibility": "off"}]
+  },
+  {
+    "featureType": "transit",
+    "elementType": "all",
+    "stylers": [{"visibility": "off"}]
+  }
+]
+''';
+
   final GeoLocatorService _geoLocatorService;
   final RegionService _regionService;
+  final PlacesService _placesService;
 
   MapController({
     GeoLocatorService? geoLocatorService,
     RegionService? regionService,
+    PlacesService? placesService,
   })  : _geoLocatorService = geoLocatorService ?? GeoLocatorService(),
-        _regionService = regionService ?? RegionService();
+        _regionService = regionService ?? RegionService(),
+        _placesService = placesService ?? PlacesService();
 
   GoogleMapController? _googleMapController;
 
@@ -26,17 +61,22 @@ class MapController extends ChangeNotifier {
   bool myLocationEnabled = false;
   bool isLoading = true;
   bool isLoadingViewport = false;
+  bool isLoadingPlaces = false;
   String? message;
 
   
 
   RegionPolygon? currentRegion;
   Set<Polygon> polygons = {};
+  Set<Marker> markers = {};
 
 
-  // cache regions and polygons to avoid constant re-fetchin
+  // cache regions and polygons to avoid constant re-fetching
   final Map<String, RegionPolygon> _regionCache = {};
   final Map<String, Polygon> _polygonCache = {};
+
+  // cache places to avoid re-fetching (key = regionId)
+  final Map<String, List<PlaceOfInterest>> _placesCache = {};
 
   LatLngBounds? _lastLoadedBounds;
   DateTime? _lastViewportLoadTime;
@@ -45,6 +85,8 @@ class MapController extends ChangeNotifier {
 
 
   Future<void> initialise() async {
+    // Pre-load circle icons for all place categories
+    await PlaceOfInterest.preloadIcons();
     await _loadInitialRegion();
   }
 
@@ -55,11 +97,23 @@ class MapController extends ChangeNotifier {
   Future<void> onMapCreated(GoogleMapController controller) async {
     _googleMapController = controller;
 
+    await _googleMapController?.setMapStyle(_mapStyle);
+
     await _googleMapController?.animateCamera(
       CameraUpdate.newLatLngZoom(center, defaultZoom),
     );
 
     await loadViewportRegions();
+  }
+
+  /// Handle camera movement to update marker sizes based on zoom level.
+  void onCameraMove(CameraPosition position) {
+    final sizeChanged = PlaceOfInterest.updateSizeForZoom(position.zoom);
+    if (sizeChanged) {
+      // Rebuild markers with new size
+      _rebuildMarkers();
+      notifyListeners();
+    }
   }
 
 
@@ -95,6 +149,9 @@ class MapController extends ChangeNotifier {
           fillColor: const Color(0x228B5CF6),
           strokeWidth: 5,
         );
+
+        // Load places for the current (unlocked) region
+        await _loadPlacesForRegion(region.id);
       }
 
       polygons = _polygonCache.values.toSet();
@@ -265,6 +322,72 @@ class MapController extends ChangeNotifier {
 
   void onRegionTapped(String regionId, String regionName) {
     message = regionName;
+    notifyListeners();
+  }
+
+
+
+
+  // ─────────────────────────────────────────────────────────────────────────────
+  // PLACES METHODS
+  // ─────────────────────────────────────────────────────────────────────────────
+
+  /// Load places for a specific region.
+  /// Only fetches from API if not already cached.
+  Future<void> _loadPlacesForRegion(String regionId) async {
+    debugPrint('[MapController] _loadPlacesForRegion called for: $regionId');
+    
+    // Already cached? Just rebuild markers
+    if (_placesCache.containsKey(regionId)) {
+      debugPrint('[MapController] Cache hit - ${_placesCache[regionId]!.length} places');
+      _rebuildMarkers();
+      return;
+    }
+
+    isLoadingPlaces = true;
+    notifyListeners();
+
+    try {
+      debugPrint('[MapController] Fetching places from API...');
+      final places = await _placesService.getPlacesForRegion(
+        regionId: regionId,
+      );
+
+      debugPrint('[MapController] API returned ${places.length} places');
+      _placesCache[regionId] = places;
+      _rebuildMarkers();
+      debugPrint('[MapController] Markers rebuilt: ${markers.length}');
+
+      message = 'Loaded ${places.length} places in this region';
+    } catch (error) {
+      debugPrint('[MapController] ERROR loading places: $error');
+      message = 'Could not load places: $error';
+    } finally {
+      isLoadingPlaces = false;
+      notifyListeners();
+    }
+  }
+
+
+  /// Rebuild the markers set from all cached places.
+  void _rebuildMarkers() {
+    final allMarkers = <Marker>{};
+
+    for (final places in _placesCache.values) {
+      for (final place in places) {
+        allMarkers.add(
+          place.toMarker(onTap: onPlaceTapped),
+        );
+      }
+    }
+
+    markers = allMarkers;
+  }
+
+
+  /// Called when a place marker is tapped.
+  void onPlaceTapped(PlaceOfInterest place) {
+    message = '${place.name} • ${place.category.displayName}';
     notifyListeners();
   }
 }
