@@ -1,6 +1,6 @@
 /*
- * Author: [Insert Name Here]
- * Last Modified: 6/05/2026
+ * Author: Alvin Liong
+ * Last Modified: 24/04/2026
  * Description:
  *   Provides the home map placeholder screen shown from the main navigation
  *   shell.

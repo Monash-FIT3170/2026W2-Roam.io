@@ -1,6 +1,6 @@
 /*
- * Author: [Insert Name Here]
- * Last Modified: 6/05/2026
+ * Author: Alvin Liong
+ * Last Modified: 4/05/2026
  * Description:
  *   Represents a user profile and maps profile data to and from Firestore.
  */

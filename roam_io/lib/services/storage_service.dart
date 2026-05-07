@@ -1,6 +1,6 @@
 /*
- * Author: [Insert Name Here]
- * Last Modified: 6/05/2026
+ * Author: Nathan Nunes
+ * Last Modified: 3/05/2026
  * Description:
  *   Coordinates Firebase Storage uploads and downloads for user profile
  *   images.

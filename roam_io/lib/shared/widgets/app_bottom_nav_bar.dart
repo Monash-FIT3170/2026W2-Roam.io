@@ -1,6 +1,6 @@
 /*
- * Author: [Insert Name Here]
- * Last Modified: 6/05/2026
+ * Author: Sanjevan Rajasegar
+ * Last Modified: 1/05/2026
  * Description:
  *   Provides the reusable bottom navigation bar used by the main app shell.
  */

@@ -1,6 +1,6 @@
 /*
- * Author: [Insert Name Here]
- * Last Modified: 6/05/2026
+ * Author: Sanjevan Rajasegar
+ * Last Modified: 4/05/2026
  * Description:
  *   Provides a reusable page title, subtitle, and optional trailing action
  *   header for app screens.

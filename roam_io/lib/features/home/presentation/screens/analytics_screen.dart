@@ -1,6 +1,6 @@
 /*
- * Author: [Insert Name Here]
- * Last Modified: 6/05/2026
+ * Author: Sanjevan Rajasegar
+ * Last Modified: 3/05/2026
  * Description:
  *   Provides the analytics screen UI for exploration progress, statistics,
  *   heatmap activity, and milestones.

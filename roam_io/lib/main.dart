@@ -1,6 +1,6 @@
 /*
- * Author: [Insert Name Here]
- * Last Modified: 6/05/2026
+ * Author: Alvin Liong
+ * Last Modified: 4/05/2026
  * Description:
  *   Initializes Firebase, wires app-wide authentication state, and launches
  *   the root Roam.io application widget.

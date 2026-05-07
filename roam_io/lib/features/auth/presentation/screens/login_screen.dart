@@ -1,6 +1,6 @@
 /*
- * Author: [Insert Name Here]
- * Last Modified: 6/05/2026
+ * Author: Alvin Liong
+ * Last Modified: 3/05/2026
  * Description:
  *   Provides the login screen and navigation to sign-up and password recovery
  *   flows.

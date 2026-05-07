@@ -1,6 +1,6 @@
 /*
- * Author: [Insert Name Here]
- * Last Modified: 6/05/2026
+ * Author: Sanjevan Rajasegar
+ * Last Modified: 4/05/2026
  * Description:
  *   Provides the profile screen UI for managing account identity, profile
  *   photo, password access, logout, and theme preference.

@@ -1,6 +1,6 @@
 /*
- * Author: [Insert Name Here]
- * Last Modified: 6/05/2026
+ * Author: Rushil Patel
+ * Last Modified: 27/04/2026
  * Description:
  *   Manages map location state, region polygon loading, viewport caching, and
  *   Google Maps controller coordination.

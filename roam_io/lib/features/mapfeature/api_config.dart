@@ -1,6 +1,6 @@
 /*
- * Author: [Insert Name Here]
- * Last Modified: 6/05/2026
+ * Author: Rushil Patel
+ * Last Modified: 28/04/2026
  * Description:
  *   Defines configuration values for the spatial API used by map and region
  *   features.

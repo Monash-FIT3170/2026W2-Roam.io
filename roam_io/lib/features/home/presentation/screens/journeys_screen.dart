@@ -1,6 +1,6 @@
 /*
- * Author: [Insert Name Here]
- * Last Modified: 6/05/2026
+ * Author: Sanjevan Rajasegar
+ * Last Modified: 3/05/2026
  * Description:
  *   Provides the journeys screen UI for displaying past exploration entries
  *   and journey filters.

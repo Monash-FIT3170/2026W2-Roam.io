@@ -1,6 +1,6 @@
 /*
- * Author: [Insert Name Here]
- * Last Modified: 6/05/2026
+ * Author: Rushil Patel
+ * Last Modified: 27/04/2026
  * Description:
  *   Fetches spatial region data from the backend for current-location and
  *   viewport-based map queries.

@@ -1,6 +1,6 @@
 /*
- * Author: [Insert Name Here]
- * Last Modified: 6/05/2026
+ * Author: Sanjevan Rajasegar
+ * Last Modified: 24/04/2026
  * Description:
  *   Defines the shared colour palette used across Roam.io themes and custom
  *   widgets.

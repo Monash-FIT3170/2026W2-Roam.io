@@ -1,6 +1,6 @@
 /*
- * Author: [Insert Name Here]
- * Last Modified: 6/05/2026
+ * Author: Alvin Liong
+ * Last Modified: 4/05/2026
  * Description:
  *   Manages authentication state, profile state, loading flags, and account
  *   actions exposed to the widget tree.

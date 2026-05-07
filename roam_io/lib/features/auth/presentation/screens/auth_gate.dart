@@ -1,6 +1,6 @@
 /*
- * Author: [Insert Name Here]
- * Last Modified: 6/05/2026
+ * Author: Alvin Liong
+ * Last Modified: 4/05/2026
  * Description:
  *   Routes users between loading, login, email verification, and authenticated
  *   app shell states.

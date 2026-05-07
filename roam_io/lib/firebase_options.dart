@@ -1,6 +1,6 @@
 /*
- * Author: [Insert Name Here]
- * Last Modified: 6/05/2026
+ * Author: Alvin Liong
+ * Last Modified: 21/04/2026
  * Description:
  *   Provides generated Firebase configuration options for the supported
  *   Roam.io app platforms.

@@ -1,6 +1,6 @@
 /*
- * Author: [Insert Name Here]
- * Last Modified: 6/05/2026
+ * Author: Sanjevan Rajasegar
+ * Last Modified: 3/05/2026
  * Description:
  *   Provides shared surface, border, text, and shadow colours that adapt to
  *   the active theme brightness.

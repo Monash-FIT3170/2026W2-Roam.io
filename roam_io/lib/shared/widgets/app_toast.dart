@@ -1,6 +1,6 @@
 /*
- * Author: [Insert Name Here]
- * Last Modified: 6/05/2026
+ * Author: Sanjevan Rajasegar
+ * Last Modified: 3/05/2026
  * Description:
  *   Provides reusable floating toast messages for success, error, and general
  *   feedback.

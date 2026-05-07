@@ -1,6 +1,6 @@
 /*
- * Author: [Insert Name Here]
- * Last Modified: 6/05/2026
+ * Author: Rushil Patel
+ * Last Modified: 27/04/2026
  * Description:
  *   Provides device location access and permission handling for map features.
  */

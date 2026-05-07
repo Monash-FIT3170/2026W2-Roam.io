@@ -1,6 +1,6 @@
 /*
- * Author: [Insert Name Here]
- * Last Modified: 6/05/2026
+ * Author: Alvin Liong
+ * Last Modified: 1/05/2026
  * Description:
  *   Provides Firebase Authentication operations used by the authentication
  *   repository and app-level auth state.

@@ -1,6 +1,6 @@
 /*
- * Author: [Insert Name Here]
- * Last Modified: 6/05/2026
+ * Author: Sanjevan Rajasegar
+ * Last Modified: 24/04/2026
  * Description:
  *   Provides the quests screen UI for discovering challenge and exploration
  *   content.

@@ -1,6 +1,6 @@
 /*
- * Author: [Insert Name Here]
- * Last Modified: 6/05/2026
+ * Author: Alvin Liong
+ * Last Modified: 4/05/2026
  * Description:
  *   Coordinates authentication, profile, and storage services for user account
  *   workflows.
