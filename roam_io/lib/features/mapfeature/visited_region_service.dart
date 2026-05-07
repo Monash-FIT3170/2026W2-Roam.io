@@ -4,15 +4,15 @@
 
 import 'package:firebase_auth/firebase_auth.dart';
 
-import '../../services/profile_service.dart';
+import '../../services/polygon_service.dart';
 
 class VisitedRegionService {
-  VisitedRegionService({FirebaseAuth? auth, ProfileService? profileService})
+  VisitedRegionService({FirebaseAuth? auth, PolygonService? polygonService})
     : _auth = auth ?? FirebaseAuth.instance,
-      _profileService = profileService ?? ProfileService();
+      _polygonService = polygonService ?? PolygonService();
 
   final FirebaseAuth _auth;
-  final ProfileService _profileService;
+  final PolygonService _polygonService;
 
   // Loads the set of region IDs the user has visited. Returns empty set if not
   Future<Set<String>> loadVisitedRegionIds() async {
@@ -22,7 +22,7 @@ class VisitedRegionService {
       return <String>{};
     }
 
-    final records = await _profileService.getVisitedPolygonRecords(
+    final records = await _polygonService.getVisitedPolygonRecords(
       profileId: user.uid,
     );
 
@@ -37,7 +37,7 @@ class VisitedRegionService {
       return false;
     }
 
-    await _profileService.upsertVisitedPolygon(
+    await _polygonService.upsertVisitedPolygon(
       profileId: user.uid,
       polygonId: regionId,
       visitedAt: visitedAt ?? DateTime.now(),

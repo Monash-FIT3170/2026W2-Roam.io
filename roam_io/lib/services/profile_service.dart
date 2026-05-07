@@ -1,7 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 
 import '../features/profile/domain/profile_model.dart';
-import '../features/profile/domain/visited_polygon_record.dart';
 
 /// Thin wrapper for Firestore profile operations.
 ///
@@ -9,8 +8,6 @@ import '../features/profile/domain/visited_polygon_record.dart';
 /// do not depend on Firestore APIs directly.
 class ProfileService {
   static const String _profilesCollectionName = 'profiles';
-  static const String _visitedPolygonsCollectionName = 'polygons_visited';
-  static const String _visitedPolygonsMapField = 'visited_polygons';
 
   ProfileService({FirebaseFirestore? firestore})
     : _firestore = firestore ?? FirebaseFirestore.instance;
@@ -19,9 +16,6 @@ class ProfileService {
 
   CollectionReference<Map<String, dynamic>> get _profiles =>
       _firestore.collection(_profilesCollectionName);
-
-  CollectionReference<Map<String, dynamic>> get _visitedPolygons =>
-      _firestore.collection(_visitedPolygonsCollectionName);
 
   /// Creates/replaces profile document at `profiles/{uid}`.
   Future<void> createProfile(ProfileModel profile) {
@@ -79,45 +73,6 @@ class ProfileService {
     });
   }
 
-  // Returns all of the visited polygons that a player has visited
-  Future<List<VisitedPolygonRecord>> getVisitedPolygonRecords({
-    required String profileId,
-  }) async {
-    final currentData = (await _visitedPolygons.doc(profileId).get()).data();
-    final rawPolygonMap = currentData?[_visitedPolygonsMapField];
-    return _recordsFromVisitedPolygonMap(
-      profileId: profileId,
-      rawPolygonMap: rawPolygonMap,
-    ).toList();
-  }
-
-  // Insert or update a visited polygon
-  Future<void> upsertVisitedPolygon({
-    required String profileId,
-    required String polygonId,
-    DateTime? visitedAt,
-  }) async {
-    final time = visitedAt ?? DateTime.now();
-
-    final document = _visitedPolygons.doc(profileId);
-
-    await _firestore.runTransaction((transaction) async {
-      final snapshot = await transaction.get(document);
-      final currentData = snapshot.data();
-      final currentPolygonMap =
-          (currentData?[_visitedPolygonsMapField] as Map<String, dynamic>?) ??
-          <String, dynamic>{};
-
-      final updatedPolygonMap = Map<String, dynamic>.from(currentPolygonMap)
-        ..[polygonId] = Timestamp.fromDate(time);
-
-      transaction.set(document, <String, dynamic>{
-        'profile_id': profileId,
-        _visitedPolygonsMapField: updatedPolygonMap,
-      }, SetOptions(merge: true));
-    });
-  }
-
   /// Reads a profile by uid. Returns null when not found.
   Future<ProfileModel?> getProfile(String uid) async {
     final doc = await _profiles.doc(uid).get();
@@ -133,24 +88,4 @@ class ProfileService {
     });
   }
 
-  Iterable<VisitedPolygonRecord> _recordsFromVisitedPolygonMap({
-    required String profileId,
-    required dynamic rawPolygonMap,
-  }) sync* {
-    if (rawPolygonMap is! Map<String, dynamic>) {
-      return;
-    }
-
-    for (final entry in rawPolygonMap.entries) {
-      if (entry.key.isEmpty) {
-        continue;
-      }
-
-      yield VisitedPolygonRecord(
-        profileId: profileId,
-        polygonId: entry.key,
-        visitedAt: VisitedPolygonRecord.parseVisitedAt(entry.value),
-      );
-    }
-  }
 }
