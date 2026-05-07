@@ -20,7 +20,7 @@ class RegionPolygonCache {
   static const int _visitedStrokeWidth = 3;
 
   static const Color _unvisitedStrokeColor = Color(0xFF4A4A4A);
-  static const Color _unvisitedFillColor = Color(0xB3242424);
+  static const Color _unvisitedFillColor = Color(0xCC080808);
   static const int _unvisitedStrokeWidth = 2;
 
   // Keeps the original region data in memory so we can reuse it later.
