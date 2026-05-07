@@ -11,7 +11,7 @@ import 'package:geolocator/geolocator.dart';
 class GeoLocatorService {
   /// Returns the current high-accuracy device position.
   Future<Position> getCurrentLocation() async {
-    bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
+    final bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
     if (!serviceEnabled) {
       throw Exception('Location services are disabled');
     }

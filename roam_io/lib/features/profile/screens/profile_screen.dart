@@ -472,7 +472,7 @@ class _EditableProfileInfoTile extends StatelessWidget {
               children: [
                 Text(
                   label,
-                  style: TextStyle(
+                  style: const TextStyle(
                     fontSize: 11,
                     fontWeight: FontWeight.w700,
                     color: AppColors.sage,
@@ -484,7 +484,7 @@ class _EditableProfileInfoTile extends StatelessWidget {
                   enabled: enabled,
                   autofocus: true,
                   cursorColor: AppColors.sage,
-                  style: TextStyle(
+                  style: const TextStyle(
                     fontSize: 14,
                     fontWeight: FontWeight.w700,
                     color: AppColors.ink,
@@ -497,7 +497,7 @@ class _EditableProfileInfoTile extends StatelessWidget {
                       horizontal: 10,
                       vertical: 8,
                     ),
-                    suffixIcon: Icon(
+                    suffixIcon: const Icon(
                       Icons.edit_rounded,
                       size: 17,
                       color: AppColors.sage,
