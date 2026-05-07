@@ -193,8 +193,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     onPressed: auth.isBusy || profile == null
                         ? null
                         : _isEditing
-                            ? _saveDisplayName
-                            : () => _startEditing(displayName),
+                        ? _saveDisplayName
+                        : () => _startEditing(displayName),
                     style: TextButton.styleFrom(
                       foregroundColor: AppColors.sage,
                       textStyle: const TextStyle(
@@ -260,8 +260,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                                         context,
                                                         error,
                                                         stackTrace,
-                                                      ) =>
-                                                          Icon(
+                                                      ) => Icon(
                                                         Icons.person_rounded,
                                                         size: 34,
                                                         color:
