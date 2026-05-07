@@ -41,6 +41,8 @@ dependencies:
   firebase_storage: ^13.3.0
   image_picker: ^1.2.2
   provider: ^6.1.5+1
+  google_maps_flutter: ^2.6.0
+  geolocator: ^14.0.2
 
 dev_dependencies:
   flutter_test:
@@ -58,6 +60,8 @@ dev_dependencies:
 
 # The following section is specific to Flutter packages.
 flutter:
+
+
 
   # The following line ensures that the Material Icons font is
   # included with your application, so that you can use the icons in
