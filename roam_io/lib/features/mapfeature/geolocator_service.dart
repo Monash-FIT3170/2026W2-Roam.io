@@ -1,12 +1,20 @@
-// Wraps geolocation access for the map feature so permission and device
-// location calls are isolated from UI/controller code. This keeps map logic
-// easier to test and change.
+/*
+ * Author: Amarprit Singh
+ * Last Modified: 07/05/2026
+ * Description:
+ * 
+ *   Wraps geolocation access for the map feature so permission and device
+ *   location calls are isolated from UI/controller code. This keeps map logic
+ *   easier to test and change.
+ * 
+ */
 
 import 'package:geolocator/geolocator.dart';
 
 class GeoLocatorService {
   static const int distanceRefreshThresholdMeters = 5;
 
+  // Ensures location services are enabled and permissions are granted, throwing if not.
   Future<void> _ensureLocationAccess() async {
     final serviceEnabled = await Geolocator.isLocationServiceEnabled();
     if (!serviceEnabled) {
@@ -15,6 +23,7 @@ class GeoLocatorService {
 
     var permission = await Geolocator.checkPermission();
 
+    // Request permission if not already granted. If denied again or permanently, throw.
     if (permission == LocationPermission.denied) {
       permission = await Geolocator.requestPermission();
     }
@@ -28,6 +37,7 @@ class GeoLocatorService {
     }
   }
 
+  // s/o my label, that's me
   // function to get the current location of the user
   Future<Position> getCurrentLocation() async {
     await _ensureLocationAccess();

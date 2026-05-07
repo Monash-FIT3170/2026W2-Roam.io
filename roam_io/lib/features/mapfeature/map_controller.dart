@@ -1,6 +1,13 @@
-// Coordinates map state, location updates, region loading, and visited-region
-// styling in one controller. This gives the page a single place to manage
-// map behavior without pushing orchestration into widgets.
+/*
+ * Author: Amarprit Singh
+ * Last Modified: 07/05/2026
+ * Description:
+ * 
+ *   Coordinates map state, location updates, region loading, and visited-region
+ *   styling in one controller. This gives the page a single place to manage
+ *   map behavior without pushing orchestration into widgets. 
+ * 
+ */
 
 import 'dart:async';
 
@@ -16,6 +23,7 @@ import 'visited_region_service.dart';
 import 'geolocator_service.dart';
 
 class MapController extends ChangeNotifier {
+
   static const LatLng fallbackCenter = LatLng(
     -37.8136,
     144.9631,
@@ -25,6 +33,7 @@ class MapController extends ChangeNotifier {
   // we apply transparent polygon styling for polygons visited and a darker grey polygon styling for unvisited
   static const String _visitedTilesStyleAsset =
       'assets/map_styles/visited_tiles.json';
+
 
   static const double defaultZoom = 13.5;
 
@@ -60,6 +69,7 @@ class MapController extends ChangeNotifier {
   LatLngBounds? _lastLoadedBounds;
   DateTime? _lastViewportLoadTime;
 
+
   Future<void> initialise() async {
     await _loadMapStyle();
     await _loadVisitedPolygonIds();
@@ -67,10 +77,12 @@ class MapController extends ChangeNotifier {
     await _startLocationUpdates();
   }
 
+
   Future<void> disposeController() async {
     await _locationSubscription?.cancel();
     _googleMapController?.dispose();
   }
+
 
   Future<void> onMapCreated(GoogleMapController controller) async {
     _googleMapController = controller;
@@ -82,6 +94,7 @@ class MapController extends ChangeNotifier {
     await loadViewportRegions();
   }
 
+
   Future<void> _loadMapStyle() async {
     try {
       mapStyle = await rootBundle.loadString(_visitedTilesStyleAsset);
@@ -90,6 +103,7 @@ class MapController extends ChangeNotifier {
       notifyListeners();
     }
   }
+
 
   Future<void> _loadVisitedPolygonIds() async {
     try {
@@ -100,7 +114,8 @@ class MapController extends ChangeNotifier {
       message = 'Failed to load visited polygons';
       notifyListeners();
     }
-  }
+  } 
+
 
   Future<void> _loadInitialRegion() async {
     try {
@@ -128,6 +143,7 @@ class MapController extends ChangeNotifier {
       notifyListeners();
     }
   }
+
 
   Future<void> _loadCurrentRegionForPosition(Position position) async {
     try {
@@ -161,6 +177,7 @@ class MapController extends ChangeNotifier {
     }
   }
 
+
   Future<void> _startLocationUpdates() async {
     await _locationSubscription?.cancel();
 
@@ -181,6 +198,7 @@ class MapController extends ChangeNotifier {
     }
   }
 
+
   Future<void> _refreshCurrentLocation(Position position) async {
     try {
       center = LatLng(position.latitude, position.longitude);
@@ -192,6 +210,7 @@ class MapController extends ChangeNotifier {
       notifyListeners();
     }
   }
+
 
   Future<void> loadViewportRegions() async {
     final controller = _googleMapController;

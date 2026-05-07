@@ -1,6 +1,13 @@
-// Caches loaded regions and their rendered polygons so the map can restyle and
-// reuse them without rebuilding everything from scratch. This helps viewport
-// loading stay efficient as the user moves around.
+/*
+ * Author: Amarprit Singh
+ * Last Modified: 07/05/2026
+ * Description:
+ * 
+ *   Caches loaded regions and their rendered polygons so the map can restyle and
+ *   reuse them without rebuilding everything from scratch. This helps viewport
+ *   loading stay efficient as the user moves around.
+ * 
+ */
 
 import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
@@ -48,6 +55,7 @@ class RegionPolygonCache {
     return !wasAlreadyCached;
   }
 
+
   // Rebuilds the polygons for every cached region.
   // This is useful when the visited state changes and the colors need to update.
   void refreshStyles({
@@ -63,6 +71,7 @@ class RegionPolygonCache {
     }
   }
 
+  
   // Returns all polygons that are ready to be drawn on the map.
   Set<Polygon> get polygons => _polygonsById.values.toSet();
 

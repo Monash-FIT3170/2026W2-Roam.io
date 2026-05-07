@@ -1,5 +1,16 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 
+/*
+ * Author: Amarprit Singh
+ * Last Modified: 07/05/2026
+ * Description:
+ * 
+ *  Defined the type for a single visited polygon entry that links to a user
+ *  Object represents which polygon was visited and when it was visited
+ *  Defined helper to convert visited polygon data to and from firestore format
+ * 
+ */
+
 // Represents a record of a user visiting a specific polygon/region.
 class VisitedPolygonRecord {
   const VisitedPolygonRecord({
