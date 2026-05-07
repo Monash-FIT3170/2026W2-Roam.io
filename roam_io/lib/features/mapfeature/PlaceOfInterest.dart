@@ -103,6 +103,12 @@ class PlaceOfInterest {
   // Cache for circle icons: [category][size] -> icon
   static final Map<PlaceCategory, Map<MarkerSize, BitmapDescriptor>> _iconCache = {};
   
+  // Cache for visited icons: [size] -> icon (same style for all categories)
+  static final Map<MarkerSize, BitmapDescriptor> _visitedIconCache = {};
+  
+  // Visited marker color - a muted green with checkmark
+  static const Color _visitedColor = Color(0xFF6B7280); // Gray-500
+  
   // Current marker size level
   static MarkerSize _currentSize = MarkerSize.medium;
   
@@ -111,6 +117,7 @@ class PlaceOfInterest {
 
   /// Pre-generate all category icons at all sizes. Call this once at app startup.
   static Future<void> preloadIcons() async {
+    // Generate category icons
     for (final category in PlaceCategory.values) {
       _iconCache[category] = {};
       for (final size in MarkerSize.values) {
@@ -119,6 +126,11 @@ class PlaceOfInterest {
           size: size.pixelSize,
         );
       }
+    }
+    
+    // Generate visited icons (same for all categories)
+    for (final size in MarkerSize.values) {
+      _visitedIconCache[size] = await _createVisitedIcon(size: size.pixelSize);
     }
   }
 
@@ -165,6 +177,62 @@ class PlaceOfInterest {
     canvas.drawCircle(center + Offset(1, size / 18), radius, shadowPaint);
     canvas.drawCircle(center, radius, fillPaint);
     canvas.drawCircle(center, radius, strokePaint);
+
+    final picture = recorder.endRecording();
+    final image = await picture.toImage(size.toInt(), size.toInt());
+    final bytes = await image.toByteData(format: ui.ImageByteFormat.png);
+
+    return BitmapDescriptor.bytes(bytes!.buffer.asUint8List());
+  }
+
+  /// Creates a visited icon: gray circle with white checkmark.
+  static Future<BitmapDescriptor> _createVisitedIcon({
+    double size = 36,
+  }) async {
+    final recorder = ui.PictureRecorder();
+    final canvas = Canvas(recorder);
+
+    final strokeWidth = size / 12;
+
+    // Fill circle (gray)
+    final fillPaint = Paint()
+      ..color = _visitedColor
+      ..style = PaintingStyle.fill;
+
+    // White border
+    final strokePaint = Paint()
+      ..color = Colors.white
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = strokeWidth;
+
+    // Shadow
+    final shadowPaint = Paint()
+      ..color = Colors.black.withOpacity(0.3)
+      ..maskFilter = MaskFilter.blur(BlurStyle.normal, size / 18);
+
+    final center = Offset(size / 2, size / 2);
+    final radius = size / 2 - strokeWidth - 2;
+
+    canvas.drawCircle(center + Offset(1, size / 18), radius, shadowPaint);
+    canvas.drawCircle(center, radius, fillPaint);
+    canvas.drawCircle(center, radius, strokePaint);
+
+    // Draw checkmark
+    final checkPaint = Paint()
+      ..color = Colors.white
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = size / 8
+      ..strokeCap = StrokeCap.round
+      ..strokeJoin = StrokeJoin.round;
+
+    final checkPath = Path();
+    // Checkmark proportions relative to center
+    final checkSize = radius * 0.5;
+    checkPath.moveTo(center.dx - checkSize * 0.5, center.dy);
+    checkPath.lineTo(center.dx - checkSize * 0.1, center.dy + checkSize * 0.4);
+    checkPath.lineTo(center.dx + checkSize * 0.5, center.dy - checkSize * 0.35);
+
+    canvas.drawPath(checkPath, checkPaint);
 
     final picture = recorder.endRecording();
     final image = await picture.toImage(size.toInt(), size.toInt());
@@ -242,11 +310,23 @@ class PlaceOfInterest {
   /// Creates a marker with a circle icon at the current size level.
   /// Uses cached icons (call preloadIcons() at app start).
   /// Falls back to default marker if icons not yet loaded.
+  /// 
+  /// If [visited] is true, displays a gray checkmark icon instead of category color.
   Marker toMarker({
     void Function(PlaceOfInterest place)? onTap,
+    bool visited = false,
   }) {
-    final icon = _iconCache[category]?[_currentSize] ??
-        BitmapDescriptor.defaultMarkerWithHue(category.markerHue);
+    final BitmapDescriptor icon;
+    
+    if (visited) {
+      // Use visited icon (gray with checkmark)
+      icon = _visitedIconCache[_currentSize] ??
+          BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueAzure);
+    } else {
+      // Use category-colored icon
+      icon = _iconCache[category]?[_currentSize] ??
+          BitmapDescriptor.defaultMarkerWithHue(category.markerHue);
+    }
 
     return Marker(
       markerId: MarkerId('place_$id'),

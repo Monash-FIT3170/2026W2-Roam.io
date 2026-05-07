@@ -6,12 +6,30 @@ import 'PlaceOfInterest.dart';
 import 'PlacesService.dart';
 import 'RegionPolygon.dart';
 import 'RegionService.dart';
+import 'VisitService.dart';
 import 'geolocator_service.dart';
+
+/// Result of attempting to mark a place as visited.
+enum VisitResult {
+  /// Successfully marked as visited.
+  success,
+  /// User is not logged in.
+  notLoggedIn,
+  /// Place has already been visited.
+  alreadyVisited,
+  /// User is too far from the place (beyond proximity threshold).
+  tooFar,
+  /// An error occurred (network, Firestore, etc).
+  error,
+}
 
 class MapController extends ChangeNotifier {
   static const LatLng fallbackCenter = LatLng(-37.8136, 144.9631);
 
   static const double defaultZoom = 13.5;
+
+  /// Maximum distance (in meters) user can be from a place to mark it as visited.
+  static const double visitProximityThreshold = 100.0;
 
   static const String _mapStyle = '''
 [
@@ -46,14 +64,17 @@ class MapController extends ChangeNotifier {
   final GeoLocatorService _geoLocatorService;
   final RegionService _regionService;
   final PlacesService _placesService;
+  final VisitService _visitService;
 
   MapController({
     GeoLocatorService? geoLocatorService,
     RegionService? regionService,
     PlacesService? placesService,
+    VisitService? visitService,
   })  : _geoLocatorService = geoLocatorService ?? GeoLocatorService(),
         _regionService = regionService ?? RegionService(),
-        _placesService = placesService ?? PlacesService();
+        _placesService = placesService ?? PlacesService(),
+        _visitService = visitService ?? VisitService();
 
   GoogleMapController? _googleMapController;
 
@@ -63,6 +84,12 @@ class MapController extends ChangeNotifier {
   bool isLoadingViewport = false;
   bool isLoadingPlaces = false;
   String? message;
+
+  // User authentication
+  String? _userId;
+
+  // Visited places tracking
+  Set<int> _visitedPlaceIds = {};
 
   
 
@@ -84,10 +111,43 @@ class MapController extends ChangeNotifier {
 
 
 
-  Future<void> initialise() async {
+  Future<void> initialise({String? userId}) async {
+    _userId = userId;
+    
     // Pre-load circle icons for all place categories
     await PlaceOfInterest.preloadIcons();
+    
+    // Load visited places if user is logged in
+    if (_userId != null) {
+      await _loadVisitedPlaces();
+    }
+    
     await _loadInitialRegion();
+  }
+
+  /// Sets the user ID and loads their visited places.
+  /// Call this when the user logs in.
+  Future<void> setUserId(String? userId) async {
+    _userId = userId;
+    if (userId != null) {
+      await _loadVisitedPlaces();
+    } else {
+      _visitedPlaceIds = {};
+    }
+    _rebuildMarkers();
+    notifyListeners();
+  }
+
+  /// Load visited place IDs from Firestore.
+  Future<void> _loadVisitedPlaces() async {
+    if (_userId == null) return;
+    
+    try {
+      _visitedPlaceIds = await _visitService.getVisitedPlaceIds(_userId!);
+      debugPrint('[MapController] Loaded ${_visitedPlaceIds.length} visited places');
+    } catch (error) {
+      debugPrint('[MapController] Error loading visited places: $error');
+    }
   }
 
   Future<void> disposeController() async {
@@ -375,8 +435,12 @@ class MapController extends ChangeNotifier {
 
     for (final places in _placesCache.values) {
       for (final place in places) {
+        final isVisited = _visitedPlaceIds.contains(place.id);
         allMarkers.add(
-          place.toMarker(onTap: onPlaceTapped),
+          place.toMarker(
+            onTap: onPlaceTapped,
+            visited: isVisited,
+          ),
         );
       }
     }
@@ -385,9 +449,119 @@ class MapController extends ChangeNotifier {
   }
 
 
+  /// Callback invoked when a place marker is tapped.
+  /// Set this to show the place details sheet.
+  void Function(PlaceOfInterest place)? onPlaceSelected;
+
   /// Called when a place marker is tapped.
   void onPlaceTapped(PlaceOfInterest place) {
     message = '${place.name} • ${place.category.displayName}';
     notifyListeners();
+    
+    // Notify external listener (e.g., to show details sheet)
+    onPlaceSelected?.call(place);
+  }
+
+
+  // ─────────────────────────────────────────────────────────────────────────────
+  // VISIT METHODS
+  // ─────────────────────────────────────────────────────────────────────────────
+
+  /// Check if a place has been visited by the current user.
+  bool isPlaceVisited(int placeId) {
+    return _visitedPlaceIds.contains(placeId);
+  }
+
+  /// Get all visited place IDs.
+  Set<int> get visitedPlaceIds => Set.unmodifiable(_visitedPlaceIds);
+
+  /// Calculate distance in meters between user's current location and a place.
+  /// Returns null if unable to get user location.
+  Future<double?> getDistanceToPlace(PlaceOfInterest place) async {
+    try {
+      final position = await _geoLocatorService.getCurrentLocation();
+      return Geolocator.distanceBetween(
+        position.latitude,
+        position.longitude,
+        place.location.latitude,
+        place.location.longitude,
+      );
+    } catch (error) {
+      debugPrint('[MapController] Error getting distance to place: $error');
+      return null;
+    }
+  }
+
+  /// Check if user is within proximity threshold of a place.
+  /// Returns the distance in meters, or null if unable to determine.
+  Future<({bool isNear, double? distance})> checkProximity(PlaceOfInterest place) async {
+    final distance = await getDistanceToPlace(place);
+    if (distance == null) {
+      return (isNear: false, distance: null);
+    }
+    return (isNear: distance <= visitProximityThreshold, distance: distance);
+  }
+
+  /// Mark a place as visited.
+  /// Validates that user is within [visitProximityThreshold] meters of the place.
+  Future<VisitResult> markPlaceAsVisited(PlaceOfInterest place) async {
+    if (_userId == null) {
+      debugPrint('[MapController] Cannot mark visited: no user logged in');
+      message = 'Please log in to mark places as visited';
+      notifyListeners();
+      return VisitResult.notLoggedIn;
+    }
+
+    if (_visitedPlaceIds.contains(place.id)) {
+      debugPrint('[MapController] Place ${place.id} already visited');
+      message = 'You have already visited ${place.name}';
+      notifyListeners();
+      return VisitResult.alreadyVisited;
+    }
+
+    // Check proximity
+    final proximity = await checkProximity(place);
+    if (!proximity.isNear) {
+      final distanceText = proximity.distance != null
+          ? '${proximity.distance!.round()}m away'
+          : 'too far away';
+      debugPrint('[MapController] User is $distanceText from ${place.name}');
+      message = 'You need to be within ${visitProximityThreshold.round()}m to visit this place ($distanceText)';
+      notifyListeners();
+      return VisitResult.tooFar;
+    }
+
+    try {
+      await _visitService.markVisited(
+        userId: _userId!,
+        place: place,
+      );
+
+      _visitedPlaceIds.add(place.id);
+      _rebuildMarkers();
+      
+      message = 'Visited ${place.name}!';
+      notifyListeners();
+      
+      debugPrint('[MapController] Marked place ${place.id} as visited');
+      return VisitResult.success;
+    } catch (error) {
+      debugPrint('[MapController] Error marking place as visited: $error');
+      message = 'Could not save visit: $error';
+      notifyListeners();
+      return VisitResult.error;
+    }
+  }
+
+  /// Get a place by its ID from the cache.
+  PlaceOfInterest? getPlaceById(int placeId) {
+    for (final places in _placesCache.values) {
+      for (final place in places) {
+        if (place.id == placeId) {
+          return place;
+        }
+      }
+    }
+    return null;
   }
 }
