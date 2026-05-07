@@ -1,3 +1,11 @@
+/*
+ * Author: Alvin Liong
+ * Last Modified: 4/05/2026
+ * Description:
+ *   Coordinates authentication, profile, and storage services for user account
+ *   workflows.
+ */
+
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:crypto/crypto.dart';
 import 'package:image_picker/image_picker.dart';
@@ -7,12 +15,7 @@ import '../../../services/auth_service.dart';
 import '../../../services/profile_service.dart';
 import '../../../services/storage_service.dart';
 
-/// Repository that orchestrates auth + profile workflows.
-///
-/// Why this layer exists:
-/// - UI/provider code calls one stable API.
-/// - Multi-step backend flows live in one place.
-/// - Service implementations can change without rewriting UI logic.
+/// Orchestrates multi-step auth, profile, and profile photo workflows.
 class AuthRepository {
   AuthRepository({
     AuthService? authService,
@@ -32,10 +35,7 @@ class AuthRepository {
   /// Currently authenticated user.
   User? get currentUser => _authService.currentUser;
 
-  /// Registration flow:
-  /// 1) create Firebase Auth account
-  /// 2) create Firestore profile document
-  /// 3) send verification email
+  /// Creates a Firebase Auth account, profile document, and verification email.
   Future<void> signUp({
     required String email,
     required String password,
@@ -49,6 +49,7 @@ class AuthRepository {
 
     final user = credential.user;
     if (user == null) {
+      // Firebase should return a user after account creation; surface a clear error if not.
       throw FirebaseAuthException(
         code: 'user-not-found',
         message: 'User account was not created correctly.',
@@ -69,7 +70,7 @@ class AuthRepository {
     await _authService.sendEmailVerification();
   }
 
-  /// Email/password sign in.
+  /// Signs in a user with email and password credentials.
   Future<void> signIn({required String email, required String password}) async {
     await _authService.signInWithEmailAndPassword(
       email: email,
@@ -77,18 +78,18 @@ class AuthRepository {
     );
   }
 
-  /// Initiates forgot-password email flow.
+  /// Sends a password reset email to the requested address.
   Future<void> sendPasswordResetEmail(String email) {
     return _authService.sendPasswordResetEmail(email: email);
   }
 
-  /// Resends verification email for current user.
+  /// Resends the verification email for the current user.
   Future<void> sendVerificationEmail() => _authService.sendEmailVerification();
 
-  /// Refreshes current user state from Firebase (useful for emailVerified).
+  /// Refreshes current user state from Firebase, including email verification.
   Future<void> reloadCurrentUser() => _authService.reloadCurrentUser();
 
-  /// Changes password after user re-authentication.
+  /// Changes the current user's password after re-authentication.
   Future<void> changePassword({
     required String currentPassword,
     required String newPassword,
@@ -113,14 +114,14 @@ class AuthRepository {
     await _authService.updateDisplayName(displayName);
   }
 
-  /// Loads signed-in user's profile from Firestore.
+  /// Loads the signed-in user's profile from Firestore.
   Future<ProfileModel?> getCurrentUserProfile() async {
     final user = currentUser;
     if (user == null) return null;
     return _profileService.getProfile(user.uid);
   }
 
-  /// Persists the signed-in user's dark mode preference.
+  /// Persists the signed-in user's dark mode preference in Firestore.
   Future<void> updateDarkModePreference(bool enabled) async {
     final user = currentUser;
     if (user == null) {
@@ -136,6 +137,7 @@ class AuthRepository {
     );
   }
 
+  /// Uploads a profile image when it differs from the current stored photo.
   Future<ProfilePhotoUploadResult> uploadProfilePicture({
     required XFile image,
   }) async {
@@ -158,6 +160,7 @@ class AuthRepository {
     if (currentProfile?.photoHash == null &&
         currentPhotoUrl != null &&
         currentPhotoUrl.isNotEmpty) {
+      // Older profiles may have a photo URL but no stored hash yet.
       final currentPhotoHash = await _tryHashCurrentProfilePhoto(
         currentPhotoUrl,
       );
@@ -199,4 +202,5 @@ class AuthRepository {
   Future<void> signOut() => _authService.signOut();
 }
 
+/// Result of comparing a selected profile photo with the stored profile photo.
 enum ProfilePhotoUploadResult { updated, unchanged }

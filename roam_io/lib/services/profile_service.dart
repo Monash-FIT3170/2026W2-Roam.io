@@ -1,11 +1,16 @@
+/*
+ * Author: Alvin Liong
+ * Last Modified: 4/05/2026
+ * Description:
+ *   Provides Firestore profile document operations for account details,
+ *   preferences, and profile photo metadata.
+ */
+
 import 'package:cloud_firestore/cloud_firestore.dart';
 
 import '../features/profile/domain/profile_model.dart';
 
-/// Thin wrapper for Firestore profile operations.
-///
-/// This service owns reads/writes to the `profiles` collection so higher layers
-/// do not depend on Firestore APIs directly.
+/// Owns reads and writes for Firestore documents in the `profiles` collection.
 class ProfileService {
   ProfileService({FirebaseFirestore? firestore})
     : _firestore = firestore ?? FirebaseFirestore.instance;
@@ -38,7 +43,7 @@ class ProfileService {
     return _profiles.doc(uid).update(data);
   }
 
-  /// Updates the user's saved theme preference.
+  /// Updates the user's saved dark mode preference.
   Future<void> updateDarkModePreference({
     required String uid,
     required bool enabled,
@@ -49,6 +54,7 @@ class ProfileService {
     });
   }
 
+  /// Stores the user's profile photo URL and content hash.
   Future<void> updateProfilePhoto({
     required String uid,
     required String photoUrl,
@@ -61,6 +67,7 @@ class ProfileService {
     });
   }
 
+  /// Stores a content hash for an existing profile photo.
   Future<void> updateProfilePhotoHash({
     required String uid,
     required String photoHash,
@@ -79,6 +86,7 @@ class ProfileService {
     return ProfileModel.fromMap(data);
   }
 
+  /// Updates the display name shown in profile surfaces.
   Future<void> updateDisplayName(String uid, String displayName) async {
     await _profiles.doc(uid).update(<String, dynamic>{
       'displayName': displayName,
