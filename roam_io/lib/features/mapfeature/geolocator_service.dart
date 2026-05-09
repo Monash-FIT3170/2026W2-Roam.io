@@ -26,20 +26,37 @@ class GeoLocatorService {
       throw Exception('Location permission permanently denied');
     }
 
-    final lastKnown = await Geolocator.getLastKnownPosition();
-
-    if (lastKnown != null) {
-      debugPrint(
-        '[GeoLocatorService] last known position: ${lastKnown.latitude}, ${lastKnown.longitude}',
+    try {
+      final currentPosition = await Geolocator.getCurrentPosition(
+        locationSettings: const LocationSettings(
+          accuracy: LocationAccuracy.medium,
+          timeLimit: Duration(seconds: 8),
+        ),
       );
-      return lastKnown;
-    }
 
-    return Geolocator.getCurrentPosition(
-      locationSettings: const LocationSettings(
-        accuracy: LocationAccuracy.medium,
-        timeLimit: Duration(seconds: 8),
-      ),
-    );
+      debugPrint(
+        '[GeoLocatorService] current position: '
+        '${currentPosition.latitude}, ${currentPosition.longitude}',
+      );
+
+      return currentPosition;
+    } catch (error) {
+      debugPrint(
+        '[GeoLocatorService] current position failed, trying last known: $error',
+      );
+
+      final lastKnownPosition = await Geolocator.getLastKnownPosition();
+
+      if (lastKnownPosition != null) {
+        debugPrint(
+          '[GeoLocatorService] last known position: '
+          '${lastKnownPosition.latitude}, ${lastKnownPosition.longitude}',
+        );
+
+        return lastKnownPosition;
+      }
+
+      throw Exception('Could not get current or last known location: $error');
+    }
   }
 }
