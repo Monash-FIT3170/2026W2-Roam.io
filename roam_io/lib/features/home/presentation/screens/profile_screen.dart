@@ -319,7 +319,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                 _LevelProgressBar(
                                   level: profile.level,
                                   xp: profile.xp,
-                                  xpPerLevel: ProfileModel.xpPerLevel,
                                   progressColor: colorScheme.primary,
                                   backgroundColor:
                                       colorScheme.primary.withValues(alpha: 0.16),
@@ -539,7 +538,6 @@ class _EditableProfileInfoTile extends StatelessWidget {
 class _LevelProgressBar extends StatelessWidget {
   final int level;
   final int xp;
-  final int xpPerLevel;
   final Color progressColor;
   final Color backgroundColor;
   final Color textColor;
@@ -547,7 +545,6 @@ class _LevelProgressBar extends StatelessWidget {
   const _LevelProgressBar({
     required this.level,
     required this.xp,
-    required this.xpPerLevel,
     required this.progressColor,
     required this.backgroundColor,
     required this.textColor,
@@ -555,9 +552,17 @@ class _LevelProgressBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final currentXp = xp % xpPerLevel;
-    final progress = xpPerLevel > 0 ? currentXp / xpPerLevel : 0.0;
-    final xpRemaining = xpPerLevel - currentXp;
+    final totalXpForLevel = ProfileModel.totalXpToReachLevel(level);
+    final currentLevelXp = xp - totalXpForLevel;
+    final nextLevelXp = level >= ProfileModel.maxLevel
+        ? currentLevelXp
+        : ProfileModel.xpForLevel(level);
+    final progress = level >= ProfileModel.maxLevel
+        ? 1.0
+        : (nextLevelXp > 0 ? currentLevelXp / nextLevelXp : 0.0);
+    final xpRemaining = level >= ProfileModel.maxLevel
+        ? 0
+        : nextLevelXp - currentLevelXp;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -574,7 +579,9 @@ class _LevelProgressBar extends StatelessWidget {
               ),
             ),
             Text(
-              '$currentXp / $xpPerLevel XP',
+              level >= ProfileModel.maxLevel
+                  ? 'Max level'
+                  : '$currentLevelXp / $nextLevelXp XP',
               style: TextStyle(
                 fontSize: 12,
                 fontWeight: FontWeight.w600,
@@ -595,9 +602,9 @@ class _LevelProgressBar extends StatelessWidget {
         ),
         const SizedBox(height: 6),
         Text(
-          xpRemaining > 0
-              ? 'Only $xpRemaining XP to level ${level + 1}'
-              : 'Next level reached!',
+          level >= ProfileModel.maxLevel
+              ? 'Max level reached'
+              : 'Only $xpRemaining XP to level ${level + 1}',
           style: TextStyle(
             fontSize: 11,
             color: textColor.withValues(alpha: 0.68),

@@ -1,16 +1,63 @@
+import 'dart:math' as math;
+
 /// App-level profile entity stored in Firestore at `profiles/{uid}`.
 ///
 /// This model keeps profile data mapping consistent between:
 /// - Dart objects in the app, and
 /// - Firestore documents in the backend.
 class ProfileModel {
-  /// Placeholder XP threshold to determine level progression.
-  static const int xpPerLevel = 100;
+  /// Maximum level a user can reach.
+  static const int maxLevel = 100;
+
+  /// Base XP requirement for the first level-up.
+  static const int baseXpPerLevel = 100;
+
+  /// Growth rate used to scale XP requirements for each subsequent level.
+  static const double xpGrowthRate = 1.12;
+
+  /// Returns the XP required to progress from [level] to [level + 1].
+  static int xpForLevel(int level) {
+    if (level <= 1) {
+      return baseXpPerLevel;
+    }
+
+    return math.max(
+      baseXpPerLevel,
+      (baseXpPerLevel * math.pow(xpGrowthRate, level - 1)).round(),
+    );
+  }
+
+  /// Returns the cumulative XP required to reach [level].
+  ///
+  /// Level 1 is the starting point and requires 0 total XP.
+  static int totalXpToReachLevel(int level) {
+    if (level <= 1) return 0;
+
+    var total = 0;
+    for (var currentLevel = 1;
+        currentLevel < math.min(level, maxLevel);
+        currentLevel += 1) {
+      total += xpForLevel(currentLevel);
+    }
+
+    return total;
+  }
 
   /// Converts earned XP into a profile level.
-  ///
-  /// For now, every `xpPerLevel` XP increases the level by 1.
-  static int levelFromXp(int xp) => (xp ~/ xpPerLevel) + 1;
+  static int levelFromXp(int xp) {
+    if (xp < 0) return 1;
+
+    var accumulatedXp = 0;
+    for (var currentLevel = 1; currentLevel < maxLevel; currentLevel += 1) {
+      final requiredXp = xpForLevel(currentLevel);
+      if (xp < accumulatedXp + requiredXp) {
+        return currentLevel;
+      }
+      accumulatedXp += requiredXp;
+    }
+
+    return maxLevel;
+  }
 
   const ProfileModel({
     required this.uid,
