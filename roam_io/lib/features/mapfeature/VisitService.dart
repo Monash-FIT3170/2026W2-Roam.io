@@ -15,7 +15,7 @@ class VisitService {
 
   /// Gets the visits subcollection for a user.
   CollectionReference<Map<String, dynamic>> _visitsCollection(String userId) {
-    return _firestore.collection('users').doc(userId).collection('visits');
+    return _firestore.collection('profiles').doc(userId).collection('visits');
   }
 
   /// Marks a place as visited by the user.

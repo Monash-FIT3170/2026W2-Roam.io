@@ -182,7 +182,14 @@ class MapController extends ChangeNotifier {
 
   Future<void> _loadInitialRegion() async {
     try {
+
+      debugPrint('[MapController] Loading initial region...');
+
       final Position position = await _geoLocatorService.getCurrentLocation();
+
+      debugPrint(
+  '[MapController] User location: ${position.latitude}, ${position.longitude}',
+);
 
       final userCenter = LatLng(
         position.latitude,
@@ -226,6 +233,7 @@ class MapController extends ChangeNotifier {
       isLoading = false;
       myLocationEnabled = false;
       message = 'Could not load location/region: $error';
+      debugPrint('[MapController] Initial region/location error: $error');
 
       notifyListeners();
     }
