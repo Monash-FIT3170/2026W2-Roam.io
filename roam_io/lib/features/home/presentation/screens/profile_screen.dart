@@ -6,6 +6,7 @@ import '../../../../theme/app_surfaces.dart';
 import '../../../../shared/widgets/app_page_header.dart';
 import '../../../../shared/widgets/app_toast.dart';
 import '../../../../theme/app_colours.dart';
+import '../../../profile/domain/profile_model.dart';
 import '../../../auth/presentation/providers/auth_provider.dart';
 import '../../../auth/presentation/screens/change_password_screen.dart';
 
@@ -314,6 +315,19 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
                               const SizedBox(height: 14),
 
+                              if (profile != null) ...[
+                                _LevelProgressBar(
+                                  level: profile.level,
+                                  xp: profile.xp,
+                                  xpPerLevel: ProfileModel.xpPerLevel,
+                                  progressColor: colorScheme.primary,
+                                  backgroundColor:
+                                      colorScheme.primary.withValues(alpha: 0.16),
+                                  textColor: colorScheme.onSurface,
+                                ),
+                                const SizedBox(height: 14),
+                              ],
+
                               _ProfileInfoTile(
                                 icon: Icons.email_outlined,
                                 label: 'Email',
@@ -518,6 +532,78 @@ class _EditableProfileInfoTile extends StatelessWidget {
           ),
         ],
       ),
+    );
+  }
+}
+
+class _LevelProgressBar extends StatelessWidget {
+  final int level;
+  final int xp;
+  final int xpPerLevel;
+  final Color progressColor;
+  final Color backgroundColor;
+  final Color textColor;
+
+  const _LevelProgressBar({
+    required this.level,
+    required this.xp,
+    required this.xpPerLevel,
+    required this.progressColor,
+    required this.backgroundColor,
+    required this.textColor,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final currentXp = xp % xpPerLevel;
+    final progress = xpPerLevel > 0 ? currentXp / xpPerLevel : 0.0;
+    final xpRemaining = xpPerLevel - currentXp;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Text(
+              'Level $level',
+              style: TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w800,
+                color: textColor,
+              ),
+            ),
+            Text(
+              '$currentXp / $xpPerLevel XP',
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+                color: textColor.withValues(alpha: 0.72),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 8),
+        ClipRRect(
+          borderRadius: BorderRadius.circular(12),
+          child: LinearProgressIndicator(
+            value: progress.clamp(0.0, 1.0).toDouble(),
+            minHeight: 10,
+            valueColor: AlwaysStoppedAnimation<Color>(progressColor),
+            backgroundColor: backgroundColor,
+          ),
+        ),
+        const SizedBox(height: 6),
+        Text(
+          xpRemaining > 0
+              ? 'Only $xpRemaining XP to level ${level + 1}'
+              : 'Next level reached!',
+          style: TextStyle(
+            fontSize: 11,
+            color: textColor.withValues(alpha: 0.68),
+          ),
+        ),
+      ],
     );
   }
 }
