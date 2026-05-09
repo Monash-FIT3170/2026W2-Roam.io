@@ -9,6 +9,8 @@
 import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 
+import '../domain/map_styles.dart';
+
 /// Stateless Google Map wrapper used by the map page.
 class MapRender extends StatelessWidget {
   const MapRender({
@@ -30,6 +32,7 @@ class MapRender extends StatelessWidget {
   Widget build(BuildContext context) {
     return GoogleMap(
       initialCameraPosition: CameraPosition(target: initialCenter, zoom: 13.5),
+      style: MapStyles.forBrightness(Theme.of(context).brightness),
       onMapCreated: onMapCreated,
       polygons: polygons,
       myLocationEnabled: myLocationEnabled,

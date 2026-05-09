@@ -1,5 +1,5 @@
 /*
- * Author: [Insert Name Here]
+ * Author: Sanjevan Rajasegar
  * Last Modified: 9/05/2026
  * Description:
  *   Regression tests for profile screen dark mode toggling preserving profile
