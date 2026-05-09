@@ -104,4 +104,22 @@ class ProfileService {
       'updatedAt': DateTime.now().toIso8601String(),
     });
   }
+
+  /// Updates the user's XP and recalculates level if necessary.
+  Future<void> updateXp(String uid, int newXp) async {
+    final expectedLevel = ProfileModel.levelFromXp(newXp);
+    await _profiles.doc(uid).update(<String, dynamic>{
+      'xp': newXp,
+      'level': expectedLevel,
+      'updatedAt': DateTime.now().toIso8601String(),
+    });
+  }
+
+  /// Adds XP to the user's current XP and recalculates level if necessary.
+  Future<void> addXp(String uid, int xpToAdd) async {
+    final profile = await getProfile(uid);
+    if (profile == null) return;
+    final newXp = profile.xp + xpToAdd;
+    await updateXp(uid, newXp);
+  }
 }
