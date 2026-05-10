@@ -35,7 +35,13 @@ class VisitedPolygonRecord {
   // Creates a VisitedPolygonRecord from Firestore data (Map).
   factory VisitedPolygonRecord.fromMap(Map<String, dynamic> map) {
     return VisitedPolygonRecord(
-      profileId: (map['profile_id'] ?? map['profileId'] ?? '') as String,
+      profileId:
+          (map['profile_id'] ??
+                  map['profileId'] ??
+                  map['user_id'] ??
+                  map['userId'] ??
+                  '')
+              as String,
       polygonId: (map['polygon_id'] ?? map['polygonId'] ?? '') as String,
       visitedAt: parseVisitedAt(map['visited_at'] ?? map['lastVisitedAt']),
     );

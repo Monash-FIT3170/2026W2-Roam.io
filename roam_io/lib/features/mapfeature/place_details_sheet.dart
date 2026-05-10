@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 
 import '../../theme/app_colours.dart';
-import 'MapController.dart';
-import 'PlaceOfInterest.dart';
+import 'map_controller.dart';
+import 'Place_of_interest.dart';
 
 /// Bottom sheet displayed when a place marker is tapped.
 /// Shows place details and allows marking the place as visited.
@@ -26,10 +26,8 @@ class PlaceDetailsSheet extends StatefulWidget {
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (context) => PlaceDetailsSheet(
-        place: place,
-        mapController: mapController,
-      ),
+      builder: (context) =>
+          PlaceDetailsSheet(place: place, mapController: mapController),
     );
   }
 
@@ -49,7 +47,9 @@ class _PlaceDetailsSheetState extends State<PlaceDetailsSheet> {
   }
 
   Future<void> _loadDistance() async {
-    final distance = await widget.mapController.getDistanceToPlace(widget.place);
+    final distance = await widget.mapController.getDistanceToPlace(
+      widget.place,
+    );
     if (mounted) {
       setState(() {
         _distance = distance;
@@ -94,7 +94,8 @@ class _PlaceDetailsSheetState extends State<PlaceDetailsSheet> {
         break;
       case VisitResult.tooFar:
         setState(() {
-          _errorMessage = 'You need to be within ${MapController.visitProximityThreshold.round()}m to visit this place';
+          _errorMessage =
+              'You need to be within ${MapController.visitProximityThreshold.round()}m to visit this place';
         });
         break;
       case VisitResult.notLoggedIn:
@@ -116,7 +117,9 @@ class _PlaceDetailsSheetState extends State<PlaceDetailsSheet> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final isNearby = _distance != null && _distance! <= MapController.visitProximityThreshold;
+    final isNearby =
+        _distance != null &&
+        _distance! <= MapController.visitProximityThreshold;
 
     return Container(
       decoration: BoxDecoration(
@@ -181,7 +184,10 @@ class _PlaceDetailsSheetState extends State<PlaceDetailsSheet> {
                   // Visited badge
                   if (_isVisited)
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 10,
+                        vertical: 4,
+                      ),
                       decoration: BoxDecoration(
                         color: AppColors.sage.withOpacity(0.15),
                         borderRadius: BorderRadius.circular(12),
@@ -214,11 +220,7 @@ class _PlaceDetailsSheetState extends State<PlaceDetailsSheet> {
                 children: [
                   // Rating
                   if (widget.place.rating != null) ...[
-                    Icon(
-                      Icons.star,
-                      size: 18,
-                      color: Colors.amber[700],
-                    ),
+                    Icon(Icons.star, size: 18, color: Colors.amber[700]),
                     const SizedBox(width: 4),
                     Text(
                       widget.place.rating!.toStringAsFixed(1),
@@ -247,7 +249,9 @@ class _PlaceDetailsSheetState extends State<PlaceDetailsSheet> {
                       _formatDistance(_distance!),
                       style: theme.textTheme.bodyMedium?.copyWith(
                         color: isNearby ? AppColors.sage : Colors.grey[600],
-                        fontWeight: isNearby ? FontWeight.w600 : FontWeight.normal,
+                        fontWeight: isNearby
+                            ? FontWeight.w600
+                            : FontWeight.normal,
                       ),
                     )
                   else
@@ -294,11 +298,7 @@ class _PlaceDetailsSheetState extends State<PlaceDetailsSheet> {
                   ),
                   child: Row(
                     children: [
-                      Icon(
-                        Icons.info_outline,
-                        size: 20,
-                        color: AppColors.clay,
-                      ),
+                      Icon(Icons.info_outline, size: 20, color: AppColors.clay),
                       const SizedBox(width: 8),
                       Expanded(
                         child: Text(

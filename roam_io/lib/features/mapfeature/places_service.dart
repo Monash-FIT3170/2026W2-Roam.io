@@ -2,7 +2,7 @@ import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
-import 'package:roam_io/features/mapfeature/PlaceOfInterest.dart';
+import 'package:roam_io/features/mapfeature/Place_of_interest.dart';
 import 'package:roam_io/features/mapfeature/api_config.dart';
 
 

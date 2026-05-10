@@ -7,8 +7,8 @@ import 'package:provider/provider.dart';
 import 'package:roam_io/features/auth/presentation/providers/auth_provider.dart';
 import 'package:roam_io/features/mapfeature/map_controller.dart';
 import 'package:roam_io/features/mapfeature/map_render.dart';
-import 'package:roam_io/features/mapfeature/PlaceDetailsSheet.dart';
-import 'package:roam_io/features/mapfeature/PlaceOfInterest.dart';
+import 'package:roam_io/features/mapfeature/place_details_sheet.dart';
+import 'package:roam_io/features/mapfeature/Place_of_interest.dart';
 
 class MapPage extends StatefulWidget {
   const MapPage({super.key});
@@ -28,7 +28,7 @@ class _MapPageState extends State<MapPage> {
     _mapController = MapController();
     _mapController.addListener(_onMapStateChanged);
     _mapController.onPlaceSelected = _showPlaceDetails;
-    
+
     // Get user ID from auth provider and initialize
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final authProvider = context.read<AuthProvider>();

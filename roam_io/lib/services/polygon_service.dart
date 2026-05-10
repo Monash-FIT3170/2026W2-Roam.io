@@ -4,6 +4,10 @@ import '../features/profile/domain/visited_polygon_record.dart';
 
 class PolygonService {
   static const String _visitedPolygonsCollectionName = 'polygons_visited';
+  static const String _profileIdFieldName = 'profile_id';
+  static const String _legacyProfileIdFieldName = 'profileId';
+  static const String _userIdFieldName = 'user_id';
+  static const String _legacyUserIdFieldName = 'userId';
   static const String _visitedPolygonsMapField = 'visited_polygons';
 
   PolygonService({FirebaseFirestore? firestore})
@@ -18,7 +22,8 @@ class PolygonService {
   Future<List<VisitedPolygonRecord>> getVisitedPolygonRecords({
     required String profileId,
   }) async {
-    final currentData = (await _visitedPolygons.doc(profileId).get()).data();
+    final document = await _resolveVisitedPolygonDocument(profileId);
+    final currentData = (await document.get()).data();
     final rawPolygonMap = currentData?[_visitedPolygonsMapField];
 
     return _recordsFromVisitedPolygonMap(
@@ -34,7 +39,7 @@ class PolygonService {
     DateTime? visitedAt,
   }) async {
     final time = visitedAt ?? DateTime.now();
-    final document = _visitedPolygons.doc(profileId);
+    final document = await _resolveVisitedPolygonDocument(profileId);
 
     await _firestore.runTransaction((transaction) async {
       final snapshot = await transaction.get(document);
@@ -47,7 +52,8 @@ class PolygonService {
         ..[polygonId] = Timestamp.fromDate(time);
 
       transaction.set(document, <String, dynamic>{
-        'profile_id': profileId,
+        _profileIdFieldName: profileId,
+        _userIdFieldName: profileId,
         _visitedPolygonsMapField: updatedPolygonMap,
       }, SetOptions(merge: true));
     });
@@ -59,15 +65,16 @@ class PolygonService {
     required String polygonId,
     required DateTime visitedAt,
   }) async {
-    final document = _visitedPolygons.doc(profileId);
+    final document = await _resolveVisitedPolygonDocument(profileId);
 
     await document.set({
-      'profile_id': profileId,
+      _profileIdFieldName: profileId,
+      _userIdFieldName: profileId,
     }, SetOptions(merge: true));
 
     await document.update({
       'visited_polygons.$polygonId': Timestamp.fromDate(visitedAt),
-    }); 
+    });
   }
 
   // Deletes a visited polygon record for the profile.
@@ -75,19 +82,59 @@ class PolygonService {
     required String profileId,
     required String polygonId,
   }) async {
-    final document = _visitedPolygons.doc(profileId);
+    final document = await _resolveVisitedPolygonDocument(profileId);
 
     await document.set({
-      'profile_id': profileId,
+      _profileIdFieldName: profileId,
+      _userIdFieldName: profileId,
     }, SetOptions(merge: true));
 
-    await document.update({
-      'visited_polygons.$polygonId': FieldValue.delete(),
-    });
+    await document.update({'visited_polygons.$polygonId': FieldValue.delete()});
   }
 
+  Future<DocumentReference<Map<String, dynamic>>>
+  _resolveVisitedPolygonDocument(String profileId) async {
+    final directDocument = _visitedPolygons.doc(profileId);
+    final directSnapshot = await directDocument.get();
 
-  // Turns firestore data (polygon_id, visited_at) into polygon objects 
+    if (directSnapshot.exists) {
+      return directDocument;
+    }
+
+    final matchedDocument = await _findExistingVisitedPolygonDocument(
+      profileId,
+    );
+
+    return matchedDocument ?? directDocument;
+  }
+
+  Future<DocumentReference<Map<String, dynamic>>?>
+  _findExistingVisitedPolygonDocument(String profileId) async {
+    for (final fieldName in <String>[
+      _profileIdFieldName,
+      _legacyProfileIdFieldName,
+      _userIdFieldName,
+      _legacyUserIdFieldName,
+    ]) {
+      try {
+        final snapshot = await _visitedPolygons
+            .where(fieldName, isEqualTo: profileId)
+            .limit(1)
+            .get();
+
+        if (snapshot.docs.isNotEmpty) {
+          return snapshot.docs.first.reference;
+        }
+      } on FirebaseException {
+        // Some environments deny collection queries for this collection, so we
+        // fall back to the uid-keyed document shape instead of hard-failing.
+      }
+    }
+
+    return null;
+  }
+
+  // Turns firestore data (polygon_id, visited_at) into polygon objects
   Iterable<VisitedPolygonRecord> _recordsFromVisitedPolygonMap({
     required String profileId,
     required dynamic rawPolygonMap,

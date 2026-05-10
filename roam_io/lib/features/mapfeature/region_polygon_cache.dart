@@ -23,6 +23,9 @@ class RegionPolygonCache {
   static const Color _unvisitedFillColor = Color(0xCC080808);
   static const int _unvisitedStrokeWidth = 2;
 
+  static const Color _currentRegionStrokeColor = Color(0xFFF3D27A);
+  static const int _currentRegionStrokeWidth = 5;
+
   // Keeps the original region data in memory so we can reuse it later.
   // The key is the region's unique ID.
   final Map<String, RegionPolygon> _regionsById = <String, RegionPolygon>{};
@@ -36,15 +39,22 @@ class RegionPolygonCache {
   bool cacheRegion({
     required RegionPolygon region,
     required bool isVisited,
+    required bool isCurrentRegion,
     required void Function(String regionId, String regionName) onRegionTapped,
   }) {
     final wasAlreadyCached = _regionsById.containsKey(region.id);
     _regionsById[region.id] = region;
 
     final googlePolygons = region.toGooglePolygons(
-      strokeColor: _strokeColorForVisited(isVisited),
+      strokeColor: _strokeColorForRegion(
+        isVisited: isVisited,
+        isCurrentRegion: isCurrentRegion,
+      ),
       fillColor: _fillColorForVisited(isVisited),
-      strokeWidth: _strokeWidthForVisited(isVisited),
+      strokeWidth: _strokeWidthForRegion(
+        isVisited: isVisited,
+        isCurrentRegion: isCurrentRegion,
+      ),
       onTap: onRegionTapped,
     );
 
@@ -55,27 +65,34 @@ class RegionPolygonCache {
     return !wasAlreadyCached;
   }
 
-
   // Rebuilds the polygons for every cached region.
   // This is useful when the visited state changes and the colors need to update.
   void refreshStyles({
     required bool Function(String regionId) shouldRenderAsVisited,
+    required bool Function(String regionId) isCurrentRegion,
     required void Function(String regionId, String regionName) onRegionTapped,
   }) {
     for (final region in _regionsById.values) {
       cacheRegion(
         region: region,
         isVisited: shouldRenderAsVisited(region.id),
+        isCurrentRegion: isCurrentRegion(region.id),
         onRegionTapped: onRegionTapped,
       );
     }
   }
 
-  
   // Returns all polygons that are ready to be drawn on the map.
   Set<Polygon> get polygons => _polygonsById.values.toSet();
 
-  Color _strokeColorForVisited(bool isVisited) {
+  Color _strokeColorForRegion({
+    required bool isVisited,
+    required bool isCurrentRegion,
+  }) {
+    if (isCurrentRegion) {
+      return _currentRegionStrokeColor;
+    }
+
     return isVisited ? _visitedStrokeColor : _unvisitedStrokeColor;
   }
 
@@ -83,7 +100,14 @@ class RegionPolygonCache {
     return isVisited ? _visitedFillColor : _unvisitedFillColor;
   }
 
-  int _strokeWidthForVisited(bool isVisited) {
+  int _strokeWidthForRegion({
+    required bool isVisited,
+    required bool isCurrentRegion,
+  }) {
+    if (isCurrentRegion) {
+      return _currentRegionStrokeWidth;
+    }
+
     return isVisited ? _visitedStrokeWidth : _unvisitedStrokeWidth;
   }
 }
