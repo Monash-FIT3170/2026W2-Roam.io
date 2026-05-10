@@ -29,10 +29,7 @@ class _MainShellScreenState extends State<MainShellScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       extendBody: true,
-      body: IndexedStack(
-        index: selectedIndex,
-        children: pages,
-      ),
+      body: IndexedStack(index: selectedIndex, children: pages),
       bottomNavigationBar: AppBottomNavBar(
         currentIndex: selectedIndex,
         onTap: (index) {

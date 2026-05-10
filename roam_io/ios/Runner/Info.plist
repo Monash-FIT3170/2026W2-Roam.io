@@ -51,6 +51,13 @@
 	<key>NSPhotoLibraryAddUsageDescription</key>
 	<string>Roam.io needs permission to save profile images to your photo library.</string>
 
+	<!-- Allow localhost HTTP connections for development -->
+	<key>NSAppTransportSecurity</key>
+	<dict>
+		<key>NSAllowsLocalNetworking</key>
+		<true/>
+	</dict>
+
 	<key>UIApplicationSceneManifest</key>
 	<dict>
 		<key>UIApplicationSupportsMultipleScenes</key>

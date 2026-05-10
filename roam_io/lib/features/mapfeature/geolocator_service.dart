@@ -1,18 +1,20 @@
 /*
  * Author: Amarprit Singh
- * Last Modified: 07/05/2026
+ * Last Modified: 10/05/2026
  * Description:
- * 
+ *
  *   Wraps geolocation access for the map feature so permission and device
  *   location calls are isolated from UI/controller code. This keeps map logic
  *   easier to test and change.
- * 
+ *
  */
 
+import 'package:flutter/foundation.dart';
 import 'package:geolocator/geolocator.dart';
 
 class GeoLocatorService {
   static const int distanceRefreshThresholdMeters = 5;
+  static const Duration currentLocationTimeout = Duration(seconds: 8);
 
   // Ensures location services are enabled and permissions are granted, throwing if not.
   Future<void> _ensureLocationAccess() async {
@@ -26,6 +28,7 @@ class GeoLocatorService {
     // Request permission if not already granted. If denied again or permanently, throw.
     if (permission == LocationPermission.denied) {
       permission = await Geolocator.requestPermission();
+      debugPrint('[GeoLocatorService] permission after request: $permission');
     }
 
     if (permission == LocationPermission.denied) {
@@ -37,17 +40,32 @@ class GeoLocatorService {
     }
   }
 
-  // s/o my label, that's me
-  // function to get the current location of the user
+  // Gets the current location, falling back to the last known location if needed.
   Future<Position> getCurrentLocation() async {
     await _ensureLocationAccess();
 
-    return Geolocator.getCurrentPosition(
-      locationSettings: const LocationSettings(accuracy: LocationAccuracy.high),
-    );
+    try {
+      return await Geolocator.getCurrentPosition(
+        locationSettings: const LocationSettings(
+          accuracy: LocationAccuracy.high,
+          timeLimit: currentLocationTimeout,
+        ),
+      );
+    } catch (error) {
+      debugPrint(
+        '[GeoLocatorService] current position failed, trying last known: $error',
+      );
+
+      final lastKnownPosition = await Geolocator.getLastKnownPosition();
+      if (lastKnownPosition != null) {
+        return lastKnownPosition;
+      }
+
+      throw Exception('Could not get current or last known location: $error');
+    }
   }
 
-  // function to get continuous location updates
+  // Gets continuous location updates for the active map experience.
   Future<Stream<Position>> getLocationUpdates() async {
     await _ensureLocationAccess();
 

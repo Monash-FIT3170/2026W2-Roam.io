@@ -3,8 +3,12 @@
 // happen in the right Flutter lifecycle hooks.
 
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import 'package:roam_io/features/auth/presentation/providers/auth_provider.dart';
 import 'package:roam_io/features/mapfeature/map_controller.dart';
 import 'package:roam_io/features/mapfeature/map_render.dart';
+import 'package:roam_io/features/mapfeature/PlaceDetailsSheet.dart';
+import 'package:roam_io/features/mapfeature/PlaceOfInterest.dart';
 
 class MapPage extends StatefulWidget {
   const MapPage({super.key});
@@ -23,7 +27,13 @@ class _MapPageState extends State<MapPage> {
     // Own the controller for this page and start its setup work once mounted.
     _mapController = MapController();
     _mapController.addListener(_onMapStateChanged);
-    _mapController.initialise();
+    _mapController.onPlaceSelected = _showPlaceDetails;
+    
+    // Get user ID from auth provider and initialize
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final authProvider = context.read<AuthProvider>();
+      _mapController.initialise(userId: authProvider.currentUser?.uid);
+    });
   }
 
   void _onMapStateChanged() {
@@ -31,9 +41,18 @@ class _MapPageState extends State<MapPage> {
     if (mounted) setState(() {});
   }
 
+  void _showPlaceDetails(PlaceOfInterest place) {
+    PlaceDetailsSheet.show(
+      context: context,
+      place: place,
+      mapController: _mapController,
+    );
+  }
+
   @override
   void dispose() {
     // Detach listeners and release controller resources when leaving the page.
+    _mapController.onPlaceSelected = null;
     _mapController.removeListener(_onMapStateChanged);
     _mapController.disposeController();
     super.dispose();
@@ -49,10 +68,12 @@ class _MapPageState extends State<MapPage> {
             initialCenter: _mapController.center,
             polygons: _mapController.polygons,
             mapStyle: _mapController.mapStyle,
+            markers: _mapController.markers,
             myLocationEnabled: _mapController.myLocationEnabled,
             onMapCreated: _mapController.onMapCreated,
             // Load or refresh visible regions after the user stops moving the map.
             onCameraIdle: _mapController.loadViewportRegions,
+            onCameraMove: _mapController.onCameraMove,
           ),
         ],
       ),
