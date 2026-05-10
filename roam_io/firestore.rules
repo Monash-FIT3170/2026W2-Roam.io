@@ -5,6 +5,14 @@ service cloud.firestore {
       // Only the signed-in owner can read/write their own profile document.
       allow read, create, update: if request.auth != null && request.auth.uid == userId;
       allow delete: if false;
+      
+      // Visits subcollection - tracks places the user has visited
+      match /visits/{visitId} {
+        // Only the signed-in owner can read/create their own visits.
+        allow read, create: if request.auth != null && request.auth.uid == userId;
+        // No updates or deletes - visits are permanent
+        allow update, delete: if false;
+      }
     }
 
     match /polygons_visited/{userId} {

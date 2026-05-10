@@ -27,21 +27,28 @@
   },
   {
     "featureType": "road",
-    "elementType": "labels.icon",
-    "stylers": [
-      { "visibility": "off" }
-    ]
-  },
-  {
-    "featureType": "road.highway",
     "elementType": "labels",
     "stylers": [
       { "visibility": "off" }
     ]
   },
   {
-    "featureType": "road.arterial",
-    "elementType": "labels.icon",
+    "featureType": "water",
+    "elementType": "labels",
+    "stylers": [
+      { "visibility": "off" }
+    ]
+  },
+  {
+    "featureType": "administrative.locality",
+    "elementType": "labels",
+    "stylers": [
+      { "visibility": "off" }
+    ]
+  },
+  {
+    "featureType": "administrative.neighborhood",
+    "elementType": "labels",
     "stylers": [
       { "visibility": "off" }
     ]

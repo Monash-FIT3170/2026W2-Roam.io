@@ -2,11 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 
-import 'PlaceOfInterest.dart';
-import 'PlacesService.dart';
-import 'RegionPolygon.dart';
-import 'RegionService.dart';
-import 'VisitService.dart';
+import 'place_of_interest.dart';
+import 'places_service.dart';
+import 'region_polygon.dart';
+import 'region_service.dart';
+import 'visit_service.dart';
 import 'geolocator_service.dart';
 
 /// Result of attempting to mark a place as visited.
