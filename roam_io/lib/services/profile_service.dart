@@ -12,13 +12,15 @@ import '../features/profile/domain/profile_model.dart';
 
 /// Owns reads and writes for Firestore documents in the `profiles` collection.
 class ProfileService {
+  static const String _profilesCollectionName = 'profiles';
+
   ProfileService({FirebaseFirestore? firestore})
     : _firestore = firestore ?? FirebaseFirestore.instance;
 
   final FirebaseFirestore _firestore;
 
   CollectionReference<Map<String, dynamic>> get _profiles =>
-      _firestore.collection('profiles');
+      _firestore.collection(_profilesCollectionName);
 
   /// Creates/replaces profile document at `profiles/{uid}`.
   Future<void> createProfile(ProfileModel profile) {

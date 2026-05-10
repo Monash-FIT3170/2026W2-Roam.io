@@ -8,7 +8,7 @@
 
 import 'package:flutter/material.dart';
 
-import '../../map/screens/map_screen.dart';
+import '../../map/data/map_page.dart';
 import '../../../shared/widgets/app_bottom_nav_bar.dart';
 import '../../journeys/screens/journeys_screen.dart';
 import '../../quests/screens/quests_screen.dart';
@@ -29,7 +29,7 @@ class _MainShellScreenState extends State<MainShellScreen> {
   final pages = const [
     JourneysScreen(),
     QuestsScreen(),
-    MapScreen(),
+    MapPage(),
     AnalyticsScreen(),
     ProfileScreen(),
   ];
