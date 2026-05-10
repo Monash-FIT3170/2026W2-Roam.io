@@ -2,8 +2,8 @@ import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
-import 'package:roam_io/features/mapfeature/Place_of_interest.dart';
-import 'package:roam_io/features/mapfeature/api_config.dart';
+import 'place_of_interest.dart';
+import 'api_config.dart';
 
 
 class PlacesService {

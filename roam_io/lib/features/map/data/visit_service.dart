@@ -1,6 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 
-import 'Place_of_interest.dart';
+import 'place_of_interest.dart';
 import 'Visit.dart';
 
 /// Service for managing user visits to places.
