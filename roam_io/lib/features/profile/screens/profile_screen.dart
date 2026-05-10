@@ -215,221 +215,223 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 Expanded(
                   child: Padding(
                     padding: const EdgeInsets.fromLTRB(20, 0, 20, 0),
-                    child: Column(
-                      children: [
-                        Container(
-                          width: double.infinity,
-                          padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
-                          decoration: BoxDecoration(
-                            color: cardColor,
-                            borderRadius: BorderRadius.circular(24),
-                            border: Border.all(color: borderColor),
-                          ),
-                          child: Column(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              SizedBox(
-                                width: 66,
-                                height: 66,
-                                child: Stack(
-                                  clipBehavior: Clip.none,
-                                  children: [
-                                    GestureDetector(
-                                      onTap: auth.isBusy
-                                          ? null
-                                          : _changeProfilePhoto,
-                                      child: Container(
-                                        width: 66,
-                                        height: 66,
-                                        decoration: BoxDecoration(
-                                          shape: BoxShape.circle,
-                                          color: avatarSurfaceColor,
-                                          border: Border.all(
-                                            color: colorScheme.primary,
-                                            width: 1.6,
+                    child: SingleChildScrollView(
+                      child: Column(
+                        children: [
+                          Container(
+                            width: double.infinity,
+                            padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
+                            decoration: BoxDecoration(
+                              color: cardColor,
+                              borderRadius: BorderRadius.circular(24),
+                              border: Border.all(color: borderColor),
+                            ),
+                            child: Column(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                SizedBox(
+                                  width: 66,
+                                  height: 66,
+                                  child: Stack(
+                                    clipBehavior: Clip.none,
+                                    children: [
+                                      GestureDetector(
+                                        onTap: auth.isBusy
+                                            ? null
+                                            : _changeProfilePhoto,
+                                        child: Container(
+                                          width: 66,
+                                          height: 66,
+                                          decoration: BoxDecoration(
+                                            shape: BoxShape.circle,
+                                            color: avatarSurfaceColor,
+                                            border: Border.all(
+                                              color: colorScheme.primary,
+                                              width: 1.6,
+                                            ),
+                                          ),
+                                          child: ClipOval(
+                                            child: profile?.photoUrl != null
+                                                ? Image.network(
+                                                    profile!.photoUrl!,
+                                                    fit: BoxFit.cover,
+                                                    width: 66,
+                                                    height: 66,
+                                                    errorBuilder:
+                                                        (
+                                                          context,
+                                                          error,
+                                                          stackTrace,
+                                                        ) => Icon(
+                                                          Icons.person_rounded,
+                                                          size: 34,
+                                                          color: colorScheme
+                                                              .primary,
+                                                        ),
+                                                  )
+                                                : Icon(
+                                                    Icons.person_rounded,
+                                                    size: 34,
+                                                    color: colorScheme.primary,
+                                                  ),
                                           ),
                                         ),
-                                        child: ClipOval(
-                                          child: profile?.photoUrl != null
-                                              ? Image.network(
-                                                  profile!.photoUrl!,
-                                                  fit: BoxFit.cover,
-                                                  width: 66,
-                                                  height: 66,
-                                                  errorBuilder:
-                                                      (
-                                                        context,
-                                                        error,
-                                                        stackTrace,
-                                                      ) => Icon(
-                                                        Icons.person_rounded,
-                                                        size: 34,
-                                                        color:
-                                                            colorScheme.primary,
-                                                      ),
-                                                )
-                                              : Icon(
-                                                  Icons.person_rounded,
-                                                  size: 34,
-                                                  color: colorScheme.primary,
-                                                ),
-                                        ),
                                       ),
-                                    ),
-                                    Positioned(
-                                      right: -4,
-                                      bottom: -4,
-                                      child: Material(
-                                        color: cardColor,
-                                        shape: const CircleBorder(),
-                                        child: InkWell(
-                                          customBorder: const CircleBorder(),
-                                          onTap: auth.isBusy
-                                              ? null
-                                              : _changeProfilePhoto,
-                                          child: Padding(
-                                            padding: const EdgeInsets.all(6),
-                                            child: Icon(
-                                              Icons.camera_alt_rounded,
-                                              size: 14,
-                                              color: colorScheme.onSurface,
+                                      Positioned(
+                                        right: -4,
+                                        bottom: -4,
+                                        child: Material(
+                                          color: cardColor,
+                                          shape: const CircleBorder(),
+                                          child: InkWell(
+                                            customBorder: const CircleBorder(),
+                                            onTap: auth.isBusy
+                                                ? null
+                                                : _changeProfilePhoto,
+                                            child: Padding(
+                                              padding: const EdgeInsets.all(6),
+                                              child: Icon(
+                                                Icons.camera_alt_rounded,
+                                                size: 14,
+                                                color: colorScheme.onSurface,
+                                              ),
                                             ),
                                           ),
                                         ),
                                       ),
-                                    ),
-                                  ],
+                                    ],
+                                  ),
                                 ),
-                              ),
 
-                              const SizedBox(height: 8),
+                                const SizedBox(height: 8),
 
-                              Text(
-                                visibleDisplayName.isEmpty
-                                    ? 'Display Name'
-                                    : visibleDisplayName,
-                                style: TextStyle(
-                                  fontSize: 18,
-                                  fontWeight: FontWeight.w800,
-                                  color: colorScheme.onSurface,
+                                Text(
+                                  visibleDisplayName.isEmpty
+                                      ? 'Display Name'
+                                      : visibleDisplayName,
+                                  style: TextStyle(
+                                    fontSize: 18,
+                                    fontWeight: FontWeight.w800,
+                                    color: colorScheme.onSurface,
+                                  ),
                                 ),
-                              ),
 
-                              const SizedBox(height: 1),
+                                const SizedBox(height: 1),
 
-                              Text(
-                                '@$username',
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: TextStyle(
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.w600,
-                                  color: mutedTextColor,
+                                Text(
+                                  '@$username',
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w600,
+                                    color: mutedTextColor,
+                                  ),
                                 ),
-                              ),
 
-                              const SizedBox(height: 10),
+                                const SizedBox(height: 10),
 
-                              if (profile != null) ...[
-                                _LevelProgressBar(
-                                  level: profile.level,
-                                  xp: profile.xp,
-                                  progressColor: colorScheme.primary,
-                                  backgroundColor: colorScheme.primary
-                                      .withValues(alpha: 0.16),
-                                  textColor: colorScheme.onSurface,
+                                if (profile != null) ...[
+                                  _LevelProgressBar(
+                                    level: profile.level,
+                                    xp: profile.xp,
+                                    progressColor: colorScheme.primary,
+                                    backgroundColor: colorScheme.primary
+                                        .withValues(alpha: 0.16),
+                                    textColor: colorScheme.onSurface,
+                                  ),
+                                  const SizedBox(height: 14),
+                                ],
+
+                                _ProfileInfoTile(
+                                  icon: Icons.email_outlined,
+                                  label: 'Email',
+                                  value: email,
+                                  surfaceColor: infoTileColor,
                                 ),
-                                const SizedBox(height: 14),
+
+                                const SizedBox(height: 6),
+
+                                _ProfileInfoTile(
+                                  icon: Icons.alternate_email_rounded,
+                                  label: 'Username',
+                                  value: username,
+                                  surfaceColor: infoTileColor,
+                                ),
+
+                                const SizedBox(height: 6),
+
+                                _isEditing
+                                    ? _EditableProfileInfoTile(
+                                        icon: Icons.badge_outlined,
+                                        label: 'Display Name',
+                                        controller: _displayNameController,
+                                        enabled: !auth.isBusy,
+                                      )
+                                    : _ProfileInfoTile(
+                                        icon: Icons.badge_outlined,
+                                        label: 'Display Name',
+                                        value: displayName,
+                                        surfaceColor: infoTileColor,
+                                      ),
                               ],
-
-                              _ProfileInfoTile(
-                                icon: Icons.email_outlined,
-                                label: 'Email',
-                                value: email,
-                                surfaceColor: infoTileColor,
-                              ),
-
-                              const SizedBox(height: 6),
-
-                              _ProfileInfoTile(
-                                icon: Icons.alternate_email_rounded,
-                                label: 'Username',
-                                value: username,
-                                surfaceColor: infoTileColor,
-                              ),
-
-                              const SizedBox(height: 6),
-
-                              _isEditing
-                                  ? _EditableProfileInfoTile(
-                                      icon: Icons.badge_outlined,
-                                      label: 'Display Name',
-                                      controller: _displayNameController,
-                                      enabled: !auth.isBusy,
-                                    )
-                                  : _ProfileInfoTile(
-                                      icon: Icons.badge_outlined,
-                                      label: 'Display Name',
-                                      value: displayName,
-                                      surfaceColor: infoTileColor,
-                                    ),
-                            ],
-                          ),
-                        ),
-
-                        const SizedBox(height: 12),
-
-                        _DarkModePreferenceTile(
-                          enabled: auth.darkModeEnabled,
-                          onChanged: auth.isBusy || profile == null
-                              ? null
-                              : _toggleDarkMode,
-                        ),
-
-                        const SizedBox(height: 12),
-
-                        _SecondaryProfileButton(
-                          label: 'Change Password',
-                          icon: Icons.lock_outline_rounded,
-                          onPressed: auth.isBusy
-                              ? null
-                              : () {
-                                  Navigator.of(context).push(
-                                    MaterialPageRoute<void>(
-                                      builder: (_) =>
-                                          const ChangePasswordScreen(),
-                                    ),
-                                  );
-                                },
-                        ),
-
-                        const SizedBox(height: 6),
-
-                        TextButton.icon(
-                          onPressed: auth.isBusy ? null : _logout,
-                          icon: Icon(
-                            Icons.logout_rounded,
-                            size: 14,
-                            color: colorScheme.secondary,
-                          ),
-                          label: Text(
-                            'Log out',
-                            style: TextStyle(
-                              fontSize: 13,
-                              fontWeight: FontWeight.w600,
-                              color: AppColors.clay.withValues(alpha: 0.85),
                             ),
                           ),
-                          style: TextButton.styleFrom(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 8,
-                              vertical: 0,
-                            ),
-                            minimumSize: Size.zero,
-                            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+
+                          const SizedBox(height: 12),
+
+                          _DarkModePreferenceTile(
+                            enabled: auth.darkModeEnabled,
+                            onChanged: auth.isBusy || profile == null
+                                ? null
+                                : _toggleDarkMode,
                           ),
-                        ),
-                      ],
+
+                          const SizedBox(height: 12),
+
+                          _SecondaryProfileButton(
+                            label: 'Change Password',
+                            icon: Icons.lock_outline_rounded,
+                            onPressed: auth.isBusy
+                                ? null
+                                : () {
+                                    Navigator.of(context).push(
+                                      MaterialPageRoute<void>(
+                                        builder: (_) =>
+                                            const ChangePasswordScreen(),
+                                      ),
+                                    );
+                                  },
+                          ),
+
+                          const SizedBox(height: 6),
+
+                          TextButton.icon(
+                            onPressed: auth.isBusy ? null : _logout,
+                            icon: Icon(
+                              Icons.logout_rounded,
+                              size: 14,
+                              color: colorScheme.secondary,
+                            ),
+                            label: Text(
+                              'Log out',
+                              style: TextStyle(
+                                fontSize: 13,
+                                fontWeight: FontWeight.w600,
+                                color: AppColors.clay.withValues(alpha: 0.85),
+                              ),
+                            ),
+                            style: TextButton.styleFrom(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 8,
+                                vertical: 0,
+                              ),
+                              minimumSize: Size.zero,
+                              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
                   ),
                 ),
@@ -485,7 +487,7 @@ class _EditableProfileInfoTile extends StatelessWidget {
               children: [
                 Text(
                   label,
-                  style: TextStyle(
+                  style: const TextStyle(
                     fontSize: 11,
                     fontWeight: FontWeight.w700,
                     color: AppColors.sage,
@@ -497,7 +499,7 @@ class _EditableProfileInfoTile extends StatelessWidget {
                   enabled: enabled,
                   autofocus: true,
                   cursorColor: AppColors.sage,
-                  style: TextStyle(
+                  style: const TextStyle(
                     fontSize: 14,
                     fontWeight: FontWeight.w700,
                     color: AppColors.ink,
@@ -510,7 +512,7 @@ class _EditableProfileInfoTile extends StatelessWidget {
                       horizontal: 10,
                       vertical: 8,
                     ),
-                    suffixIcon: Icon(
+                    suffixIcon: const Icon(
                       Icons.edit_rounded,
                       size: 17,
                       color: AppColors.sage,

@@ -1,7 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 
 import 'place_of_interest.dart';
-import 'Visit.dart';
+import 'visit.dart';
 
 /// Service for managing user visits to places.
 ///
@@ -9,7 +9,7 @@ import 'Visit.dart';
 /// This service owns all read/write operations for visit data.
 class VisitService {
   VisitService({FirebaseFirestore? firestore})
-      : _firestore = firestore ?? FirebaseFirestore.instance;
+    : _firestore = firestore ?? FirebaseFirestore.instance;
 
   final FirebaseFirestore _firestore;
 
@@ -39,10 +39,7 @@ class VisitService {
   }
 
   /// Checks if a specific place has been visited by the user.
-  Future<bool> isVisited({
-    required String userId,
-    required int placeId,
-  }) async {
+  Future<bool> isVisited({required String userId, required int placeId}) async {
     final doc = await _visitsCollection(userId).doc(placeId.toString()).get();
     return doc.exists;
   }
@@ -52,9 +49,7 @@ class VisitService {
   /// Returns a Set of place IDs (as strings) for efficient lookup.
   Future<Set<int>> getVisitedPlaceIds(String userId) async {
     final snapshot = await _visitsCollection(userId).get();
-    return snapshot.docs
-        .map((doc) => int.parse(doc.id))
-        .toSet();
+    return snapshot.docs.map((doc) => int.parse(doc.id)).toSet();
   }
 
   /// Gets all visits for a user with full details.
@@ -62,9 +57,7 @@ class VisitService {
   /// Use this when you need the complete visit data, not just IDs.
   Future<List<Visit>> getAllVisits(String userId) async {
     final snapshot = await _visitsCollection(userId).get();
-    return snapshot.docs
-        .map((doc) => Visit.fromMap(doc.data()))
-        .toList();
+    return snapshot.docs.map((doc) => Visit.fromMap(doc.data())).toList();
   }
 
   /// Gets visits for a specific region.
@@ -74,12 +67,10 @@ class VisitService {
     required String userId,
     required String regionId,
   }) async {
-    final snapshot = await _visitsCollection(userId)
-        .where('regionId', isEqualTo: regionId)
-        .get();
-    return snapshot.docs
-        .map((doc) => Visit.fromMap(doc.data()))
-        .toList();
+    final snapshot = await _visitsCollection(
+      userId,
+    ).where('regionId', isEqualTo: regionId).get();
+    return snapshot.docs.map((doc) => Visit.fromMap(doc.data())).toList();
   }
 
   /// Gets the total count of visited places for a user.
@@ -93,9 +84,7 @@ class VisitService {
   /// Use this to keep the UI in sync when visits change.
   Stream<Set<int>> watchVisitedPlaceIds(String userId) {
     return _visitsCollection(userId).snapshots().map(
-          (snapshot) => snapshot.docs
-              .map((doc) => int.parse(doc.id))
-              .toSet(),
-        );
+      (snapshot) => snapshot.docs.map((doc) => int.parse(doc.id)).toSet(),
+    );
   }
 }

@@ -204,7 +204,7 @@ class JourneysScreen extends StatelessWidget {
 
                 Row(
                   children: [
-                    Icon(
+                    const Icon(
                       Icons.star_rate_rounded,
                       size: 14,
                       color: AppColors.sage,
