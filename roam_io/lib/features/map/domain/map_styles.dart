@@ -143,7 +143,9 @@ class MapStyles {
 ''';
 
   /// Returns the map style for the active app brightness.
-  static String? forBrightness(Brightness brightness) {
+  /// Returns [dark] for dark mode, [light] for light mode.
+  /// Both styles hide all labels to keep polygons and markers clean.
+  static String forBrightness(Brightness brightness) {
     return brightness == Brightness.dark ? dark : light;
   }
 }
