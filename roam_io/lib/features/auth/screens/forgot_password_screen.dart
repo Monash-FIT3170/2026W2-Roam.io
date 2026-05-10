@@ -1,38 +1,40 @@
+/*
+ * Author: Alvin Liong
+ * Last Modified: 3/05/2026
+ * Description:
+ *   Provides the password reset screen where users request a recovery email.
+ */
+
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
-import '../../../../shared/widgets/app_toast.dart';
-import 'forgot_password_screen.dart';
+import '../../../shared/widgets/app_toast.dart';
 import '../providers/auth_provider.dart';
-import 'signup_screen.dart';
 
-class LoginScreen extends StatefulWidget {
-  const LoginScreen({super.key});
+/// Screen for requesting a Firebase password reset email.
+class ForgotPasswordScreen extends StatefulWidget {
+  const ForgotPasswordScreen({super.key});
 
   @override
-  State<LoginScreen> createState() => _LoginScreenState();
+  State<ForgotPasswordScreen> createState() => _ForgotPasswordScreenState();
 }
 
-class _LoginScreenState extends State<LoginScreen> {
+class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
   final _formKey = GlobalKey<FormState>();
   final _emailController = TextEditingController();
-  final _passwordController = TextEditingController();
 
   @override
   void dispose() {
     _emailController.dispose();
-    _passwordController.dispose();
     super.dispose();
   }
 
+  /// Validates the email field and sends the password reset request.
   Future<void> _submit() async {
     if (!_formKey.currentState!.validate()) return;
 
     final auth = context.read<AuthProvider>();
-    await auth.signIn(
-      email: _emailController.text.trim(),
-      password: _passwordController.text,
-    );
+    await auth.sendPasswordResetEmail(_emailController.text.trim());
 
     if (!mounted) return;
 
@@ -41,25 +43,16 @@ class _LoginScreenState extends State<LoginScreen> {
       return;
     }
 
-    AppToast.success(context, 'Login successful.');
-  }
-
-  void _openSignup() {
-    Navigator.of(
+    AppToast.success(
       context,
-    ).push(MaterialPageRoute<void>(builder: (_) => const SignupScreen()));
-  }
-
-  void _openForgotPassword() {
-    Navigator.of(context).push(
-      MaterialPageRoute<void>(builder: (_) => const ForgotPasswordScreen()),
+      'If an account exists for this email, a reset link has been sent.',
     );
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Login')),
+      appBar: AppBar(title: const Text('Reset Password')),
       body: Consumer<AuthProvider>(
         builder: (context, auth, _) {
           return SingleChildScrollView(
@@ -69,10 +62,14 @@ class _LoginScreenState extends State<LoginScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
+                  const Text(
+                    'Enter your email. If an account exists, we will send a password reset link.',
+                  ),
+                  const SizedBox(height: 16),
                   TextFormField(
                     controller: _emailController,
                     keyboardType: TextInputType.emailAddress,
-                    textInputAction: TextInputAction.next,
+                    textInputAction: TextInputAction.done,
                     decoration: const InputDecoration(labelText: 'Email'),
                     validator: (value) {
                       final text = value?.trim() ?? '';
@@ -80,17 +77,6 @@ class _LoginScreenState extends State<LoginScreen> {
                       if (!text.contains('@') || !text.contains('.')) {
                         return 'Enter a valid email address.';
                       }
-                      return null;
-                    },
-                  ),
-                  const SizedBox(height: 12),
-                  TextFormField(
-                    controller: _passwordController,
-                    obscureText: true,
-                    textInputAction: TextInputAction.done,
-                    decoration: const InputDecoration(labelText: 'Password'),
-                    validator: (value) {
-                      if ((value ?? '').isEmpty) return 'Password is required.';
                       return null;
                     },
                     onFieldSubmitted: (_) => _submit(),
@@ -104,16 +90,7 @@ class _LoginScreenState extends State<LoginScreen> {
                             width: 20,
                             child: CircularProgressIndicator(strokeWidth: 2),
                           )
-                        : const Text('Login'),
-                  ),
-                  const SizedBox(height: 12),
-                  TextButton(
-                    onPressed: auth.isBusy ? null : _openForgotPassword,
-                    child: const Text('Forgot password?'),
-                  ),
-                  TextButton(
-                    onPressed: auth.isBusy ? null : _openSignup,
-                    child: const Text('Create account'),
+                        : const Text('Send reset email'),
                   ),
                 ],
               ),

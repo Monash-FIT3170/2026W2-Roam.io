@@ -1,20 +1,24 @@
+/*
+ * Author: Alvin Liong
+ * Last Modified: 4/05/2026
+ * Description:
+ *   Manages authentication state, profile state, loading flags, and account
+ *   actions exposed to the widget tree.
+ */
+
 import 'dart:async';
 
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
 import 'package:image_picker/image_picker.dart';
 
-import '../../data/auth_repository.dart';
-import '../../../profile/domain/profile_model.dart';
+import '../data/auth_repository.dart';
+import '../../profile/domain/profile_model.dart';
 
+/// High-level authentication state used by auth gates and account screens.
 enum AuthViewState { loading, authenticated, unauthenticated }
 
-/// App-level auth state holder for UI layers.
-///
-/// This provider exposes:
-/// - current auth/session state
-/// - loading/error flags
-/// - auth actions used by future screens
+/// Provides authentication and profile state to UI layers.
 class AuthProvider extends ChangeNotifier {
   AuthProvider({AuthRepository? authRepository})
     : _authRepository = authRepository ?? AuthRepository() {
@@ -30,6 +34,7 @@ class AuthProvider extends ChangeNotifier {
   User? _currentUser;
   ProfileModel? _currentProfile;
   ProfilePhotoUploadResult? _lastProfilePhotoUploadResult;
+  int? _pendingLevelUp;
 
   AuthViewState get viewState => _viewState;
   bool get isBusy => _isBusy;
@@ -43,12 +48,21 @@ class AuthProvider extends ChangeNotifier {
   bool get isAuthenticated => _currentUser != null;
   bool get isEmailVerified => _currentUser?.emailVerified ?? false;
   bool get darkModeEnabled => _currentProfile?.darkModeEnabled ?? false;
+  int? get pendingLevelUp => _pendingLevelUp;
 
+  /// Clears the current user-facing error message.
   void clearError() {
     _errorMessage = null;
     notifyListeners();
   }
 
+  /// Clears a pending level-up notification after the app displays it.
+  void clearPendingLevelUp() {
+    _pendingLevelUp = null;
+    notifyListeners();
+  }
+
+  /// Registers a new user and refreshes the current Firebase/profile state.
   Future<void> signUp({
     required String email,
     required String password,
@@ -66,6 +80,7 @@ class AuthProvider extends ChangeNotifier {
     });
   }
 
+  /// Signs in a user and refreshes their Firebase/profile state.
   Future<void> signIn({required String email, required String password}) async {
     await _runAuthAction(() async {
       await _authRepository.signIn(email: email, password: password);
@@ -73,14 +88,17 @@ class AuthProvider extends ChangeNotifier {
     });
   }
 
+  /// Sends a password reset email through the repository.
   Future<void> sendPasswordResetEmail(String email) async {
     await _runAuthAction(() => _authRepository.sendPasswordResetEmail(email));
   }
 
+  /// Sends a verification email to the current user.
   Future<void> sendVerificationEmail() async {
     await _runAuthAction(_authRepository.sendVerificationEmail);
   }
 
+  /// Reloads the current Firebase user and profile from the backend.
   Future<void> refreshCurrentUser() async {
     await _runAuthAction(() async {
       await _authRepository.reloadCurrentUser();
@@ -97,6 +115,7 @@ class AuthProvider extends ChangeNotifier {
     });
   }
 
+  /// Changes the current user's password through the repository.
   Future<void> changePassword({
     required String currentPassword,
     required String newPassword,
@@ -109,6 +128,7 @@ class AuthProvider extends ChangeNotifier {
     );
   }
 
+  /// Updates the display name and refreshes user/profile state.
   Future<void> updateDisplayName(String displayName) async {
     await _runAuthAction(() async {
       await _authRepository.updateDisplayName(displayName);
@@ -125,6 +145,7 @@ class AuthProvider extends ChangeNotifier {
     });
   }
 
+  /// Persists the user's dark mode preference and updates local profile state.
   Future<void> updateDarkModePreference(bool enabled) async {
     await _runAuthAction(() async {
       await _authRepository.updateDarkModePreference(enabled);
@@ -135,6 +156,7 @@ class AuthProvider extends ChangeNotifier {
     });
   }
 
+  /// Uploads a new profile picture and refreshes the current profile.
   Future<void> uploadProfilePicture(XFile image) async {
     _lastProfilePhotoUploadResult = null;
     await _runAuthAction(() async {
@@ -144,6 +166,37 @@ class AuthProvider extends ChangeNotifier {
     });
   }
 
+  /// Updates the signed-in user's XP and records level-up events.
+  Future<void> updateXp(int newXp) async {
+    await _runAuthAction(() async {
+      final oldLevel = _currentProfile?.level ?? 1;
+      await _authRepository.updateXp(newXp);
+      _currentProfile = await _authRepository.getCurrentUserProfile();
+      final newLevel = _currentProfile?.level ?? 1;
+
+      // Check if user leveled up
+      if (newLevel > oldLevel) {
+        _pendingLevelUp = newLevel;
+      }
+    });
+  }
+
+  /// Adds XP to the signed-in user and records level-up events.
+  Future<void> addXp(int xpToAdd) async {
+    await _runAuthAction(() async {
+      final oldLevel = _currentProfile?.level ?? 1;
+      await _authRepository.addXp(xpToAdd);
+      _currentProfile = await _authRepository.getCurrentUserProfile();
+      final newLevel = _currentProfile?.level ?? 1;
+
+      // Check if user leveled up
+      if (newLevel > oldLevel) {
+        _pendingLevelUp = newLevel;
+      }
+    });
+  }
+
+  /// Signs out and clears local authentication/profile state.
   Future<void> signOut() async {
     await _runAuthAction(() async {
       await _authRepository.signOut();
@@ -167,6 +220,7 @@ class AuthProvider extends ChangeNotifier {
     } catch (e) {
       _errorMessage = e.toString();
     } finally {
+      // Always release the busy flag so screens can re-enable controls.
       _isBusy = false;
       notifyListeners();
     }

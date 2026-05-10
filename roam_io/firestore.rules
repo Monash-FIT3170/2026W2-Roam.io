@@ -1,9 +1,19 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
+    function isProfileOwner(userId) {
+      return request.auth != null && request.auth.uid == userId;
+    }
+
+    function hasValidXp() {
+      return request.resource.data.keys().hasAll(['xp']) &&
+        request.resource.data.xp is int;
+    }
+
     match /profiles/{userId} {
       // Only the signed-in owner can read/write their own profile document.
-      allow read, create, update: if request.auth != null && request.auth.uid == userId;
+      allow read: if isProfileOwner(userId);
+      allow create, update: if isProfileOwner(userId) && hasValidXp();
       allow delete: if false;
       
       // Visits subcollection - tracks places the user has visited

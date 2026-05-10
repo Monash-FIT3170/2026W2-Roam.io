@@ -1,12 +1,21 @@
+/*
+ * Author: Sanjevan Rajasegar
+ * Last Modified: 24/04/2026
+ * Description:
+ *   Provides the authenticated app shell with persistent bottom navigation
+ *   across the main feature tabs.
+ */
+
 import 'package:flutter/material.dart';
 
-import '../../../../shared/widgets/app_bottom_nav_bar.dart';
-import '../../../home/presentation/screens/journeys_screen.dart';
-import '../../../home/presentation/screens/quests_screen.dart';
-import '../../../home/presentation/screens/analytics_screen.dart';
-import '../../../home/presentation/screens/profile_screen.dart';
-import '../../../mapfeature/map_page.dart';
+import '../../map/data/map_page.dart';
+import '../../../shared/widgets/app_bottom_nav_bar.dart';
+import '../../journeys/screens/journeys_screen.dart';
+import '../../quests/screens/quests_screen.dart';
+import '../../analytics/screens/analytics_screen.dart';
+import '../../profile/screens/profile_screen.dart';
 
+/// Stateful shell that keeps each main tab alive in an indexed stack.
 class MainShellScreen extends StatefulWidget {
   const MainShellScreen({super.key});
 

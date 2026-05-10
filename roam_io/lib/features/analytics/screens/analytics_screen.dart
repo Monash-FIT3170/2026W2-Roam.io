@@ -1,9 +1,18 @@
+/*
+ * Author: Sanjevan Rajasegar
+ * Last Modified: 3/05/2026
+ * Description:
+ *   Provides the analytics screen UI for exploration progress, statistics,
+ *   heatmap activity, and milestones.
+ */
+
 import 'package:flutter/material.dart';
 
-import '../../../../shared/widgets/app_page_header.dart';
-import '../../../../theme/app_colours.dart';
-import '../../../../theme/app_surfaces.dart';
+import '../../../shared/widgets/app_page_header.dart';
+import '../../../theme/app_colours.dart';
+import '../../../theme/app_surfaces.dart';
 
+/// Displays exploration analytics, progress summaries, and milestones.
 class AnalyticsScreen extends StatelessWidget {
   const AnalyticsScreen({super.key});
 
@@ -103,9 +112,7 @@ class AnalyticsScreen extends StatelessWidget {
                 decoration: BoxDecoration(
                   color: AppSurfaces.card(context),
                   borderRadius: BorderRadius.circular(24),
-                  border: Border.all(
-                    color: AppSurfaces.border(context),
-                  ),
+                  border: Border.all(color: AppSurfaces.border(context)),
                   boxShadow: [
                     BoxShadow(
                       color: AppSurfaces.shadow(context),
@@ -157,10 +164,10 @@ class AnalyticsScreen extends StatelessWidget {
         final Color color = intensity == 0
             ? AppSurfaces.softCard(context)
             : Theme.of(context).colorScheme.primary.withValues(
-                  alpha: isDark
-                      ? 0.16 + (intensity * 0.08)
-                      : 0.12 + (intensity * 0.09),
-                );
+                alpha: isDark
+                    ? 0.16 + (intensity * 0.08)
+                    : 0.12 + (intensity * 0.09),
+              );
 
         return Container(
           width: 15,
@@ -188,9 +195,7 @@ class AnalyticsScreen extends StatelessWidget {
       decoration: BoxDecoration(
         color: AppSurfaces.card(context),
         borderRadius: BorderRadius.circular(18),
-        border: Border.all(
-          color: AppSurfaces.border(context),
-        ),
+        border: Border.all(color: AppSurfaces.border(context)),
         boxShadow: [
           BoxShadow(
             color: AppSurfaces.shadow(context),
@@ -201,11 +206,7 @@ class AnalyticsScreen extends StatelessWidget {
       ),
       child: Column(
         children: [
-          Icon(
-            icon,
-            color: color,
-            size: 22,
-          ),
+          Icon(icon, color: color, size: 22),
           const SizedBox(height: 8),
           Text(
             value,
@@ -246,9 +247,7 @@ class AnalyticsScreen extends StatelessWidget {
             decoration: BoxDecoration(
               color: AppSurfaces.innerCard(context),
               shape: BoxShape.circle,
-              border: Border.all(
-                color: AppSurfaces.border(context),
-              ),
+              border: Border.all(color: AppSurfaces.border(context)),
             ),
             child: Icon(
               Icons.emoji_events_outlined,

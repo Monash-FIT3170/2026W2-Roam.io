@@ -1,41 +1,47 @@
+/*
+ * Author: Alvin Liong
+ * Last Modified: 3/05/2026
+ * Description:
+ *   Provides the login screen and navigation to sign-up and password recovery
+ *   flows.
+ */
+
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
-import '../../../../shared/widgets/app_toast.dart';
+import '../../../shared/widgets/app_toast.dart';
+import 'forgot_password_screen.dart';
 import '../providers/auth_provider.dart';
+import 'signup_screen.dart';
 
-class SignupScreen extends StatefulWidget {
-  const SignupScreen({super.key});
+/// Screen for signing in with email and password credentials.
+class LoginScreen extends StatefulWidget {
+  const LoginScreen({super.key});
 
   @override
-  State<SignupScreen> createState() => _SignupScreenState();
+  State<LoginScreen> createState() => _LoginScreenState();
 }
 
-class _SignupScreenState extends State<SignupScreen> {
+class _LoginScreenState extends State<LoginScreen> {
   final _formKey = GlobalKey<FormState>();
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
-  final _usernameController = TextEditingController();
-  final _displayNameController = TextEditingController();
 
   @override
   void dispose() {
     _emailController.dispose();
     _passwordController.dispose();
-    _usernameController.dispose();
-    _displayNameController.dispose();
     super.dispose();
   }
 
+  /// Validates credentials and submits the sign-in request.
   Future<void> _submit() async {
     if (!_formKey.currentState!.validate()) return;
 
     final auth = context.read<AuthProvider>();
-    await auth.signUp(
+    await auth.signIn(
       email: _emailController.text.trim(),
       password: _passwordController.text,
-      username: _usernameController.text.trim(),
-      displayName: _displayNameController.text.trim(),
     );
 
     if (!mounted) return;
@@ -45,19 +51,27 @@ class _SignupScreenState extends State<SignupScreen> {
       return;
     }
 
-    AppToast.success(
-      context,
-      'Account created. Verification email sent. Please verify before logging in.',
-    );
+    AppToast.success(context, 'Login successful.');
+  }
 
-    // Return to the root AuthGate route so it can show VerifyEmailScreen.
-    Navigator.of(context).popUntil((route) => route.isFirst);
+  /// Opens the account registration flow.
+  void _openSignup() {
+    Navigator.of(
+      context,
+    ).push(MaterialPageRoute<void>(builder: (_) => const SignupScreen()));
+  }
+
+  /// Opens the password reset flow.
+  void _openForgotPassword() {
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(builder: (_) => const ForgotPasswordScreen()),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Create Account')),
+      appBar: AppBar(title: const Text('Login')),
       body: Consumer<AuthProvider>(
         builder: (context, auth, _) {
           return SingleChildScrollView(
@@ -67,33 +81,6 @@ class _SignupScreenState extends State<SignupScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  TextFormField(
-                    controller: _usernameController,
-                    textInputAction: TextInputAction.next,
-                    decoration: const InputDecoration(labelText: 'Username'),
-                    validator: (value) {
-                      final text = value?.trim() ?? '';
-                      if (text.isEmpty) return 'Username is required.';
-                      if (text.length < 3) {
-                        return 'Username must be at least 3 characters.';
-                      }
-                      return null;
-                    },
-                  ),
-                  const SizedBox(height: 12),
-                  TextFormField(
-                    controller: _displayNameController,
-                    textInputAction: TextInputAction.next,
-                    decoration: const InputDecoration(
-                      labelText: 'Display name',
-                    ),
-                    validator: (value) {
-                      final text = value?.trim() ?? '';
-                      if (text.isEmpty) return 'Display name is required.';
-                      return null;
-                    },
-                  ),
-                  const SizedBox(height: 12),
                   TextFormField(
                     controller: _emailController,
                     keyboardType: TextInputType.emailAddress,
@@ -115,11 +102,7 @@ class _SignupScreenState extends State<SignupScreen> {
                     textInputAction: TextInputAction.done,
                     decoration: const InputDecoration(labelText: 'Password'),
                     validator: (value) {
-                      final text = value ?? '';
-                      if (text.isEmpty) return 'Password is required.';
-                      if (text.length < 8) {
-                        return 'Password must be at least 8 characters.';
-                      }
+                      if ((value ?? '').isEmpty) return 'Password is required.';
                       return null;
                     },
                     onFieldSubmitted: (_) => _submit(),
@@ -133,7 +116,16 @@ class _SignupScreenState extends State<SignupScreen> {
                             width: 20,
                             child: CircularProgressIndicator(strokeWidth: 2),
                           )
-                        : const Text('Sign up'),
+                        : const Text('Login'),
+                  ),
+                  const SizedBox(height: 12),
+                  TextButton(
+                    onPressed: auth.isBusy ? null : _openForgotPassword,
+                    child: const Text('Forgot password?'),
+                  ),
+                  TextButton(
+                    onPressed: auth.isBusy ? null : _openSignup,
+                    child: const Text('Create account'),
                   ),
                 ],
               ),

@@ -1,12 +1,23 @@
+<<<<<<<< HEAD:roam_io/lib/features/map/domain/region_polygon.dart
+/*
+ * Author: Rushil Patel
+ * Last Modified: 27/04/2026
+ * Description:
+ *   Represents spatial region geometry and converts backend polygons into
+ *   Google Maps polygon overlays.
+ */
+========
 // Defines the region polygon model and converts backend geometry into Google
 // Maps polygons. This is needed to translate raw spatial data into something
 // the map can actually draw and interact with.
+>>>>>>>> feature/ART-4-fog-of-war:roam_io/lib/features/map/data/region_polygon.dart
 
 import 'dart:convert';
 import 'dart:ui';
 
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 
+/// Region shape and metadata returned by the spatial API.
 class RegionPolygon {
   final String id;
   final String name;
@@ -18,9 +29,11 @@ class RegionPolygon {
     required this.geometry,
   });
 
+  /// Creates a region polygon from API JSON.
   factory RegionPolygon.fromJson(Map<String, dynamic> json) {
     final rawGeometry = json['geometry'];
 
+    // Geometry may arrive as decoded JSON or as a JSON string from the API.
     return RegionPolygon(
       id: json['id'] as String,
       name: json['name'] as String,
@@ -29,7 +42,12 @@ class RegionPolygon {
           : Map<String, dynamic>.from(rawGeometry as Map),
     );
   }
+<<<<<<<< HEAD:roam_io/lib/features/map/domain/region_polygon.dart
+
+  /// Converts GeoJSON polygon geometry into Google Maps polygon overlays.
+========
   
+>>>>>>>> feature/ART-4-fog-of-war:roam_io/lib/features/map/data/region_polygon.dart
   List<Polygon> toGooglePolygons({
     Color strokeColor = const Color(0xFF5B5BD6),
     Color fillColor = const Color(0x225B5BD6),
@@ -55,6 +73,7 @@ class RegionPolygon {
     } else if (type == 'MultiPolygon') {
       final multi = coordinates as List<dynamic>;
 
+      // Each MultiPolygon outer ring becomes a separate Google Maps polygon.
       for (var i = 0; i < multi.length; i++) {
         final polygon = multi[i] as List<dynamic>;
         final outerRing = polygon[0] as List<dynamic>;

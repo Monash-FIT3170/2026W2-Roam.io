@@ -12,6 +12,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:geolocator/geolocator.dart';
 
+/// Wraps geolocation permission checks and current-position retrieval.
 class GeoLocatorService {
   static const int distanceRefreshThresholdMeters = 5;
   static const Duration currentLocationTimeout = Duration(seconds: 8);

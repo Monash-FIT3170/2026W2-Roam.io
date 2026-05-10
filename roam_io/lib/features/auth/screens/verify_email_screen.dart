@@ -1,9 +1,18 @@
+/*
+ * Author: Alvin Liong
+ * Last Modified: 3/05/2026
+ * Description:
+ *   Provides the email verification screen and actions for resending or
+ *   checking verification status.
+ */
+
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
-import '../../../../shared/widgets/app_toast.dart';
+import '../../../shared/widgets/app_toast.dart';
 import '../providers/auth_provider.dart';
 
+/// Screen shown to signed-in users until their email address is verified.
 class VerifyEmailScreen extends StatelessWidget {
   const VerifyEmailScreen({super.key});
 

@@ -1,9 +1,18 @@
+/*
+ * Author: Sanjevan Rajasegar
+ * Last Modified: 3/05/2026
+ * Description:
+ *   Provides the journeys screen UI for displaying past exploration entries
+ *   and journey filters.
+ */
+
 import 'package:flutter/material.dart';
 
-import '../../../../shared/widgets/app_page_header.dart';
-import '../../../../theme/app_colours.dart';
-import '../../../../theme/app_surfaces.dart';
+import '../../../shared/widgets/app_page_header.dart';
+import '../../../theme/app_colours.dart';
+import '../../../theme/app_surfaces.dart';
 
+/// Displays the user's journey history and filter controls.
 class JourneysScreen extends StatelessWidget {
   const JourneysScreen({super.key});
 
@@ -37,6 +46,7 @@ class JourneysScreen extends StatelessWidget {
                       title: 'Clayton Campus Loop',
                       date: 'Yesterday, 4:30 PM',
                       stats: '3.2 km • 45 mins',
+                      xpEarned: 32,
                       icon: Icons.school_outlined,
                       iconColor: AppColors.clay,
                     ),
@@ -45,6 +55,7 @@ class JourneysScreen extends StatelessWidget {
                       title: 'Mulgrave Reserve Run',
                       date: 'Oct 12, 2026',
                       stats: '5.0 km • 32 mins',
+                      xpEarned: 50,
                       icon: Icons.park_outlined,
                       iconColor: AppColors.sage,
                     ),
@@ -53,6 +64,7 @@ class JourneysScreen extends StatelessWidget {
                       title: 'CBD Discovery Walk',
                       date: 'Oct 05, 2026',
                       stats: '8.4 km • 2 hrs 15 mins',
+                      xpEarned: 84,
                       icon: Icons.location_city_outlined,
                       iconColor: AppColors.clay,
                     ),
@@ -78,10 +90,7 @@ class JourneysScreen extends StatelessWidget {
 
           return Container(
             margin: const EdgeInsets.only(right: 12),
-            padding: const EdgeInsets.symmetric(
-              horizontal: 16,
-              vertical: 8,
-            ),
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
             decoration: BoxDecoration(
               color: isSelected
                   ? Theme.of(context).colorScheme.primary
@@ -113,6 +122,7 @@ class JourneysScreen extends StatelessWidget {
     required String title,
     required String date,
     required String stats,
+    required int xpEarned,
     required IconData icon,
     required Color iconColor,
   }) {
@@ -142,11 +152,7 @@ class JourneysScreen extends StatelessWidget {
               color: iconColor.withValues(alpha: 0.14),
               borderRadius: BorderRadius.circular(16),
             ),
-            child: Icon(
-              icon,
-              color: iconColor,
-              size: 28,
-            ),
+            child: Icon(icon, color: iconColor, size: 28),
           ),
 
           const SizedBox(width: 16),
@@ -193,14 +199,31 @@ class JourneysScreen extends StatelessWidget {
                     ),
                   ],
                 ),
+
+                const SizedBox(height: 8),
+
+                Row(
+                  children: [
+                    Icon(
+                      Icons.star_rate_rounded,
+                      size: 14,
+                      color: AppColors.sage,
+                    ),
+                    const SizedBox(width: 4),
+                    Text(
+                      '$xpEarned XP earned',
+                      style: theme.textTheme.labelMedium?.copyWith(
+                        color: AppSurfaces.textMuted(context),
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ],
+                ),
               ],
             ),
           ),
 
-          Icon(
-            Icons.chevron_right,
-            color: AppSurfaces.textSubtle(context),
-          ),
+          Icon(Icons.chevron_right, color: AppSurfaces.textSubtle(context)),
         ],
       ),
     );

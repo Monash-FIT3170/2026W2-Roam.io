@@ -1,3 +1,10 @@
+/*
+ * Author: Rushil Patel
+ * Last Modified: 27/04/2026
+ * Description:
+ *   Fetches spatial region data from the backend for current-location and
+ *   viewport-based map queries.
+ */
 // Fetches region data for the current location and visible viewport from the
 // spatial API. This service exists so networking stays separate from map state
 // management and rendering concerns.
@@ -5,14 +12,17 @@
 import 'dart:convert';
 
 import 'package:http/http.dart' as http;
-import 'package:roam_io/features/mapfeature/api_config.dart';
-import 'package:roam_io/features/mapfeature/region_polygon.dart';
 
+import 'api_config.dart';
+import 'region_polygon.dart';
+
+/// Calls the spatial API and converts region responses into map polygons.
 class RegionService {
   final http.Client _client;
 
   RegionService({http.Client? client}) : _client = client ?? http.Client();
 
+  /// Fetches the region containing the given latitude and longitude.
   // get the polygon for the region I am currently located in
   Future<RegionPolygon?> getContainingRegion({
     required double lat,
@@ -35,6 +45,7 @@ class RegionService {
     return RegionPolygon.fromJson(Map<String, dynamic>.from(decoded as Map));
   }
 
+  /// Fetches regions intersecting the visible map viewport bounds.
   // get all the regions that intersect with the current viewport
   Future<List<RegionPolygon>> getRegionsForViewport({
     required double south,
