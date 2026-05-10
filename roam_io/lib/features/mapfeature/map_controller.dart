@@ -82,11 +82,13 @@ class MapController extends ChangeNotifier {
 
   LatLngBounds? _lastLoadedBounds;
   DateTime? _lastViewportLoadTime;
+  bool _hasResolvedInitialCenter = false;
 
   void Function(PlaceOfInterest place)? onPlaceSelected;
 
   Future<void> initialise({String? userId}) async {
     _userId = userId;
+    _hasResolvedInitialCenter = false;
 
     await _loadMapStyle();
     await PlaceOfInterest.preloadIcons();
@@ -135,7 +137,9 @@ class MapController extends ChangeNotifier {
       CameraUpdate.newLatLngZoom(center, defaultZoom),
     );
 
-    await loadViewportRegions();
+    if (_hasResolvedInitialCenter) {
+      await _loadViewportRegions(force: true);
+    }
   }
 
   void onCameraMove(CameraPosition position) {
@@ -201,13 +205,17 @@ class MapController extends ChangeNotifier {
       );
 
       await _loadCurrentRegionForPosition(position);
+      _hasResolvedInitialCenter = true;
+      await _loadViewportRegions(force: true);
     } catch (error) {
       center = fallbackCenter;
       isLoading = false;
       myLocationEnabled = false;
       message = 'Could not load your location: $error';
+      _hasResolvedInitialCenter = true;
 
       notifyListeners();
+      await _loadViewportRegions(force: true);
     }
   }
 
@@ -293,16 +301,21 @@ class MapController extends ChangeNotifier {
   }
 
   Future<void> loadViewportRegions() async {
+    await _loadViewportRegions();
+  }
+
+  Future<void> _loadViewportRegions({bool force = false}) async {
     final controller = _googleMapController;
 
     if (controller == null) return;
     if (isLoadingViewport) return;
-    if (_isWithinDebounceWindow()) return;
+    if (!_hasResolvedInitialCenter && !force) return;
+    if (!force && _isWithinDebounceWindow()) return;
 
     try {
       final bounds = await controller.getVisibleRegion();
 
-      if (_isSimilarToLastBounds(bounds)) {
+      if (!force && _isSimilarToLastBounds(bounds)) {
         return;
       }
 

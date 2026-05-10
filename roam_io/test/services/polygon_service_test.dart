@@ -3,6 +3,16 @@ import 'package:fake_cloud_firestore/fake_cloud_firestore.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:roam_io/services/polygon_service.dart';
 
+/*
+ * Author: Amarprit Singh
+ * Last Modified: 10/05/2026
+ * Description:
+ * 
+ * Tests the PolygonService Firestore Integration
+ * Visited polygons can be loaded from Firestore
+ * Visited Polygons are correctly inserted and updated in Firestore
+ */
+
 void main() {
   group('PolygonService', () {
     test('loads visited polygons from the uid-keyed document shape', () async {
