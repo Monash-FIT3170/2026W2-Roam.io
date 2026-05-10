@@ -1,5 +1,5 @@
 import 'package:firebase_auth/firebase_auth.dart';
-import '../../services/polygon_service.dart';
+import '../../../services/polygon_service.dart';
 
 /*
  * Author: Amarprit Singh

@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 
-import '../../theme/app_colours.dart';
+import '../../../theme/app_colours.dart';
 import 'map_controller.dart';
-import 'Place_of_interest.dart';
+import 'place_of_interest.dart';
 
 /// Bottom sheet displayed when a place marker is tapped.
 /// Shows place details and allows marking the place as visited.

@@ -97,6 +97,8 @@ class MapController extends ChangeNotifier {
   Set<Polygon> polygons = {};
   Set<Marker> markers = {};
 
+  /// Exposes the map style for use by MapRender.
+  String get mapStyle => _mapStyle;
 
   // cache regions and polygons to avoid constant re-fetching
   final Map<String, RegionPolygon> _regionCache = {};

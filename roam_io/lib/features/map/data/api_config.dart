@@ -11,6 +11,6 @@ class ApiConfig {
   /// Base URL for the spatial API, overridable with a compile-time variable.
   static const String spatialApiBaseUrl = String.fromEnvironment(
     'SPATIAL_API_BASE_URL',
-    defaultValue: 'http://localhost:3000',
+    defaultValue: 'https://australia-southeast1-roam-io-71e2c.cloudfunctions.net/api',
   );
 }

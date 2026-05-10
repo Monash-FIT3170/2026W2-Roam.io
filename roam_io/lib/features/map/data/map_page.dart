@@ -4,11 +4,12 @@
 
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:roam_io/features/auth/presentation/providers/auth_provider.dart';
-import 'package:roam_io/features/mapfeature/map_controller.dart';
-import 'package:roam_io/features/mapfeature/map_render.dart';
-import 'package:roam_io/features/mapfeature/place_details_sheet.dart';
-import 'package:roam_io/features/mapfeature/Place_of_interest.dart';
+
+import '../../auth/providers/auth_provider.dart';
+import '../widgets/map_render.dart';
+import 'map_controller.dart';
+import 'place_details_sheet.dart';
+import 'place_of_interest.dart';
 
 class MapPage extends StatefulWidget {
   const MapPage({super.key});
