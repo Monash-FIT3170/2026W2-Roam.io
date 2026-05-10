@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
@@ -89,6 +91,7 @@ class MapController extends ChangeNotifier {
        _regionPolygonCache = regionPolygonCache ?? RegionPolygonCache();
 
   GoogleMapController? _googleMapController;
+  StreamSubscription<Position>? _locationUpdatesSubscription;
 
   LatLng center = fallbackCenter;
   bool myLocationEnabled = false;
@@ -116,6 +119,8 @@ class MapController extends ChangeNotifier {
 
   LatLngBounds? _lastLoadedBounds;
   DateTime? _lastViewportLoadTime;
+  bool _isResolvingCurrentRegion = false;
+  Position? _queuedRegionCheckPosition;
 
   Future<void> initialise({String? userId}) async {
     _userId = userId;
@@ -179,7 +184,9 @@ class MapController extends ChangeNotifier {
     }
   }
 
-  Future<void> disposeController() async {
+  void disposeController() {
+    unawaited(_locationUpdatesSubscription?.cancel());
+    _locationUpdatesSubscription = null;
     _googleMapController?.dispose();
   }
 
@@ -232,6 +239,7 @@ class MapController extends ChangeNotifier {
       } else {
         message = region.name;
         _cacheRegionAsPolygons(region: region);
+        await _markRegionAsVisited(region.id);
         _refreshCachedPolygonsStyles();
 
         // Load places for the current (unlocked) region
@@ -245,6 +253,8 @@ class MapController extends ChangeNotifier {
       await _googleMapController?.animateCamera(
         CameraUpdate.newLatLngZoom(userCenter, defaultZoom),
       );
+
+      await _startLocationUpdates();
     } catch (error) {
       center = fallbackCenter;
       isLoading = false;
@@ -253,6 +263,91 @@ class MapController extends ChangeNotifier {
       debugPrint('[MapController] Initial region/location error: $error');
 
       notifyListeners();
+    }
+  }
+
+  Future<void> _startLocationUpdates() async {
+    if (_locationUpdatesSubscription != null) {
+      return;
+    }
+
+    try {
+      final locationUpdates = await _geoLocatorService.getLocationUpdates();
+      _locationUpdatesSubscription = locationUpdates.listen(
+        _queueRegionCheck,
+        onError: (Object error) {
+          debugPrint('[MapController] Location updates error: $error');
+        },
+      );
+    } catch (error) {
+      debugPrint('[MapController] Could not start location updates: $error');
+    }
+  }
+
+  void _queueRegionCheck(Position position) {
+    _queuedRegionCheckPosition = position;
+
+    if (_isResolvingCurrentRegion) {
+      return;
+    }
+
+    unawaited(_drainQueuedRegionChecks());
+  }
+
+  Future<void> _drainQueuedRegionChecks() async {
+    if (_isResolvingCurrentRegion) {
+      return;
+    }
+
+    _isResolvingCurrentRegion = true;
+
+    try {
+      while (_queuedRegionCheckPosition != null) {
+        final position = _queuedRegionCheckPosition!;
+        _queuedRegionCheckPosition = null;
+        await _syncCurrentRegionForPosition(position);
+      }
+    } finally {
+      _isResolvingCurrentRegion = false;
+    }
+  }
+
+  Future<void> _syncCurrentRegionForPosition(Position position) async {
+    final previousRegionId = currentRegion?.id;
+
+    try {
+      final region = await _regionService.getContainingRegion(
+        lat: position.latitude,
+        lng: position.longitude,
+      );
+
+      final nextRegionId = region?.id;
+
+      if (nextRegionId == previousRegionId) {
+        return;
+      }
+
+      currentRegion = region;
+
+      if (region == null) {
+        message = 'No SA2 region found';
+        _refreshCachedPolygonsStyles();
+        notifyListeners();
+        return;
+      }
+
+      debugPrint(
+        '[MapController] Current region changed: $previousRegionId -> ${region.id}',
+      );
+
+      message = region.name;
+      _cacheRegionAsPolygons(region: region);
+      await _markRegionAsVisited(region.id);
+      _refreshCachedPolygonsStyles();
+      await _loadPlacesForRegion(region.id);
+      notifyListeners();
+    } catch (error) {
+      debugPrint('[MapController] Error resolving current region: $error');
     }
   }
 
@@ -531,7 +626,10 @@ class MapController extends ChangeNotifier {
       await _visitService.markVisited(userId: _userId!, place: place);
 
       _visitedPlaceIds.add(place.id);
-      await _markRegionAsVisited(place.regionId);
+      final regionVisitChanged = await _markRegionAsVisited(place.regionId);
+      if (regionVisitChanged) {
+        _refreshCachedPolygonsStyles();
+      }
       _rebuildMarkers();
 
       message = 'Visited ${place.name}!';
@@ -559,9 +657,9 @@ class MapController extends ChangeNotifier {
     return null;
   }
 
-  Future<void> _markRegionAsVisited(String regionId) async {
+  Future<bool> _markRegionAsVisited(String regionId) async {
     if (_visitedRegionIds.contains(regionId)) {
-      return;
+      return false;
     }
 
     try {
@@ -571,16 +669,17 @@ class MapController extends ChangeNotifier {
         debugPrint(
           '[MapController] Region $regionId visit was not persisted because there is no authenticated user',
         );
-        return;
+        return false;
       }
 
       _visitedRegionIds.add(regionId);
-      _refreshCachedPolygonsStyles();
       debugPrint('[MapController] Marked region $regionId as visited');
+      return true;
     } catch (error) {
       debugPrint(
         '[MapController] Error marking region $regionId as visited: $error',
       );
+      return false;
     }
   }
 }
