@@ -198,6 +198,32 @@ class AuthRepository {
     }
   }
 
+  /// Updates the signed-in user's XP.
+  Future<void> updateXp(int newXp) async {
+    final user = currentUser;
+    if (user == null) {
+      throw FirebaseAuthException(
+        code: 'user-not-found',
+        message: 'No logged in user found.',
+      );
+    }
+
+    await _profileService.updateXp(user.uid, newXp);
+  }
+
+  /// Adds XP to the signed-in user's current XP.
+  Future<void> addXp(int xpToAdd) async {
+    final user = currentUser;
+    if (user == null) {
+      throw FirebaseAuthException(
+        code: 'user-not-found',
+        message: 'No logged in user found.',
+      );
+    }
+
+    await _profileService.addXp(user.uid, xpToAdd);
+  }
+
   /// Signs out from Firebase.
   Future<void> signOut() => _authService.signOut();
 }

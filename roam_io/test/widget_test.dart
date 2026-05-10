@@ -1,3 +1,5 @@
+import 'package:flutter/material.dart';
+
 /*
  * Author: [Insert Name Here]
  * Last Modified: 6/05/2026
@@ -7,35 +9,133 @@
  */
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:roam_io/features/journeys/screens/journeys_screen.dart';
 import 'package:roam_io/features/profile/domain/profile_model.dart';
+import 'package:roam_io/shared/widgets/level_up_celebration.dart';
 
 /// Runs profile model serialization and compatibility tests.
 void main() {
-  test('ProfileModel defaults missing dark mode preference to false', () {
-    final profile = ProfileModel.fromMap(<String, dynamic>{
-      'uid': 'user-1',
-      'username': 'traveller',
-      'displayName': 'Traveller',
-      'email': 'traveller@example.com',
-      'createdAt': '2026-05-01T10:00:00.000',
-      'updatedAt': '2026-05-01T10:00:00.000',
+  group('ProfileModel Firestore mapping', () {
+    test('defaults missing optional fields for legacy profiles', () {
+      final profile = ProfileModel.fromMap(<String, dynamic>{
+        'uid': 'user-1',
+        'username': 'traveller',
+        'displayName': 'Traveller',
+        'email': 'traveller@example.com',
+        'createdAt': '2026-05-01T10:00:00.000',
+        'updatedAt': '2026-05-01T10:00:00.000',
+      });
+
+      expect(profile.darkModeEnabled, isFalse);
+      expect(profile.xp, 0);
+      expect(profile.level, 1);
     });
 
-    expect(profile.darkModeEnabled, isFalse);
+    test('derives level from xp when the level field is missing', () {
+      final profile = ProfileModel.fromMap(<String, dynamic>{
+        'uid': 'user-1',
+        'username': 'traveller',
+        'displayName': 'Traveller',
+        'email': 'traveller@example.com',
+        'createdAt': '2026-05-01T10:00:00.000',
+        'updatedAt': '2026-05-01T10:00:00.000',
+        'xp': 250,
+      });
+
+      expect(profile.level, 3);
+    });
+
+    test('writes XP and level fields to a Firestore map', () {
+      final now = DateTime(2026, 5, 1, 10);
+      final profile = ProfileModel(
+        uid: 'user-1',
+        username: 'traveller',
+        displayName: 'Traveller',
+        email: 'traveller@example.com',
+        createdAt: now,
+        updatedAt: now,
+        darkModeEnabled: true,
+        xp: 25,
+        level: 1,
+      );
+
+      expect(profile.toMap()['darkModeEnabled'], isTrue);
+      expect(profile.toMap()['xp'], 25);
+      expect(profile.toMap()['level'], 1);
+    });
   });
 
-  test('ProfileModel writes dark mode preference to Firestore map', () {
-    final now = DateTime(2026, 5, 1, 10);
-    final profile = ProfileModel(
-      uid: 'user-1',
-      username: 'traveller',
-      displayName: 'Traveller',
-      email: 'traveller@example.com',
-      createdAt: now,
-      updatedAt: now,
-      darkModeEnabled: true,
-    );
+  group('QAP XP unit tests', () {
+    test('ART-65 increases XP required as levels get higher', () {
+      expect(ProfileModel.xpForLevel(1), 100);
+      expect(ProfileModel.xpForLevel(2), 112);
+      expect(ProfileModel.xpForLevel(3), 125);
+      expect(ProfileModel.xpForLevel(4), 140);
+      expect(
+        ProfileModel.xpForLevel(4),
+        greaterThan(ProfileModel.xpForLevel(3)),
+      );
+    });
 
-    expect(profile.toMap()['darkModeEnabled'], isTrue);
+    test('ART-65 converts cumulative XP to levels at exact boundaries', () {
+      expect(ProfileModel.levelFromXp(-1), 1);
+      expect(ProfileModel.levelFromXp(99), 1);
+      expect(ProfileModel.levelFromXp(100), 2);
+      expect(ProfileModel.levelFromXp(211), 2);
+      expect(ProfileModel.levelFromXp(212), 3);
+      expect(ProfileModel.levelFromXp(337), 4);
+    });
+
+    test('ART-65 caps cumulative XP calculations at the maximum level', () {
+      final maxLevelXp = ProfileModel.totalXpToReachLevel(
+        ProfileModel.maxLevel,
+      );
+
+      expect(ProfileModel.levelFromXp(maxLevelXp), ProfileModel.maxLevel);
+      expect(
+        ProfileModel.totalXpToReachLevel(ProfileModel.maxLevel + 1),
+        maxLevelXp,
+      );
+    });
+  });
+
+  group('QAP XP widget tests', () {
+    testWidgets('ART-64 displays earned XP on every journey card', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        const MaterialApp(home: Scaffold(body: JourneysScreen())),
+      );
+
+      expect(find.text('32 XP earned'), findsOneWidget);
+      expect(find.text('50 XP earned'), findsOneWidget);
+      expect(find.text('84 XP earned'), findsOneWidget);
+    });
+
+    testWidgets('ART-53 shows and dismisses the level-up celebration', (
+      tester,
+    ) async {
+      var dismissed = false;
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: LevelUpCelebration(
+            newLevel: 7,
+            onDismiss: () => dismissed = true,
+          ),
+        ),
+      );
+      await tester.pump(const Duration(milliseconds: 900));
+
+      expect(find.text('LEVEL UP!'), findsOneWidget);
+      expect(find.text('Level 7'), findsOneWidget);
+      expect(find.text('Tap to continue'), findsOneWidget);
+
+      await tester.tap(find.byType(LevelUpCelebration));
+      await tester.pumpAndSettle();
+      await tester.pump(const Duration(seconds: 3));
+
+      expect(dismissed, isTrue);
+    });
   });
 }
