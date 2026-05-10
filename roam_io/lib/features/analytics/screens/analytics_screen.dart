@@ -8,9 +8,9 @@
 
 import 'package:flutter/material.dart';
 
-import '../../../../shared/widgets/app_page_header.dart';
-import '../../../../theme/app_colours.dart';
-import '../../../../theme/app_surfaces.dart';
+import '../../../shared/widgets/app_page_header.dart';
+import '../../../theme/app_colours.dart';
+import '../../../theme/app_surfaces.dart';
 
 /// Displays exploration analytics, progress summaries, and milestones.
 class AnalyticsScreen extends StatelessWidget {

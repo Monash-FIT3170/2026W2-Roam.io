@@ -7,7 +7,7 @@
  */
 
 import 'package:flutter/material.dart';
-import '../../../../shared/widgets/app_page_header.dart';
+import '../../../shared/widgets/app_page_header.dart';
 
 /// Displays the quests tab content inside the main shell.
 class QuestsScreen extends StatelessWidget {

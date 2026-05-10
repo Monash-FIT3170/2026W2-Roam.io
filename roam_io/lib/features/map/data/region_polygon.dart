@@ -5,6 +5,9 @@
  *   Represents spatial region geometry and converts backend polygons into
  *   Google Maps polygon overlays.
  */
+// Defines the region polygon model and converts backend geometry into Google
+// Maps polygons. This is needed to translate raw spatial data into something
+// the map can actually draw and interact with.
 
 import 'dart:convert';
 import 'dart:ui';
@@ -37,7 +40,11 @@ class RegionPolygon {
     );
   }
 
+
   /// Converts GeoJSON polygon geometry into Google Maps polygon overlays.
+
+  
+
   List<Polygon> toGooglePolygons({
     Color strokeColor = const Color(0xFF5B5BD6),
     Color fillColor = const Color(0x225B5BD6),
