@@ -1,10 +1,13 @@
 import 'dart:math' as math;
 
+/*
+ * Author: Alvin Liong
+ * Last Modified: 4/05/2026
+ * Description:
+ *   Represents a user profile and maps profile data to and from Firestore.
+ */
+
 /// App-level profile entity stored in Firestore at `profiles/{uid}`.
-///
-/// This model keeps profile data mapping consistent between:
-/// - Dart objects in the app, and
-/// - Firestore documents in the backend.
 class ProfileModel {
   /// Maximum level a user can reach.
   static const int maxLevel = 100;
@@ -34,9 +37,11 @@ class ProfileModel {
     if (level <= 1) return 0;
 
     var total = 0;
-    for (var currentLevel = 1;
-        currentLevel < math.min(level, maxLevel);
-        currentLevel += 1) {
+    for (
+      var currentLevel = 1;
+      currentLevel < math.min(level, maxLevel);
+      currentLevel += 1
+    ) {
       total += xpForLevel(currentLevel);
     }
 
@@ -85,6 +90,7 @@ class ProfileModel {
   final int xp;
   final int level;
 
+  /// Creates a profile copy with selected fields replaced.
   ProfileModel copyWith({
     String? uid,
     String? username,
@@ -144,15 +150,18 @@ class ProfileModel {
       email: (map['email'] ?? '') as String,
       photoUrl: map['photoUrl'] as String?,
       photoHash: map['photoHash'] as String?,
+      // Older or partial profile documents may not have valid timestamps.
       createdAt:
           DateTime.tryParse((map['createdAt'] ?? '') as String) ??
           DateTime.now(),
       updatedAt:
           DateTime.tryParse((map['updatedAt'] ?? '') as String) ??
           DateTime.now(),
+      // Older profile documents predate this optional preference field.
       darkModeEnabled: (map['darkModeEnabled'] ?? false) as bool,
       xp: (map['xp'] as num?)?.toInt() ?? 0,
-      level: (map['level'] as num?)?.toInt() ??
+      level:
+          (map['level'] as num?)?.toInt() ??
           levelFromXp((map['xp'] as num?)?.toInt() ?? 0),
     );
   }

@@ -1,58 +1,20 @@
 import 'package:flutter/material.dart';
+
+/*
+ * Author: [Insert Name Here]
+ * Last Modified: 6/05/2026
+ * Description:
+ *   Verifies profile model mapping behaviour for the dark mode preference
+ *   stored in Firestore.
+ */
+
 import 'package:flutter_test/flutter_test.dart';
-import 'package:roam_io/features/home/presentation/screens/journeys_screen.dart';
+import 'package:roam_io/features/journeys/screens/journeys_screen.dart';
 import 'package:roam_io/features/profile/domain/profile_model.dart';
 import 'package:roam_io/shared/widgets/level_up_celebration.dart';
 
+/// Runs profile model serialization and compatibility tests.
 void main() {
-  test('ProfileModel defaults missing dark mode preference to false', () {
-    final profile = ProfileModel.fromMap(<String, dynamic>{
-      'uid': 'user-1',
-      'username': 'traveller',
-      'displayName': 'Traveller',
-      'email': 'traveller@example.com',
-      'createdAt': '2026-05-01T10:00:00.000',
-      'updatedAt': '2026-05-01T10:00:00.000',
-    });
-
-    expect(profile.darkModeEnabled, isFalse);
-    expect(profile.xp, 0);
-    expect(profile.level, 1);
-  });
-
-  test('ProfileModel derives level from xp when missing', () {
-    final profile = ProfileModel.fromMap(<String, dynamic>{
-      'uid': 'user-1',
-      'username': 'traveller',
-      'displayName': 'Traveller',
-      'email': 'traveller@example.com',
-      'createdAt': '2026-05-01T10:00:00.000',
-      'updatedAt': '2026-05-01T10:00:00.000',
-      'xp': 250,
-    });
-
-    expect(profile.level, 3);
-  });
-
-  test('ProfileModel writes profile fields to Firestore map', () {
-    final now = DateTime(2026, 5, 1, 10);
-    final profile = ProfileModel(
-      uid: 'user-1',
-      username: 'traveller',
-      displayName: 'Traveller',
-      email: 'traveller@example.com',
-      createdAt: now,
-      updatedAt: now,
-      darkModeEnabled: true,
-      xp: 25,
-      level: 1,
-    );
-
-    expect(profile.toMap()['darkModeEnabled'], isTrue);
-    expect(profile.toMap()['xp'], 25);
-    expect(profile.toMap()['level'], 1);
-  });
-
   group('ProfileModel Firestore mapping', () {
     test('defaults missing optional fields for legacy profiles', () {
       final profile = ProfileModel.fromMap(<String, dynamic>{
@@ -142,11 +104,7 @@ void main() {
       tester,
     ) async {
       await tester.pumpWidget(
-        const MaterialApp(
-          home: Scaffold(
-            body: JourneysScreen(),
-          ),
-        ),
+        const MaterialApp(home: Scaffold(body: JourneysScreen())),
       );
 
       expect(find.text('32 XP earned'), findsOneWidget);

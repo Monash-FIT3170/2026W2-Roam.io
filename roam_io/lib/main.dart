@@ -1,25 +1,30 @@
+/*
+ * Author: Alvin Liong
+ * Last Modified: 4/05/2026
+ * Description:
+ *   Initializes Firebase, wires app-wide authentication state, and launches
+ *   the root Roam.io application widget.
+ */
+
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
-import 'features/auth/presentation/providers/auth_provider.dart';
-import 'features/auth/presentation/screens/auth_gate.dart';
+import 'features/auth/providers/auth_provider.dart';
+import 'features/auth/screens/auth_gate_screen.dart';
 import 'firebase_options.dart';
 import 'shared/widgets/level_up_celebration.dart';
 import 'theme/app_theme.dart';
 
+/// Starts the Flutter app after Firebase has been initialized.
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  
 
-
-
-  await Firebase.initializeApp(
-    options: DefaultFirebaseOptions.currentPlatform,
-  );
+  await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
   runApp(const MyApp());
 }
 
+/// Root application widget that provides authentication state and app themes.
 class MyApp extends StatefulWidget {
   const MyApp({super.key});
 
@@ -52,7 +57,7 @@ class _MyAppState extends State<MyApp> {
             darkTheme: AppTheme.darkTheme,
             themeMode: auth.darkModeEnabled ? ThemeMode.dark : ThemeMode.light,
             navigatorKey: _navigatorKey,
-            home: const AuthGate(),
+            home: const AuthGateScreen(),
           );
         },
       ),
