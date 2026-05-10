@@ -84,9 +84,9 @@ enum PlaceCategory {
 
 /// Marker size levels based on zoom
 enum MarkerSize {
-  small(15),   // zoom < 13
-  medium(20),  // zoom 13-15
-  large(25);   // zoom > 15
+  small(15), // zoom < 13
+  medium(20), // zoom 13-15
+  large(25); // zoom > 15
 
   final double pixelSize;
   const MarkerSize(this.pixelSize);
@@ -101,17 +101,18 @@ enum MarkerSize {
 
 class PlaceOfInterest {
   // Cache for circle icons: [category][size] -> icon
-  static final Map<PlaceCategory, Map<MarkerSize, BitmapDescriptor>> _iconCache = {};
-  
+  static final Map<PlaceCategory, Map<MarkerSize, BitmapDescriptor>>
+  _iconCache = {};
+
   // Cache for visited icons: [size] -> icon (same style for all categories)
   static final Map<MarkerSize, BitmapDescriptor> _visitedIconCache = {};
-  
+
   // Visited marker color - a muted green with checkmark
   static const Color _visitedColor = Color(0xFF6B7280); // Gray-500
-  
+
   // Current marker size level
   static MarkerSize _currentSize = MarkerSize.medium;
-  
+
   /// Get the current marker size
   static MarkerSize get currentSize => _currentSize;
 
@@ -127,7 +128,7 @@ class PlaceOfInterest {
         );
       }
     }
-    
+
     // Generate visited icons (same for all categories)
     for (final size in MarkerSize.values) {
       _visitedIconCache[size] = await _createVisitedIcon(size: size.pixelSize);
@@ -168,7 +169,7 @@ class PlaceOfInterest {
 
     // Shadow
     final shadowPaint = Paint()
-      ..color = Colors.black.withOpacity(0.3)
+      ..color = Colors.black.withValues(alpha: 0.3)
       ..maskFilter = MaskFilter.blur(BlurStyle.normal, size / 18);
 
     final center = Offset(size / 2, size / 2);
@@ -186,9 +187,7 @@ class PlaceOfInterest {
   }
 
   /// Creates a visited icon: gray circle with white checkmark.
-  static Future<BitmapDescriptor> _createVisitedIcon({
-    double size = 36,
-  }) async {
+  static Future<BitmapDescriptor> _createVisitedIcon({double size = 36}) async {
     final recorder = ui.PictureRecorder();
     final canvas = Canvas(recorder);
 
@@ -207,7 +206,7 @@ class PlaceOfInterest {
 
     // Shadow
     final shadowPaint = Paint()
-      ..color = Colors.black.withOpacity(0.3)
+      ..color = Colors.black.withValues(alpha: 0.3)
       ..maskFilter = MaskFilter.blur(BlurStyle.normal, size / 18);
 
     final center = Offset(size / 2, size / 2);
@@ -293,7 +292,9 @@ class PlaceOfInterest {
       id: parseInt(json['id']) ?? 0,
       googlePlaceId: json['google_place_id'] as String,
       name: json['name'] as String? ?? 'Unknown',
-      category: PlaceCategory.fromString(json['category'] as String? ?? 'other'),
+      category: PlaceCategory.fromString(
+        json['category'] as String? ?? 'other',
+      ),
       types: (json['types'] as List<dynamic>?)?.cast<String>() ?? [],
       location: LatLng(
         parseDouble(coords[1]) ?? 0.0,
@@ -310,31 +311,30 @@ class PlaceOfInterest {
   /// Creates a marker with a circle icon at the current size level.
   /// Uses cached icons (call preloadIcons() at app start).
   /// Falls back to default marker if icons not yet loaded.
-  /// 
+  ///
   /// If [visited] is true, displays a gray checkmark icon instead of category color.
   Marker toMarker({
     void Function(PlaceOfInterest place)? onTap,
     bool visited = false,
   }) {
     final BitmapDescriptor icon;
-    
+
     if (visited) {
       // Use visited icon (gray with checkmark)
-      icon = _visitedIconCache[_currentSize] ??
+      icon =
+          _visitedIconCache[_currentSize] ??
           BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueAzure);
     } else {
       // Use category-colored icon
-      icon = _iconCache[category]?[_currentSize] ??
+      icon =
+          _iconCache[category]?[_currentSize] ??
           BitmapDescriptor.defaultMarkerWithHue(category.markerHue);
     }
 
     return Marker(
       markerId: MarkerId('place_$id'),
       position: location,
-      infoWindow: InfoWindow(
-        title: name,
-        snippet: _buildSnippet(),
-      ),
+      infoWindow: InfoWindow(title: name, snippet: _buildSnippet()),
       icon: icon,
       onTap: onTap == null ? null : () => onTap(this),
     );

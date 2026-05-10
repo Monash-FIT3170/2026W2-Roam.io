@@ -13,12 +13,16 @@ import 'geolocator_service.dart';
 enum VisitResult {
   /// Successfully marked as visited.
   success,
+
   /// User is not logged in.
   notLoggedIn,
+
   /// Place has already been visited.
   alreadyVisited,
+
   /// User is too far from the place (beyond proximity threshold).
   tooFar,
+
   /// An error occurred (network, Firestore, etc).
   error,
 }
@@ -71,10 +75,10 @@ class MapController extends ChangeNotifier {
     RegionService? regionService,
     PlacesService? placesService,
     VisitService? visitService,
-  })  : _geoLocatorService = geoLocatorService ?? GeoLocatorService(),
-        _regionService = regionService ?? RegionService(),
-        _placesService = placesService ?? PlacesService(),
-        _visitService = visitService ?? VisitService();
+  }) : _geoLocatorService = geoLocatorService ?? GeoLocatorService(),
+       _regionService = regionService ?? RegionService(),
+       _placesService = placesService ?? PlacesService(),
+       _visitService = visitService ?? VisitService();
 
   GoogleMapController? _googleMapController;
 
@@ -90,8 +94,6 @@ class MapController extends ChangeNotifier {
 
   // Visited places tracking
   Set<int> _visitedPlaceIds = {};
-
-  
 
   RegionPolygon? currentRegion;
   Set<Polygon> polygons = {};
@@ -110,20 +112,17 @@ class MapController extends ChangeNotifier {
   LatLngBounds? _lastLoadedBounds;
   DateTime? _lastViewportLoadTime;
 
-
-
-
   Future<void> initialise({String? userId}) async {
     _userId = userId;
-    
+
     // Pre-load circle icons for all place categories
     await PlaceOfInterest.preloadIcons();
-    
+
     // Load visited places if user is logged in
     if (_userId != null) {
       await _loadVisitedPlaces();
     }
-    
+
     await _loadInitialRegion();
   }
 
@@ -143,10 +142,12 @@ class MapController extends ChangeNotifier {
   /// Load visited place IDs from Firestore.
   Future<void> _loadVisitedPlaces() async {
     if (_userId == null) return;
-    
+
     try {
       _visitedPlaceIds = await _visitService.getVisitedPlaceIds(_userId!);
-      debugPrint('[MapController] Loaded ${_visitedPlaceIds.length} visited places');
+      debugPrint(
+        '[MapController] Loaded ${_visitedPlaceIds.length} visited places',
+      );
     } catch (error) {
       debugPrint('[MapController] Error loading visited places: $error');
     }
@@ -158,8 +159,6 @@ class MapController extends ChangeNotifier {
 
   Future<void> onMapCreated(GoogleMapController controller) async {
     _googleMapController = controller;
-
-    await _googleMapController?.setMapStyle(_mapStyle);
 
     await _googleMapController?.animateCamera(
       CameraUpdate.newLatLngZoom(center, defaultZoom),
@@ -178,25 +177,19 @@ class MapController extends ChangeNotifier {
     }
   }
 
-
-
-  // polygon for the region you are in 
+  // polygon for the region you are in
 
   Future<void> _loadInitialRegion() async {
     try {
-
       debugPrint('[MapController] Loading initial region...');
 
       final Position position = await _geoLocatorService.getCurrentLocation();
 
       debugPrint(
-  '[MapController] User location: ${position.latitude}, ${position.longitude}',
-);
-
-      final userCenter = LatLng(
-        position.latitude,
-        position.longitude,
+        '[MapController] User location: ${position.latitude}, ${position.longitude}',
       );
+
+      final userCenter = LatLng(position.latitude, position.longitude);
 
       final region = await _regionService.getContainingRegion(
         lat: position.latitude,
@@ -214,7 +207,7 @@ class MapController extends ChangeNotifier {
         message = region.name;
         _cacheRegionAsPolygons(
           region: region,
-          strokeColor: const Color(0xFFC084FC), 
+          strokeColor: const Color(0xFFC084FC),
           fillColor: const Color(0x228B5CF6),
           strokeWidth: 5,
         );
@@ -240,9 +233,6 @@ class MapController extends ChangeNotifier {
       notifyListeners();
     }
   }
-
-
-
 
   // load all other polyons in view and cache
 
@@ -276,7 +266,7 @@ class MapController extends ChangeNotifier {
         final wasAdded = _cacheRegionAsPolygons(
           region: region,
           strokeColor: const Color(0xFF94A3B8),
-          fillColor: const Color(0x990F172A), //simulate fake fog 
+          fillColor: const Color(0x990F172A), //simulate fake fog
           strokeWidth: 2,
         );
 
@@ -304,9 +294,6 @@ class MapController extends ChangeNotifier {
     }
   }
 
-
-
-
   bool _cacheRegionAsPolygons({
     required RegionPolygon region,
     required Color strokeColor,
@@ -333,10 +320,6 @@ class MapController extends ChangeNotifier {
     return true;
   }
 
-
-
-
-
   bool _isWithinDebounceWindow() {
     final now = DateTime.now();
 
@@ -355,9 +338,6 @@ class MapController extends ChangeNotifier {
     return false;
   }
 
-
-
-
   bool _isSimilarToLastBounds(LatLngBounds newBounds) {
     final oldBounds = _lastLoadedBounds;
 
@@ -365,21 +345,17 @@ class MapController extends ChangeNotifier {
 
     const threshold = 0.01;
 
-    final southDiff = (
-      newBounds.southwest.latitude - oldBounds.southwest.latitude
-    ).abs();
+    final southDiff =
+        (newBounds.southwest.latitude - oldBounds.southwest.latitude).abs();
 
-    final westDiff = (
-      newBounds.southwest.longitude - oldBounds.southwest.longitude
-    ).abs();
+    final westDiff =
+        (newBounds.southwest.longitude - oldBounds.southwest.longitude).abs();
 
-    final northDiff = (
-      newBounds.northeast.latitude - oldBounds.northeast.latitude
-    ).abs();
+    final northDiff =
+        (newBounds.northeast.latitude - oldBounds.northeast.latitude).abs();
 
-    final eastDiff = (
-      newBounds.northeast.longitude - oldBounds.northeast.longitude
-    ).abs();
+    final eastDiff =
+        (newBounds.northeast.longitude - oldBounds.northeast.longitude).abs();
 
     return southDiff < threshold &&
         westDiff < threshold &&
@@ -387,16 +363,10 @@ class MapController extends ChangeNotifier {
         eastDiff < threshold;
   }
 
-
-
-
   void onRegionTapped(String regionId, String regionName) {
     message = regionName;
     notifyListeners();
   }
-
-
-
 
   // ─────────────────────────────────────────────────────────────────────────────
   // PLACES METHODS
@@ -406,10 +376,12 @@ class MapController extends ChangeNotifier {
   /// Only fetches from API if not already cached.
   Future<void> _loadPlacesForRegion(String regionId) async {
     debugPrint('[MapController] _loadPlacesForRegion called for: $regionId');
-    
+
     // Already cached? Just rebuild markers
     if (_placesCache.containsKey(regionId)) {
-      debugPrint('[MapController] Cache hit - ${_placesCache[regionId]!.length} places');
+      debugPrint(
+        '[MapController] Cache hit - ${_placesCache[regionId]!.length} places',
+      );
       _rebuildMarkers();
       return;
     }
@@ -438,7 +410,6 @@ class MapController extends ChangeNotifier {
     }
   }
 
-
   /// Rebuild the markers set from all cached places.
   void _rebuildMarkers() {
     final allMarkers = <Marker>{};
@@ -447,17 +418,13 @@ class MapController extends ChangeNotifier {
       for (final place in places) {
         final isVisited = _visitedPlaceIds.contains(place.id);
         allMarkers.add(
-          place.toMarker(
-            onTap: onPlaceTapped,
-            visited: isVisited,
-          ),
+          place.toMarker(onTap: onPlaceTapped, visited: isVisited),
         );
       }
     }
 
     markers = allMarkers;
   }
-
 
   /// Callback invoked when a place marker is tapped.
   /// Set this to show the place details sheet.
@@ -467,11 +434,10 @@ class MapController extends ChangeNotifier {
   void onPlaceTapped(PlaceOfInterest place) {
     message = '${place.name} • ${place.category.displayName}';
     notifyListeners();
-    
+
     // Notify external listener (e.g., to show details sheet)
     onPlaceSelected?.call(place);
   }
-
 
   // ─────────────────────────────────────────────────────────────────────────────
   // VISIT METHODS
@@ -504,7 +470,9 @@ class MapController extends ChangeNotifier {
 
   /// Check if user is within proximity threshold of a place.
   /// Returns the distance in meters, or null if unable to determine.
-  Future<({bool isNear, double? distance})> checkProximity(PlaceOfInterest place) async {
+  Future<({bool isNear, double? distance})> checkProximity(
+    PlaceOfInterest place,
+  ) async {
     final distance = await getDistanceToPlace(place);
     if (distance == null) {
       return (isNear: false, distance: null);
@@ -536,23 +504,21 @@ class MapController extends ChangeNotifier {
           ? '${proximity.distance!.round()}m away'
           : 'too far away';
       debugPrint('[MapController] User is $distanceText from ${place.name}');
-      message = 'You need to be within ${visitProximityThreshold.round()}m to visit this place ($distanceText)';
+      message =
+          'You need to be within ${visitProximityThreshold.round()}m to visit this place ($distanceText)';
       notifyListeners();
       return VisitResult.tooFar;
     }
 
     try {
-      await _visitService.markVisited(
-        userId: _userId!,
-        place: place,
-      );
+      await _visitService.markVisited(userId: _userId!, place: place);
 
       _visitedPlaceIds.add(place.id);
       _rebuildMarkers();
-      
+
       message = 'Visited ${place.name}!';
       notifyListeners();
-      
+
       debugPrint('[MapController] Marked place ${place.id} as visited');
       return VisitResult.success;
     } catch (error) {

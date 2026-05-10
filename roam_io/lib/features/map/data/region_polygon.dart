@@ -40,10 +40,7 @@ class RegionPolygon {
     );
   }
 
-
   /// Converts GeoJSON polygon geometry into Google Maps polygon overlays.
-
-  
 
   List<Polygon> toGooglePolygons({
     Color strokeColor = const Color(0xFF5B5BD6),

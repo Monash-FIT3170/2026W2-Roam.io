@@ -12,7 +12,6 @@ import '../../../services/polygon_service.dart';
  * 
  */
 
-
 class VisitedRegionService {
   VisitedRegionService({FirebaseAuth? auth, PolygonService? polygonService})
     : _auth = auth ?? FirebaseAuth.instance,

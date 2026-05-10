@@ -40,10 +40,7 @@ class _LevelUpCelebrationState extends State<LevelUpCelebration>
     _fadeAnimation = Tween<double>(
       begin: 0.0,
       end: 1.0,
-    ).animate(CurvedAnimation(
-      parent: _fadeController,
-      curve: Curves.easeOut,
-    ));
+    ).animate(CurvedAnimation(parent: _fadeController, curve: Curves.easeOut));
 
     // Scale animation for the level number
     _scaleController = AnimationController(
@@ -51,13 +48,9 @@ class _LevelUpCelebrationState extends State<LevelUpCelebration>
       vsync: this,
     );
 
-    _scaleAnimation = Tween<double>(
-      begin: 0.0,
-      end: 1.0,
-    ).animate(CurvedAnimation(
-      parent: _scaleController,
-      curve: Curves.elasticOut,
-    ));
+    _scaleAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
+      CurvedAnimation(parent: _scaleController, curve: Curves.elasticOut),
+    );
 
     // Confetti animation
     _confettiController = AnimationController(
@@ -65,13 +58,9 @@ class _LevelUpCelebrationState extends State<LevelUpCelebration>
       vsync: this,
     );
 
-    _confettiAnimation = Tween<double>(
-      begin: 0.0,
-      end: 1.0,
-    ).animate(CurvedAnimation(
-      parent: _confettiController,
-      curve: Curves.easeOut,
-    ));
+    _confettiAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
+      CurvedAnimation(parent: _confettiController, curve: Curves.easeOut),
+    );
 
     // Start animations
     _fadeController.forward();
@@ -144,7 +133,9 @@ class _LevelUpCelebrationState extends State<LevelUpCelebration>
                                   ),
                                   boxShadow: [
                                     BoxShadow(
-                                      color: AppColors.sage.withValues(alpha: 0.3),
+                                      color: AppColors.sage.withValues(
+                                        alpha: 0.3,
+                                      ),
                                       blurRadius: 20,
                                       spreadRadius: 5,
                                     ),
@@ -193,7 +184,9 @@ class _LevelUpCelebrationState extends State<LevelUpCelebration>
                                       vertical: 12,
                                     ),
                                     decoration: BoxDecoration(
-                                      color: colorScheme.surface.withValues(alpha: 0.9),
+                                      color: colorScheme.surface.withValues(
+                                        alpha: 0.9,
+                                      ),
                                       borderRadius: BorderRadius.circular(20),
                                       border: Border.all(
                                         color: AppColors.sage,
@@ -202,7 +195,7 @@ class _LevelUpCelebrationState extends State<LevelUpCelebration>
                                     ),
                                     child: Text(
                                       'Level ${widget.newLevel}',
-                                      style: TextStyle(
+                                      style: const TextStyle(
                                         fontSize: 24,
                                         fontWeight: FontWeight.w800,
                                         color: AppColors.sage,
@@ -261,7 +254,10 @@ class _LevelUpCelebrationState extends State<LevelUpCelebration>
         AnimatedBuilder(
           animation: _confettiAnimation,
           builder: (context, child) {
-            final progress = (_confettiAnimation.value - delay / 2000).clamp(0.0, 1.0);
+            final progress = (_confettiAnimation.value - delay / 2000).clamp(
+              0.0,
+              1.0,
+            );
             if (progress <= 0) return const SizedBox.shrink();
 
             final x = startX + progress * 0.8; // Move right

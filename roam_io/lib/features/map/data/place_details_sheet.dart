@@ -189,13 +189,13 @@ class _PlaceDetailsSheetState extends State<PlaceDetailsSheet> {
                         vertical: 4,
                       ),
                       decoration: BoxDecoration(
-                        color: AppColors.sage.withOpacity(0.15),
+                        color: AppColors.sage.withValues(alpha: 0.15),
                         borderRadius: BorderRadius.circular(12),
                       ),
                       child: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          Icon(
+                          const Icon(
                             Icons.check_circle,
                             size: 16,
                             color: AppColors.sage,
@@ -255,10 +255,10 @@ class _PlaceDetailsSheetState extends State<PlaceDetailsSheet> {
                       ),
                     )
                   else
-                    SizedBox(
+                    const SizedBox(
                       width: 60,
                       child: LinearProgressIndicator(
-                        backgroundColor: Colors.grey[300],
+                        backgroundColor: Color(0xFFE0E0E0),
                         color: AppColors.sage,
                       ),
                     ),
@@ -293,12 +293,16 @@ class _PlaceDetailsSheetState extends State<PlaceDetailsSheet> {
                 Container(
                   padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
-                    color: AppColors.clay.withOpacity(0.1),
+                    color: AppColors.clay.withValues(alpha: 0.1),
                     borderRadius: BorderRadius.circular(8),
                   ),
                   child: Row(
                     children: [
-                      Icon(Icons.info_outline, size: 20, color: AppColors.clay),
+                      const Icon(
+                        Icons.info_outline,
+                        size: 20,
+                        color: AppColors.clay,
+                      ),
                       const SizedBox(width: 8),
                       Expanded(
                         child: Text(
@@ -322,7 +326,7 @@ class _PlaceDetailsSheetState extends State<PlaceDetailsSheet> {
                   child: ElevatedButton.icon(
                     onPressed: _isLoading ? null : _handleMarkVisited,
                     icon: _isLoading
-                        ? SizedBox(
+                        ? const SizedBox(
                             width: 20,
                             height: 20,
                             child: CircularProgressIndicator(
