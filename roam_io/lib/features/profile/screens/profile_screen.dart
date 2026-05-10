@@ -10,12 +10,13 @@ import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
 
-import '../../../theme/app_surfaces.dart';
 import '../../../shared/widgets/app_page_header.dart';
 import '../../../shared/widgets/app_toast.dart';
 import '../../../theme/app_colours.dart';
+import '../../../theme/app_surfaces.dart';
 import '../../auth/providers/auth_provider.dart';
 import '../../auth/screens/change_password_screen.dart';
+import '../domain/profile_model.dart';
 
 /// Screen for viewing and updating the current user's profile settings.
 class ProfileScreen extends StatefulWidget {
@@ -193,8 +194,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     onPressed: auth.isBusy || profile == null
                         ? null
                         : _isEditing
-                            ? _saveDisplayName
-                            : () => _startEditing(displayName),
+                        ? _saveDisplayName
+                        : () => _startEditing(displayName),
                     style: TextButton.styleFrom(
                       foregroundColor: AppColors.sage,
                       textStyle: const TextStyle(
@@ -260,8 +261,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                                         context,
                                                         error,
                                                         stackTrace,
-                                                      ) =>
-                                                          Icon(
+                                                      ) => Icon(
                                                         Icons.person_rounded,
                                                         size: 34,
                                                         color:
@@ -329,6 +329,18 @@ class _ProfileScreenState extends State<ProfileScreen> {
                               ),
 
                               const SizedBox(height: 10),
+
+                              if (profile != null) ...[
+                                _LevelProgressBar(
+                                  level: profile.level,
+                                  xp: profile.xp,
+                                  progressColor: colorScheme.primary,
+                                  backgroundColor: colorScheme.primary
+                                      .withValues(alpha: 0.16),
+                                  textColor: colorScheme.onSurface,
+                                ),
+                                const SizedBox(height: 14),
+                              ],
 
                               _ProfileInfoTile(
                                 icon: Icons.email_outlined,
@@ -538,6 +550,87 @@ class _EditableProfileInfoTile extends StatelessWidget {
   }
 }
 
+class _LevelProgressBar extends StatelessWidget {
+  final int level;
+  final int xp;
+  final Color progressColor;
+  final Color backgroundColor;
+  final Color textColor;
+
+  const _LevelProgressBar({
+    required this.level,
+    required this.xp,
+    required this.progressColor,
+    required this.backgroundColor,
+    required this.textColor,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final totalXpForLevel = ProfileModel.totalXpToReachLevel(level);
+    final currentLevelXp = xp - totalXpForLevel;
+    final nextLevelXp = level >= ProfileModel.maxLevel
+        ? currentLevelXp
+        : ProfileModel.xpForLevel(level);
+    final progress = level >= ProfileModel.maxLevel
+        ? 1.0
+        : (nextLevelXp > 0 ? currentLevelXp / nextLevelXp : 0.0);
+    final xpRemaining = level >= ProfileModel.maxLevel
+        ? 0
+        : nextLevelXp - currentLevelXp;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Text(
+              'Level $level',
+              style: TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w800,
+                color: textColor,
+              ),
+            ),
+            Text(
+              level >= ProfileModel.maxLevel
+                  ? 'Max level'
+                  : '$currentLevelXp / $nextLevelXp XP',
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+                color: textColor.withValues(alpha: 0.72),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 8),
+        ClipRRect(
+          borderRadius: BorderRadius.circular(12),
+          child: LinearProgressIndicator(
+            value: progress.clamp(0.0, 1.0).toDouble(),
+            minHeight: 10,
+            valueColor: AlwaysStoppedAnimation<Color>(progressColor),
+            backgroundColor: backgroundColor,
+          ),
+        ),
+        const SizedBox(height: 6),
+        Text(
+          level >= ProfileModel.maxLevel
+              ? 'Max level reached'
+              : 'Only $xpRemaining XP to level ${level + 1}',
+          style: TextStyle(
+            fontSize: 11,
+            color: textColor.withValues(alpha: 0.68),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+// 🧾 Info tile
 class _ProfileInfoTile extends StatelessWidget {
   final IconData icon;
   final String label;

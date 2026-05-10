@@ -9,7 +9,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
-import '../../../../shared/widgets/app_toast.dart';
+import '../../../shared/widgets/app_toast.dart';
 import 'forgot_password_screen.dart';
 import '../providers/auth_provider.dart';
 import 'signup_screen.dart';

@@ -83,6 +83,25 @@ class ProfileService {
     final doc = await _profiles.doc(uid).get();
     final data = doc.data();
     if (data == null) return null;
+
+    final xpValue = (data['xp'] as num?)?.toInt() ?? 0;
+    final expectedLevel = ProfileModel.levelFromXp(xpValue);
+    final hasLevel = data.containsKey('level') && data['level'] != null;
+    final currentLevel = (data['level'] as num?)?.toInt();
+
+    final updateData = <String, dynamic>{};
+    if (!data.containsKey('xp') || data['xp'] == null) {
+      updateData['xp'] = 0;
+      data['xp'] = 0;
+    }
+    if (!hasLevel || currentLevel != expectedLevel) {
+      updateData['level'] = expectedLevel;
+      data['level'] = expectedLevel;
+    }
+    if (updateData.isNotEmpty) {
+      await _profiles.doc(uid).update(updateData);
+    }
+
     return ProfileModel.fromMap(data);
   }
 
@@ -92,5 +111,23 @@ class ProfileService {
       'displayName': displayName,
       'updatedAt': DateTime.now().toIso8601String(),
     });
+  }
+
+  /// Updates the user's XP and recalculates level if necessary.
+  Future<void> updateXp(String uid, int newXp) async {
+    final expectedLevel = ProfileModel.levelFromXp(newXp);
+    await _profiles.doc(uid).update(<String, dynamic>{
+      'xp': newXp,
+      'level': expectedLevel,
+      'updatedAt': DateTime.now().toIso8601String(),
+    });
+  }
+
+  /// Adds XP to the user's current XP and recalculates level if necessary.
+  Future<void> addXp(String uid, int xpToAdd) async {
+    final profile = await getProfile(uid);
+    if (profile == null) return;
+    final newXp = profile.xp + xpToAdd;
+    await updateXp(uid, newXp);
   }
 }

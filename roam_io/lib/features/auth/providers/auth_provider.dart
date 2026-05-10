@@ -34,6 +34,7 @@ class AuthProvider extends ChangeNotifier {
   User? _currentUser;
   ProfileModel? _currentProfile;
   ProfilePhotoUploadResult? _lastProfilePhotoUploadResult;
+  int? _pendingLevelUp;
 
   AuthViewState get viewState => _viewState;
   bool get isBusy => _isBusy;
@@ -47,10 +48,17 @@ class AuthProvider extends ChangeNotifier {
   bool get isAuthenticated => _currentUser != null;
   bool get isEmailVerified => _currentUser?.emailVerified ?? false;
   bool get darkModeEnabled => _currentProfile?.darkModeEnabled ?? false;
+  int? get pendingLevelUp => _pendingLevelUp;
 
   /// Clears the current user-facing error message.
   void clearError() {
     _errorMessage = null;
+    notifyListeners();
+  }
+
+  /// Clears a pending level-up notification after the app displays it.
+  void clearPendingLevelUp() {
+    _pendingLevelUp = null;
     notifyListeners();
   }
 
@@ -155,6 +163,36 @@ class AuthProvider extends ChangeNotifier {
       _lastProfilePhotoUploadResult = await _authRepository
           .uploadProfilePicture(image: image);
       _currentProfile = await _authRepository.getCurrentUserProfile();
+    });
+  }
+
+  /// Updates the signed-in user's XP and records level-up events.
+  Future<void> updateXp(int newXp) async {
+    await _runAuthAction(() async {
+      final oldLevel = _currentProfile?.level ?? 1;
+      await _authRepository.updateXp(newXp);
+      _currentProfile = await _authRepository.getCurrentUserProfile();
+      final newLevel = _currentProfile?.level ?? 1;
+
+      // Check if user leveled up
+      if (newLevel > oldLevel) {
+        _pendingLevelUp = newLevel;
+      }
+    });
+  }
+
+  /// Adds XP to the signed-in user and records level-up events.
+  Future<void> addXp(int xpToAdd) async {
+    await _runAuthAction(() async {
+      final oldLevel = _currentProfile?.level ?? 1;
+      await _authRepository.addXp(xpToAdd);
+      _currentProfile = await _authRepository.getCurrentUserProfile();
+      final newLevel = _currentProfile?.level ?? 1;
+
+      // Check if user leveled up
+      if (newLevel > oldLevel) {
+        _pendingLevelUp = newLevel;
+      }
     });
   }
 
