@@ -1,3 +1,4 @@
+<<<<<<<< HEAD:roam_io/lib/features/map/domain/region_polygon.dart
 /*
  * Author: Rushil Patel
  * Last Modified: 27/04/2026
@@ -5,6 +6,11 @@
  *   Represents spatial region geometry and converts backend polygons into
  *   Google Maps polygon overlays.
  */
+========
+// Defines the region polygon model and converts backend geometry into Google
+// Maps polygons. This is needed to translate raw spatial data into something
+// the map can actually draw and interact with.
+>>>>>>>> feature/ART-4-fog-of-war:roam_io/lib/features/map/data/region_polygon.dart
 
 import 'dart:convert';
 import 'dart:ui';
@@ -36,8 +42,12 @@ class RegionPolygon {
           : Map<String, dynamic>.from(rawGeometry as Map),
     );
   }
+<<<<<<<< HEAD:roam_io/lib/features/map/domain/region_polygon.dart
 
   /// Converts GeoJSON polygon geometry into Google Maps polygon overlays.
+========
+  
+>>>>>>>> feature/ART-4-fog-of-war:roam_io/lib/features/map/data/region_polygon.dart
   List<Polygon> toGooglePolygons({
     Color strokeColor = const Color(0xFF5B5BD6),
     Color fillColor = const Color(0x225B5BD6),
