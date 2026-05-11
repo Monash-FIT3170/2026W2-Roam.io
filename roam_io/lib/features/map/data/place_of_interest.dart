@@ -334,7 +334,7 @@ class PlaceOfInterest {
     return Marker(
       markerId: MarkerId('place_$id'),
       position: location,
-      infoWindow: InfoWindow(title: name, snippet: _buildSnippet()),
+      infoWindow: InfoWindow.noText,
       icon: icon,
       onTap: onTap == null ? null : () => onTap(this),
     );
