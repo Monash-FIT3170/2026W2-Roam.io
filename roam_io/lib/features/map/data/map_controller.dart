@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
@@ -5,8 +7,10 @@ import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'place_of_interest.dart';
 import 'places_service.dart';
 import 'region_polygon.dart';
+import 'region_polygon_cache.dart';
 import 'region_service.dart';
 import 'visit_service.dart';
+import 'visited_region_service.dart';
 import 'geolocator_service.dart';
 
 /// Result of attempting to mark a place as visited.
@@ -69,18 +73,25 @@ class MapController extends ChangeNotifier {
   final RegionService _regionService;
   final PlacesService _placesService;
   final VisitService _visitService;
+  final VisitedRegionService _visitedRegionService;
+  final RegionPolygonCache _regionPolygonCache;
 
   MapController({
     GeoLocatorService? geoLocatorService,
     RegionService? regionService,
     PlacesService? placesService,
     VisitService? visitService,
+    VisitedRegionService? visitedRegionService,
+    RegionPolygonCache? regionPolygonCache,
   }) : _geoLocatorService = geoLocatorService ?? GeoLocatorService(),
        _regionService = regionService ?? RegionService(),
        _placesService = placesService ?? PlacesService(),
-       _visitService = visitService ?? VisitService();
+       _visitService = visitService ?? VisitService(),
+       _visitedRegionService = visitedRegionService ?? VisitedRegionService(),
+       _regionPolygonCache = regionPolygonCache ?? RegionPolygonCache();
 
   GoogleMapController? _googleMapController;
+  StreamSubscription<Position>? _locationUpdatesSubscription;
 
   LatLng center = fallbackCenter;
   bool myLocationEnabled = false;
@@ -94,6 +105,7 @@ class MapController extends ChangeNotifier {
 
   // Visited places tracking
   Set<int> _visitedPlaceIds = {};
+  Set<String> _visitedRegionIds = <String>{};
 
   RegionPolygon? currentRegion;
   Set<Polygon> polygons = {};
@@ -102,15 +114,13 @@ class MapController extends ChangeNotifier {
   /// Exposes the map style for use by MapRender.
   String get mapStyle => _mapStyle;
 
-  // cache regions and polygons to avoid constant re-fetching
-  final Map<String, RegionPolygon> _regionCache = {};
-  final Map<String, Polygon> _polygonCache = {};
-
   // cache places to avoid re-fetching (key = regionId)
   final Map<String, List<PlaceOfInterest>> _placesCache = {};
 
   LatLngBounds? _lastLoadedBounds;
   DateTime? _lastViewportLoadTime;
+  bool _isResolvingCurrentRegion = false;
+  Position? _queuedRegionCheckPosition;
 
   Future<void> initialise({String? userId}) async {
     _userId = userId;
@@ -118,11 +128,15 @@ class MapController extends ChangeNotifier {
     // Pre-load circle icons for all place categories
     await PlaceOfInterest.preloadIcons();
 
-    // Load visited places if user is logged in
+    // Load persisted visit state before any polygons are rendered.
     if (_userId != null) {
       await _loadVisitedPlaces();
+      await _loadVisitedRegionIds();
+    } else {
+      _visitedRegionIds = <String>{};
     }
 
+    _refreshCachedPolygonsStyles();
     await _loadInitialRegion();
   }
 
@@ -132,10 +146,13 @@ class MapController extends ChangeNotifier {
     _userId = userId;
     if (userId != null) {
       await _loadVisitedPlaces();
+      await _loadVisitedRegionIds();
     } else {
       _visitedPlaceIds = {};
+      _visitedRegionIds = <String>{};
     }
     _rebuildMarkers();
+    _refreshCachedPolygonsStyles();
     notifyListeners();
   }
 
@@ -153,7 +170,23 @@ class MapController extends ChangeNotifier {
     }
   }
 
-  Future<void> disposeController() async {
+  /// Load visited region IDs from Firestore.
+  Future<void> _loadVisitedRegionIds() async {
+    if (_userId == null) return;
+
+    try {
+      _visitedRegionIds = await _visitedRegionService.loadVisitedRegionIds();
+      debugPrint(
+        '[MapController] Loaded ${_visitedRegionIds.length} visited regions',
+      );
+    } catch (error) {
+      debugPrint('[MapController] Error loading visited regions: $error');
+    }
+  }
+
+  void disposeController() {
+    unawaited(_locationUpdatesSubscription?.cancel());
+    _locationUpdatesSubscription = null;
     _googleMapController?.dispose();
   }
 
@@ -205,24 +238,23 @@ class MapController extends ChangeNotifier {
         message = 'No SA2 region found';
       } else {
         message = region.name;
-        _cacheRegionAsPolygons(
-          region: region,
-          strokeColor: const Color(0xFFC084FC),
-          fillColor: const Color(0x228B5CF6),
-          strokeWidth: 5,
-        );
+        _cacheRegionAsPolygons(region: region);
+        await _markRegionAsVisited(region.id);
+        _refreshCachedPolygonsStyles();
 
         // Load places for the current (unlocked) region
         await _loadPlacesForRegion(region.id);
       }
 
-      polygons = _polygonCache.values.toSet();
+      polygons = _regionPolygonCache.polygons;
 
       notifyListeners();
 
       await _googleMapController?.animateCamera(
         CameraUpdate.newLatLngZoom(userCenter, defaultZoom),
       );
+
+      await _startLocationUpdates();
     } catch (error) {
       center = fallbackCenter;
       isLoading = false;
@@ -231,6 +263,91 @@ class MapController extends ChangeNotifier {
       debugPrint('[MapController] Initial region/location error: $error');
 
       notifyListeners();
+    }
+  }
+
+  Future<void> _startLocationUpdates() async {
+    if (_locationUpdatesSubscription != null) {
+      return;
+    }
+
+    try {
+      final locationUpdates = await _geoLocatorService.getLocationUpdates();
+      _locationUpdatesSubscription = locationUpdates.listen(
+        _queueRegionCheck,
+        onError: (Object error) {
+          debugPrint('[MapController] Location updates error: $error');
+        },
+      );
+    } catch (error) {
+      debugPrint('[MapController] Could not start location updates: $error');
+    }
+  }
+
+  void _queueRegionCheck(Position position) {
+    _queuedRegionCheckPosition = position;
+
+    if (_isResolvingCurrentRegion) {
+      return;
+    }
+
+    unawaited(_drainQueuedRegionChecks());
+  }
+
+  Future<void> _drainQueuedRegionChecks() async {
+    if (_isResolvingCurrentRegion) {
+      return;
+    }
+
+    _isResolvingCurrentRegion = true;
+
+    try {
+      while (_queuedRegionCheckPosition != null) {
+        final position = _queuedRegionCheckPosition!;
+        _queuedRegionCheckPosition = null;
+        await _syncCurrentRegionForPosition(position);
+      }
+    } finally {
+      _isResolvingCurrentRegion = false;
+    }
+  }
+
+  Future<void> _syncCurrentRegionForPosition(Position position) async {
+    final previousRegionId = currentRegion?.id;
+
+    try {
+      final region = await _regionService.getContainingRegion(
+        lat: position.latitude,
+        lng: position.longitude,
+      );
+
+      final nextRegionId = region?.id;
+
+      if (nextRegionId == previousRegionId) {
+        return;
+      }
+
+      currentRegion = region;
+
+      if (region == null) {
+        message = 'No SA2 region found';
+        _refreshCachedPolygonsStyles();
+        notifyListeners();
+        return;
+      }
+
+      debugPrint(
+        '[MapController] Current region changed: $previousRegionId -> ${region.id}',
+      );
+
+      message = region.name;
+      _cacheRegionAsPolygons(region: region);
+      await _markRegionAsVisited(region.id);
+      _refreshCachedPolygonsStyles();
+      await _loadPlacesForRegion(region.id);
+      notifyListeners();
+    } catch (error) {
+      debugPrint('[MapController] Error resolving current region: $error');
     }
   }
 
@@ -263,19 +380,14 @@ class MapController extends ChangeNotifier {
       var newRegionCount = 0;
 
       for (final region in regions) {
-        final wasAdded = _cacheRegionAsPolygons(
-          region: region,
-          strokeColor: const Color(0xFF94A3B8),
-          fillColor: const Color(0x990F172A), //simulate fake fog
-          strokeWidth: 2,
-        );
+        final wasAdded = _cacheRegionAsPolygons(region: region);
 
         if (wasAdded) {
           newRegionCount++;
         }
       }
 
-      polygons = _polygonCache.values.toSet();
+      polygons = _regionPolygonCache.polygons;
       _lastLoadedBounds = bounds;
       isLoadingViewport = false;
 
@@ -294,30 +406,27 @@ class MapController extends ChangeNotifier {
     }
   }
 
-  bool _cacheRegionAsPolygons({
-    required RegionPolygon region,
-    required Color strokeColor,
-    required Color fillColor,
-    required int strokeWidth,
-  }) {
-    if (_regionCache.containsKey(region.id)) {
-      return false;
-    }
-
-    _regionCache[region.id] = region;
-
-    final googlePolygons = region.toGooglePolygons(
-      strokeColor: strokeColor,
-      fillColor: fillColor,
-      strokeWidth: strokeWidth,
-      onTap: onRegionTapped,
+  bool _cacheRegionAsPolygons({required RegionPolygon region}) {
+    final wasAdded = _regionPolygonCache.cacheRegion(
+      region: region,
+      isVisited: _visitedRegionIds.contains(region.id),
+      isCurrentRegion: currentRegion?.id == region.id,
+      onRegionTapped: onRegionTapped,
     );
 
-    for (final polygon in googlePolygons) {
-      _polygonCache[polygon.polygonId.value] = polygon;
-    }
+    polygons = _regionPolygonCache.polygons;
 
-    return true;
+    return wasAdded;
+  }
+
+  void _refreshCachedPolygonsStyles() {
+    _regionPolygonCache.refreshStyles(
+      shouldRenderAsVisited: (regionId) => _visitedRegionIds.contains(regionId),
+      isCurrentRegion: (regionId) => currentRegion?.id == regionId,
+      onRegionTapped: onRegionTapped,
+    );
+
+    polygons = _regionPolygonCache.polygons;
   }
 
   bool _isWithinDebounceWindow() {
@@ -451,6 +560,9 @@ class MapController extends ChangeNotifier {
   /// Get all visited place IDs.
   Set<int> get visitedPlaceIds => Set.unmodifiable(_visitedPlaceIds);
 
+  /// Get all visited region IDs.
+  Set<String> get visitedRegionIds => Set.unmodifiable(_visitedRegionIds);
+
   /// Calculate distance in meters between user's current location and a place.
   /// Returns null if unable to get user location.
   Future<double?> getDistanceToPlace(PlaceOfInterest place) async {
@@ -514,6 +626,10 @@ class MapController extends ChangeNotifier {
       await _visitService.markVisited(userId: _userId!, place: place);
 
       _visitedPlaceIds.add(place.id);
+      final regionVisitChanged = await _markRegionAsVisited(place.regionId);
+      if (regionVisitChanged) {
+        _refreshCachedPolygonsStyles();
+      }
       _rebuildMarkers();
 
       message = 'Visited ${place.name}!';
@@ -539,5 +655,31 @@ class MapController extends ChangeNotifier {
       }
     }
     return null;
+  }
+
+  Future<bool> _markRegionAsVisited(String regionId) async {
+    if (_visitedRegionIds.contains(regionId)) {
+      return false;
+    }
+
+    try {
+      final didPersistVisit = await _visitedRegionService.markVisited(regionId);
+
+      if (!didPersistVisit) {
+        debugPrint(
+          '[MapController] Region $regionId visit was not persisted because there is no authenticated user',
+        );
+        return false;
+      }
+
+      _visitedRegionIds.add(regionId);
+      debugPrint('[MapController] Marked region $regionId as visited');
+      return true;
+    } catch (error) {
+      debugPrint(
+        '[MapController] Error marking region $regionId as visited: $error',
+      );
+      return false;
+    }
   }
 }

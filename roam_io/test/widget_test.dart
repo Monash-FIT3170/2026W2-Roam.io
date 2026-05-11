@@ -176,8 +176,8 @@ void main() {
     expect(MapStyles.forBrightness(Brightness.dark), MapStyles.dark);
   });
 
-  test('MapStyles clears custom style for light brightness', () {
-    expect(MapStyles.forBrightness(Brightness.light), isNull);
+  test('MapStyles applies retro style for light brightness', () {
+    expect(MapStyles.forBrightness(Brightness.light), MapStyles.light);
   });
 
   test('MapStyles dark style is valid Google Maps JSON', () {
