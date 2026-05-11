@@ -215,28 +215,9 @@ class _PlaceDetailsSheetState extends State<PlaceDetailsSheet> {
 
               const SizedBox(height: 16),
 
-              // Rating and distance row
+              // Distance row
               Row(
                 children: [
-                  // Rating
-                  if (widget.place.rating != null) ...[
-                    Icon(Icons.star, size: 18, color: Colors.amber[700]),
-                    const SizedBox(width: 4),
-                    Text(
-                      widget.place.rating!.toStringAsFixed(1),
-                      style: theme.textTheme.bodyMedium?.copyWith(
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                    if (widget.place.userRatingsTotal != null) ...[
-                      Text(
-                        ' (${widget.place.userRatingsTotal})',
-                        style: theme.textTheme.bodySmall,
-                      ),
-                    ],
-                    const SizedBox(width: 16),
-                  ],
-
                   // Distance
                   Icon(
                     Icons.location_on,
@@ -264,28 +245,6 @@ class _PlaceDetailsSheetState extends State<PlaceDetailsSheet> {
                     ),
                 ],
               ),
-
-              // Address if available
-              if (widget.place.address != null) ...[
-                const SizedBox(height: 12),
-                Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Icon(
-                      Icons.place_outlined,
-                      size: 18,
-                      color: Colors.grey[600],
-                    ),
-                    const SizedBox(width: 4),
-                    Expanded(
-                      child: Text(
-                        widget.place.address!,
-                        style: theme.textTheme.bodySmall,
-                      ),
-                    ),
-                  ],
-                ),
-              ],
 
               // Error message
               if (_errorMessage != null) ...[
