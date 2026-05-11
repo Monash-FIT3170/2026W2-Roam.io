@@ -103,6 +103,9 @@ class MapController extends ChangeNotifier {
   // User authentication
   String? _userId;
 
+  /// Exposes the current user ID for external use.
+  String? get userId => _userId;
+
   // Visited places tracking
   Set<int> _visitedPlaceIds = {};
   Set<String> _visitedRegionIds = <String>{};
@@ -168,6 +171,14 @@ class MapController extends ChangeNotifier {
     } catch (error) {
       debugPrint('[MapController] Error loading visited places: $error');
     }
+  }
+
+  /// Refreshes visited places from Firestore and rebuilds markers.
+  /// Call this after marking a place as visited externally.
+  Future<void> refreshVisitedPlaces() async {
+    await _loadVisitedPlaces();
+    _rebuildMarkers();
+    notifyListeners();
   }
 
   /// Load visited region IDs from Firestore.

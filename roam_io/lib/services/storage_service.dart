@@ -40,6 +40,41 @@ class StorageService {
     return storageRef.getDownloadURL();
   }
 
+  /// Uploads visit media (photo or video) to Firebase Storage and returns its download URL.
+  Future<String> uploadVisitMedia({
+    required String uid,
+    required int placeId,
+    required Uint8List bytes,
+    required String filename,
+  }) async {
+    final lowerName = filename.toLowerCase();
+    String contentType;
+    if (lowerName.endsWith('.png')) {
+      contentType = 'image/png';
+    } else if (lowerName.endsWith('.mp4')) {
+      contentType = 'video/mp4';
+    } else if (lowerName.endsWith('.mov')) {
+      contentType = 'video/quicktime';
+    } else if (lowerName.endsWith('.heic')) {
+      contentType = 'image/heic';
+    } else {
+      contentType = 'image/jpeg';
+    }
+
+    // Sanitize the original filename before using it in a Storage path.
+    final sanitizedFilename = filename.replaceAll(RegExp(r"[^a-zA-Z0-9_.-]"), '_');
+    final storageRef = _firebaseStorage
+        .ref()
+        .child('visit_media')
+        .child(uid)
+        .child(placeId.toString())
+        .child('${DateTime.now().millisecondsSinceEpoch}_$sanitizedFilename');
+
+    await storageRef.putData(bytes, SettableMetadata(contentType: contentType));
+
+    return storageRef.getDownloadURL();
+  }
+
   /// Downloads bytes from an existing Firebase Storage download URL.
   Future<Uint8List?> downloadBytesFromUrl(String url) {
     return _firebaseStorage.refFromURL(url).getData();

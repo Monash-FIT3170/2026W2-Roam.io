@@ -22,9 +22,14 @@ class VisitService {
   ///
   /// Uses the place's database ID as the document ID for easy lookup.
   /// If already visited, this will update the visitedAt timestamp.
+  /// 
+  /// Optional fields allow the user to customize their visit entry.
   Future<void> markVisited({
     required String userId,
     required PlaceOfInterest place,
+    String? customName,
+    String? description,
+    List<String>? mediaUrls,
   }) async {
     final visit = Visit(
       placeId: place.id,
@@ -33,9 +38,40 @@ class VisitService {
       regionId: place.regionId,
       category: place.category.name,
       visitedAt: DateTime.now(),
+      customName: customName,
+      description: description,
+      mediaUrls: mediaUrls ?? [],
     );
 
     await _visitsCollection(userId).doc(place.id.toString()).set(visit.toMap());
+  }
+
+  /// Updates an existing visit with new details.
+  Future<void> updateVisit({
+    required String userId,
+    required int placeId,
+    String? customName,
+    String? description,
+    List<String>? mediaUrls,
+  }) async {
+    final updates = <String, dynamic>{};
+    if (customName != null) updates['customName'] = customName;
+    if (description != null) updates['description'] = description;
+    if (mediaUrls != null) updates['mediaUrls'] = mediaUrls;
+
+    if (updates.isNotEmpty) {
+      await _visitsCollection(userId).doc(placeId.toString()).update(updates);
+    }
+  }
+
+  /// Gets a single visit by place ID.
+  Future<Visit?> getVisit({
+    required String userId,
+    required int placeId,
+  }) async {
+    final doc = await _visitsCollection(userId).doc(placeId.toString()).get();
+    if (!doc.exists || doc.data() == null) return null;
+    return Visit.fromMap(doc.data()!);
   }
 
   /// Checks if a specific place has been visited by the user.
