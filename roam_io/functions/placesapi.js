@@ -2,24 +2,6 @@ const axios = require('axios');
 
 const NEARBY_SEARCH_URL = 'https://places.googleapis.com/v1/places:searchNearby';
 
-const INCLUDED_TYPES = [
-  'restaurant',
-  'cafe',
-  'bar',
-  'park',
-  'museum',
-  'tourist_attraction',
-  'shopping_mall',
-  'movie_theater',
-  'library',
-  'art_gallery',
-  'zoo',
-  'aquarium',
-  'amusement_park',
-  'stadium',
-  'night_club',
-];
-
 /**
  * Fetch places from Google Places API for a given location.
  *
@@ -38,7 +20,6 @@ async function fetchPlacesFromGoogle({
   const response = await axios.post(
     NEARBY_SEARCH_URL,
     {
-      includedTypes: INCLUDED_TYPES,
       maxResultCount: 20,
       locationRestriction: {
         circle: {
@@ -126,5 +107,4 @@ function mapToCategory(types) {
 module.exports = {
   fetchPlacesFromGoogle,
   mapToCategory,
-  INCLUDED_TYPES,
 };
