@@ -14,30 +14,32 @@ import 'package:roam_io/features/profile/domain/profile_model.dart';
 import 'package:roam_io/features/profile/domain/xp_reward_config.dart';
 
 void main() {
-  test('addXp with visit-sized grant sets pendingLevelUp when crossing boundary',
-      () async {
-    final threshold = ProfileModel.xpForLevel(1);
-    final startXp = threshold - 1;
-    expect(ProfileModel.levelFromXp(startXp), 1);
+  test(
+    'addXp with visit-sized grant sets pendingLevelUp when crossing boundary',
+    () async {
+      final threshold = ProfileModel.xpForLevel(1);
+      final startXp = threshold - 1;
+      expect(ProfileModel.levelFromXp(startXp), 1);
 
-    ProfileModel profile = _baseProfile(xp: startXp, level: 1);
-    final repo = _MutableProfileAuthRepository(() => profile, (p) {
-      profile = p;
-    });
+      ProfileModel profile = _baseProfile(xp: startXp, level: 1);
+      final repo = _MutableProfileAuthRepository(() => profile, (p) {
+        profile = p;
+      });
 
-    final auth = AuthProvider(authRepository: repo);
-    await auth.refreshCurrentUser();
+      final auth = AuthProvider(authRepository: repo);
+      await auth.refreshCurrentUser();
 
-    expect(auth.pendingLevelUp, isNull);
+      expect(auth.pendingLevelUp, isNull);
 
-    await auth.addXp(XpRewardConfig.visitXpReward);
+      await auth.addXp(XpRewardConfig.visitXpReward);
 
-    expect(auth.currentProfile!.xp, startXp + XpRewardConfig.visitXpReward);
-    expect(auth.currentProfile!.level, greaterThan(1));
-    expect(auth.pendingLevelUp, auth.currentProfile!.level);
+      expect(auth.currentProfile!.xp, startXp + XpRewardConfig.visitXpReward);
+      expect(auth.currentProfile!.level, greaterThan(1));
+      expect(auth.pendingLevelUp, auth.currentProfile!.level);
 
-    auth.dispose();
-  });
+      auth.dispose();
+    },
+  );
 }
 
 ProfileModel _baseProfile({required int xp, required int level}) {

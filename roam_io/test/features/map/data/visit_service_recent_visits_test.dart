@@ -46,10 +46,7 @@ void main() {
       final first = await service.watchRecentVisits(userId).first;
 
       expect(first, hasLength(5));
-      expect(
-        first.map((Visit v) => v.placeId).toList(),
-        [4, 7, 6, 2, 3],
-      );
+      expect(first.map((Visit v) => v.placeId).toList(), [4, 7, 6, 2, 3]);
     });
 
     test('emits a new list when visitedAt changes', () async {
@@ -88,9 +85,7 @@ void main() {
           .doc(userId)
           .collection('visits')
           .doc('1')
-          .update({
-            'visitedAt': Timestamp.fromDate(DateTime(2026, 12, 31)),
-          });
+          .update({'visitedAt': Timestamp.fromDate(DateTime(2026, 12, 31))});
 
       await Future<void>.delayed(Duration.zero);
       expect(emissions.last.map((v) => v.placeId).toList(), [1, 2]);

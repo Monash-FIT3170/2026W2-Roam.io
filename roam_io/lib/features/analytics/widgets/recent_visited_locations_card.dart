@@ -15,10 +15,7 @@ import '../../../theme/app_surfaces.dart';
 
 /// Card shell matching analytics milestone-style containers.
 class RecentVisitedLocationsCard extends StatelessWidget {
-  const RecentVisitedLocationsCard({
-    super.key,
-    required this.visitsStream,
-  });
+  const RecentVisitedLocationsCard({super.key, required this.visitsStream});
 
   final Stream<List<Visit>> visitsStream;
 
@@ -90,10 +87,7 @@ class RecentVisitedLocationsCard extends StatelessWidget {
             itemCount: visits.length,
             separatorBuilder: (context, index) => Padding(
               padding: const EdgeInsets.symmetric(horizontal: 24),
-              child: Divider(
-                color: AppSurfaces.border(context),
-                height: 1,
-              ),
+              child: Divider(color: AppSurfaces.border(context), height: 1),
             ),
             itemBuilder: (context, index) => _VisitRow(visit: visits[index]),
           );

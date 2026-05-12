@@ -34,10 +34,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Test Park'), findsOneWidget);
-    expect(
-      find.text('+${XpRewardConfig.visitXpReward} XP'),
-      findsOneWidget,
-    );
+    expect(find.text('+${XpRewardConfig.visitXpReward} XP'), findsOneWidget);
     expect(find.textContaining('2026-05-10'), findsOneWidget);
   });
 
@@ -53,9 +50,6 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    expect(
-      find.textContaining('No visits yet'),
-      findsOneWidget,
-    );
+    expect(find.textContaining('No visits yet'), findsOneWidget);
   });
 }

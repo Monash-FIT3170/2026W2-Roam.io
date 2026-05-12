@@ -83,22 +83,24 @@ void main() {
       ]);
     });
 
-    test('award callback sees cumulative XP when it tracks profile state',
-        () async {
-      var runningXp = 0;
-      final controller = await _buildController(
-        visitService: VisitService(firestore: FakeFirebaseFirestore()),
-        onVisitXpAwarded: (xp) async {
-          runningXp += xp;
-        },
-      );
+    test(
+      'award callback sees cumulative XP when it tracks profile state',
+      () async {
+        var runningXp = 0;
+        final controller = await _buildController(
+          visitService: VisitService(firestore: FakeFirebaseFirestore()),
+          onVisitXpAwarded: (xp) async {
+            runningXp += xp;
+          },
+        );
 
-      expect(runningXp, 0);
-      await controller.markPlaceAsVisited(_place(id: 20, regionId: 'R1'));
-      expect(runningXp, XpRewardConfig.visitXpReward);
-      await controller.markPlaceAsVisited(_place(id: 21, regionId: 'R2'));
-      expect(runningXp, XpRewardConfig.visitXpReward * 2);
-    });
+        expect(runningXp, 0);
+        await controller.markPlaceAsVisited(_place(id: 20, regionId: 'R1'));
+        expect(runningXp, XpRewardConfig.visitXpReward);
+        await controller.markPlaceAsVisited(_place(id: 21, regionId: 'R2'));
+        expect(runningXp, XpRewardConfig.visitXpReward * 2);
+      },
+    );
 
     test('retry after failure awards XP only on successful persist', () async {
       final awards = <int>[];
@@ -110,12 +112,16 @@ void main() {
         onVisitXpAwarded: (xp) async => awards.add(xp),
       );
 
-      expect(await controller.markPlaceAsVisited(_place(id: 30, regionId: 'R')),
-          VisitResult.error);
+      expect(
+        await controller.markPlaceAsVisited(_place(id: 30, regionId: 'R')),
+        VisitResult.error,
+      );
       expect(awards, isEmpty);
 
-      expect(await controller.markPlaceAsVisited(_place(id: 30, regionId: 'R')),
-          VisitResult.success);
+      expect(
+        await controller.markPlaceAsVisited(_place(id: 30, regionId: 'R')),
+        VisitResult.success,
+      );
       expect(awards, <int>[XpRewardConfig.visitXpReward]);
     });
   });

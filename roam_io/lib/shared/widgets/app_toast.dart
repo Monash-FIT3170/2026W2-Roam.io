@@ -110,7 +110,12 @@ class AppToast {
     String message, {
     String? subtitle,
   }) {
-    show(context, message, icon: Icons.check_circle_rounded, subtitle: subtitle);
+    show(
+      context,
+      message,
+      icon: Icons.check_circle_rounded,
+      subtitle: subtitle,
+    );
   }
 
   /// Success toast on a known messenger (see [showForMessenger]).
