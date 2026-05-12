@@ -1,20 +1,42 @@
 /*
  * Author: Sanjevan Rajasegar
- * Last Modified: 3/05/2026
+ * Last Modified: 12/05/2026
  * Description:
- *   Provides the analytics screen UI for exploration progress, statistics,
- *   heatmap activity, and milestones.
+ *   Provides a vertically scrollable analytics UI for exploration progress,
+ *   statistics, heatmap activity, and recent visited locations (bottom inset
+ *   for the extended-body tab bar).
  */
 
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 
+import '../../auth/providers/auth_provider.dart';
+import '../../map/data/visit.dart';
+import '../../map/data/visit_service.dart';
+import '../widgets/recent_visited_locations_card.dart';
 import '../../../shared/widgets/app_page_header.dart';
 import '../../../theme/app_colours.dart';
 import '../../../theme/app_surfaces.dart';
 
-/// Displays exploration analytics, progress summaries, and milestones.
-class AnalyticsScreen extends StatelessWidget {
-  const AnalyticsScreen({super.key});
+/// Displays exploration analytics, progress summaries, and visit history.
+class AnalyticsScreen extends StatefulWidget {
+  const AnalyticsScreen({super.key, this.visitService});
+
+  /// Injected for tests; production uses the default [VisitService].
+  final VisitService? visitService;
+
+  @override
+  State<AnalyticsScreen> createState() => _AnalyticsScreenState();
+}
+
+class _AnalyticsScreenState extends State<AnalyticsScreen> {
+  late final VisitService _visitService;
+
+  @override
+  void initState() {
+    super.initState();
+    _visitService = widget.visitService ?? VisitService();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -23,130 +45,108 @@ class AnalyticsScreen extends StatelessWidget {
     return Container(
       color: AppSurfaces.pageBackground(context),
       child: SafeArea(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const AppPageHeader(
-              title: 'Your Analytics',
-              subtitle: 'Stats & progress',
-            ),
+        child: SingleChildScrollView(
+          // Clears the extended-body bottom nav (see JourneysScreen).
+          padding: const EdgeInsets.only(bottom: 110),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const AppPageHeader(
+                title: 'Your Analytics',
+                subtitle: 'Stats & progress',
+              ),
 
-            const SizedBox(height: 14),
+              const SizedBox(height: 14),
 
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 24),
-              child: Text(
-                'Activity Map',
-                style: theme.textTheme.titleLarge?.copyWith(
-                  fontWeight: FontWeight.w800,
-                  color: AppSurfaces.textPrimary(context),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 24),
+                child: Text(
+                  'Activity Map',
+                  style: theme.textTheme.titleLarge?.copyWith(
+                    fontWeight: FontWeight.w800,
+                    color: AppSurfaces.textPrimary(context),
+                  ),
                 ),
               ),
-            ),
 
-            const SizedBox(height: 12),
+              const SizedBox(height: 12),
 
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 24),
-              child: _buildHeatmap(context),
-            ),
-
-            const SizedBox(height: 22),
-
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 24),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: _buildStatCard(
-                      context,
-                      title: 'XP Count',
-                      value: '2,450',
-                      icon: Icons.bolt,
-                      color: AppColors.sage,
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: _buildStatCard(
-                      context,
-                      title: 'Tiles Visited',
-                      value: '48',
-                      icon: Icons.map_outlined,
-                      color: AppColors.clay,
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: _buildStatCard(
-                      context,
-                      title: 'Total Visits',
-                      value: '156',
-                      icon: Icons.repeat,
-                      color: AppColors.sage,
-                    ),
-                  ),
-                ],
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 24),
+                child: _buildHeatmap(context),
               ),
-            ),
 
-            const SizedBox(height: 22),
+              const SizedBox(height: 22),
 
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 24),
-              child: Text(
-                'Recent Milestones',
-                style: theme.textTheme.titleLarge?.copyWith(
-                  fontWeight: FontWeight.w800,
-                  color: AppSurfaces.textPrimary(context),
-                ),
-              ),
-            ),
-
-            const SizedBox(height: 12),
-
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 24),
-              child: Container(
-                padding: const EdgeInsets.symmetric(vertical: 10),
-                decoration: BoxDecoration(
-                  color: AppSurfaces.card(context),
-                  borderRadius: BorderRadius.circular(24),
-                  border: Border.all(color: AppSurfaces.border(context)),
-                  boxShadow: [
-                    BoxShadow(
-                      color: AppSurfaces.shadow(context),
-                      blurRadius: 12,
-                      offset: const Offset(0, 6),
-                    ),
-                  ],
-                ),
-                child: Column(
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 24),
+                child: Row(
                   children: [
-                    _buildMilestoneItem(
-                      context,
-                      'Explored 10 new areas',
-                      '2 days ago',
-                    ),
-                    Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 24),
-                      child: Divider(
-                        color: AppSurfaces.border(context),
-                        height: 1,
+                    Expanded(
+                      child: _buildStatCard(
+                        context,
+                        title: 'XP Count',
+                        value: '2,450',
+                        icon: Icons.bolt,
+                        color: AppColors.sage,
                       ),
                     ),
-                    _buildMilestoneItem(
-                      context,
-                      '7 day streak achieved',
-                      '1 week ago',
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: _buildStatCard(
+                        context,
+                        title: 'Tiles Visited',
+                        value: '48',
+                        icon: Icons.map_outlined,
+                        color: AppColors.clay,
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: _buildStatCard(
+                        context,
+                        title: 'Total Visits',
+                        value: '156',
+                        icon: Icons.repeat,
+                        color: AppColors.sage,
+                      ),
                     ),
                   ],
                 ),
               ),
-            ),
 
-            const Spacer(),
-          ],
+              const SizedBox(height: 22),
+
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 24),
+                child: Text(
+                  'Recent Visited Locations',
+                  style: theme.textTheme.titleLarge?.copyWith(
+                    fontWeight: FontWeight.w800,
+                    color: AppSurfaces.textPrimary(context),
+                  ),
+                ),
+              ),
+
+              const SizedBox(height: 12),
+
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 24),
+                child: Consumer<AuthProvider>(
+                  builder: (context, auth, _) {
+                    final uid = auth.currentUser?.uid;
+                    final visitsStream = uid == null
+                        ? Stream<List<Visit>>.value(const <Visit>[])
+                        : _visitService.watchRecentVisits(uid);
+
+                    return RecentVisitedLocationsCard(
+                      visitsStream: visitsStream,
+                    );
+                  },
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -222,63 +222,6 @@ class AnalyticsScreen extends StatelessWidget {
             style: theme.textTheme.bodySmall?.copyWith(
               fontWeight: FontWeight.w700,
               color: AppSurfaces.textMuted(context),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildMilestoneItem(
-    BuildContext context,
-    String title,
-    String subtitle,
-  ) {
-    final theme = Theme.of(context);
-    final colorScheme = theme.colorScheme;
-
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 10),
-      child: Row(
-        children: [
-          Container(
-            width: 42,
-            height: 42,
-            decoration: BoxDecoration(
-              color: AppSurfaces.innerCard(context),
-              shape: BoxShape.circle,
-              border: Border.all(color: AppSurfaces.border(context)),
-            ),
-            child: Icon(
-              Icons.emoji_events_outlined,
-              color: colorScheme.primary,
-              size: 22,
-            ),
-          ),
-
-          const SizedBox(width: 16),
-
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  title,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: theme.textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.w800,
-                    color: AppSurfaces.textPrimary(context),
-                  ),
-                ),
-                const SizedBox(height: 3),
-                Text(
-                  subtitle,
-                  style: theme.textTheme.bodyMedium?.copyWith(
-                    color: AppSurfaces.textMuted(context),
-                  ),
-                ),
-              ],
             ),
           ),
         ],
