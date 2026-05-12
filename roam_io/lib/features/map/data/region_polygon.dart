@@ -18,11 +18,13 @@ import 'package:google_maps_flutter/google_maps_flutter.dart';
 class RegionPolygon {
   final String id;
   final String name;
+  final double? areaSquareMetres;
   final Map<String, dynamic> geometry;
 
   const RegionPolygon({
     required this.id,
     required this.name,
+    required this.areaSquareMetres,
     required this.geometry,
   });
 
@@ -34,6 +36,7 @@ class RegionPolygon {
     return RegionPolygon(
       id: json['id'] as String,
       name: json['name'] as String,
+      areaSquareMetres: _parseAreaSquareMetres(json['area_square_metres']),
       geometry: rawGeometry is String
           ? jsonDecode(rawGeometry) as Map<String, dynamic>
           : Map<String, dynamic>.from(rawGeometry as Map),
@@ -115,5 +118,15 @@ class RegionPolygon {
       final lat = (coord[1] as num).toDouble();
       return LatLng(lat, lng);
     }).toList();
+  }
+
+  static double? _parseAreaSquareMetres(dynamic value) {
+    final area = value is num ? value.toDouble() : double.tryParse('$value');
+
+    if (area == null || !area.isFinite || area <= 0) {
+      return null;
+    }
+
+    return area;
   }
 }

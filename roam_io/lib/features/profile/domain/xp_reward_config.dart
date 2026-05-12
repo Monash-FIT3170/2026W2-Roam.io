@@ -11,7 +11,7 @@ import 'dart:math' as math;
 class XpRewardConfig {
   const XpRewardConfig._();
 
-  /// Fixed XP awarded when a user unlocks a tile.
+  /// XP awarded for a tile with the reference square-metre area.
   static const int baseTileUnlockXp = 50;
 
   /// Minimum XP awarded for unlocking a tile.
@@ -21,21 +21,24 @@ class XpRewardConfig {
   static const int maxTileUnlockXp = 200;
 
   /// Area in square metres that maps to the base tile unlock XP.
-  static const double referenceTileAreaSquaremetres = 1000000.0;
+  static const double referenceTileAreaSquareMetres = 1000000.0;
 
   /// Returns the XP awarded for unlocking a tile.
   ///
-  /// [tileArea] is expected to be in square metres. The square-root scale makes
-  /// larger polygons worth more XP while preventing very large polygons from
-  /// dominating progression. Invalid or missing areas use the minimum reward so
-  /// every valid unlock path can still give a safe fallback reward.
-  static int tileUnlockXpForArea({double? tileArea}) {
-    if (tileArea == null || tileArea <= 0 || !tileArea.isFinite) {
+  /// [tileAreaSquareMetres] must be an already-calculated polygon area in
+  /// square metres. The square-root scale makes larger polygons worth more XP
+  /// while preventing very large polygons from dominating progression. Invalid
+  /// or missing areas use the minimum reward so unlocks have a safe fallback.
+  static int tileUnlockXpForArea({double? tileAreaSquareMetres}) {
+    if (tileAreaSquareMetres == null ||
+        tileAreaSquareMetres <= 0 ||
+        !tileAreaSquareMetres.isFinite) {
       return minTileUnlockXp;
     }
 
     final scaledXp =
-        baseTileUnlockXp * math.sqrt(tileArea / referenceTileAreaSquaremetres);
+        baseTileUnlockXp *
+        math.sqrt(tileAreaSquareMetres / referenceTileAreaSquareMetres);
 
     return scaledXp.round().clamp(minTileUnlockXp, maxTileUnlockXp);
   }

@@ -9,6 +9,7 @@ import 'places_service.dart';
 import 'region_polygon.dart';
 import 'region_polygon_cache.dart';
 import 'region_service.dart';
+import 'tile_unlock_xp_service.dart';
 import 'visit_service.dart';
 import 'visited_region_service.dart';
 import 'geolocator_service.dart';
@@ -75,6 +76,7 @@ class MapController extends ChangeNotifier {
   final VisitService _visitService;
   final VisitedRegionService _visitedRegionService;
   final RegionPolygonCache _regionPolygonCache;
+  final TileUnlockXpService _tileUnlockXpService;
 
   MapController({
     GeoLocatorService? geoLocatorService,
@@ -83,12 +85,14 @@ class MapController extends ChangeNotifier {
     VisitService? visitService,
     VisitedRegionService? visitedRegionService,
     RegionPolygonCache? regionPolygonCache,
+    TileUnlockXpService? tileUnlockXpService,
   }) : _geoLocatorService = geoLocatorService ?? GeoLocatorService(),
        _regionService = regionService ?? RegionService(),
        _placesService = placesService ?? PlacesService(),
        _visitService = visitService ?? VisitService(),
        _visitedRegionService = visitedRegionService ?? VisitedRegionService(),
-       _regionPolygonCache = regionPolygonCache ?? RegionPolygonCache();
+       _regionPolygonCache = regionPolygonCache ?? RegionPolygonCache(),
+       _tileUnlockXpService = tileUnlockXpService ?? TileUnlockXpService();
 
   GoogleMapController? _googleMapController;
   StreamSubscription<Position>? _locationUpdatesSubscription;
@@ -239,7 +243,7 @@ class MapController extends ChangeNotifier {
       } else {
         message = region.name;
         _cacheRegionAsPolygons(region: region);
-        await _markRegionAsVisited(region.id);
+        await _markRegionAsVisited(region);
         _refreshCachedPolygonsStyles();
 
         // Load places for the current (unlocked) region
@@ -342,7 +346,7 @@ class MapController extends ChangeNotifier {
 
       message = region.name;
       _cacheRegionAsPolygons(region: region);
-      await _markRegionAsVisited(region.id);
+      await _markRegionAsVisited(region);
       _refreshCachedPolygonsStyles();
       await _loadPlacesForRegion(region.id);
       notifyListeners();
@@ -626,7 +630,12 @@ class MapController extends ChangeNotifier {
       await _visitService.markVisited(userId: _userId!, place: place);
 
       _visitedPlaceIds.add(place.id);
-      final regionVisitChanged = await _markRegionAsVisited(place.regionId);
+      final region =
+          _regionPolygonCache.regionForId(place.regionId) ??
+          (currentRegion?.id == place.regionId ? currentRegion : null);
+      final regionVisitChanged = region == null
+          ? false
+          : await _markRegionAsVisited(region);
       if (regionVisitChanged) {
         _refreshCachedPolygonsStyles();
       }
@@ -657,7 +666,9 @@ class MapController extends ChangeNotifier {
     return null;
   }
 
-  Future<bool> _markRegionAsVisited(String regionId) async {
+  Future<bool> _markRegionAsVisited(RegionPolygon region) async {
+    final regionId = region.id;
+
     if (_visitedRegionIds.contains(regionId)) {
       return false;
     }
@@ -673,6 +684,7 @@ class MapController extends ChangeNotifier {
       }
 
       _visitedRegionIds.add(regionId);
+      await _awardUnlockXp(region);
       debugPrint('[MapController] Marked region $regionId as visited');
       return true;
     } catch (error) {
@@ -680,6 +692,21 @@ class MapController extends ChangeNotifier {
         '[MapController] Error marking region $regionId as visited: $error',
       );
       return false;
+    }
+  }
+
+  Future<void> _awardUnlockXp(RegionPolygon region) async {
+    try {
+      final xpAwarded = await _tileUnlockXpService.awardForUnlockedPolygon(
+        region,
+      );
+      debugPrint(
+        '[MapController] Awarded $xpAwarded XP for unlocking region ${region.id}',
+      );
+    } catch (error) {
+      debugPrint(
+        '[MapController] Error awarding XP for region ${region.id}: $error',
+      );
     }
   }
 }

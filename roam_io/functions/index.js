@@ -67,6 +67,7 @@ app.post('/region/contains', async (req, res) => {
       SELECT
         id,
         name,
+        ST_Area(geography(geometry)) AS area_square_metres,
         ST_AsGeoJSON(geometry) AS geometry
       FROM regions
       WHERE ST_Contains(
@@ -103,6 +104,7 @@ app.post('/regions/viewport', async (req, res) => {
       SELECT
         id,
         name,
+        ST_Area(geography(geometry)) AS area_square_metres,
         ST_AsGeoJSON(geometry) AS geometry
       FROM regions
       WHERE ST_Intersects(
@@ -198,7 +200,7 @@ app.get('/places/region/:regionId', async (req, res) => {
       googlePlaces = await fetchPlacesFromGoogle({
         lat,
         lng,
-        radiusmetres: 2000,
+        radiusMetres: 2000,
         apiKey: GOOGLE_PLACES_API_KEY.value(),
       });
 

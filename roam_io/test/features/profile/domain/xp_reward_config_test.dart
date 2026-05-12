@@ -6,7 +6,7 @@ import 'package:roam_io/features/profile/domain/xp_reward_config.dart';
  * Last Modified: 12/05/2026
  * Description:
  *   Tests the logic in the xp_reward_config.dart file, ensuring that tile
- *   unlock rewards are correctly calculated based on the defined parametres.
+ *   unlock rewards are correctly calculated based on the defined parameters.
  */
 
 void main() {
@@ -17,21 +17,34 @@ void main() {
 
     test('small polygon area returns at least the minimum reward', () {
       expect(
-        XpRewardConfig.tileUnlockXpForArea(tileArea: 1),
+        XpRewardConfig.tileUnlockXpForArea(tileAreaSquareMetres: 1),
         XpRewardConfig.minTileUnlockXp,
       );
     });
 
+    test('reference polygon area returns the base reward', () {
+      expect(
+        XpRewardConfig.tileUnlockXpForArea(
+          tileAreaSquareMetres: XpRewardConfig.referenceTileAreaSquareMetres,
+        ),
+        XpRewardConfig.baseTileUnlockXp,
+      );
+    });
+
     test('larger polygon area returns more XP than smaller polygon area', () {
-      final smallerXp = XpRewardConfig.tileUnlockXpForArea(tileArea: 1000000);
-      final largerXp = XpRewardConfig.tileUnlockXpForArea(tileArea: 4000000);
+      final smallerXp = XpRewardConfig.tileUnlockXpForArea(
+        tileAreaSquareMetres: 1000000,
+      );
+      final largerXp = XpRewardConfig.tileUnlockXpForArea(
+        tileAreaSquareMetres: 4000000,
+      );
 
       expect(largerXp, greaterThan(smallerXp));
     });
 
     test('very large polygon area is capped at the maximum reward', () {
       expect(
-        XpRewardConfig.tileUnlockXpForArea(tileArea: 1000000000),
+        XpRewardConfig.tileUnlockXpForArea(tileAreaSquareMetres: 1000000000),
         XpRewardConfig.maxTileUnlockXp,
       );
     });
@@ -42,19 +55,21 @@ void main() {
         XpRewardConfig.minTileUnlockXp,
       );
       expect(
-        XpRewardConfig.tileUnlockXpForArea(tileArea: 0),
+        XpRewardConfig.tileUnlockXpForArea(tileAreaSquareMetres: 0),
         XpRewardConfig.minTileUnlockXp,
       );
       expect(
-        XpRewardConfig.tileUnlockXpForArea(tileArea: -1),
+        XpRewardConfig.tileUnlockXpForArea(tileAreaSquareMetres: -1),
         XpRewardConfig.minTileUnlockXp,
       );
       expect(
-        XpRewardConfig.tileUnlockXpForArea(tileArea: double.nan),
+        XpRewardConfig.tileUnlockXpForArea(tileAreaSquareMetres: double.nan),
         XpRewardConfig.minTileUnlockXp,
       );
       expect(
-        XpRewardConfig.tileUnlockXpForArea(tileArea: double.infinity),
+        XpRewardConfig.tileUnlockXpForArea(
+          tileAreaSquareMetres: double.infinity,
+        ),
         XpRewardConfig.minTileUnlockXp,
       );
     });

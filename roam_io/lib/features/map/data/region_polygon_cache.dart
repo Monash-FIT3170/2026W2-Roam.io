@@ -85,6 +85,8 @@ class RegionPolygonCache {
   // Returns all polygons that are ready to be drawn on the map.
   Set<Polygon> get polygons => _polygonsById.values.toSet();
 
+  RegionPolygon? regionForId(String regionId) => _regionsById[regionId];
+
   Color _strokeColorForRegion({
     required bool isVisited,
     required bool isCurrentRegion,

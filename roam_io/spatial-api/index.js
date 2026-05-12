@@ -43,6 +43,7 @@ app.post('/region/contains', async (req, res) => {
       SELECT
         id,
         name,
+        ST_Area(geography(geometry)) AS area_square_metres,
         ST_AsGeoJSON(geometry) AS geometry
       FROM regions
       WHERE ST_Contains(
@@ -74,6 +75,7 @@ app.post('/regions/viewport', async (req, res) => {
       SELECT
         id,
         name,
+        ST_Area(geography(geometry)) AS area_square_metres,
         ST_AsGeoJSON(geometry) AS geometry
       FROM regions
       WHERE ST_Intersects(
