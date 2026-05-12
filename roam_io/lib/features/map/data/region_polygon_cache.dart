@@ -1,12 +1,9 @@
 /*
- * Author: Amarprit Singh
- * Last Modified: 07/05/2026
+ * Author: Sanjevan Rajasegar
+ * Last Modified: 12/05/2026
  * Description:
- * 
- *   Caches loaded regions and their rendered polygons so the map can restyle and
- *   reuse them without rebuilding everything from scratch. This helps viewport
- *   loading stay efficient as the user moves around.
- * 
+ *   Caches loaded region polygons so map rendering and region unlock reward
+ *   lookups can reuse the same RegionPolygon data.
  */
 
 import 'package:flutter/material.dart';
@@ -14,6 +11,7 @@ import 'package:google_maps_flutter/google_maps_flutter.dart';
 
 import 'region_polygon.dart';
 
+/// Keeps loaded RegionPolygon objects and rendered Google Maps polygons in sync.
 class RegionPolygonCache {
   static const Color _visitedStrokeColor = Color(0x80F3D27A);
   static const Color _visitedFillColor = Color(0x00000000);
@@ -34,8 +32,10 @@ class RegionPolygonCache {
   // These are the actual shapes the map widget will render.
   final Map<String, Polygon> _polygonsById = <String, Polygon>{};
 
-  // Saves a region, builds its map polygons, and applies the correct style.
-  // Returns `true` if this region was not already in the cache.
+  /// Saves a region, builds its map polygons, and applies the correct style.
+  ///
+  /// If a later API response omits areaSquareMetres, the cache keeps the last
+  /// confirmed square-metre value so valid unlock XP does not fall back to 25 XP.
   bool cacheRegion({
     required RegionPolygon region,
     required bool isVisited,
@@ -43,9 +43,21 @@ class RegionPolygonCache {
     required void Function(String regionId, String regionName) onRegionTapped,
   }) {
     final wasAlreadyCached = _regionsById.containsKey(region.id);
-    _regionsById[region.id] = region;
+    final previousRegion = _regionsById[region.id];
+    final effectiveRegion =
+        region.areaSquareMetres == null &&
+            previousRegion?.areaSquareMetres != null
+        ? RegionPolygon(
+            id: region.id,
+            name: region.name,
+            areaSquareMetres: previousRegion!.areaSquareMetres,
+            geometry: region.geometry,
+          )
+        : region;
 
-    final googlePolygons = region.toGooglePolygons(
+    _regionsById[region.id] = effectiveRegion;
+
+    final googlePolygons = effectiveRegion.toGooglePolygons(
       strokeColor: _strokeColorForRegion(
         isVisited: isVisited,
         isCurrentRegion: isCurrentRegion,

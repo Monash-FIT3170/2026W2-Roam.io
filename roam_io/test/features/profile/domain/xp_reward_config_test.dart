@@ -1,13 +1,12 @@
-import 'package:flutter_test/flutter_test.dart';
-import 'package:roam_io/features/profile/domain/xp_reward_config.dart';
-
 /*
  * Author: Sanjevan Rajasegar
  * Last Modified: 12/05/2026
  * Description:
- *   Tests the logic in the xp_reward_config.dart file, ensuring that tile
- *   unlock rewards are correctly calculated based on the defined parameters.
+ *   Tests area-based polygon unlock XP reward bounds and fallback behavior.
  */
+
+import 'package:flutter_test/flutter_test.dart';
+import 'package:roam_io/features/profile/domain/xp_reward_config.dart';
 
 void main() {
   group('XpRewardConfig tile unlock rewards', () {

@@ -1,11 +1,11 @@
-import 'dart:math' as math;
-
 /*
  * Author: Sanjevan Rajasegar
  * Last Modified: 12/05/2026
  * Description:
- *   Defines XP rewards for profile progression events.
+ *   Defines area-based XP reward tuning for polygon unlock progression.
  */
+
+import 'dart:math' as math;
 
 /// Central XP reward configuration for profile progression events.
 class XpRewardConfig {

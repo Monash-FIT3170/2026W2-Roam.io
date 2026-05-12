@@ -1,3 +1,11 @@
+/*
+ * Author: Sanjevan Rajasegar
+ * Last Modified: 12/05/2026
+ * Description:
+ *   Firebase spatial API that returns region geometry and square-metre area for
+ *   map unlock XP rewards.
+ */
+
 const { onRequest } = require('firebase-functions/v2/https');
 const { defineSecret } = require('firebase-functions/params');
 

@@ -1,3 +1,10 @@
+/*
+ * Author: Sanjevan Rajasegar
+ * Last Modified: 12/05/2026
+ * Description:
+ *   Tests area-based tile unlock XP calculation and writer integration.
+ */
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:roam_io/features/map/data/region_polygon.dart';
 import 'package:roam_io/features/map/data/tile_unlock_xp_service.dart';
@@ -8,29 +15,47 @@ void main() {
     test('awards area-based XP rather than the flat base value', () async {
       final awardedXp = <int>[];
       final service = TileUnlockXpService(
-        addXp: (xpToAdd) async => awardedXp.add(xpToAdd),
+        addXp: (xpToAdd) async {
+          awardedXp.add(xpToAdd);
+          return false;
+        },
       );
 
-      final xp = await service.awardForUnlockedPolygon(
+      final result = await service.awardForUnlockedPolygon(
         _region(areaSquareMetres: 4000000),
       );
 
-      expect(xp, 100);
-      expect(xp, isNot(XpRewardConfig.baseTileUnlockXp));
+      expect(result.xpAwarded, 100);
+      expect(result.xpAwarded, isNot(XpRewardConfig.baseTileUnlockXp));
+      expect(result.didLevelUp, isFalse);
       expect(awardedXp, <int>[100]);
+    });
+
+    test('reports when the injected writer triggers a level-up', () async {
+      final service = TileUnlockXpService(addXp: (_) async => true);
+
+      final result = await service.awardForUnlockedPolygon(
+        _region(areaSquareMetres: 1000000),
+      );
+
+      expect(result.xpAwarded, 50);
+      expect(result.didLevelUp, isTrue);
     });
 
     test('uses minimum fallback XP when polygon area is missing', () async {
       final awardedXp = <int>[];
       final service = TileUnlockXpService(
-        addXp: (xpToAdd) async => awardedXp.add(xpToAdd),
+        addXp: (xpToAdd) async {
+          awardedXp.add(xpToAdd);
+          return false;
+        },
       );
 
-      final xp = await service.awardForUnlockedPolygon(
+      final result = await service.awardForUnlockedPolygon(
         _region(areaSquareMetres: null),
       );
 
-      expect(xp, XpRewardConfig.minTileUnlockXp);
+      expect(result.xpAwarded, XpRewardConfig.minTileUnlockXp);
       expect(awardedXp, <int>[XpRewardConfig.minTileUnlockXp]);
     });
   });

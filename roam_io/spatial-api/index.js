@@ -1,3 +1,11 @@
+/*
+ * Author: Sanjevan Rajasegar
+ * Last Modified: 12/05/2026
+ * Description:
+ *   Local spatial API that returns region geometry and square-metre area for map
+ *   unlock XP rewards.
+ */
+
 require('dotenv').config();
 
 const express = require('express');

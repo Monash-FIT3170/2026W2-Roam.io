@@ -1,3 +1,11 @@
+/*
+ * Author: Sanjevan Rajasegar
+ * Last Modified: 12/05/2026
+ * Description:
+ *   Coordinates map state, region unlock persistence, and area-based unlock XP
+ *   reward events for the map feature.
+ */
+
 import 'dart:async';
 
 import 'package:flutter/material.dart';
@@ -32,6 +40,7 @@ enum VisitResult {
   error,
 }
 
+/// Controls map loading, visit persistence, and first-time unlock XP rewards.
 class MapController extends ChangeNotifier {
   static const LatLng fallbackCenter = LatLng(-37.8136, 144.9631);
 
@@ -77,6 +86,10 @@ class MapController extends ChangeNotifier {
   final VisitedRegionService _visitedRegionService;
   final RegionPolygonCache _regionPolygonCache;
   final TileUnlockXpService _tileUnlockXpService;
+
+  /// Emits one feedback event after a first-time region unlock is persisted and
+  /// the area-based XP write succeeds.
+  void Function(RegionPolygon region, int xpAwarded)? onRegionUnlockRewarded;
 
   MapController({
     GeoLocatorService? geoLocatorService,
@@ -666,6 +679,8 @@ class MapController extends ChangeNotifier {
     return null;
   }
 
+  /// Persists a region unlock and awards XP only when persistence confirms the
+  /// polygon was not previously unlocked by this user.
   Future<bool> _markRegionAsVisited(RegionPolygon region) async {
     final regionId = region.id;
 
@@ -677,15 +692,16 @@ class MapController extends ChangeNotifier {
       final didPersistVisit = await _visitedRegionService.markVisited(regionId);
 
       if (!didPersistVisit) {
-        debugPrint(
-          '[MapController] Region $regionId visit was not persisted because there is no authenticated user',
-        );
         return false;
       }
 
       _visitedRegionIds.add(regionId);
-      await _awardUnlockXp(region);
-      debugPrint('[MapController] Marked region $regionId as visited');
+      final xpResult = await _awardUnlockXp(region);
+      if (xpResult == null || xpResult.didLevelUp) {
+        return true;
+      }
+
+      onRegionUnlockRewarded?.call(region, xpResult.xpAwarded);
       return true;
     } catch (error) {
       debugPrint(
@@ -695,18 +711,14 @@ class MapController extends ChangeNotifier {
     }
   }
 
-  Future<void> _awardUnlockXp(RegionPolygon region) async {
+  Future<TileUnlockXpResult?> _awardUnlockXp(RegionPolygon region) async {
     try {
-      final xpAwarded = await _tileUnlockXpService.awardForUnlockedPolygon(
-        region,
-      );
-      debugPrint(
-        '[MapController] Awarded $xpAwarded XP for unlocking region ${region.id}',
-      );
+      return await _tileUnlockXpService.awardForUnlockedPolygon(region);
     } catch (error) {
       debugPrint(
         '[MapController] Error awarding XP for region ${region.id}: $error',
       );
+      return null;
     }
   }
 }

@@ -1,3 +1,10 @@
+/*
+ * Author: Sanjevan Rajasegar
+ * Last Modified: 12/05/2026
+ * Description:
+ *   Tests backend region queries expose square-metre polygon area for XP.
+ */
+
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';

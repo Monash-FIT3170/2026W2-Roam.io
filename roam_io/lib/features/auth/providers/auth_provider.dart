@@ -1,9 +1,9 @@
 /*
- * Author: Alvin Liong
- * Last Modified: 4/05/2026
+ * Author: Sanjevan Rajasegar
+ * Last Modified: 12/05/2026
  * Description:
- *   Manages authentication state, profile state, loading flags, and account
- *   actions exposed to the widget tree.
+ *   Manages authentication, profile XP, level-up state, and account actions
+ *   exposed to the widget tree.
  */
 
 import 'dart:async';
@@ -166,34 +166,48 @@ class AuthProvider extends ChangeNotifier {
     });
   }
 
-  /// Updates the signed-in user's XP and records level-up events.
-  Future<void> updateXp(int newXp) async {
+  /// Updates the signed-in user's XP and local level state immediately.
+  Future<bool> updateXp(int newXp) async {
+    var didLevelUp = false;
     await _runAuthAction(() async {
       final oldLevel = _currentProfile?.level ?? 1;
       await _authRepository.updateXp(newXp);
-      _currentProfile = await _authRepository.getCurrentUserProfile();
-      final newLevel = _currentProfile?.level ?? 1;
+      final newLevel = ProfileModel.levelFromXp(newXp);
+      final currentProfile = _currentProfile;
+      _currentProfile = currentProfile == null
+          ? await _authRepository.getCurrentUserProfile()
+          : currentProfile.copyWith(xp: newXp, level: newLevel);
 
-      // Check if user leveled up
       if (newLevel > oldLevel) {
         _pendingLevelUp = newLevel;
+        didLevelUp = true;
       }
     });
+    return didLevelUp;
   }
 
-  /// Adds XP to the signed-in user and records level-up events.
-  Future<void> addXp(int xpToAdd) async {
+  /// Adds XP and updates local profile/level-up state after the write succeeds.
+  Future<bool> addXp(int xpToAdd) async {
+    var didLevelUp = false;
     await _runAuthAction(() async {
-      final oldLevel = _currentProfile?.level ?? 1;
-      await _authRepository.addXp(xpToAdd);
-      _currentProfile = await _authRepository.getCurrentUserProfile();
-      final newLevel = _currentProfile?.level ?? 1;
+      final currentProfile = _currentProfile;
+      final currentXp = currentProfile?.xp ?? 0;
+      final oldLevel =
+          currentProfile?.level ?? ProfileModel.levelFromXp(currentXp);
+      final newXp = currentXp + xpToAdd;
+      final newLevel = ProfileModel.levelFromXp(newXp);
 
-      // Check if user leveled up
+      await _authRepository.addXp(xpToAdd);
+      _currentProfile = currentProfile == null
+          ? await _authRepository.getCurrentUserProfile()
+          : currentProfile.copyWith(xp: newXp, level: newLevel);
+
       if (newLevel > oldLevel) {
         _pendingLevelUp = newLevel;
+        didLevelUp = true;
       }
     });
+    return didLevelUp;
   }
 
   /// Signs out and clears local authentication/profile state.

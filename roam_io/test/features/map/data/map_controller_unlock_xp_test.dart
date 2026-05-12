@@ -1,3 +1,11 @@
+/*
+ * Author: Sanjevan Rajasegar
+ * Last Modified: 12/05/2026
+ * Description:
+ *   Tests idempotent region unlock XP awards and feedback events from the map
+ *   controller.
+ */
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:roam_io/features/map/data/geolocator_service.dart';
@@ -17,31 +25,177 @@ void main() {
   group('MapController region unlock XP', () {
     test('first-time region unlock awards XP from areaSquareMetres', () async {
       final awardedXp = <int>[];
+      final feedbackEvents = <String>[];
       final controller = _buildController(
         region: _region(areaSquareMetres: 4000000),
         awardedXp: awardedXp,
+        feedbackEvents: feedbackEvents,
       );
 
       await controller.initialise(userId: 'user-1');
 
       expect(awardedXp, <int>[100]);
       expect(awardedXp.single, isNot(XpRewardConfig.baseTileUnlockXp));
+      expect(feedbackEvents, <String>['Region One:100']);
+
+      controller.disposeController();
+    });
+
+    test('rechecking the same polygon does not award XP twice', () async {
+      final awardedXp = <int>[];
+      final feedbackEvents = <String>[];
+      final region = _region(areaSquareMetres: 4000000);
+      final visitedRegionService = _FakeVisitedRegionService(<String>{});
+      final controller = _buildController(
+        region: region,
+        awardedXp: awardedXp,
+        feedbackEvents: feedbackEvents,
+        visitedRegionService: visitedRegionService,
+      );
+
+      await controller.initialise(userId: 'user-1');
+      await controller.initialise(userId: 'user-1');
+
+      expect(awardedXp, <int>[100]);
+      expect(feedbackEvents, <String>['Region One:100']);
+
+      controller.disposeController();
+    });
+
+    test('multiple different polygons can each award XP once', () async {
+      final awardedXp = <int>[];
+      final visitedRegionService = _FakeVisitedRegionService(<String>{});
+
+      final smallController = _buildController(
+        region: _region(id: 'region-small', areaSquareMetres: 1000000),
+        awardedXp: awardedXp,
+        visitedRegionService: visitedRegionService,
+      );
+      await smallController.initialise(userId: 'user-1');
+      smallController.disposeController();
+
+      final largeController = _buildController(
+        region: _region(id: 'region-large', areaSquareMetres: 4000000),
+        awardedXp: awardedXp,
+        visitedRegionService: visitedRegionService,
+      );
+      await largeController.initialise(userId: 'user-1');
+      largeController.disposeController();
+
+      expect(awardedXp, <int>[50, 100]);
+      expect(awardedXp.last, greaterThan(awardedXp.first));
+    });
+
+    test('persistence returning false prevents XP', () async {
+      final awardedXp = <int>[];
+      final feedbackEvents = <String>[];
+      final controller = _buildController(
+        region: _region(areaSquareMetres: 4000000),
+        awardedXp: awardedXp,
+        feedbackEvents: feedbackEvents,
+        visitedRegionService: _FakeVisitedRegionService(
+          <String>{},
+          persistNewUnlocks: false,
+        ),
+      );
+
+      await controller.initialise(userId: 'user-1');
+
+      expect(awardedXp, isEmpty);
+      expect(feedbackEvents, isEmpty);
+
+      controller.disposeController();
+    });
+
+    test('persistence failure prevents XP', () async {
+      final awardedXp = <int>[];
+      final feedbackEvents = <String>[];
+      final controller = _buildController(
+        region: _region(areaSquareMetres: 4000000),
+        awardedXp: awardedXp,
+        feedbackEvents: feedbackEvents,
+        visitedRegionService: _FakeVisitedRegionService(
+          <String>{},
+          throwOnMarkVisited: true,
+        ),
+      );
+
+      await controller.initialise(userId: 'user-1');
+
+      expect(awardedXp, isEmpty);
+      expect(feedbackEvents, isEmpty);
+
+      controller.disposeController();
+    });
+
+    test('XP write failure prevents feedback', () async {
+      final awardedXp = <int>[];
+      final feedbackEvents = <String>[];
+      final controller = _buildController(
+        region: _region(areaSquareMetres: 4000000),
+        awardedXp: awardedXp,
+        feedbackEvents: feedbackEvents,
+        throwOnAddXp: true,
+      );
+
+      await controller.initialise(userId: 'user-1');
+
+      expect(awardedXp, isEmpty);
+      expect(feedbackEvents, isEmpty);
+
+      controller.disposeController();
+    });
+
+    test('XP is awarded only after persistence succeeds', () async {
+      final awardedXp = <int>[];
+      final events = <String>[];
+      final controller = _buildController(
+        region: _region(areaSquareMetres: 4000000),
+        awardedXp: awardedXp,
+        events: events,
+      );
+
+      await controller.initialise(userId: 'user-1');
+
+      expect(events, <String>['persisted', 'xp']);
+      expect(awardedXp, <int>[100]);
+
+      controller.disposeController();
+    });
+
+    test('level-up suppresses normal unlock feedback', () async {
+      final awardedXp = <int>[];
+      final feedbackEvents = <String>[];
+      final controller = _buildController(
+        region: _region(areaSquareMetres: 4000000),
+        awardedXp: awardedXp,
+        feedbackEvents: feedbackEvents,
+        didLevelUpOnAddXp: true,
+      );
+
+      await controller.initialise(userId: 'user-1');
+
+      expect(awardedXp, <int>[100]);
+      expect(feedbackEvents, isEmpty);
 
       controller.disposeController();
     });
 
     test('already visited region does not award unlock XP', () async {
       final awardedXp = <int>[];
+      final feedbackEvents = <String>[];
       final region = _region(areaSquareMetres: 4000000);
       final controller = _buildController(
         region: region,
         awardedXp: awardedXp,
+        feedbackEvents: feedbackEvents,
         visitedRegionIds: <String>{region.id},
       );
 
       await controller.initialise(userId: 'user-1');
 
       expect(awardedXp, isEmpty);
+      expect(feedbackEvents, isEmpty);
 
       controller.disposeController();
     });
@@ -65,25 +219,49 @@ void main() {
 MapController _buildController({
   required RegionPolygon region,
   required List<int> awardedXp,
+  List<String>? events,
+  List<String>? feedbackEvents,
   Set<String> visitedRegionIds = const <String>{},
+  _FakeVisitedRegionService? visitedRegionService,
+  bool throwOnAddXp = false,
+  bool didLevelUpOnAddXp = false,
 }) {
-  return MapController(
+  final controller = MapController(
     geoLocatorService: _FakeGeoLocatorService(),
     regionService: _FakeRegionService(region),
     placesService: _FakePlacesService(),
     visitService: _FakeVisitService(),
-    visitedRegionService: _FakeVisitedRegionService(
-      Set<String>.from(visitedRegionIds),
-    ),
+    visitedRegionService:
+        visitedRegionService ??
+        _FakeVisitedRegionService(
+          Set<String>.from(visitedRegionIds),
+          events: events,
+        ),
     tileUnlockXpService: TileUnlockXpService(
-      addXp: (xpToAdd) async => awardedXp.add(xpToAdd),
+      addXp: (xpToAdd) async {
+        if (throwOnAddXp) {
+          throw Exception('Could not add XP');
+        }
+        events?.add('xp');
+        awardedXp.add(xpToAdd);
+        return didLevelUpOnAddXp;
+      },
     ),
   );
+
+  controller.onRegionUnlockRewarded = (region, xpAwarded) {
+    feedbackEvents?.add('${region.name}:$xpAwarded');
+  };
+
+  return controller;
 }
 
-RegionPolygon _region({required double? areaSquareMetres}) {
+RegionPolygon _region({
+  String id = 'region-1',
+  required double? areaSquareMetres,
+}) {
   return RegionPolygon(
-    id: 'region-1',
+    id: id,
     name: 'Region One',
     areaSquareMetres: areaSquareMetres,
     geometry: _polygonGeometry,
@@ -154,9 +332,17 @@ class _FakeVisitService implements VisitService {
 }
 
 class _FakeVisitedRegionService implements VisitedRegionService {
-  _FakeVisitedRegionService(this._visitedRegionIds);
+  _FakeVisitedRegionService(
+    this._visitedRegionIds, {
+    this.persistNewUnlocks = true,
+    this.throwOnMarkVisited = false,
+    this.events,
+  });
 
   final Set<String> _visitedRegionIds;
+  final bool persistNewUnlocks;
+  final bool throwOnMarkVisited;
+  final List<String>? events;
 
   @override
   Future<Set<String>> loadVisitedRegionIds() async {
@@ -165,7 +351,16 @@ class _FakeVisitedRegionService implements VisitedRegionService {
 
   @override
   Future<bool> markVisited(String regionId, {DateTime? visitedAt}) async {
+    if (throwOnMarkVisited) {
+      throw Exception('Could not persist region visit');
+    }
+
+    if (!persistNewUnlocks || _visitedRegionIds.contains(regionId)) {
+      return false;
+    }
+
     _visitedRegionIds.add(regionId);
+    events?.add('persisted');
     return true;
   }
 
