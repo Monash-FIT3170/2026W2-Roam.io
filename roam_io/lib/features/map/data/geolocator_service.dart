@@ -14,7 +14,7 @@ import 'package:geolocator/geolocator.dart';
 
 /// Wraps geolocation permission checks and current-position retrieval.
 class GeoLocatorService {
-  static const int distanceRefreshThresholdMeters = 5;
+  static const int distanceRefreshThresholdmetres = 5;
   static const Duration currentLocationTimeout = Duration(seconds: 8);
 
   // Ensures location services are enabled and permissions are granted, throwing if not.
@@ -73,7 +73,7 @@ class GeoLocatorService {
     return Geolocator.getPositionStream(
       locationSettings: const LocationSettings(
         accuracy: LocationAccuracy.high,
-        distanceFilter: distanceRefreshThresholdMeters,
+        distanceFilter: distanceRefreshThresholdmetres,
       ),
     );
   }

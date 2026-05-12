@@ -198,7 +198,7 @@ app.get('/places/region/:regionId', async (req, res) => {
       googlePlaces = await fetchPlacesFromGoogle({
         lat,
         lng,
-        radiusMeters: 2000,
+        radiusmetres: 2000,
         apiKey: GOOGLE_PLACES_API_KEY.value(),
       });
 

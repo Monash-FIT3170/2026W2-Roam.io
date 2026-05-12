@@ -36,7 +36,7 @@ class MapController extends ChangeNotifier {
 
   static const double defaultZoom = 13.5;
 
-  /// Maximum distance (in meters) user can be from a place to mark it as visited.
+  /// Maximum distance (in metres) user can be from a place to mark it as visited.
   static const double visitProximityThreshold = 100.0;
 
   static const String _mapStyle = '''
@@ -563,7 +563,7 @@ class MapController extends ChangeNotifier {
   /// Get all visited region IDs.
   Set<String> get visitedRegionIds => Set.unmodifiable(_visitedRegionIds);
 
-  /// Calculate distance in meters between user's current location and a place.
+  /// Calculate distance in metres between user's current location and a place.
   /// Returns null if unable to get user location.
   Future<double?> getDistanceToPlace(PlaceOfInterest place) async {
     try {
@@ -581,7 +581,7 @@ class MapController extends ChangeNotifier {
   }
 
   /// Check if user is within proximity threshold of a place.
-  /// Returns the distance in meters, or null if unable to determine.
+  /// Returns the distance in metres, or null if unable to determine.
   Future<({bool isNear, double? distance})> checkProximity(
     PlaceOfInterest place,
   ) async {
@@ -593,7 +593,7 @@ class MapController extends ChangeNotifier {
   }
 
   /// Mark a place as visited.
-  /// Validates that user is within [visitProximityThreshold] meters of the place.
+  /// Validates that user is within [visitProximityThreshold] metres of the place.
   Future<VisitResult> markPlaceAsVisited(PlaceOfInterest place) async {
     if (_userId == null) {
       debugPrint('[MapController] Cannot mark visited: no user logged in');

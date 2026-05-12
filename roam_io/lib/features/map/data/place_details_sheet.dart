@@ -59,11 +59,11 @@ class _PlaceDetailsSheetState extends State<PlaceDetailsSheet> {
 
   bool get _isVisited => widget.mapController.isPlaceVisited(widget.place.id);
 
-  String _formatDistance(double meters) {
-    if (meters < 1000) {
-      return '${meters.round()}m away';
+  String _formatDistance(double metres) {
+    if (metres < 1000) {
+      return '${metres.round()}m away';
     } else {
-      return '${(meters / 1000).toStringAsFixed(1)}km away';
+      return '${(metres / 1000).toStringAsFixed(1)}km away';
     }
   }
 

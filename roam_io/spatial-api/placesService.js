@@ -28,10 +28,10 @@ const INCLUDED_TYPES = [
  * 
  * @param {number} lat - Latitude of the center point
  * @param {number} lng - Longitude of the center point
- * @param {number} radiusMeters - Search radius in meters (default: 2000)
+ * @param {number} radiusmetres - Search radius in metres (default: 2000)
  * @returns {Promise<Array>} Array of place objects from Google
  */
-async function fetchPlacesFromGoogle(lat, lng, radiusMeters = 2000) {
+async function fetchPlacesFromGoogle(lat, lng, radiusmetres = 2000) {
   if (!GOOGLE_PLACES_API_KEY) {
     throw new Error('GOOGLE_PLACES_API_KEY is not configured');
   }
@@ -44,7 +44,7 @@ async function fetchPlacesFromGoogle(lat, lng, radiusMeters = 2000) {
       locationRestriction: {
         circle: {
           center: { latitude: lat, longitude: lng },
-          radius: radiusMeters,
+          radius: radiusmetres,
         },
       },
     },

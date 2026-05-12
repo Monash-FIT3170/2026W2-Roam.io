@@ -28,7 +28,7 @@ const INCLUDED_TYPES = [
 async function fetchPlacesFromGoogle({
   lat,
   lng,
-  radiusMeters = 2000,
+  radiusmetres = 2000,
   apiKey,
 }) {
   if (!apiKey) {
@@ -46,7 +46,7 @@ async function fetchPlacesFromGoogle({
             latitude: Number(lat),
             longitude: Number(lng),
           },
-          radius: radiusMeters,
+          radius: radiusmetres,
         },
       },
     },
