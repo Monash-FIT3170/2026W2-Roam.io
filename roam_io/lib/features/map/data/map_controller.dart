@@ -247,20 +247,26 @@ class MapController extends ChangeNotifier {
       );
 
       center = userCenter;
-      currentRegion = region;
       myLocationEnabled = true;
       isLoading = false;
 
       if (region == null) {
+        currentRegion = null;
         message = 'No SA2 region found';
       } else {
-        message = region.name;
-        _cacheRegionAsPolygons(region: region);
-        await _markRegionAsVisited(region);
+        currentRegion = region;
+        final cacheResult = _cacheRegionAsPolygons(region: region);
+        final effectiveRegion = cacheResult.region;
+
+        // XP must use the cached effective polygon because the cache preserves
+        // PostGIS area_square_metres when a later response omits it.
+        currentRegion = effectiveRegion;
+        message = effectiveRegion.name;
+        await _markRegionAsVisited(effectiveRegion);
         _refreshCachedPolygonsStyles();
 
         // Load places for the current (unlocked) region
-        await _loadPlacesForRegion(region.id);
+        await _loadPlacesForRegion(effectiveRegion.id);
       }
 
       polygons = _regionPolygonCache.polygons;
@@ -344,9 +350,8 @@ class MapController extends ChangeNotifier {
         return;
       }
 
-      currentRegion = region;
-
       if (region == null) {
+        currentRegion = null;
         message = 'No SA2 region found';
         _refreshCachedPolygonsStyles();
         notifyListeners();
@@ -357,11 +362,17 @@ class MapController extends ChangeNotifier {
         '[MapController] Current region changed: $previousRegionId -> ${region.id}',
       );
 
-      message = region.name;
-      _cacheRegionAsPolygons(region: region);
-      await _markRegionAsVisited(region);
+      currentRegion = region;
+      final cacheResult = _cacheRegionAsPolygons(region: region);
+      final effectiveRegion = cacheResult.region;
+
+      // Preserve the backend/PostGIS square-metre area through the unlock flow;
+      // 25 XP is only the fallback when no valid area is available anywhere.
+      currentRegion = effectiveRegion;
+      message = effectiveRegion.name;
+      await _markRegionAsVisited(effectiveRegion);
       _refreshCachedPolygonsStyles();
-      await _loadPlacesForRegion(region.id);
+      await _loadPlacesForRegion(effectiveRegion.id);
       notifyListeners();
     } catch (error) {
       debugPrint('[MapController] Error resolving current region: $error');
@@ -397,9 +408,9 @@ class MapController extends ChangeNotifier {
       var newRegionCount = 0;
 
       for (final region in regions) {
-        final wasAdded = _cacheRegionAsPolygons(region: region);
+        final cacheResult = _cacheRegionAsPolygons(region: region);
 
-        if (wasAdded) {
+        if (cacheResult.wasAdded) {
           newRegionCount++;
         }
       }
@@ -423,8 +434,10 @@ class MapController extends ChangeNotifier {
     }
   }
 
-  bool _cacheRegionAsPolygons({required RegionPolygon region}) {
-    final wasAdded = _regionPolygonCache.cacheRegion(
+  RegionPolygonCacheResult _cacheRegionAsPolygons({
+    required RegionPolygon region,
+  }) {
+    final cacheResult = _regionPolygonCache.cacheRegion(
       region: region,
       isVisited: _visitedRegionIds.contains(region.id),
       isCurrentRegion: currentRegion?.id == region.id,
@@ -433,7 +446,7 @@ class MapController extends ChangeNotifier {
 
     polygons = _regionPolygonCache.polygons;
 
-    return wasAdded;
+    return cacheResult;
   }
 
   void _refreshCachedPolygonsStyles() {

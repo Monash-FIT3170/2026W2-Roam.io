@@ -10,26 +10,37 @@ import 'package:roam_io/features/map/data/region_polygon.dart';
 
 void main() {
   group('RegionPolygon.fromJson', () {
-    test('parses numeric area_square_metres into areaSquareMetres', () {
+    test('parses double area_square_metres into areaSquareMetres', () {
       final polygon = RegionPolygon.fromJson(<String, dynamic>{
         'id': 'region-1',
         'name': 'Region One',
-        'area_square_metres': 12345.67,
+        'area_square_metres': 4000000.0,
         'geometry': _polygonGeometry,
       });
 
-      expect(polygon.areaSquareMetres, 12345.67);
+      expect(polygon.areaSquareMetres, 4000000.0);
+    });
+
+    test('parses integer area_square_metres into areaSquareMetres', () {
+      final polygon = RegionPolygon.fromJson(<String, dynamic>{
+        'id': 'region-1',
+        'name': 'Region One',
+        'area_square_metres': 4000000,
+        'geometry': _polygonGeometry,
+      });
+
+      expect(polygon.areaSquareMetres, 4000000.0);
     });
 
     test('parses string area_square_metres into areaSquareMetres', () {
       final polygon = RegionPolygon.fromJson(<String, dynamic>{
         'id': 'region-1',
         'name': 'Region One',
-        'area_square_metres': '12345.67',
+        'area_square_metres': '4000000.0',
         'geometry': _polygonGeometry,
       });
 
-      expect(polygon.areaSquareMetres, 12345.67);
+      expect(polygon.areaSquareMetres, 4000000.0);
     });
 
     test('parses camel-case area aliases when API clients differ', () {

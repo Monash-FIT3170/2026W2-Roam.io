@@ -13,6 +13,7 @@ import 'package:roam_io/features/map/data/map_controller.dart';
 import 'package:roam_io/features/map/data/place_of_interest.dart';
 import 'package:roam_io/features/map/data/places_service.dart';
 import 'package:roam_io/features/map/data/region_polygon.dart';
+import 'package:roam_io/features/map/data/region_polygon_cache.dart';
 import 'package:roam_io/features/map/data/region_service.dart';
 import 'package:roam_io/features/map/data/tile_unlock_xp_service.dart';
 import 'package:roam_io/features/map/data/visit_service.dart';
@@ -37,6 +38,23 @@ void main() {
       expect(awardedXp, <int>[100]);
       expect(awardedXp.single, isNot(XpRewardConfig.baseTileUnlockXp));
       expect(feedbackEvents, <String>['Region One:100']);
+
+      controller.disposeController();
+    });
+
+    test('first-time reference-area region unlock awards 50 XP', () async {
+      final awardedXp = <int>[];
+      final feedbackEvents = <String>[];
+      final controller = _buildController(
+        region: _region(areaSquareMetres: 1000000),
+        awardedXp: awardedXp,
+        feedbackEvents: feedbackEvents,
+      );
+
+      await controller.initialise(userId: 'user-1');
+
+      expect(awardedXp, <int>[50]);
+      expect(feedbackEvents, <String>['Region One:50']);
 
       controller.disposeController();
     });
@@ -84,7 +102,40 @@ void main() {
 
       expect(awardedXp, <int>[50, 100]);
       expect(awardedXp.last, greaterThan(awardedXp.first));
+      expect(awardedXp, isNot(contains(XpRewardConfig.minTileUnlockXp)));
     });
+
+    test(
+      'cached polygon area is used when containing region omits area',
+      () async {
+        final awardedXp = <int>[];
+        final feedbackEvents = <String>[];
+        final cache = RegionPolygonCache();
+        final cachedRegion = _region(areaSquareMetres: 4000000);
+
+        cache.cacheRegion(
+          region: cachedRegion,
+          isVisited: false,
+          isCurrentRegion: false,
+          onRegionTapped: (_, _) {},
+        );
+
+        final controller = _buildController(
+          region: _region(areaSquareMetres: null),
+          awardedXp: awardedXp,
+          feedbackEvents: feedbackEvents,
+          regionPolygonCache: cache,
+        );
+
+        await controller.initialise(userId: 'user-1');
+
+        expect(awardedXp, <int>[100]);
+        expect(awardedXp.single, isNot(XpRewardConfig.minTileUnlockXp));
+        expect(feedbackEvents, <String>['Region One:100']);
+
+        controller.disposeController();
+      },
+    );
 
     test('persistence returning false prevents XP', () async {
       final awardedXp = <int>[];
@@ -223,6 +274,7 @@ MapController _buildController({
   List<String>? feedbackEvents,
   Set<String> visitedRegionIds = const <String>{},
   _FakeVisitedRegionService? visitedRegionService,
+  RegionPolygonCache? regionPolygonCache,
   bool throwOnAddXp = false,
   bool didLevelUpOnAddXp = false,
 }) {
@@ -231,6 +283,7 @@ MapController _buildController({
     regionService: _FakeRegionService(region),
     placesService: _FakePlacesService(),
     visitService: _FakeVisitService(),
+    regionPolygonCache: regionPolygonCache,
     visitedRegionService:
         visitedRegionService ??
         _FakeVisitedRegionService(

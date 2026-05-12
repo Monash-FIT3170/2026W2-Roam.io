@@ -34,9 +34,12 @@ class RegionPolygonCache {
 
   /// Saves a region, builds its map polygons, and applies the correct style.
   ///
-  /// If a later API response omits areaSquareMetres, the cache keeps the last
-  /// confirmed square-metre value so valid unlock XP does not fall back to 25 XP.
-  bool cacheRegion({
+  /// [RegionPolygon.areaSquareMetres] is calculated by PostGIS and returned as
+  /// area_square_metres by the backend. If a later API response omits that
+  /// value, the cache keeps the last confirmed square-metre area so valid
+  /// unlock XP remains area-scaled. The 25 XP fallback is only for regions with
+  /// genuinely missing or invalid area.
+  RegionPolygonCacheResult cacheRegion({
     required RegionPolygon region,
     required bool isVisited,
     required bool isCurrentRegion,
@@ -74,7 +77,10 @@ class RegionPolygonCache {
       _polygonsById[polygon.polygonId.value] = polygon;
     }
 
-    return !wasAlreadyCached;
+    return RegionPolygonCacheResult(
+      region: effectiveRegion,
+      wasAdded: !wasAlreadyCached,
+    );
   }
 
   // Rebuilds the polygons for every cached region.
@@ -124,4 +130,15 @@ class RegionPolygonCache {
 
     return isVisited ? _visitedStrokeWidth : _unvisitedStrokeWidth;
   }
+}
+
+/// The effective cached region plus whether it was newly added to the cache.
+class RegionPolygonCacheResult {
+  const RegionPolygonCacheResult({
+    required this.region,
+    required this.wasAdded,
+  });
+
+  final RegionPolygon region;
+  final bool wasAdded;
 }

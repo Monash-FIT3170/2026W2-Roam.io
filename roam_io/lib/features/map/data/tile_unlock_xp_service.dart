@@ -5,6 +5,8 @@
  *   Calculates and writes area-based XP rewards for first-time region unlocks.
  */
 
+import 'package:flutter/foundation.dart';
+
 import '../../auth/data/auth_repository.dart';
 import '../../profile/domain/xp_reward_config.dart';
 import 'region_polygon.dart';
@@ -18,10 +20,22 @@ class TileUnlockXpService {
 
   /// Calculates unlock XP from the polygon's confirmed square-metre area so
   /// larger regions can reward more XP without using a flat unlock value.
+  ///
+  /// The area originates from backend area_square_metres; null or invalid area
+  /// is the only path that should fall back to the 25 XP minimum.
   int xpForUnlockedPolygon(RegionPolygon polygon) {
-    return XpRewardConfig.tileUnlockXpForArea(
+    final xp = XpRewardConfig.tileUnlockXpForArea(
       tileAreaSquareMetres: polygon.areaSquareMetres,
     );
+
+    if (kDebugMode) {
+      debugPrint(
+        '[TileUnlockXpService] region=${polygon.id} '
+        'areaSquareMetres=${polygon.areaSquareMetres} xp=$xp',
+      );
+    }
+
+    return xp;
   }
 
   /// Adds the area-based unlock XP through the injected writer.

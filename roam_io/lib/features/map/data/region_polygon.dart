@@ -28,9 +28,10 @@ class RegionPolygon {
   /// Creates a region polygon from API JSON, preserving invalid area as null so
   /// unlock XP can fall back through XpRewardConfig.
   ///
-  /// The backend should return [area_square_metres], but a few common aliases
-  /// are accepted so valid square-metre values do not accidentally use the
-  /// minimum fallback XP while API clients are being updated.
+  /// The backend should return the PostGIS area calculation as
+  /// [area_square_metres]. Valid square-metre values must survive parsing,
+  /// caching, and unlock reward flow; the 25 XP fallback is only for genuinely
+  /// missing or invalid area.
   factory RegionPolygon.fromJson(Map<String, dynamic> json) {
     final rawGeometry = json['geometry'];
 

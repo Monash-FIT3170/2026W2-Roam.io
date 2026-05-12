@@ -18,22 +18,49 @@ void main() {
         final withArea = _region(areaSquareMetres: 4000000);
         final withoutArea = _region(areaSquareMetres: null);
 
-        cache.cacheRegion(
+        final firstResult = cache.cacheRegion(
           region: withArea,
           isVisited: false,
           isCurrentRegion: false,
           onRegionTapped: (_, _) {},
         );
-        cache.cacheRegion(
+        final secondResult = cache.cacheRegion(
           region: withoutArea,
           isVisited: false,
           isCurrentRegion: false,
           onRegionTapped: (_, _) {},
         );
 
+        expect(firstResult.wasAdded, isTrue);
+        expect(firstResult.region.areaSquareMetres, 4000000);
+        expect(secondResult.wasAdded, isFalse);
+        expect(secondResult.region.areaSquareMetres, 4000000);
         expect(cache.regionForId('region-1')?.areaSquareMetres, 4000000);
       },
     );
+
+    test('fresh API area replaces older cached null area', () {
+      final cache = RegionPolygonCache();
+      final withoutArea = _region(areaSquareMetres: null);
+      final withArea = _region(areaSquareMetres: 4000000);
+
+      final firstResult = cache.cacheRegion(
+        region: withoutArea,
+        isVisited: false,
+        isCurrentRegion: false,
+        onRegionTapped: (_, _) {},
+      );
+      final secondResult = cache.cacheRegion(
+        region: withArea,
+        isVisited: false,
+        isCurrentRegion: false,
+        onRegionTapped: (_, _) {},
+      );
+
+      expect(firstResult.region.areaSquareMetres, isNull);
+      expect(secondResult.region.areaSquareMetres, 4000000);
+      expect(cache.regionForId('region-1')?.areaSquareMetres, 4000000);
+    });
   });
 }
 
