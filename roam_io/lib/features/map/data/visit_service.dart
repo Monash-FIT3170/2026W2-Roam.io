@@ -22,7 +22,7 @@ class VisitService {
   ///
   /// Uses the place's database ID as the document ID for easy lookup.
   /// If already visited, this will update the visitedAt timestamp.
-  /// 
+  ///
   /// Optional fields allow the user to customize their visit entry.
   Future<void> markVisited({
     required String userId,

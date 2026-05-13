@@ -64,13 +64,19 @@ void main() {
         final visit = createTestVisit(
           customName: 'Custom Name',
           description: 'A great visit',
-          mediaUrls: ['https://example.com/photo1.jpg', 'https://example.com/photo2.jpg'],
+          mediaUrls: [
+            'https://example.com/photo1.jpg',
+            'https://example.com/photo2.jpg',
+          ],
         );
         final map = visit.toMap();
 
         expect(map['customName'], 'Custom Name');
         expect(map['description'], 'A great visit');
-        expect(map['mediaUrls'], ['https://example.com/photo1.jpg', 'https://example.com/photo2.jpg']);
+        expect(map['mediaUrls'], [
+          'https://example.com/photo1.jpg',
+          'https://example.com/photo2.jpg',
+        ]);
       });
 
       test('serializes null optional fields as null', () {
@@ -219,7 +225,10 @@ void main() {
         final original = createTestVisit(
           customName: 'My Visit',
           description: 'Great place to visit',
-          mediaUrls: ['https://storage.com/photo1.jpg', 'https://storage.com/video1.mp4'],
+          mediaUrls: [
+            'https://storage.com/photo1.jpg',
+            'https://storage.com/video1.mp4',
+          ],
         );
 
         final map = original.toMap();

@@ -22,10 +22,8 @@ class MediaViewer extends StatefulWidget {
     return Navigator.of(context).push(
       MaterialPageRoute(
         fullscreenDialog: true,
-        builder: (context) => MediaViewer(
-          mediaUrls: mediaUrls,
-          initialIndex: initialIndex,
-        ),
+        builder: (context) =>
+            MediaViewer(mediaUrls: mediaUrls, initialIndex: initialIndex),
       ),
     );
   }
@@ -53,7 +51,9 @@ class _MediaViewerState extends State<MediaViewer> {
 
   bool _isVideo(String url) {
     final lower = url.toLowerCase();
-    return lower.contains('.mp4') || lower.contains('.mov') || lower.contains('video');
+    return lower.contains('.mp4') ||
+        lower.contains('.mov') ||
+        lower.contains('video');
   }
 
   @override
@@ -108,7 +108,7 @@ class _ImageViewer extends StatelessWidget {
               child: CircularProgressIndicator(
                 value: loadingProgress.expectedTotalBytes != null
                     ? loadingProgress.cumulativeBytesLoaded /
-                        loadingProgress.expectedTotalBytes!
+                          loadingProgress.expectedTotalBytes!
                     : null,
                 color: Colors.white,
               ),
@@ -199,10 +199,7 @@ class _VideoViewerState extends State<_VideoViewer> {
           children: [
             Icon(Icons.error_outline, size: 64, color: Colors.grey),
             SizedBox(height: 16),
-            Text(
-              'Failed to load video',
-              style: TextStyle(color: Colors.grey),
-            ),
+            Text('Failed to load video', style: TextStyle(color: Colors.grey)),
           ],
         ),
       );

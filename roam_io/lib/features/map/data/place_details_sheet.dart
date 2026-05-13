@@ -41,7 +41,6 @@ class PlaceDetailsSheet extends StatefulWidget {
 }
 
 class _PlaceDetailsSheetState extends State<PlaceDetailsSheet> {
-  bool _isLoading = false;
   double? _distance;
   String? _errorMessage;
   Visit? _visitData;
@@ -108,7 +107,8 @@ class _PlaceDetailsSheetState extends State<PlaceDetailsSheet> {
 
   Future<void> _handleMarkVisited() async {
     // Check proximity first
-    if (_distance != null && _distance! > MapController.visitProximityThreshold) {
+    if (_distance != null &&
+        _distance! > MapController.visitProximityThreshold) {
       setState(() {
         _errorMessage =
             'You need to be within ${MapController.visitProximityThreshold.round()}m to visit this place';
@@ -222,10 +222,7 @@ class _PlaceDetailsSheetState extends State<PlaceDetailsSheet> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(
-                          displayName,
-                          style: theme.textTheme.titleLarge,
-                        ),
+                        Text(displayName, style: theme.textTheme.titleLarge),
                         const SizedBox(height: 4),
                         Text(
                           widget.place.category.displayName,
@@ -317,10 +314,7 @@ class _PlaceDetailsSheetState extends State<PlaceDetailsSheet> {
                   if (_visitData!.description != null &&
                       _visitData!.description!.isNotEmpty) ...[
                     const SizedBox(height: 16),
-                    Text(
-                      'Description',
-                      style: theme.textTheme.titleSmall,
-                    ),
+                    Text('Description', style: theme.textTheme.titleSmall),
                     const SizedBox(height: 4),
                     Text(
                       _visitData!.description!,
@@ -333,10 +327,7 @@ class _PlaceDetailsSheetState extends State<PlaceDetailsSheet> {
                   // Media gallery
                   if (_visitData!.mediaUrls.isNotEmpty) ...[
                     const SizedBox(height: 16),
-                    Text(
-                      'Media',
-                      style: theme.textTheme.titleSmall,
-                    ),
+                    Text('Media', style: theme.textTheme.titleSmall),
                     const SizedBox(height: 8),
                     SizedBox(
                       height: 80,
@@ -345,7 +336,8 @@ class _PlaceDetailsSheetState extends State<PlaceDetailsSheet> {
                         itemCount: _visitData!.mediaUrls.length,
                         itemBuilder: (context, index) {
                           final url = _visitData!.mediaUrls[index];
-                          final isVideo = url.toLowerCase().contains('.mp4') ||
+                          final isVideo =
+                              url.toLowerCase().contains('.mp4') ||
                               url.toLowerCase().contains('.mov');
                           return GestureDetector(
                             onTap: () => _openMediaViewer(index),
@@ -374,8 +366,7 @@ class _PlaceDetailsSheetState extends State<PlaceDetailsSheet> {
                                       Image.network(
                                         url,
                                         fit: BoxFit.cover,
-                                        errorBuilder: (_, __, ___) =>
-                                            const Center(
+                                        errorBuilder: (_, _, _) => const Center(
                                           child: Icon(
                                             Icons.broken_image,
                                             color: Colors.grey,
@@ -390,8 +381,9 @@ class _PlaceDetailsSheetState extends State<PlaceDetailsSheet> {
                                           padding: const EdgeInsets.all(2),
                                           decoration: BoxDecoration(
                                             color: Colors.black54,
-                                            borderRadius:
-                                                BorderRadius.circular(4),
+                                            borderRadius: BorderRadius.circular(
+                                              4,
+                                            ),
                                           ),
                                           child: const Icon(
                                             Icons.play_arrow,
@@ -466,18 +458,9 @@ class _PlaceDetailsSheetState extends State<PlaceDetailsSheet> {
                 SizedBox(
                   width: double.infinity,
                   child: ElevatedButton.icon(
-                    onPressed: _isLoading ? null : _handleMarkVisited,
-                    icon: _isLoading
-                        ? const SizedBox(
-                            width: 20,
-                            height: 20,
-                            child: CircularProgressIndicator(
-                              strokeWidth: 2,
-                              color: Colors.white,
-                            ),
-                          )
-                        : const Icon(Icons.check),
-                    label: Text(_isLoading ? 'Checking...' : 'Mark as Visited'),
+                    onPressed: _handleMarkVisited,
+                    icon: const Icon(Icons.check),
+                    label: const Text('Mark as Visited'),
                     style: ElevatedButton.styleFrom(
                       backgroundColor: AppColors.sage,
                       foregroundColor: Colors.white,

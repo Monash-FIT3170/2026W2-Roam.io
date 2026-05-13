@@ -62,7 +62,10 @@ class StorageService {
     }
 
     // Sanitize the original filename before using it in a Storage path.
-    final sanitizedFilename = filename.replaceAll(RegExp(r"[^a-zA-Z0-9_.-]"), '_');
+    final sanitizedFilename = filename.replaceAll(
+      RegExp(r"[^a-zA-Z0-9_.-]"),
+      '_',
+    );
     final storageRef = _firebaseStorage
         .ref()
         .child('visit_media')

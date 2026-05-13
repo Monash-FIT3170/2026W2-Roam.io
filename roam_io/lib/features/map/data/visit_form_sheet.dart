@@ -112,7 +112,9 @@ class _VisitFormSheetState extends State<VisitFormSheet> {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Could not access photo library. Please check permissions.'),
+          content: Text(
+            'Could not access photo library. Please check permissions.',
+          ),
         ),
       );
     }
@@ -133,7 +135,9 @@ class _VisitFormSheetState extends State<VisitFormSheet> {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Could not access video library. Please check permissions.'),
+          content: Text(
+            'Could not access video library. Please check permissions.',
+          ),
         ),
       );
     }
@@ -254,16 +258,20 @@ class _VisitFormSheetState extends State<VisitFormSheet> {
     });
 
     try {
-      debugPrint('[VisitFormSheet] Starting save visit for place: ${widget.place.id}');
+      debugPrint(
+        '[VisitFormSheet] Starting save visit for place: ${widget.place.id}',
+      );
       debugPrint('[VisitFormSheet] User ID: ${widget.userId}');
-      
+
       final storageService = StorageService();
       final visitService = VisitService();
 
       // Upload new media files
       final mediaUrls = <String>[];
-      debugPrint('[VisitFormSheet] Processing ${_mediaItems.length} media items');
-      
+      debugPrint(
+        '[VisitFormSheet] Processing ${_mediaItems.length} media items',
+      );
+
       for (int i = 0; i < _mediaItems.length; i++) {
         final item = _mediaItems[i];
         if (item.url != null) {
@@ -272,7 +280,9 @@ class _VisitFormSheetState extends State<VisitFormSheet> {
           mediaUrls.add(item.url!);
         } else if (item.file != null) {
           // New media, upload it
-          debugPrint('[VisitFormSheet] Media $i: uploading file ${item.file!.name}');
+          debugPrint(
+            '[VisitFormSheet] Media $i: uploading file ${item.file!.name}',
+          );
           try {
             final bytes = await item.file!.readAsBytes();
             debugPrint('[VisitFormSheet] Media $i: read ${bytes.length} bytes');
@@ -282,10 +292,14 @@ class _VisitFormSheetState extends State<VisitFormSheet> {
               bytes: bytes,
               filename: item.file!.name,
             );
-            debugPrint('[VisitFormSheet] Media $i: uploaded successfully, URL: $url');
+            debugPrint(
+              '[VisitFormSheet] Media $i: uploaded successfully, URL: $url',
+            );
             mediaUrls.add(url);
           } catch (uploadError, uploadStack) {
-            debugPrint('[VisitFormSheet] Media $i: upload failed: $uploadError');
+            debugPrint(
+              '[VisitFormSheet] Media $i: upload failed: $uploadError',
+            );
             debugPrint('[VisitFormSheet] Stack trace: $uploadStack');
             rethrow;
           }
@@ -294,13 +308,17 @@ class _VisitFormSheetState extends State<VisitFormSheet> {
 
       // Get custom name (null if same as place name)
       final customName = _nameController.text.trim();
-      final finalCustomName = customName == widget.place.name ? null : customName;
+      final finalCustomName = customName == widget.place.name
+          ? null
+          : customName;
       debugPrint('[VisitFormSheet] Custom name: $finalCustomName');
 
       // Get description (null if empty)
       final description = _descriptionController.text.trim();
       final finalDescription = description.isEmpty ? null : description;
-      debugPrint('[VisitFormSheet] Description: ${finalDescription?.substring(0, finalDescription.length.clamp(0, 50))}...');
+      debugPrint(
+        '[VisitFormSheet] Description: ${finalDescription?.substring(0, finalDescription.length.clamp(0, 50))}...',
+      );
 
       if (_isEditMode) {
         // Update existing visit
@@ -427,10 +445,7 @@ class _VisitFormSheetState extends State<VisitFormSheet> {
                   const SizedBox(height: 16),
 
                   // Media section
-                  Text(
-                    'Photos & Videos',
-                    style: theme.textTheme.titleSmall,
-                  ),
+                  Text('Photos & Videos', style: theme.textTheme.titleSmall),
                   const SizedBox(height: 8),
 
                   // Media grid
@@ -523,7 +538,9 @@ class _VisitFormSheetState extends State<VisitFormSheet> {
                         child: OutlinedButton(
                           onPressed: _isLoading
                               ? null
-                              : () => Navigator.of(context).pop(VisitFormResult.cancelled),
+                              : () => Navigator.of(
+                                  context,
+                                ).pop(VisitFormResult.cancelled),
                           style: OutlinedButton.styleFrom(
                             padding: const EdgeInsets.symmetric(vertical: 14),
                             shape: RoundedRectangleBorder(
@@ -548,9 +565,11 @@ class _VisitFormSheetState extends State<VisitFormSheet> {
                                   ),
                                 )
                               : const Icon(Icons.check),
-                          label: Text(_isLoading
-                              ? 'Saving...'
-                              : (_isEditMode ? 'Save Changes' : 'Log Visit')),
+                          label: Text(
+                            _isLoading
+                                ? 'Saving...'
+                                : (_isEditMode ? 'Save Changes' : 'Log Visit'),
+                          ),
                           style: ElevatedButton.styleFrom(
                             backgroundColor: AppColors.sage,
                             foregroundColor: Colors.white,
@@ -580,15 +599,14 @@ class _MediaItem {
   final bool isVideo;
 
   _MediaItem.fromFile(this.file, {this.isVideo = false}) : url = null;
-  _MediaItem.fromUrl(this.url) : file = null, isVideo = url!.contains('.mp4') || url.contains('.mov');
+  _MediaItem.fromUrl(this.url)
+    : file = null,
+      isVideo = url!.contains('.mp4') || url.contains('.mov');
 }
 
 /// Thumbnail widget for displaying a media item with remove button.
 class _MediaThumbnail extends StatelessWidget {
-  const _MediaThumbnail({
-    required this.item,
-    required this.onRemove,
-  });
+  const _MediaThumbnail({required this.item, required this.onRemove});
 
   final _MediaItem item;
   final VoidCallback onRemove;
@@ -643,11 +661,7 @@ class _MediaThumbnail extends StatelessWidget {
                   color: Colors.black54,
                   shape: BoxShape.circle,
                 ),
-                child: const Icon(
-                  Icons.close,
-                  color: Colors.white,
-                  size: 16,
-                ),
+                child: const Icon(Icons.close, color: Colors.white, size: 16),
               ),
             ),
           ),
@@ -682,13 +696,10 @@ class _MediaThumbnail extends StatelessWidget {
         fit: BoxFit.cover,
         width: 100,
         height: 100,
-        errorBuilder: (_, __, ___) => const Center(
-          child: Icon(Icons.broken_image, color: Colors.grey),
-        ),
+        errorBuilder: (_, _, _) =>
+            const Center(child: Icon(Icons.broken_image, color: Colors.grey)),
       );
     }
-    return const Center(
-      child: Icon(Icons.image, color: Colors.grey),
-    );
+    return const Center(child: Icon(Icons.image, color: Colors.grey));
   }
 }
