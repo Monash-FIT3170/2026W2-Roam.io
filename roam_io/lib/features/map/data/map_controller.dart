@@ -675,12 +675,8 @@ class MapController extends ChangeNotifier {
       debugPrint('[MapController] Visit XP award failed after save: $error');
     }
 
-      _visitedPlaceIds.add(place.id);
-      final regionVisitChanged = await _markRegionAsVisited(place.regionId);
-      if (regionVisitChanged) {
-        _refreshCachedPolygonsStyles();
-      }
-      _rebuildMarkers();
+    _visitedPlaceIds.add(place.id);
+    _rebuildMarkers();
 
     message = 'Visited ${place.name}!';
     notifyListeners();
