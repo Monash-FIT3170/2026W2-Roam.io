@@ -35,9 +35,9 @@ void main() {
 
       await controller.initialise(userId: 'user-1');
 
-      expect(awardedXp, <int>[100]);
+      expect(awardedXp, <int>[75]);
       expect(awardedXp.single, isNot(XpRewardConfig.baseTileUnlockXp));
-      expect(feedbackEvents, <String>['Region One:100']);
+      expect(feedbackEvents, <String>['Region One:75']);
 
       controller.disposeController();
     });
@@ -74,8 +74,8 @@ void main() {
       await controller.initialise(userId: 'user-1');
       await controller.initialise(userId: 'user-1');
 
-      expect(awardedXp, <int>[100]);
-      expect(feedbackEvents, <String>['Region One:100']);
+      expect(awardedXp, <int>[75]);
+      expect(feedbackEvents, <String>['Region One:75']);
 
       controller.disposeController();
     });
@@ -100,9 +100,8 @@ void main() {
       await largeController.initialise(userId: 'user-1');
       largeController.disposeController();
 
-      expect(awardedXp, <int>[50, 100]);
+      expect(awardedXp, <int>[50, 75]);
       expect(awardedXp.last, greaterThan(awardedXp.first));
-      expect(awardedXp, isNot(contains(XpRewardConfig.minTileUnlockXp)));
     });
 
     test(
@@ -129,9 +128,9 @@ void main() {
 
         await controller.initialise(userId: 'user-1');
 
-        expect(awardedXp, <int>[100]);
+        expect(awardedXp, <int>[75]);
         expect(awardedXp.single, isNot(XpRewardConfig.minTileUnlockXp));
-        expect(feedbackEvents, <String>['Region One:100']);
+        expect(feedbackEvents, <String>['Region One:75']);
 
         controller.disposeController();
       },
@@ -209,7 +208,7 @@ void main() {
       await controller.initialise(userId: 'user-1');
 
       expect(events, <String>['persisted', 'xp']);
-      expect(awardedXp, <int>[100]);
+      expect(awardedXp, <int>[75]);
 
       controller.disposeController();
     });
@@ -226,7 +225,7 @@ void main() {
 
       await controller.initialise(userId: 'user-1');
 
-      expect(awardedXp, <int>[100]);
+      expect(awardedXp, <int>[75]);
       expect(feedbackEvents, isEmpty);
 
       controller.disposeController();

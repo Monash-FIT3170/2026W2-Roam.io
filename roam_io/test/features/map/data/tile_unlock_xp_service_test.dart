@@ -25,10 +25,10 @@ void main() {
         _region(areaSquareMetres: 4000000),
       );
 
-      expect(result.xpAwarded, 100);
+      expect(result.xpAwarded, 75);
       expect(result.xpAwarded, isNot(XpRewardConfig.baseTileUnlockXp));
       expect(result.didLevelUp, isFalse);
-      expect(awardedXp, <int>[100]);
+      expect(awardedXp, <int>[75]);
     });
 
     test('reports when the injected writer triggers a level-up', () async {

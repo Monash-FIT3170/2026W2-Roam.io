@@ -41,7 +41,7 @@ void _expectRegionEndpointsSelectArea(String source) {
   final viewportRoute = source.substring(viewportRouteStart);
 
   // Both region endpoints must expose the exact PostGIS area alias consumed by
-  // RegionPolygon.fromJson; otherwise valid unlocks fall back to 25 XP.
+  // RegionPolygon.fromJson; otherwise valid unlocks fall back to 50 XP.
   expect(containingRoute, contains(_areaSelect));
   expect(viewportRoute, contains(_areaSelect));
   expect(RegExp(RegExp.escape(_areaSelect)).allMatches(source), hasLength(2));

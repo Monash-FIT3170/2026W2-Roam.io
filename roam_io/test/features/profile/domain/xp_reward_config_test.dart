@@ -12,39 +12,55 @@ void main() {
   group('XpRewardConfig tile unlock rewards', () {
     test('keeps the base tile unlock reward as the tuning baseline', () {
       expect(XpRewardConfig.baseTileUnlockXp, 50);
+      expect(XpRewardConfig.minTileUnlockXp, 50);
+      expect(XpRewardConfig.maxTileUnlockXp, 200);
     });
 
-    test('small polygon area returns at least the minimum reward', () {
+    test('maps valid polygon areas to fixed game reward tiers', () {
+      expect(XpRewardConfig.tileUnlockXpForArea(tileAreaSquareMetres: 1), 50);
       expect(
-        XpRewardConfig.tileUnlockXpForArea(tileAreaSquareMetres: 1),
-        XpRewardConfig.minTileUnlockXp,
+        XpRewardConfig.tileUnlockXpForArea(tileAreaSquareMetres: 3999999),
+        50,
       );
-    });
-
-    test('reference polygon area returns the base reward', () {
       expect(
-        XpRewardConfig.tileUnlockXpForArea(
-          tileAreaSquareMetres: XpRewardConfig.referenceTileAreaSquareMetres,
-        ),
-        XpRewardConfig.baseTileUnlockXp,
+        XpRewardConfig.tileUnlockXpForArea(tileAreaSquareMetres: 4000000),
+        75,
       );
-    });
-
-    test('larger polygon area returns more XP than smaller polygon area', () {
-      final smallerXp = XpRewardConfig.tileUnlockXpForArea(
-        tileAreaSquareMetres: 1000000,
+      expect(
+        XpRewardConfig.tileUnlockXpForArea(tileAreaSquareMetres: 7999999),
+        75,
       );
-      final largerXp = XpRewardConfig.tileUnlockXpForArea(
-        tileAreaSquareMetres: 4000000,
+      expect(
+        XpRewardConfig.tileUnlockXpForArea(tileAreaSquareMetres: 8000000),
+        100,
       );
-
-      expect(largerXp, greaterThan(smallerXp));
-    });
-
-    test('very large polygon area is capped at the maximum reward', () {
+      expect(
+        XpRewardConfig.tileUnlockXpForArea(tileAreaSquareMetres: 15999999),
+        100,
+      );
+      expect(
+        XpRewardConfig.tileUnlockXpForArea(tileAreaSquareMetres: 16000000),
+        150,
+      );
+      expect(
+        XpRewardConfig.tileUnlockXpForArea(tileAreaSquareMetres: 31999999),
+        150,
+      );
+      expect(
+        XpRewardConfig.tileUnlockXpForArea(tileAreaSquareMetres: 32000000),
+        175,
+      );
+      expect(
+        XpRewardConfig.tileUnlockXpForArea(tileAreaSquareMetres: 63999999),
+        175,
+      );
+      expect(
+        XpRewardConfig.tileUnlockXpForArea(tileAreaSquareMetres: 64000000),
+        200,
+      );
       expect(
         XpRewardConfig.tileUnlockXpForArea(tileAreaSquareMetres: 1000000000),
-        XpRewardConfig.maxTileUnlockXp,
+        200,
       );
     });
 

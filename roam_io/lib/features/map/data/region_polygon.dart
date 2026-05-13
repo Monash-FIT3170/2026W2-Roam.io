@@ -30,7 +30,7 @@ class RegionPolygon {
   ///
   /// The backend should return the PostGIS area calculation as
   /// [area_square_metres]. Valid square-metre values must survive parsing,
-  /// caching, and unlock reward flow; the 25 XP fallback is only for genuinely
+  /// caching, and unlock reward flow; the 50 XP fallback is only for genuinely
   /// missing or invalid area.
   factory RegionPolygon.fromJson(Map<String, dynamic> json) {
     final rawGeometry = json['geometry'];

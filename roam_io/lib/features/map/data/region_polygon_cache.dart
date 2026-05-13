@@ -37,7 +37,7 @@ class RegionPolygonCache {
   /// [RegionPolygon.areaSquareMetres] is calculated by PostGIS and returned as
   /// area_square_metres by the backend. If a later API response omits that
   /// value, the cache keeps the last confirmed square-metre area so valid
-  /// unlock XP remains area-scaled. The 25 XP fallback is only for regions with
+  /// unlock XP remains area-scaled. The 50 XP fallback is only for regions with
   /// genuinely missing or invalid area.
   RegionPolygonCacheResult cacheRegion({
     required RegionPolygon region,

@@ -22,7 +22,7 @@ class TileUnlockXpService {
   /// larger regions can reward more XP without using a flat unlock value.
   ///
   /// The area originates from backend area_square_metres; null or invalid area
-  /// is the only path that should fall back to the 25 XP minimum.
+  /// is the only path that should fall back to the 50 XP minimum.
   int xpForUnlockedPolygon(RegionPolygon polygon) {
     final xp = XpRewardConfig.tileUnlockXpForArea(
       tileAreaSquareMetres: polygon.areaSquareMetres,

@@ -374,7 +374,7 @@ class MapController extends ChangeNotifier {
       final effectiveRegion = cacheResult.region;
 
       // Preserve the backend/PostGIS square-metre area through the unlock flow;
-      // 25 XP is only the fallback when no valid area is available anywhere.
+      // 50 XP is only the fallback when no valid area is available anywhere.
       currentRegion = effectiveRegion;
       message = effectiveRegion.name;
       await _markRegionAsVisited(effectiveRegion);
