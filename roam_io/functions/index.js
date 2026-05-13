@@ -168,14 +168,40 @@ app.get('/places/region/:regionId', async (req, res) => {
       });
     }
 
+    // Get multiple search points within the tile for better coverage:
+    // - Centroid (center)
+    // - 4 points at 50% distance toward each corner of the bounding box
     const regionResult = await getPool().query(
       `
+      WITH tile AS (
+        SELECT geometry, name FROM regions WHERE id = $1
+      ),
+      bbox AS (
+        SELECT 
+          ST_XMin(geometry) AS xmin,
+          ST_XMax(geometry) AS xmax,
+          ST_YMin(geometry) AS ymin,
+          ST_YMax(geometry) AS ymax,
+          ST_X(ST_Centroid(geometry)) AS cx,
+          ST_Y(ST_Centroid(geometry)) AS cy,
+          geometry,
+          name
+        FROM tile
+      )
       SELECT 
-        ST_Y(ST_Centroid(geometry)) AS lat,
-        ST_X(ST_Centroid(geometry)) AS lng,
-        name
-      FROM regions 
-      WHERE id = $1
+        name,
+        json_agg(json_build_object('lat', lat, 'lng', lng)) AS search_points,
+        -- Use smaller radius since we're doing multiple searches
+        CEIL(GREATEST(xmax - xmin, ymax - ymin) * 111320 * 0.6) AS radius_meters
+      FROM bbox,
+      LATERAL (VALUES
+        (cy, cx),  -- centroid
+        (cy + (ymax - cy) * 0.5, cx + (xmax - cx) * 0.5),  -- toward NE
+        (cy + (ymax - cy) * 0.5, cx - (cx - xmin) * 0.5),  -- toward NW
+        (cy - (cy - ymin) * 0.5, cx + (xmax - cx) * 0.5),  -- toward SE
+        (cy - (cy - ymin) * 0.5, cx - (cx - xmin) * 0.5)   -- toward SW
+      ) AS points(lat, lng)
+      GROUP BY name, xmin, xmax, ymin, ymax
       `,
       [regionId]
     );
@@ -186,33 +212,85 @@ app.get('/places/region/:regionId', async (req, res) => {
       });
     }
 
-    const { lat, lng, name: regionName } = regionResult.rows[0];
+    const { name: regionName, search_points, radius_meters } = regionResult.rows[0];
+    // Cap radius, minimum 300m for multi-point search
+    const searchRadius = Math.min(50000, Math.max(300, Number(radius_meters)));
 
     console.log(
-      `[Places] Cache MISS for region ${regionId} (${regionName}). Fetching from Google...`
+      `[Places] Cache MISS for region ${regionId} (${regionName}). Multi-point search with ${search_points.length} points, radius ${searchRadius}m...`
     );
 
-    let googlePlaces = [];
+    // Collect all places from multiple search points, dedupe by google_place_id
+    const placesMap = new Map(); // google_place_id -> place object
 
-    try {
-      googlePlaces = await fetchPlacesFromGoogle({
-        lat,
-        lng,
-        radiusMeters: 2000,
-        apiKey: GOOGLE_PLACES_API_KEY.value(),
-      });
+    for (const point of search_points) {
+      try {
+        console.log(`[Places] Searching from point (${point.lat.toFixed(4)}, ${point.lng.toFixed(4)})`);
+        
+        const places = await fetchPlacesFromGoogle({
+          lat: point.lat,
+          lng: point.lng,
+          radiusMeters: searchRadius,
+          apiKey: GOOGLE_PLACES_API_KEY.value(),
+        });
 
-      console.log(
-        `[Places] Fetched ${googlePlaces.length} places from Google for ${regionName}`
-      );
-    } catch (googleError) {
-      console.error(
-        `[Places] Google API error for ${regionId}:`,
-        googleError.message
-      );
+        for (const place of places) {
+          if (!placesMap.has(place.id)) {
+            placesMap.set(place.id, place);
+          }
+        }
+
+        console.log(`[Places] Found ${places.length} places, total unique: ${placesMap.size}`);
+      } catch (googleError) {
+        console.error(
+          `[Places] Google API error at point (${point.lat}, ${point.lng}):`,
+          googleError.message,
+          googleError.response?.data || ''
+        );
+      }
     }
 
+    const googlePlaces = Array.from(placesMap.values());
+    console.log(`[Places] Total unique places from all points: ${googlePlaces.length}`);
+
+    // Filter places to only those inside the tile, sort by rating, take top 20
+    const placesWithinTile = [];
     for (const place of googlePlaces) {
+      if (!place.location?.longitude || !place.location?.latitude) continue;
+
+      // Check if place is within tile boundary
+      const containsResult = await getPool().query(
+        `
+        SELECT ST_Contains(
+          (SELECT geometry FROM regions WHERE id = $1),
+          ST_SetSRID(ST_Point($2, $3), 4326)
+        ) AS within
+        `,
+        [regionId, place.location.longitude, place.location.latitude]
+      );
+
+      if (containsResult.rows[0]?.within) {
+        placesWithinTile.push(place);
+      }
+    }
+
+    // Sort by rating (highest first), then by user ratings count as tiebreaker
+    placesWithinTile.sort((a, b) => {
+      const ratingA = a.rating || 0;
+      const ratingB = b.rating || 0;
+      if (ratingB !== ratingA) return ratingB - ratingA;
+      return (b.userRatingCount || 0) - (a.userRatingCount || 0);
+    });
+
+    // Take top 20
+    const top20Places = placesWithinTile.slice(0, 20);
+
+    console.log(
+      `[Places] Filtered to ${placesWithinTile.length} places within tile, keeping top ${top20Places.length}`
+    );
+
+    // Insert the top 20 places
+    for (const place of top20Places) {
       const category = mapToCategory(place.types);
       const photoRef = place.photos?.[0]?.name || null;
 
@@ -273,7 +351,7 @@ app.get('/places/region/:regionId', async (req, res) => {
       ON CONFLICT (region_id)
       DO UPDATE SET fetched_at = NOW(), place_count = $2
       `,
-      [regionId, googlePlaces.length]
+      [regionId, top20Places.length]
     );
 
     const storedPlaces = await getPool().query(
