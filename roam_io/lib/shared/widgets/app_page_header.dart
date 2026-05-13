@@ -1,5 +1,15 @@
-import 'package:flutter/material.dart';
+/*
+ * Author: Sanjevan Rajasegar
+ * Last Modified: 4/05/2026
+ * Description:
+ *   Provides a reusable page title, subtitle, and optional trailing action
+ *   header for app screens.
+ */
 
+import 'package:flutter/material.dart';
+import '../../theme/app_colours.dart';
+
+/// Displays consistent screen heading text with an optional trailing widget.
 class AppPageHeader extends StatelessWidget {
   final String title;
   final String subtitle;
@@ -14,8 +24,6 @@ class AppPageHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-
     return Padding(
       padding: const EdgeInsets.fromLTRB(20, 16, 20, 12),
       child: Column(

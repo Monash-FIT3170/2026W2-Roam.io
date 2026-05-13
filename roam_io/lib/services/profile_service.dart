@@ -1,19 +1,26 @@
+/*
+ * Author: Alvin Liong
+ * Last Modified: 4/05/2026
+ * Description:
+ *   Provides Firestore profile document operations for account details,
+ *   preferences, and profile photo metadata.
+ */
+
 import 'package:cloud_firestore/cloud_firestore.dart';
 
 import '../features/profile/domain/profile_model.dart';
 
-/// Thin wrapper for Firestore profile operations.
-///
-/// This service owns reads/writes to the `profiles` collection so higher layers
-/// do not depend on Firestore APIs directly.
+/// Owns reads and writes for Firestore documents in the `profiles` collection.
 class ProfileService {
+  static const String _profilesCollectionName = 'profiles';
+
   ProfileService({FirebaseFirestore? firestore})
     : _firestore = firestore ?? FirebaseFirestore.instance;
 
   final FirebaseFirestore _firestore;
 
   CollectionReference<Map<String, dynamic>> get _profiles =>
-      _firestore.collection('profiles');
+      _firestore.collection(_profilesCollectionName);
 
   /// Creates/replaces profile document at `profiles/{uid}`.
   Future<void> createProfile(ProfileModel profile) {
@@ -27,20 +34,6 @@ class ProfileService {
     required String displayName,
     String? photoUrl,
   }) {
-    return _profiles.doc(uid).update(<String, dynamic>{
-      'username': username,
-      'displayName': displayName,
-      'updatedAt': DateTime.now().toIso8601String(),
-    });
-  }
-
-  /// Updates the user's saved theme preference.
-  Future<void> updateDarkModePreference({
-    required String uid,
-    required bool enabled,
-  }) {
-    return _profiles.doc(uid).update(<String, dynamic>{
-      'darkModeEnabled': enabled,
     final data = <String, dynamic>{
       'username': username,
       'displayName': displayName,
@@ -52,6 +45,18 @@ class ProfileService {
     return _profiles.doc(uid).update(data);
   }
 
+  /// Updates the user's saved dark mode preference.
+  Future<void> updateDarkModePreference({
+    required String uid,
+    required bool enabled,
+  }) {
+    return _profiles.doc(uid).update(<String, dynamic>{
+      'darkModeEnabled': enabled,
+      'updatedAt': DateTime.now().toIso8601String(),
+    });
+  }
+
+  /// Stores the user's profile photo URL and content hash.
   Future<void> updateProfilePhoto({
     required String uid,
     required String photoUrl,
@@ -64,6 +69,7 @@ class ProfileService {
     });
   }
 
+  /// Stores a content hash for an existing profile photo.
   Future<void> updateProfilePhotoHash({
     required String uid,
     required String photoHash,
@@ -79,18 +85,51 @@ class ProfileService {
     final doc = await _profiles.doc(uid).get();
     final data = doc.data();
     if (data == null) return null;
+
+    final xpValue = (data['xp'] as num?)?.toInt() ?? 0;
+    final expectedLevel = ProfileModel.levelFromXp(xpValue);
+    final hasLevel = data.containsKey('level') && data['level'] != null;
+    final currentLevel = (data['level'] as num?)?.toInt();
+
+    final updateData = <String, dynamic>{};
+    if (!data.containsKey('xp') || data['xp'] == null) {
+      updateData['xp'] = 0;
+      data['xp'] = 0;
+    }
+    if (!hasLevel || currentLevel != expectedLevel) {
+      updateData['level'] = expectedLevel;
+      data['level'] = expectedLevel;
+    }
+    if (updateData.isNotEmpty) {
+      await _profiles.doc(uid).update(updateData);
+    }
+
     return ProfileModel.fromMap(data);
   }
 
+  /// Updates the display name shown in profile surfaces.
   Future<void> updateDisplayName(String uid, String displayName) async {
-  await FirebaseFirestore.instance
-    .collection('profiles')
-    .doc(uid)
-    .update({
+    await _profiles.doc(uid).update(<String, dynamic>{
       'displayName': displayName,
       'updatedAt': DateTime.now().toIso8601String(),
     });
   }
 
-}
+  /// Updates the user's XP and recalculates level if necessary.
+  Future<void> updateXp(String uid, int newXp) async {
+    final expectedLevel = ProfileModel.levelFromXp(newXp);
+    await _profiles.doc(uid).update(<String, dynamic>{
+      'xp': newXp,
+      'level': expectedLevel,
+      'updatedAt': DateTime.now().toIso8601String(),
+    });
+  }
 
+  /// Adds XP to the user's current XP and recalculates level if necessary.
+  Future<void> addXp(String uid, int xpToAdd) async {
+    final profile = await getProfile(uid);
+    if (profile == null) return;
+    final newXp = profile.xp + xpToAdd;
+    await updateXp(uid, newXp);
+  }
+}

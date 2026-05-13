@@ -7,7 +7,8 @@
 
 	<key>CFBundleDevelopmentRegion</key>
 	<string>$(DEVELOPMENT_LANGUAGE)</string>
-
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>Roam.io uses your location to unlock nearby map regions.</string>
 	<key>CFBundleDisplayName</key>
 	<string>Roam Io</string>
 
@@ -49,6 +50,13 @@
 	<!-- Photo library write access if the app ever saves images back to the library -->
 	<key>NSPhotoLibraryAddUsageDescription</key>
 	<string>Roam.io needs permission to save profile images to your photo library.</string>
+
+	<!-- Allow localhost HTTP connections for development -->
+	<key>NSAppTransportSecurity</key>
+	<dict>
+		<key>NSAllowsLocalNetworking</key>
+		<true/>
+	</dict>
 
 	<key>UIApplicationSceneManifest</key>
 	<dict>

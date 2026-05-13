@@ -1,10 +1,49 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
+    function isProfileOwner(userId) {
+      return request.auth != null && request.auth.uid == userId;
+    }
+
+    function hasValidXp() {
+      return request.resource.data.keys().hasAll(['xp']) &&
+        request.resource.data.xp is int;
+    }
+
     match /profiles/{userId} {
       // Only the signed-in owner can read/write their own profile document.
-      allow read, create, update: if request.auth != null && request.auth.uid == userId;
+      allow read: if isProfileOwner(userId);
+      allow create, update: if isProfileOwner(userId) && hasValidXp();
       allow delete: if false;
+      
+      // Visits subcollection - tracks places the user has visited
+      match /visits/{visitId} {
+        // Only the signed-in owner can read/create their own visits.
+        allow read, create: if request.auth != null && request.auth.uid == userId;
+        // No updates or deletes - visits are permanent
+        allow update, delete: if false;
+      }
+    }
+
+    match /polygons_visited/{userId} {
+      // Users can only read/write their own visited polygon document.
+      allow get: if request.auth != null && request.auth.uid == userId;
+      allow create: if request.auth != null
+        && request.auth.uid == userId
+        && request.resource.data.profile_id == request.auth.uid;
+      allow update: if request.auth != null
+        && request.auth.uid == userId
+        && resource.data.profile_id == request.auth.uid
+        && request.resource.data.profile_id == request.auth.uid;
+      allow delete: if false;
+    }
+    
+    // User visits subcollection - tracks places the user has visited
+    match /users/{userId}/visits/{visitId} {
+      // Only the signed-in owner can read/create their own visits.
+      allow read, create: if request.auth != null && request.auth.uid == userId;
+      // No updates or deletes - visits are permanent
+      allow update, delete: if false;
     }
 
     // Deny all other collections/documents by default for MVP safety.
