@@ -1,14 +1,5 @@
-/*
- * Author: Sanjevan Rajasegar
- * Last Modified: 24/04/2026
- * Description:
- *   Defines the shared colour palette used across Roam.io themes and custom
- *   widgets.
- */
-
 import 'package:flutter/material.dart';
 
-/// Central color tokens for the app's visual identity.
 class AppColors {
   static const ink = Color(0xFF1A1E26);
   static const sage = Color(0xFF5C734C);

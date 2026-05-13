@@ -4,12 +4,6 @@ Roam.io is a Flutter app using Firebase Authentication and Cloud Firestore.
 
 This README explains how a new teammate can clone the repo, set up local tools, get access to the shared Firebase project, and run the app.
 
-## Codebase Structure
-
-Architecture and folder conventions for Flutter code in `lib/` are documented in:
-
-- `lib/README.md`
-
 ## Tech Stack
 
 - Flutter
