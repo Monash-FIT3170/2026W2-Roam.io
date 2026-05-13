@@ -1,2 +1,4 @@
 .env
 .DS_Store
+spatial-api/.env
+firebase-debug.log
