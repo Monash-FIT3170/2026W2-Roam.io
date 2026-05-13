@@ -2,3 +2,6 @@
 .DS_Store
 spatial-api/.env
 firebase-debug.log
+node_modules/
+roam_io/spatial-api/node_modules/
+roam_io/functions/node_modules/
