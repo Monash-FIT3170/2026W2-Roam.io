@@ -167,6 +167,9 @@ class _VisitRow extends StatelessWidget {
 String _formatVisitTimestamp(DateTime d) {
   final local = d.toLocal();
   String two(int n) => n.toString().padLeft(2, '0');
-  return '${local.year}-${two(local.month)}-${two(local.day)} '
-      '${two(local.hour)}:${two(local.minute)}';
+  final period = local.hour >= 12 ? 'PM' : 'AM';
+  final hour = local.hour % 12 == 0 ? 12 : local.hour % 12;
+
+  return '${two(local.day)}/${two(local.month)}/${local.year} '
+      '$hour:${two(local.minute)} $period';
 }

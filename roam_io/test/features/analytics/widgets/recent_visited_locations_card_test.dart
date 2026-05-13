@@ -35,7 +35,7 @@ void main() {
 
     expect(find.text('Test Park'), findsOneWidget);
     expect(find.text('+${XpRewardConfig.visitXpReward} XP'), findsOneWidget);
-    expect(find.textContaining('2026-05-10'), findsOneWidget);
+    expect(find.text('10/05/2026 2:30 PM'), findsOneWidget);
   });
 
   testWidgets('shows friendly empty state when no visits', (tester) async {
