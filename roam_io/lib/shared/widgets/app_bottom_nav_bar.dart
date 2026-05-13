@@ -1,13 +1,5 @@
-/*
- * Author: Sanjevan Rajasegar
- * Last Modified: 1/05/2026
- * Description:
- *   Provides the reusable bottom navigation bar used by the main app shell.
- */
-
 import 'package:flutter/material.dart';
 
-/// Renders the app's five-tab bottom navigation with a raised center map tab.
 class AppBottomNavBar extends StatelessWidget {
   final int currentIndex;
   final ValueChanged<int> onTap;
@@ -46,7 +38,7 @@ class AppBottomNavBar extends StatelessWidget {
           clipBehavior: Clip.none,
           alignment: Alignment.bottomCenter,
           children: [
-            // The center map tab is rendered separately so it can float above.
+            // NAV BAR BACKGROUND
             Positioned(
               left: 0,
               right: 0,
@@ -120,7 +112,7 @@ class AppBottomNavBar extends StatelessWidget {
               ),
             ),
 
-            // The map button is visually emphasized as the primary navigation action.
+            // MAP BUTTON
             Positioned(
               top: 0,
               child: GestureDetector(

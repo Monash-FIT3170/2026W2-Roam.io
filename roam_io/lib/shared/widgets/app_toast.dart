@@ -1,20 +1,10 @@
-/*
- * Author: Sanjevan Rajasegar
- * Last Modified: 3/05/2026
- * Description:
- *   Provides reusable floating toast messages for success, error, and general
- *   feedback.
- */
-
 import 'package:flutter/material.dart';
 
 import '../../theme/app_colours.dart';
 
-/// Shows app-styled snack bar feedback from screen event handlers.
 class AppToast {
   const AppToast._();
 
-  /// Displays a floating toast with an optional leading icon.
   static void show(
     BuildContext context,
     String message, {
@@ -49,12 +39,10 @@ class AppToast {
     );
   }
 
-  /// Displays a success toast.
   static void success(BuildContext context, String message) {
     show(context, message, icon: Icons.check_circle_rounded);
   }
 
-  /// Displays an error toast.
   static void error(BuildContext context, String message) {
     show(context, message, icon: Icons.error_rounded);
   }

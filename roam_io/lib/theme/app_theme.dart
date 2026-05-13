@@ -1,17 +1,7 @@
-/*
- * Author: Sanjevan Rajasegar
- * Last Modified: 1/05/2026
- * Description:
- *   Defines the app-wide light and dark Material theme configuration for
- *   Roam.io.
- */
-
 import 'package:flutter/material.dart';
 import 'app_colours.dart';
 
-/// Builds the light and dark `ThemeData` used by the root app.
 class AppTheme {
-  /// Light mode Material theme.
   static ThemeData lightTheme = ThemeData(
     useMaterial3: true,
 
@@ -78,7 +68,6 @@ class AppTheme {
     ),
   );
 
-  /// Dark mode Material theme.
   static ThemeData darkTheme = ThemeData(
     useMaterial3: true,
     brightness: Brightness.dark,

@@ -1,16 +1,8 @@
-/*
- * Author: Nathan Nunes
- * Last Modified: 3/05/2026
- * Description:
- *   Coordinates Firebase Storage uploads and downloads for user profile
- *   images.
- */
-
 import 'dart:typed_data';
 
 import 'package:firebase_storage/firebase_storage.dart';
 
-/// Wraps Firebase Storage operations used by profile image workflows.
+/// Thin wrapper around Firebase Storage upload operations.
 class StorageService {
   StorageService({FirebaseStorage? firebaseStorage})
     : _firebaseStorage = firebaseStorage ?? FirebaseStorage.instance;
@@ -26,7 +18,6 @@ class StorageService {
     final lowerName = filename.toLowerCase();
     final contentType = lowerName.endsWith('.png') ? 'image/png' : 'image/jpeg';
 
-    // Sanitize the original filename before using it in a Storage path.
     final storageRef = _firebaseStorage
         .ref()
         .child('profile_photos')
@@ -40,7 +31,6 @@ class StorageService {
     return storageRef.getDownloadURL();
   }
 
-  /// Downloads bytes from an existing Firebase Storage download URL.
   Future<Uint8List?> downloadBytesFromUrl(String url) {
     return _firebaseStorage.refFromURL(url).getData();
   }
