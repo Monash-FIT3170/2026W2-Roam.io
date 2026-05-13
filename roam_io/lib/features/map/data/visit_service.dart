@@ -1,3 +1,11 @@
+/*
+ * Author: Sanjevan Rajasegar
+ * Last Modified: 12/05/2026
+ * Description:
+ *   Firestore-backed service for reading and writing user place visits under
+ *   profiles/{userId}/visits, including a stream of the most recent visits.
+ */
+
 import 'package:cloud_firestore/cloud_firestore.dart';
 
 import 'place_of_interest.dart';
@@ -5,7 +13,7 @@ import 'visit.dart';
 
 /// Service for managing user visits to places.
 ///
-/// Visits are stored in Firestore at `users/{userId}/visits/{placeId}`.
+/// Visits are stored in Firestore at `profiles/{userId}/visits/{placeId}`.
 /// This service owns all read/write operations for visit data.
 class VisitService {
   VisitService({FirebaseFirestore? firestore})
@@ -86,5 +94,19 @@ class VisitService {
     return _visitsCollection(userId).snapshots().map(
       (snapshot) => snapshot.docs.map((doc) => int.parse(doc.id)).toSet(),
     );
+  }
+
+  /// Real-time list of the user's most recent visits (newest first).
+  ///
+  /// Limited to [limit] documents for efficient analytics/history UIs.
+  Stream<List<Visit>> watchRecentVisits(String userId, {int limit = 5}) {
+    return _visitsCollection(userId)
+        .orderBy('visitedAt', descending: true)
+        .limit(limit)
+        .snapshots()
+        .map(
+          (snapshot) =>
+              snapshot.docs.map((doc) => Visit.fromMap(doc.data())).toList(),
+        );
   }
 }

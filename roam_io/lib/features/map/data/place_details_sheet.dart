@@ -1,6 +1,17 @@
+/*
+ * Author: Sanjevan Rajasegar
+ * Last Modified: 12/05/2026
+ * Description:
+ *   Bottom sheet when a place marker is tapped: details, distance, and marking
+ *   a visit with a single app-style success toast (visit + XP; level-up overlay
+ *   is still shown by the root app when applicable).
+ */
+
 import 'package:flutter/material.dart';
 
+import '../../../shared/widgets/app_toast.dart';
 import '../../../theme/app_colours.dart';
+import '../../profile/domain/xp_reward_config.dart';
 import 'map_controller.dart';
 import 'place_of_interest.dart';
 
@@ -11,23 +22,31 @@ class PlaceDetailsSheet extends StatefulWidget {
     super.key,
     required this.place,
     required this.mapController,
+    this.scaffoldMessenger,
   });
 
   final PlaceOfInterest place;
   final MapController mapController;
+
+  /// Host [ScaffoldMessengerState] for snackbars/toasts after the sheet pops.
+  final ScaffoldMessengerState? scaffoldMessenger;
 
   /// Shows the place details sheet as a modal bottom sheet.
   static Future<void> show({
     required BuildContext context,
     required PlaceOfInterest place,
     required MapController mapController,
+    ScaffoldMessengerState? scaffoldMessenger,
   }) {
     return showModalBottomSheet(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (context) =>
-          PlaceDetailsSheet(place: place, mapController: mapController),
+      builder: (context) => PlaceDetailsSheet(
+        place: place,
+        mapController: mapController,
+        scaffoldMessenger: scaffoldMessenger,
+      ),
     );
   }
 
@@ -83,14 +102,24 @@ class _PlaceDetailsSheetState extends State<PlaceDetailsSheet> {
 
     switch (result) {
       case VisitResult.success:
-        // Show success and close sheet
+        final messenger =
+            widget.scaffoldMessenger ?? ScaffoldMessenger.maybeOf(context);
+
         Navigator.of(context).pop();
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Visited ${widget.place.name}!'),
-            backgroundColor: AppColors.sage,
-          ),
-        );
+
+        // After pop, show on the next frame so the overlay route is gone.
+        // Use [AppToast.successForMessenger]: [ScaffoldMessenger.of] cannot be
+        // called on the messenger's own context (no ancestor messenger).
+        if (messenger != null) {
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (!messenger.mounted) return;
+            AppToast.successForMessenger(
+              messenger,
+              'Visited ${widget.place.name}!',
+              subtitle: '+${XpRewardConfig.visitXpReward} XP',
+            );
+          });
+        }
         break;
       case VisitResult.tooFar:
         setState(() {

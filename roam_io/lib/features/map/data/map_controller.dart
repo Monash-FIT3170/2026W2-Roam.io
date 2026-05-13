@@ -1,17 +1,10 @@
-/*
- * Author: Sanjevan Rajasegar
- * Last Modified: 12/05/2026
- * Description:
- *   Coordinates map state, region unlock persistence, and area-based unlock XP
- *   reward events for the map feature.
- */
-
 import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 
+import '../../profile/domain/xp_reward_config.dart';
 import 'place_of_interest.dart';
 import 'places_service.dart';
 import 'region_polygon.dart';
@@ -139,8 +132,22 @@ class MapController extends ChangeNotifier {
   bool _isResolvingCurrentRegion = false;
   Position? _queuedRegionCheckPosition;
 
-  Future<void> initialise({String? userId}) async {
+  /// Invoked only after a visit row is persisted; used to grant flat visit XP.
+  Future<void> Function(int amount)? _onVisitXpAwarded;
+
+  /// Wires flat visit XP after persistence when not using [initialise] (e.g. tests).
+  void bindVisitXpAwarding(
+    Future<void> Function(int amount)? onVisitXpAwarded,
+  ) {
+    _onVisitXpAwarded = onVisitXpAwarded;
+  }
+
+  Future<void> initialise({
+    String? userId,
+    Future<void> Function(int amount)? onVisitXpAwarded,
+  }) async {
     _userId = userId;
+    _onVisitXpAwarded = onVisitXpAwarded;
 
     // Pre-load circle icons for all place categories
     await PlaceOfInterest.preloadIcons();
@@ -654,30 +661,32 @@ class MapController extends ChangeNotifier {
 
     try {
       await _visitService.markVisited(userId: _userId!, place: place);
-
-      _visitedPlaceIds.add(place.id);
-      final region =
-          _regionPolygonCache.regionForId(place.regionId) ??
-          (currentRegion?.id == place.regionId ? currentRegion : null);
-      final regionVisitChanged = region == null
-          ? false
-          : await _markRegionAsVisited(region);
-      if (regionVisitChanged) {
-        _refreshCachedPolygonsStyles();
-      }
-      _rebuildMarkers();
-
-      message = 'Visited ${place.name}!';
-      notifyListeners();
-
-      debugPrint('[MapController] Marked place ${place.id} as visited');
-      return VisitResult.success;
     } catch (error) {
       debugPrint('[MapController] Error marking place as visited: $error');
       message = 'Could not save visit: $error';
       notifyListeners();
       return VisitResult.error;
     }
+
+    // Flat visit XP only after Firestore persisted the visit (not tile area XP).
+    try {
+      await _onVisitXpAwarded?.call(XpRewardConfig.visitXpReward);
+    } catch (error) {
+      debugPrint('[MapController] Visit XP award failed after save: $error');
+    }
+
+      _visitedPlaceIds.add(place.id);
+      final regionVisitChanged = await _markRegionAsVisited(place.regionId);
+      if (regionVisitChanged) {
+        _refreshCachedPolygonsStyles();
+      }
+      _rebuildMarkers();
+
+    message = 'Visited ${place.name}!';
+    notifyListeners();
+
+    debugPrint('[MapController] Marked place ${place.id} as visited');
+    return VisitResult.success;
   }
 
   /// Get a place by its ID from the cache.

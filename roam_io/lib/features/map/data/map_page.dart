@@ -2,8 +2,9 @@
  * Author: Sanjevan Rajasegar
  * Last Modified: 12/05/2026
  * Description:
- *   Hosts the map screen, wires controller lifecycle, and shows unlock XP
- *   feedback for newly unlocked regions.
+ *   Hosts the map screen and wires widget lifecycle to the map controller. This
+ *   file keeps UI thin while controller setup, visit XP wiring, and cleanup run
+ *   in the correct Flutter lifecycle hooks.
  */
 
 import 'package:flutter/material.dart';
@@ -45,7 +46,11 @@ class _MapPageState extends State<MapPage> {
 
     // Get user ID from auth provider and initialize
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      _mapController.initialise(userId: authProvider.currentUser?.uid);
+      final authProvider = context.read<AuthProvider>();
+      _mapController.initialise(
+        userId: authProvider.currentUser?.uid,
+        onVisitXpAwarded: (xp) => authProvider.addXp(xp),
+      );
     });
   }
 
@@ -57,6 +62,7 @@ class _MapPageState extends State<MapPage> {
   void _showPlaceDetails(PlaceOfInterest place) {
     PlaceDetailsSheet.show(
       context: context,
+      scaffoldMessenger: ScaffoldMessenger.of(context),
       place: place,
       mapController: _mapController,
     );
