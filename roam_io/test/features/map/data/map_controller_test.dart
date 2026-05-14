@@ -18,16 +18,17 @@ void main() {
       final result = await controller.checkProximity(place);
 
       expect(result.isNear, isTrue);
-      expect(result.distance, lessThanOrEqualTo(MapController.visitProximityThreshold));
+      expect(
+        result.distance,
+        lessThanOrEqualTo(MapController.visitProximityThreshold),
+      );
       controller.disposeController();
       controller.dispose();
     });
 
     test('returns isNear false when beyond threshold', () async {
       final controller = MapController(
-        geoLocatorService: FakeGeoLocatorService(
-          testPosition(-30.0, 144.9631),
-        ),
+        geoLocatorService: FakeGeoLocatorService(testPosition(-30.0, 144.9631)),
         visitService: RecordingVisitService(),
         visitedRegionService: FakeVisitedRegionService(),
       );
@@ -36,7 +37,10 @@ void main() {
       final result = await controller.checkProximity(place);
 
       expect(result.isNear, isFalse);
-      expect(result.distance, greaterThan(MapController.visitProximityThreshold));
+      expect(
+        result.distance,
+        greaterThan(MapController.visitProximityThreshold),
+      );
       controller.disposeController();
       controller.dispose();
     });
@@ -64,7 +68,9 @@ void main() {
     test('returns notLoggedIn when userId is unset', () async {
       final visitService = RecordingVisitService();
       final controller = MapController(
-        geoLocatorService: FakeGeoLocatorService(testPosition(-37.8136, 144.9631)),
+        geoLocatorService: FakeGeoLocatorService(
+          testPosition(-37.8136, 144.9631),
+        ),
         visitService: visitService,
         visitedRegionService: FakeVisitedRegionService(),
       );
@@ -80,7 +86,9 @@ void main() {
     test('returns alreadyVisited when place is in visited set', () async {
       final visitService = RecordingVisitService(initialIds: {1});
       final controller = MapController(
-        geoLocatorService: FakeGeoLocatorService(testPosition(-37.8136, 144.9631)),
+        geoLocatorService: FakeGeoLocatorService(
+          testPosition(-37.8136, 144.9631),
+        ),
         visitService: visitService,
         visitedRegionService: FakeVisitedRegionService(),
       );
@@ -115,7 +123,9 @@ void main() {
       final visitService = RecordingVisitService();
       final regionService = FakeVisitedRegionService();
       final controller = MapController(
-        geoLocatorService: FakeGeoLocatorService(testPosition(-37.8136, 144.9631)),
+        geoLocatorService: FakeGeoLocatorService(
+          testPosition(-37.8136, 144.9631),
+        ),
         visitService: visitService,
         visitedRegionService: regionService,
       );
@@ -136,7 +146,9 @@ void main() {
       final visitService = RecordingVisitService()
         ..markVisitedError = StateError('network');
       final controller = MapController(
-        geoLocatorService: FakeGeoLocatorService(testPosition(-37.8136, 144.9631)),
+        geoLocatorService: FakeGeoLocatorService(
+          testPosition(-37.8136, 144.9631),
+        ),
         visitService: visitService,
         visitedRegionService: FakeVisitedRegionService(),
       );

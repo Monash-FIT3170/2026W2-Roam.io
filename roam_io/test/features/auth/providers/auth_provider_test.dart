@@ -45,7 +45,10 @@ void main() {
       );
       final provider = AuthProvider(authRepository: repo);
       await provider.updateDarkModePreference(true);
-      expect(provider.errorMessage, 'You do not have permission to perform this action.');
+      expect(
+        provider.errorMessage,
+        'You do not have permission to perform this action.',
+      );
       provider.dispose();
     });
   });
@@ -103,10 +106,7 @@ void main() {
 }
 
 class _ThrowingAuthRepository implements AuthRepository {
-  _ThrowingAuthRepository({
-    this.onSignIn,
-    this.onUpdateDarkMode,
-  });
+  _ThrowingAuthRepository({this.onSignIn, this.onUpdateDarkMode});
 
   final Future<void> Function()? onSignIn;
   final Future<void> Function()? onUpdateDarkMode;
@@ -120,10 +120,7 @@ class _ThrowingAuthRepository implements AuthRepository {
   firebase_auth.User? get currentUser => null;
 
   @override
-  Future<void> signIn({
-    required String email,
-    required String password,
-  }) async {
+  Future<void> signIn({required String email, required String password}) async {
     final fn = onSignIn;
     if (fn != null) await fn();
   }

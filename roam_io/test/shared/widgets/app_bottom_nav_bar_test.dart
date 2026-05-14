@@ -8,12 +8,7 @@ void main() {
 
     await tester.pumpWidget(
       MaterialApp(
-        home: Scaffold(
-          body: AppBottomNavBar(
-            currentIndex: 2,
-            onTap: taps.add,
-          ),
-        ),
+        home: Scaffold(body: AppBottomNavBar(currentIndex: 2, onTap: taps.add)),
       ),
     );
 
@@ -29,12 +24,7 @@ void main() {
 
     await tester.pumpWidget(
       MaterialApp(
-        home: Scaffold(
-          body: AppBottomNavBar(
-            currentIndex: 0,
-            onTap: taps.add,
-          ),
-        ),
+        home: Scaffold(body: AppBottomNavBar(currentIndex: 0, onTap: taps.add)),
       ),
     );
 

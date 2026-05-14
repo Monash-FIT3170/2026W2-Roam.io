@@ -57,7 +57,10 @@ void main() {
       expect(find.text('Log Visit'), findsOneWidget);
 
       final nameField = find.byType(TextFormField).first;
-      expect(tester.widget<TextFormField>(nameField).controller!.text, 'River Cafe');
+      expect(
+        tester.widget<TextFormField>(nameField).controller!.text,
+        'River Cafe',
+      );
     });
 
     testWidgets('validates empty name', (tester) async {
@@ -97,7 +100,9 @@ void main() {
                       context: context,
                       place: testPlace(id: 12),
                       userId: 'user-1',
-                      visitService: VisitService(firestore: FakeFirebaseFirestore()),
+                      visitService: VisitService(
+                        firestore: FakeFirebaseFirestore(),
+                      ),
                       storageService: _testStorage(),
                     );
                   },
@@ -118,32 +123,33 @@ void main() {
       expect(result, VisitFormResult.cancelled);
     });
 
-    testWidgets('save pops success and passes null custom name when unchanged', (
-      tester,
-    ) async {
-      final place = testPlace(id: 13, name: 'Same Name');
-      final visitService = _CapturingVisitService();
+    testWidgets(
+      'save pops success and passes null custom name when unchanged',
+      (tester) async {
+        final place = testPlace(id: 13, name: 'Same Name');
+        final visitService = _CapturingVisitService();
 
-      await tester.pumpWidget(
-        MaterialApp(
-          home: Scaffold(
-            body: VisitFormSheet(
-              place: place,
-              userId: 'user-1',
-              visitService: visitService,
-              storageService: _testStorage(),
+        await tester.pumpWidget(
+          MaterialApp(
+            home: Scaffold(
+              body: VisitFormSheet(
+                place: place,
+                userId: 'user-1',
+                visitService: visitService,
+                storageService: _testStorage(),
+              ),
             ),
           ),
-        ),
-      );
+        );
 
-      await tester.tap(find.text('Log Visit'));
-      await tester.pumpAndSettle();
+        await tester.tap(find.text('Log Visit'));
+        await tester.pumpAndSettle();
 
-      expect(visitService.markVisitedCalls, 1);
-      expect(visitService.lastCustomName, isNull);
-      expect(visitService.lastDescription, isNull);
-    });
+        expect(visitService.markVisitedCalls, 1);
+        expect(visitService.lastCustomName, isNull);
+        expect(visitService.lastDescription, isNull);
+      },
+    );
 
     testWidgets('save passes trimmed custom name when edited', (tester) async {
       final place = testPlace(id: 14, name: 'Park');
@@ -163,7 +169,10 @@ void main() {
       );
 
       await tester.enterText(find.byType(TextFormField).first, '  My Park  ');
-      await tester.enterText(find.byType(TextFormField).at(1), '  Great walk  ');
+      await tester.enterText(
+        find.byType(TextFormField).at(1),
+        '  Great walk  ',
+      );
       await tester.tap(find.text('Log Visit'));
       await tester.pumpAndSettle();
 
@@ -191,7 +200,10 @@ void main() {
       await tester.tap(find.text('Log Visit'));
       await tester.pumpAndSettle();
 
-      expect(find.text('Failed to save visit. Please try again.'), findsOneWidget);
+      expect(
+        find.text('Failed to save visit. Please try again.'),
+        findsOneWidget,
+      );
       expect(find.text('Log Visit'), findsOneWidget);
     });
   });
@@ -227,9 +239,18 @@ void main() {
 
       expect(find.text('Edit Visit'), findsOneWidget);
       expect(find.text('Save Changes'), findsOneWidget);
-      expect(tester.widget<TextFormField>(find.byType(TextFormField).first).controller!.text, 'Art day');
       expect(
-        tester.widget<TextFormField>(find.byType(TextFormField).at(1)).controller!.text,
+        tester
+            .widget<TextFormField>(find.byType(TextFormField).first)
+            .controller!
+            .text,
+        'Art day',
+      );
+      expect(
+        tester
+            .widget<TextFormField>(find.byType(TextFormField).at(1))
+            .controller!
+            .text,
         'Saw the exhibition',
       );
     });

@@ -28,9 +28,7 @@ void main() {
     await tester.pumpWidget(
       ChangeNotifierProvider<AuthProvider>.value(
         value: provider,
-        child: const MaterialApp(
-          home: Scaffold(body: ProfileScreen()),
-        ),
+        child: const MaterialApp(home: Scaffold(body: ProfileScreen())),
       ),
     );
     await tester.pump();
@@ -52,9 +50,7 @@ void main() {
     await tester.pumpWidget(
       ChangeNotifierProvider<AuthProvider>.value(
         value: provider,
-        child: const MaterialApp(
-          home: Scaffold(body: ProfileScreen()),
-        ),
+        child: const MaterialApp(home: Scaffold(body: ProfileScreen())),
       ),
     );
     await tester.pump();
@@ -78,9 +74,7 @@ void main() {
     await tester.pumpWidget(
       ChangeNotifierProvider<AuthProvider>.value(
         value: provider,
-        child: const MaterialApp(
-          home: Scaffold(body: ProfileScreen()),
-        ),
+        child: const MaterialApp(home: Scaffold(body: ProfileScreen())),
       ),
     );
     await tester.pump();

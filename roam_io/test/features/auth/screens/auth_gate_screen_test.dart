@@ -96,9 +96,11 @@ void main() {
 }
 
 class _AuthGateRepository implements AuthRepository {
-  _AuthGateRepository({required firebase_auth.User? user, ProfileModel? profile})
-    : _user = user,
-      _profile = profile;
+  _AuthGateRepository({
+    required firebase_auth.User? user,
+    ProfileModel? profile,
+  }) : _user = user,
+       _profile = profile;
 
   final firebase_auth.User? _user;
   final ProfileModel? _profile;

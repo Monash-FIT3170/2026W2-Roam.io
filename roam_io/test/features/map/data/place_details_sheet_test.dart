@@ -16,9 +16,13 @@ void main() {
     }
   });
 
-  testWidgets('shows place title and distance when not visited', (tester) async {
+  testWidgets('shows place title and distance when not visited', (
+    tester,
+  ) async {
     final controller = MapController(
-      geoLocatorService: FakeGeoLocatorService(testPosition(-37.8136, 144.9631)),
+      geoLocatorService: FakeGeoLocatorService(
+        testPosition(-37.8136, 144.9631),
+      ),
       visitService: RecordingVisitService(),
       visitedRegionService: FakeVisitedRegionService(),
     );
@@ -47,7 +51,9 @@ void main() {
     tester,
   ) async {
     final controller = MapController(
-      geoLocatorService: FakeGeoLocatorService(testPosition(-37.8136, 144.9631)),
+      geoLocatorService: FakeGeoLocatorService(
+        testPosition(-37.8136, 144.9631),
+      ),
       visitService: RecordingVisitService(),
       visitedRegionService: FakeVisitedRegionService(),
     );

@@ -32,7 +32,9 @@ void main() {
     provider.dispose();
   });
 
-  testWidgets('shows invalid email message for malformed email', (tester) async {
+  testWidgets('shows invalid email message for malformed email', (
+    tester,
+  ) async {
     final repo = _MinimalAuthRepository();
     final provider = AuthProvider(authRepository: repo);
 
@@ -110,10 +112,7 @@ class _BlockingSignInRepository implements AuthRepository {
   firebase_auth.User? get currentUser => null;
 
   @override
-  Future<void> signIn({
-    required String email,
-    required String password,
-  }) async {
+  Future<void> signIn({required String email, required String password}) async {
     await _block;
   }
 

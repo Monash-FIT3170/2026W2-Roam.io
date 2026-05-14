@@ -52,6 +52,7 @@ class VisitFormSheet extends StatefulWidget {
 
   /// Optional override for tests or alternate upload backends.
   final StorageService? storageService;
+
   /// Optional create handler used when the caller needs to own visit persistence.
   final CreateVisitCallback? onCreateVisit;
 

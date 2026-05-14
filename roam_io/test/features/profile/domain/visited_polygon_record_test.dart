@@ -31,10 +31,7 @@ void main() {
 
     test('parseVisitedAt handles Timestamp, DateTime, and ISO string', () {
       final t = DateTime(2026, 1, 2);
-      expect(
-        VisitedPolygonRecord.parseVisitedAt(Timestamp.fromDate(t)),
-        t,
-      );
+      expect(VisitedPolygonRecord.parseVisitedAt(Timestamp.fromDate(t)), t);
       expect(VisitedPolygonRecord.parseVisitedAt(t), t);
       expect(
         VisitedPolygonRecord.parseVisitedAt('2026-01-02T00:00:00.000'),
