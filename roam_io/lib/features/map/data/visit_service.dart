@@ -123,6 +123,26 @@ class VisitService {
     return snapshot.count ?? 0;
   }
 
+  /// Gets completed visit counts grouped by region for a user.
+  ///
+  /// This counts saved place visits, not unlocked map tiles. Analytics and
+  /// heatmap UIs can combine this with visited region IDs to keep visits and
+  /// tiles distinct.
+  Future<Map<String, int>> getVisitCountsByRegion(String userId) async {
+    final visits = await getAllVisits(userId);
+    final countsByRegion = <String, int>{};
+
+    for (final visit in visits) {
+      countsByRegion.update(
+        visit.regionId,
+        (count) => count + 1,
+        ifAbsent: () => 1,
+      );
+    }
+
+    return countsByRegion;
+  }
+
   /// Stream of visited place IDs for real-time updates.
   ///
   /// Use this to keep the UI in sync when visits change.

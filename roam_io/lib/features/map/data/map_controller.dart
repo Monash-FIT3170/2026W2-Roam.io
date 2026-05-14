@@ -119,10 +119,15 @@ class MapController extends ChangeNotifier {
   // Visited places tracking
   Set<int> _visitedPlaceIds = {};
   Set<String> _visitedRegionIds = <String>{};
+  Map<String, int> _visitCountsByRegion = <String, int>{};
+  bool _isHeatmapEnabled = false;
 
   RegionPolygon? currentRegion;
   Set<Polygon> polygons = {};
   Set<Marker> markers = {};
+
+  /// Whether visited tiles are currently styled as a visit heatmap.
+  bool get isHeatmapEnabled => _isHeatmapEnabled;
 
   /// Exposes the map style for use by MapRender.
   String get mapStyle => _mapStyle;
@@ -159,8 +164,10 @@ class MapController extends ChangeNotifier {
     if (_userId != null) {
       await _loadVisitedPlaces();
       await _loadVisitedRegionIds();
+      await _loadVisitCountsByRegion();
     } else {
       _visitedRegionIds = <String>{};
+      _visitCountsByRegion = <String, int>{};
     }
 
     _refreshCachedPolygonsStyles();
@@ -174,9 +181,11 @@ class MapController extends ChangeNotifier {
     if (userId != null) {
       await _loadVisitedPlaces();
       await _loadVisitedRegionIds();
+      await _loadVisitCountsByRegion();
     } else {
       _visitedPlaceIds = {};
       _visitedRegionIds = <String>{};
+      _visitCountsByRegion = <String, int>{};
     }
     _rebuildMarkers();
     _refreshCachedPolygonsStyles();
@@ -217,6 +226,37 @@ class MapController extends ChangeNotifier {
     } catch (error) {
       debugPrint('[MapController] Error loading visited regions: $error');
     }
+  }
+
+  /// Load completed visit totals per region from Firestore.
+  Future<void> _loadVisitCountsByRegion() async {
+    if (_userId == null) return;
+
+    try {
+      _visitCountsByRegion = await _visitService.getVisitCountsByRegion(
+        _userId!,
+      );
+      debugPrint(
+        '[MapController] Loaded visit counts for ${_visitCountsByRegion.length} regions',
+      );
+    } catch (error) {
+      debugPrint('[MapController] Error loading visit counts by region: $error');
+    }
+  }
+
+  /// Toggles heatmap styling for visited tiles.
+  ///
+  /// Tile membership comes from visited region IDs. Heat is calculated from
+  /// completed place visits grouped by each tile's region ID.
+  Future<void> toggleHeatmap() async {
+    _isHeatmapEnabled = !_isHeatmapEnabled;
+
+    if (_isHeatmapEnabled && _userId != null) {
+      await _loadVisitCountsByRegion();
+    }
+
+    _refreshCachedPolygonsStyles();
+    notifyListeners();
   }
 
   void disposeController() {
@@ -460,6 +500,7 @@ class MapController extends ChangeNotifier {
       isVisited: _visitedRegionIds.contains(region.id),
       isCurrentRegion: currentRegion?.id == region.id,
       onRegionTapped: onRegionTapped,
+      heatmapIntensity: _heatmapIntensityForRegion(region.id),
     );
 
     polygons = _regionPolygonCache.polygons;
@@ -472,6 +513,7 @@ class MapController extends ChangeNotifier {
       shouldRenderAsVisited: (regionId) => _visitedRegionIds.contains(regionId),
       isCurrentRegion: (regionId) => currentRegion?.id == regionId,
       onRegionTapped: onRegionTapped,
+      heatmapIntensityForRegion: _heatmapIntensityForRegion,
     );
 
     polygons = _regionPolygonCache.polygons;
@@ -611,6 +653,10 @@ class MapController extends ChangeNotifier {
   /// Get all visited region IDs.
   Set<String> get visitedRegionIds => Set.unmodifiable(_visitedRegionIds);
 
+  /// Completed visit counts keyed by tile/region ID.
+  Map<String, int> get visitCountsByRegion =>
+      Map<String, int>.unmodifiable(_visitCountsByRegion);
+
   /// Calculate distance in metres between user's current location and a place.
   /// Returns null if unable to get user location.
   Future<double?> getDistanceToPlace(PlaceOfInterest place) async {
@@ -698,7 +744,13 @@ class MapController extends ChangeNotifier {
     }
 
     _visitedPlaceIds.add(place.id);
+    _visitCountsByRegion.update(
+      place.regionId,
+      (count) => count + 1,
+      ifAbsent: () => 1,
+    );
     _rebuildMarkers();
+    _refreshCachedPolygonsStyles();
 
     message = 'Visited ${place.name}!';
     notifyListeners();
@@ -760,5 +812,32 @@ class MapController extends ChangeNotifier {
       );
       return null;
     }
+  }
+
+  double? _heatmapIntensityForRegion(String regionId) {
+    if (!_isHeatmapEnabled || !_visitedRegionIds.contains(regionId)) {
+      return null;
+    }
+
+    final maxVisitCount = _maxVisitCountAcrossVisitedRegions;
+    if (maxVisitCount <= 0) {
+      return 0;
+    }
+
+    final regionVisitCount = _visitCountsByRegion[regionId] ?? 0;
+    return regionVisitCount / maxVisitCount;
+  }
+
+  int get _maxVisitCountAcrossVisitedRegions {
+    var maxVisitCount = 0;
+
+    for (final regionId in _visitedRegionIds) {
+      final regionVisitCount = _visitCountsByRegion[regionId] ?? 0;
+      if (regionVisitCount > maxVisitCount) {
+        maxVisitCount = regionVisitCount;
+      }
+    }
+
+    return maxVisitCount;
   }
 }
