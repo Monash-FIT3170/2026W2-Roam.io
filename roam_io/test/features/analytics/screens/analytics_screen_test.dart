@@ -1,5 +1,5 @@
 /*
- * Author: Sanjevan Rajasegar
+ * Author: Nathan Nunes
  * Last Modified: 14/05/2026
  * Description:
  *   Regression tests for analytics screen profile-driven stat values.
@@ -14,6 +14,7 @@ import 'package:roam_io/features/auth/data/auth_repository.dart';
 import 'package:roam_io/features/auth/providers/auth_provider.dart';
 import 'package:roam_io/features/map/data/visit.dart';
 import 'package:roam_io/features/map/data/visit_service.dart';
+import 'package:roam_io/features/map/data/visited_region_service.dart';
 import 'package:roam_io/features/profile/domain/profile_model.dart';
 
 void main() {
@@ -30,7 +31,10 @@ void main() {
         value: provider,
         child: MaterialApp(
           home: Scaffold(
-            body: AnalyticsScreen(visitService: _FakeVisitService()),
+            body: AnalyticsScreen(
+              visitService: _FakeVisitService(),
+              visitedRegionService: _FakeVisitedRegionService(<String>{}),
+            ),
           ),
         ),
       ),
@@ -40,6 +44,43 @@ void main() {
     expect(find.text('XP Count'), findsOneWidget);
     expect(find.text('12,345'), findsOneWidget);
     expect(find.text('2,450'), findsNothing);
+
+    provider.dispose();
+  });
+
+  testWidgets('shows total visited tile count from all visited regions', (
+    tester,
+  ) async {
+    final provider = AuthProvider(
+      authRepository: _FakeAuthRepository(_buildProfile(xp: 50)),
+    );
+    await provider.refreshCurrentUser();
+
+    await tester.pumpWidget(
+      ChangeNotifierProvider<AuthProvider>.value(
+        value: provider,
+        child: MaterialApp(
+          home: Scaffold(
+            body: AnalyticsScreen(
+              visitService: _FakeVisitService(),
+              visitedRegionService: _FakeVisitedRegionService(<String>{
+                'region-1',
+                'region-2',
+                'region-3',
+                'region-4',
+                'region-5',
+                'region-6',
+              }),
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Tiles Visited'), findsOneWidget);
+    expect(find.text('6'), findsOneWidget);
+    expect(find.text('48'), findsNothing);
 
     provider.dispose();
   });
@@ -88,6 +129,20 @@ class _FakeVisitService implements VisitService {
   @override
   Stream<List<Visit>> watchRecentVisits(String userId, {int limit = 5}) {
     return Stream<List<Visit>>.value(const <Visit>[]);
+  }
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+}
+
+class _FakeVisitedRegionService implements VisitedRegionService {
+  _FakeVisitedRegionService(this._visitedRegionIds);
+
+  final Set<String> _visitedRegionIds;
+
+  @override
+  Future<Set<String>> loadVisitedRegionIds() async {
+    return _visitedRegionIds;
   }
 
   @override

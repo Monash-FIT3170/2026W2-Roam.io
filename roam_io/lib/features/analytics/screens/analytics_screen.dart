@@ -13,6 +13,7 @@ import 'package:provider/provider.dart';
 import '../../auth/providers/auth_provider.dart';
 import '../../map/data/visit.dart';
 import '../../map/data/visit_service.dart';
+import '../../map/data/visited_region_service.dart';
 import '../widgets/recent_visited_locations_card.dart';
 import '../../../shared/widgets/app_page_header.dart';
 import '../../../theme/app_colours.dart';
@@ -20,22 +21,35 @@ import '../../../theme/app_surfaces.dart';
 
 /// Displays exploration analytics, progress summaries, and visit history.
 class AnalyticsScreen extends StatefulWidget {
-  const AnalyticsScreen({super.key, this.visitService});
+  const AnalyticsScreen({
+    super.key,
+    this.visitService,
+    this.visitedRegionService,
+  });
 
   /// Injected for tests; production uses the default [VisitService].
   final VisitService? visitService;
+
+  /// Injected for tests; production uses the default [VisitedRegionService].
+  final VisitedRegionService? visitedRegionService;
 
   @override
   State<AnalyticsScreen> createState() => _AnalyticsScreenState();
 }
 
 class _AnalyticsScreenState extends State<AnalyticsScreen> {
-  late final VisitService _visitService;
+  VisitService? _visitService;
+  VisitedRegionService? _visitedRegionService;
+  String? _tilesVisitedUserId;
+  Future<int>? _tilesVisitedCountFuture;
 
-  @override
-  void initState() {
-    super.initState();
-    _visitService = widget.visitService ?? VisitService();
+  VisitService get _effectiveVisitService {
+    return _visitService ??= widget.visitService ?? VisitService();
+  }
+
+  VisitedRegionService get _effectiveVisitedRegionService {
+    return _visitedRegionService ??=
+        widget.visitedRegionService ?? VisitedRegionService();
   }
 
   @override
@@ -83,6 +97,8 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
                 child: Consumer<AuthProvider>(
                   builder: (context, auth, _) {
                     final xp = auth.currentProfile?.xp;
+                    final uid = auth.currentUser?.uid;
+                    final tilesVisitedFuture = _tilesVisitedCountFutureFor(uid);
 
                     return Row(
                       children: [
@@ -97,12 +113,19 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
                         ),
                         const SizedBox(width: 12),
                         Expanded(
-                          child: _buildStatCard(
-                            context,
-                            title: 'Tiles Visited',
-                            value: '48',
-                            icon: Icons.map_outlined,
-                            color: AppColors.clay,
+                          child: FutureBuilder<int>(
+                            future: tilesVisitedFuture,
+                            builder: (context, snapshot) {
+                              return _buildStatCard(
+                                context,
+                                title: 'Tiles Visited',
+                                value: snapshot.hasData
+                                    ? _formatStatValue(snapshot.data!)
+                                    : '...',
+                                icon: Icons.map_outlined,
+                                color: AppColors.clay,
+                              );
+                            },
                           ),
                         ),
                         const SizedBox(width: 12),
@@ -143,7 +166,7 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
                     final uid = auth.currentUser?.uid;
                     final visitsStream = uid == null
                         ? Stream<List<Visit>>.value(const <Visit>[])
-                        : _visitService.watchRecentVisits(uid);
+                        : _effectiveVisitService.watchRecentVisits(uid);
 
                     return RecentVisitedLocationsCard(
                       visitsStream: visitsStream,
@@ -249,5 +272,22 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
     }
 
     return buffer.toString();
+  }
+
+  Future<int> _tilesVisitedCountFutureFor(String? uid) {
+    if (uid == null) {
+      _tilesVisitedUserId = null;
+      _tilesVisitedCountFuture = Future<int>.value(0);
+      return _tilesVisitedCountFuture!;
+    }
+
+    if (_tilesVisitedUserId != uid || _tilesVisitedCountFuture == null) {
+      _tilesVisitedUserId = uid;
+      _tilesVisitedCountFuture = _effectiveVisitedRegionService
+          .loadVisitedRegionIds()
+          .then((regionIds) => regionIds.length);
+    }
+
+    return _tilesVisitedCountFuture!;
   }
 }
