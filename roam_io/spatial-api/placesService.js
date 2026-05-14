@@ -1,7 +1,9 @@
 const axios = require('axios');
 
+const GOOGLE_PLACES_API_KEY = process.env.GOOGLE_PLACES_API_KEY;
 const NEARBY_SEARCH_URL = 'https://places.googleapis.com/v1/places:searchNearby';
 
+// Categories we care about for the app
 const INCLUDED_TYPES = [
   'restaurant',
   'cafe',
@@ -22,26 +24,31 @@ const INCLUDED_TYPES = [
 
 /**
  * Fetch places from Google Places API for a given location.
- *
- * Uses the new Places API v1 with a field mask to avoid requesting unnecessary data.
- * Note: Google Places API (New) Nearby Search doesn't support pagination,
- * so we request the max of 20 per call.
+ * Uses the new Places API (v1) with field masks to minimize cost.
+ * 
+ * @param {number|Object} latOrOptions - Latitude or options object.
+ * @param {number} lngArg - Longitude of the center point.
+ * @param {number} radiusMetresArg - Search radius in metres (default: 2000).
+ * @returns {Promise<Array>} Array of place objects from Google
  */
-async function fetchPlacesFromGoogle({
-  lat,
-  lng,
-  radiusMetres = 2000,
-  radiusMeters,
-  apiKey,
-  maxResults = 20,
-}) {
-  if (!apiKey) {
+async function fetchPlacesFromGoogle(latOrOptions, lngArg, radiusMetresArg = 2000) {
+  if (!GOOGLE_PLACES_API_KEY) {
     throw new Error('GOOGLE_PLACES_API_KEY is not configured');
   }
 
+  const options =
+    typeof latOrOptions === 'object'
+      ? latOrOptions
+      : { lat: latOrOptions, lng: lngArg, radiusMetres: radiusMetresArg };
+  const {
+    lat,
+    lng,
+    radiusMetres = 2000,
+    radiusMeters,
+    maxResults = 20,
+  } = options;
   const searchRadius = radiusMeters ?? radiusMetres;
 
-  // Google Places API (New) Nearby Search max is 20, no pagination available
   const requestBody = {
     includedTypes: INCLUDED_TYPES,
     maxResultCount: Math.min(20, maxResults),
@@ -57,12 +64,13 @@ async function fetchPlacesFromGoogle({
   };
 
   console.log(`[PlacesAPI] Requesting places at (${lat}, ${lng}) with radius ${searchRadius}m`);
-  console.log(`[PlacesAPI] Request body:`, JSON.stringify(requestBody, null, 2));
+  console.log('[PlacesAPI] Request body:', JSON.stringify(requestBody, null, 2));
 
   const response = await axios.post(NEARBY_SEARCH_URL, requestBody, {
     headers: {
       'Content-Type': 'application/json',
-      'X-Goog-Api-Key': apiKey,
+      'X-Goog-Api-Key': GOOGLE_PLACES_API_KEY,
+      // Request only essential fields (cheaper/free tier)
       'X-Goog-FieldMask': [
         'places.id',
         'places.displayName',
@@ -81,43 +89,33 @@ async function fetchPlacesFromGoogle({
   console.log(`[PlacesAPI] Places returned: ${places.length}`);
   if (places.length > 0) {
     console.log(`[PlacesAPI] First place: ${places[0].displayName?.text} at (${places[0].location?.latitude}, ${places[0].location?.longitude})`);
-    console.log(`[PlacesAPI] Place types sample:`, places.slice(0, 3).map(p => `${p.displayName?.text}: ${p.types?.join(', ')}`));
+    console.log('[PlacesAPI] Place types sample:', places.slice(0, 3).map((place) => `${place.displayName?.text}: ${place.types?.join(', ')}`));
   }
 
   return places;
 }
 
+/**
+ * Map Google's category types to our simplified categories.
+ * 
+ * @param {Array<string>} types - Array of Google place types
+ * @returns {string} Simplified category string
+ */
 function mapToCategory(types) {
   const typeSet = new Set(types || []);
 
-  if (
-    typeSet.has('restaurant') ||
-    typeSet.has('cafe') ||
-    typeSet.has('bar')
-  ) {
+  if (typeSet.has('restaurant') || typeSet.has('cafe') || typeSet.has('bar')) {
     return 'food_drink';
   }
-
-  if (
-    typeSet.has('park') ||
-    typeSet.has('zoo') ||
-    typeSet.has('aquarium')
-  ) {
+  if (typeSet.has('park') || typeSet.has('zoo') || typeSet.has('aquarium')) {
     return 'nature';
   }
-
-  if (
-    typeSet.has('museum') ||
-    typeSet.has('art_gallery') ||
-    typeSet.has('library')
-  ) {
+  if (typeSet.has('museum') || typeSet.has('art_gallery') || typeSet.has('library')) {
     return 'culture';
   }
-
   if (typeSet.has('shopping_mall')) {
     return 'shopping';
   }
-
   if (
     typeSet.has('movie_theater') ||
     typeSet.has('stadium') ||
@@ -127,15 +125,12 @@ function mapToCategory(types) {
   ) {
     return 'entertainment';
   }
-
   if (typeSet.has('gym') || typeSet.has('spa')) {
     return 'health_fitness';
   }
-
   if (typeSet.has('tourist_attraction')) {
     return 'attraction';
   }
-
   return 'other';
 }
 

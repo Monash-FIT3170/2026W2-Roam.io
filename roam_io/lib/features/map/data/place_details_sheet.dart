@@ -1,6 +1,17 @@
+/*
+ * Author: Sanjevan Rajasegar
+ * Last Modified: 12/05/2026
+ * Description:
+ *   Bottom sheet when a place marker is tapped: details, distance, and marking
+ *   a visit with a single app-style success toast (visit + XP; level-up overlay
+ *   is still shown by the root app when applicable).
+ */
+
 import 'package:flutter/material.dart';
 
+import '../../../shared/widgets/app_toast.dart';
 import '../../../theme/app_colours.dart';
+import '../../profile/domain/xp_reward_config.dart';
 import '../widgets/media_viewer.dart';
 import 'map_controller.dart';
 import 'place_of_interest.dart';
@@ -16,23 +27,31 @@ class PlaceDetailsSheet extends StatefulWidget {
     super.key,
     required this.place,
     required this.mapController,
+    this.scaffoldMessenger,
   });
 
   final PlaceOfInterest place;
   final MapController mapController;
+
+  /// Host [ScaffoldMessengerState] for snackbars/toasts after the sheet pops.
+  final ScaffoldMessengerState? scaffoldMessenger;
 
   /// Shows the place details sheet as a modal bottom sheet.
   static Future<void> show({
     required BuildContext context,
     required PlaceOfInterest place,
     required MapController mapController,
+    ScaffoldMessengerState? scaffoldMessenger,
   }) {
     return showModalBottomSheet(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (context) =>
-          PlaceDetailsSheet(place: place, mapController: mapController),
+      builder: (context) => PlaceDetailsSheet(
+        place: place,
+        mapController: mapController,
+        scaffoldMessenger: scaffoldMessenger,
+      ),
     );
   }
 
@@ -97,15 +116,19 @@ class _PlaceDetailsSheetState extends State<PlaceDetailsSheet> {
 
   bool get _isVisited => widget.mapController.isPlaceVisited(widget.place.id);
 
-  String _formatDistance(double meters) {
-    if (meters < 1000) {
-      return '${meters.round()}m away';
+  String _formatDistance(double metres) {
+    if (metres < 1000) {
+      return '${metres.round()}m away';
     } else {
-      return '${(meters / 1000).toStringAsFixed(1)}km away';
+      return '${(metres / 1000).toStringAsFixed(1)}km away';
     }
   }
 
   Future<void> _handleMarkVisited() async {
+    setState(() {
+      _errorMessage = null;
+    });
+
     // Check proximity first
     if (_distance != null &&
         _distance! > MapController.visitProximityThreshold) {
@@ -124,6 +147,9 @@ class _PlaceDetailsSheetState extends State<PlaceDetailsSheet> {
       return;
     }
 
+    final messenger =
+        widget.scaffoldMessenger ?? ScaffoldMessenger.maybeOf(context);
+
     // Navigate to visit form
     if (!mounted) return;
     Navigator.of(context).pop(); // Close current sheet
@@ -132,11 +158,38 @@ class _PlaceDetailsSheetState extends State<PlaceDetailsSheet> {
       context: context,
       place: widget.place,
       userId: userId,
+      onCreateVisit:
+          ({
+            String? customName,
+            String? description,
+            List<String>? mediaUrls,
+          }) async {
+            final visitResult = await widget.mapController.markPlaceAsVisited(
+              widget.place,
+              customName: customName,
+              description: description,
+              mediaUrls: mediaUrls,
+            );
+
+            if (visitResult != VisitResult.success) {
+              throw Exception('Visit failed: $visitResult');
+            }
+          },
     );
 
     if (result == VisitFormResult.success) {
       // Refresh the map controller's visited places
       await widget.mapController.refreshVisitedPlaces();
+      if (messenger != null) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (!messenger.mounted) return;
+          AppToast.successForMessenger(
+            messenger,
+            'Visited ${widget.place.name}!',
+            subtitle: '+${XpRewardConfig.visitXpReward} XP',
+          );
+        });
+      }
     }
   }
 

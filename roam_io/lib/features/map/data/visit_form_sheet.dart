@@ -9,6 +9,13 @@ import 'place_of_interest.dart';
 import 'visit.dart';
 import 'visit_service.dart';
 
+typedef CreateVisitCallback =
+    Future<void> Function({
+      String? customName,
+      String? description,
+      List<String>? mediaUrls,
+    });
+
 /// Result of the visit form submission.
 enum VisitFormResult {
   /// Successfully saved the visit.
@@ -31,6 +38,7 @@ class VisitFormSheet extends StatefulWidget {
     this.existingVisit,
     this.visitService,
     this.storageService,
+    this.onCreateVisit,
   });
 
   final PlaceOfInterest place;
@@ -44,6 +52,8 @@ class VisitFormSheet extends StatefulWidget {
 
   /// Optional override for tests or alternate upload backends.
   final StorageService? storageService;
+  /// Optional create handler used when the caller needs to own visit persistence.
+  final CreateVisitCallback? onCreateVisit;
 
   /// Shows the visit form sheet as a modal bottom sheet.
   /// Returns the result of the form submission.
@@ -54,6 +64,7 @@ class VisitFormSheet extends StatefulWidget {
     Visit? existingVisit,
     VisitService? visitService,
     StorageService? storageService,
+    CreateVisitCallback? onCreateVisit,
   }) {
     return showModalBottomSheet<VisitFormResult>(
       context: context,
@@ -65,6 +76,7 @@ class VisitFormSheet extends StatefulWidget {
         existingVisit: existingVisit,
         visitService: visitService,
         storageService: storageService,
+        onCreateVisit: onCreateVisit,
       ),
     );
   }
@@ -345,13 +357,21 @@ class _VisitFormSheetState extends State<VisitFormSheet> {
       } else {
         // Create new visit
         debugPrint('[VisitFormSheet] Creating new visit');
-        await visitService.markVisited(
-          userId: widget.userId,
-          place: widget.place,
-          customName: finalCustomName,
-          description: finalDescription,
-          mediaUrls: mediaUrls,
-        );
+        if (widget.onCreateVisit != null) {
+          await widget.onCreateVisit!(
+            customName: finalCustomName,
+            description: finalDescription,
+            mediaUrls: mediaUrls,
+          );
+        } else {
+          await visitService.markVisited(
+            userId: widget.userId,
+            place: widget.place,
+            customName: finalCustomName,
+            description: finalDescription,
+            mediaUrls: mediaUrls,
+          );
+        }
       }
 
       debugPrint('[VisitFormSheet] Visit saved successfully!');

@@ -11,6 +11,7 @@
 
 import 'dart:convert';
 
+import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 
 import 'api_config.dart';
@@ -42,7 +43,14 @@ class RegionService {
     final decoded = jsonDecode(response.body);
     if (decoded == null) return null;
 
-    return RegionPolygon.fromJson(Map<String, dynamic>.from(decoded as Map));
+    final json = Map<String, dynamic>.from(decoded as Map);
+    final region = RegionPolygon.fromJson(json);
+    _debugLogAreaContract(
+      endpoint: '/region/contains',
+      json: json,
+      parsedRegion: region,
+    );
+    return region;
   }
 
   /// Fetches regions intersecting the visible map viewport bounds.
@@ -71,11 +79,39 @@ class RegionService {
 
     final decoded = jsonDecode(response.body) as List<dynamic>;
 
-    return decoded
-        .map(
-          (item) =>
-              RegionPolygon.fromJson(Map<String, dynamic>.from(item as Map)),
-        )
-        .toList();
+    final regions = decoded.map((item) {
+      final json = Map<String, dynamic>.from(item as Map);
+      final region = RegionPolygon.fromJson(json);
+      _debugLogAreaContract(
+        endpoint: '/regions/viewport',
+        json: json,
+        parsedRegion: region,
+      );
+      return region;
+    }).toList();
+
+    return regions;
+  }
+
+  void _debugLogAreaContract({
+    required String endpoint,
+    required Map<String, dynamic> json,
+    required RegionPolygon parsedRegion,
+  }) {
+    if (!kDebugMode) return;
+
+    final rawArea =
+        json['area_square_metres'] ??
+        json['areaSquareMetres'] ??
+        json['area_square_meters'] ??
+        json['areaSquareMeters'];
+
+    if (parsedRegion.areaSquareMetres == null) {
+      debugPrint(
+        '[RegionService] $endpoint returned region ${parsedRegion.id} '
+        'without a valid area_square_metres value. '
+        'keys=${json.keys.toList()} rawArea=$rawArea',
+      );
+    }
   }
 }
