@@ -80,38 +80,44 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
 
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 24),
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: _buildStatCard(
-                        context,
-                        title: 'XP Count',
-                        value: '2,450',
-                        icon: Icons.bolt,
-                        color: AppColors.sage,
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: _buildStatCard(
-                        context,
-                        title: 'Tiles Visited',
-                        value: '48',
-                        icon: Icons.map_outlined,
-                        color: AppColors.clay,
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: _buildStatCard(
-                        context,
-                        title: 'Total Visits',
-                        value: '156',
-                        icon: Icons.repeat,
-                        color: AppColors.sage,
-                      ),
-                    ),
-                  ],
+                child: Consumer<AuthProvider>(
+                  builder: (context, auth, _) {
+                    final xp = auth.currentProfile?.xp;
+
+                    return Row(
+                      children: [
+                        Expanded(
+                          child: _buildStatCard(
+                            context,
+                            title: 'XP Count',
+                            value: xp == null ? '...' : _formatStatValue(xp),
+                            icon: Icons.bolt,
+                            color: AppColors.sage,
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: _buildStatCard(
+                            context,
+                            title: 'Tiles Visited',
+                            value: '48',
+                            icon: Icons.map_outlined,
+                            color: AppColors.clay,
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: _buildStatCard(
+                            context,
+                            title: 'Total Visits',
+                            value: '156',
+                            icon: Icons.repeat,
+                            color: AppColors.sage,
+                          ),
+                        ),
+                      ],
+                    );
+                  },
                 ),
               ),
 
@@ -227,5 +233,21 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
         ],
       ),
     );
+  }
+
+  String _formatStatValue(int value) {
+    final sign = value < 0 ? '-' : '';
+    final digits = value.abs().toString();
+    final buffer = StringBuffer(sign);
+
+    for (var index = 0; index < digits.length; index += 1) {
+      final digitsRemaining = digits.length - index;
+      buffer.write(digits[index]);
+      if (digitsRemaining > 1 && digitsRemaining % 3 == 1) {
+        buffer.write(',');
+      }
+    }
+
+    return buffer.toString();
   }
 }
