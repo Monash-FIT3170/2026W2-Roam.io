@@ -32,7 +32,7 @@ void main() {
         child: MaterialApp(
           home: Scaffold(
             body: AnalyticsScreen(
-              visitService: _FakeVisitService(),
+              visitService: _FakeVisitService(totalVisitCount: 0),
               visitedRegionService: _FakeVisitedRegionService(<String>{}),
             ),
           ),
@@ -62,7 +62,7 @@ void main() {
         child: MaterialApp(
           home: Scaffold(
             body: AnalyticsScreen(
-              visitService: _FakeVisitService(),
+              visitService: _FakeVisitService(totalVisitCount: 9),
               visitedRegionService: _FakeVisitedRegionService(<String>{
                 'region-1',
                 'region-2',
@@ -81,6 +81,42 @@ void main() {
     expect(find.text('Tiles Visited'), findsOneWidget);
     expect(find.text('6'), findsOneWidget);
     expect(find.text('48'), findsNothing);
+
+    provider.dispose();
+  });
+
+  testWidgets('shows total completed visits separately from visited tiles', (
+    tester,
+  ) async {
+    final provider = AuthProvider(
+      authRepository: _FakeAuthRepository(_buildProfile(xp: 50)),
+    );
+    await provider.refreshCurrentUser();
+
+    await tester.pumpWidget(
+      ChangeNotifierProvider<AuthProvider>.value(
+        value: provider,
+        child: MaterialApp(
+          home: Scaffold(
+            body: AnalyticsScreen(
+              visitService: _FakeVisitService(totalVisitCount: 14),
+              visitedRegionService: _FakeVisitedRegionService(<String>{
+                'tile-a',
+                'tile-b',
+                'tile-c',
+              }),
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Tiles Visited'), findsOneWidget);
+    expect(find.text('Total Visits'), findsOneWidget);
+    expect(find.text('3'), findsOneWidget);
+    expect(find.text('14'), findsOneWidget);
+    expect(find.text('156'), findsNothing);
 
     provider.dispose();
   });
@@ -126,6 +162,15 @@ class _FakeAuthRepository implements AuthRepository {
 }
 
 class _FakeVisitService implements VisitService {
+  _FakeVisitService({required this.totalVisitCount});
+
+  final int totalVisitCount;
+
+  @override
+  Future<int> getVisitCount(String userId) async {
+    return totalVisitCount;
+  }
+
   @override
   Stream<List<Visit>> watchRecentVisits(String userId, {int limit = 5}) {
     return Stream<List<Visit>>.value(const <Visit>[]);
