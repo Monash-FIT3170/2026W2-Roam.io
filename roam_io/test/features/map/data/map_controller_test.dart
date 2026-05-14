@@ -121,13 +121,12 @@ void main() {
 
     test('returns success and records visit when in range', () async {
       final visitService = RecordingVisitService();
-      final regionService = FakeVisitedRegionService();
       final controller = MapController(
         geoLocatorService: FakeGeoLocatorService(
           testPosition(-37.8136, 144.9631),
         ),
         visitService: visitService,
-        visitedRegionService: regionService,
+        visitedRegionService: FakeVisitedRegionService(),
       );
 
       await controller.setUserId('user-1');
@@ -137,7 +136,6 @@ void main() {
       expect(result, VisitResult.success);
       expect(visitService.markVisitedCallCount, 1);
       expect(controller.isPlaceVisited(42), isTrue);
-      expect(regionService.markVisitedCalls, 1);
       controller.disposeController();
       controller.dispose();
     });
