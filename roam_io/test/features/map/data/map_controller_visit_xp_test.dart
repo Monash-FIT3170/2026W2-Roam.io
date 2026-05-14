@@ -201,6 +201,9 @@ class _AlwaysThrowingVisitService extends VisitService {
   Future<void> markVisited({
     required String userId,
     required PlaceOfInterest place,
+    String? customName,
+    String? description,
+    List<String>? mediaUrls,
   }) async {
     throw Exception('save failed');
   }
@@ -216,11 +219,20 @@ class _FailOnceThenSucceedVisitService extends VisitService {
   Future<void> markVisited({
     required String userId,
     required PlaceOfInterest place,
+    String? customName,
+    String? description,
+    List<String>? mediaUrls,
   }) async {
     if (_fail) {
       _fail = false;
       throw Exception('transient');
     }
-    return super.markVisited(userId: userId, place: place);
+    return super.markVisited(
+      userId: userId,
+      place: place,
+      customName: customName,
+      description: description,
+      mediaUrls: mediaUrls,
+    );
   }
 }
