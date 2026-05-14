@@ -57,6 +57,7 @@ void main() {
       const region = RegionPolygon(
         id: 'a',
         name: 'A',
+        areaSquareMetres: null,
         geometry: <String, dynamic>{
           'type': 'Polygon',
           'coordinates': [
@@ -80,6 +81,7 @@ void main() {
       const region = RegionPolygon(
         id: 'multi',
         name: 'Multi',
+        areaSquareMetres: null,
         geometry: <String, dynamic>{
           'type': 'MultiPolygon',
           'coordinates': [
@@ -114,6 +116,7 @@ void main() {
       const region = RegionPolygon(
         id: 'x',
         name: 'X',
+        areaSquareMetres: null,
         geometry: <String, dynamic>{
           'type': 'LineString',
           'coordinates': [
