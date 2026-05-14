@@ -10,12 +10,34 @@ import 'dart:typed_data';
 
 import 'package:firebase_storage/firebase_storage.dart';
 
-/// Wraps Firebase Storage operations used by profile image workflows.
-class StorageService {
-  StorageService({FirebaseStorage? firebaseStorage})
-    : _firebaseStorage = firebaseStorage ?? FirebaseStorage.instance;
+/// Upload handler used by [StorageService.uploadVisitMedia] when set (e.g. in tests).
+typedef VisitMediaUploadFn =
+    Future<String> Function({
+      required String uid,
+      required int placeId,
+      required Uint8List bytes,
+      required String filename,
+    });
 
-  final FirebaseStorage _firebaseStorage;
+/// Wraps Firebase Storage operations used for profile photos and visit media.
+class StorageService {
+  StorageService({
+    FirebaseStorage? firebaseStorage,
+    VisitMediaUploadFn? visitMediaUploadOverride,
+  }) : _explicitFirebaseStorage = firebaseStorage,
+       _visitMediaUploadOverride = visitMediaUploadOverride;
+
+  final FirebaseStorage? _explicitFirebaseStorage;
+  final VisitMediaUploadFn? _visitMediaUploadOverride;
+  FirebaseStorage? _defaultFirebaseStorage;
+
+  FirebaseStorage get _firebaseStorage {
+    final explicit = _explicitFirebaseStorage;
+    if (explicit != null) {
+      return explicit;
+    }
+    return _defaultFirebaseStorage ??= FirebaseStorage.instance;
+  }
 
   /// Uploads a profile photo to Firebase Storage and returns its download URL.
   Future<String> uploadProfilePhoto({
@@ -47,6 +69,16 @@ class StorageService {
     required Uint8List bytes,
     required String filename,
   }) async {
+    final override = _visitMediaUploadOverride;
+    if (override != null) {
+      return override(
+        uid: uid,
+        placeId: placeId,
+        bytes: bytes,
+        filename: filename,
+      );
+    }
+
     final lowerName = filename.toLowerCase();
     String contentType;
     if (lowerName.endsWith('.png')) {

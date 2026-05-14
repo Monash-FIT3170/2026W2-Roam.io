@@ -29,6 +29,8 @@ class VisitFormSheet extends StatefulWidget {
     required this.place,
     required this.userId,
     this.existingVisit,
+    this.visitService,
+    this.storageService,
   });
 
   final PlaceOfInterest place;
@@ -37,6 +39,12 @@ class VisitFormSheet extends StatefulWidget {
   /// If provided, the form is in edit mode for an existing visit.
   final Visit? existingVisit;
 
+  /// Optional override for tests or alternate persistence layers.
+  final VisitService? visitService;
+
+  /// Optional override for tests or alternate upload backends.
+  final StorageService? storageService;
+
   /// Shows the visit form sheet as a modal bottom sheet.
   /// Returns the result of the form submission.
   static Future<VisitFormResult?> show({
@@ -44,6 +52,8 @@ class VisitFormSheet extends StatefulWidget {
     required PlaceOfInterest place,
     required String userId,
     Visit? existingVisit,
+    VisitService? visitService,
+    StorageService? storageService,
   }) {
     return showModalBottomSheet<VisitFormResult>(
       context: context,
@@ -53,6 +63,8 @@ class VisitFormSheet extends StatefulWidget {
         place: place,
         userId: userId,
         existingVisit: existingVisit,
+        visitService: visitService,
+        storageService: storageService,
       ),
     );
   }
@@ -263,8 +275,8 @@ class _VisitFormSheetState extends State<VisitFormSheet> {
       );
       debugPrint('[VisitFormSheet] User ID: ${widget.userId}');
 
-      final storageService = StorageService();
-      final visitService = VisitService();
+      final storageService = widget.storageService ?? StorageService();
+      final visitService = widget.visitService ?? VisitService();
 
       // Upload new media files
       final mediaUrls = <String>[];
