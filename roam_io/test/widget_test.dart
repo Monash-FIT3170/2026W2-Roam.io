@@ -8,7 +8,7 @@ import 'package:roam_io/features/profile/domain/profile_model.dart';
 import 'package:roam_io/shared/widgets/level_up_celebration.dart';
 
 /*
- * Author: [Insert Name Here]
+ * Author: Sanjevan Rajasegar
  * Last Modified: 6/05/2026
  * Description:
  *   Verifies profile model mapping behaviour for the dark mode preference

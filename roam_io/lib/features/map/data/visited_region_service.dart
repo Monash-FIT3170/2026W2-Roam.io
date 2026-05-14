@@ -1,17 +1,15 @@
+/*
+ * Author: Sanjevan Rajasegar
+ * Last Modified: 12/05/2026
+ * Description:
+ *   Loads and persists visited region IDs while preserving first-time unlock
+ *   results for duplicate XP prevention.
+ */
+
 import 'package:firebase_auth/firebase_auth.dart';
 import '../../../services/polygon_service.dart';
 
-/*
- * Author: Amarprit Singh
- * Last Modified: 07/05/2026
- * Description:
- * 
- *   VisitedRegionServive reads and writes the user's visited region IDs from the database
- *   and stores them in visitedPolygoIds for map_controller to cache.
- *   Thus we can check the visited polygons locally in O(1) time when rendering the map
- * 
- */
-
+/// Persists region visits and reports whether each visit is a new unlock.
 class VisitedRegionService {
   VisitedRegionService({FirebaseAuth? auth, PolygonService? polygonService})
     : _auth = auth ?? FirebaseAuth.instance,
@@ -35,7 +33,8 @@ class VisitedRegionService {
     return records.map((record) => record.polygonId).toSet();
   }
 
-  // Marks a region as visited for the current user. Returns false if no user is
+  // Marks a region as visited for the current user. Returns true only when the
+  // persisted data confirms this is the first unlock for the user.
   Future<bool> markVisited(String regionId, {DateTime? visitedAt}) async {
     final user = _auth.currentUser;
 
@@ -43,12 +42,10 @@ class VisitedRegionService {
       return false;
     }
 
-    await _polygonService.upsertVisitedPolygon(
+    return _polygonService.upsertVisitedPolygon(
       profileId: user.uid,
       polygonId: regionId,
       visitedAt: visitedAt ?? DateTime.now(),
     );
-
-    return true;
   }
 }

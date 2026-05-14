@@ -1,12 +1,9 @@
 /*
- * Author: Amarprit Singh
- * Last Modified: 07/05/2026
+ * Author: Sanjevan Rajasegar
+ * Last Modified: 12/05/2026
  * Description:
- * 
- *   Caches loaded regions and their rendered polygons so the map can restyle and
- *   reuse them without rebuilding everything from scratch. This helps viewport
- *   loading stay efficient as the user moves around.
- * 
+ *   Caches loaded region polygons so map rendering and region unlock reward
+ *   lookups can reuse the same RegionPolygon data.
  */
 
 import 'package:flutter/material.dart';
@@ -14,6 +11,7 @@ import 'package:google_maps_flutter/google_maps_flutter.dart';
 
 import 'region_polygon.dart';
 
+/// Keeps loaded RegionPolygon objects and rendered Google Maps polygons in sync.
 class RegionPolygonCache {
   static const Color _visitedStrokeColor = Color(0x80F3D27A);
   static const Color _visitedFillColor = Color(0x00000000);
@@ -34,18 +32,35 @@ class RegionPolygonCache {
   // These are the actual shapes the map widget will render.
   final Map<String, Polygon> _polygonsById = <String, Polygon>{};
 
-  // Saves a region, builds its map polygons, and applies the correct style.
-  // Returns `true` if this region was not already in the cache.
-  bool cacheRegion({
+  /// Saves a region, builds its map polygons, and applies the correct style.
+  ///
+  /// [RegionPolygon.areaSquareMetres] is calculated by PostGIS and returned as
+  /// area_square_metres by the backend. If a later API response omits that
+  /// value, the cache keeps the last confirmed square-metre area so valid
+  /// unlock XP remains area-scaled. The 50 XP fallback is only for regions with
+  /// genuinely missing or invalid area.
+  RegionPolygonCacheResult cacheRegion({
     required RegionPolygon region,
     required bool isVisited,
     required bool isCurrentRegion,
     required void Function(String regionId, String regionName) onRegionTapped,
   }) {
     final wasAlreadyCached = _regionsById.containsKey(region.id);
-    _regionsById[region.id] = region;
+    final previousRegion = _regionsById[region.id];
+    final effectiveRegion =
+        region.areaSquareMetres == null &&
+            previousRegion?.areaSquareMetres != null
+        ? RegionPolygon(
+            id: region.id,
+            name: region.name,
+            areaSquareMetres: previousRegion!.areaSquareMetres,
+            geometry: region.geometry,
+          )
+        : region;
 
-    final googlePolygons = region.toGooglePolygons(
+    _regionsById[region.id] = effectiveRegion;
+
+    final googlePolygons = effectiveRegion.toGooglePolygons(
       strokeColor: _strokeColorForRegion(
         isVisited: isVisited,
         isCurrentRegion: isCurrentRegion,
@@ -62,7 +77,10 @@ class RegionPolygonCache {
       _polygonsById[polygon.polygonId.value] = polygon;
     }
 
-    return !wasAlreadyCached;
+    return RegionPolygonCacheResult(
+      region: effectiveRegion,
+      wasAdded: !wasAlreadyCached,
+    );
   }
 
   // Rebuilds the polygons for every cached region.
@@ -84,6 +102,8 @@ class RegionPolygonCache {
 
   // Returns all polygons that are ready to be drawn on the map.
   Set<Polygon> get polygons => _polygonsById.values.toSet();
+
+  RegionPolygon? regionForId(String regionId) => _regionsById[regionId];
 
   Color _strokeColorForRegion({
     required bool isVisited,
@@ -110,4 +130,15 @@ class RegionPolygonCache {
 
     return isVisited ? _visitedStrokeWidth : _unvisitedStrokeWidth;
   }
+}
+
+/// The effective cached region plus whether it was newly added to the cache.
+class RegionPolygonCacheResult {
+  const RegionPolygonCacheResult({
+    required this.region,
+    required this.wasAdded,
+  });
+
+  final RegionPolygon region;
+  final bool wasAdded;
 }

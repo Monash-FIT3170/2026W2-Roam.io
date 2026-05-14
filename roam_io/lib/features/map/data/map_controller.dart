@@ -4,11 +4,13 @@ import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 
+import '../../profile/domain/xp_reward_config.dart';
 import 'place_of_interest.dart';
 import 'places_service.dart';
 import 'region_polygon.dart';
 import 'region_polygon_cache.dart';
 import 'region_service.dart';
+import 'tile_unlock_xp_service.dart';
 import 'visit_service.dart';
 import 'visited_region_service.dart';
 import 'geolocator_service.dart';
@@ -31,12 +33,13 @@ enum VisitResult {
   error,
 }
 
+/// Controls map loading, visit persistence, and first-time unlock XP rewards.
 class MapController extends ChangeNotifier {
   static const LatLng fallbackCenter = LatLng(-37.8136, 144.9631);
 
   static const double defaultZoom = 13.5;
 
-  /// Maximum distance (in meters) user can be from a place to mark it as visited.
+  /// Maximum distance (in metres) user can be from a place to mark it as visited.
   static const double visitProximityThreshold = 100.0;
 
   static const String _mapStyle = '''
@@ -75,6 +78,11 @@ class MapController extends ChangeNotifier {
   final VisitService _visitService;
   final VisitedRegionService _visitedRegionService;
   final RegionPolygonCache _regionPolygonCache;
+  final TileUnlockXpService _tileUnlockXpService;
+
+  /// Emits one feedback event after a first-time region unlock is persisted and
+  /// the area-based XP write succeeds.
+  void Function(RegionPolygon region, int xpAwarded)? onRegionUnlockRewarded;
 
   MapController({
     GeoLocatorService? geoLocatorService,
@@ -83,12 +91,14 @@ class MapController extends ChangeNotifier {
     VisitService? visitService,
     VisitedRegionService? visitedRegionService,
     RegionPolygonCache? regionPolygonCache,
+    TileUnlockXpService? tileUnlockXpService,
   }) : _geoLocatorService = geoLocatorService ?? GeoLocatorService(),
        _regionService = regionService ?? RegionService(),
        _placesService = placesService ?? PlacesService(),
        _visitService = visitService ?? VisitService(),
        _visitedRegionService = visitedRegionService ?? VisitedRegionService(),
-       _regionPolygonCache = regionPolygonCache ?? RegionPolygonCache();
+       _regionPolygonCache = regionPolygonCache ?? RegionPolygonCache(),
+       _tileUnlockXpService = tileUnlockXpService ?? TileUnlockXpService();
 
   GoogleMapController? _googleMapController;
   StreamSubscription<Position>? _locationUpdatesSubscription;
@@ -125,8 +135,22 @@ class MapController extends ChangeNotifier {
   bool _isResolvingCurrentRegion = false;
   Position? _queuedRegionCheckPosition;
 
-  Future<void> initialise({String? userId}) async {
+  /// Invoked only after a visit row is persisted; used to grant flat visit XP.
+  Future<void> Function(int amount)? _onVisitXpAwarded;
+
+  /// Wires flat visit XP after persistence when not using [initialise] (e.g. tests).
+  void bindVisitXpAwarding(
+    Future<void> Function(int amount)? onVisitXpAwarded,
+  ) {
+    _onVisitXpAwarded = onVisitXpAwarded;
+  }
+
+  Future<void> initialise({
+    String? userId,
+    Future<void> Function(int amount)? onVisitXpAwarded,
+  }) async {
     _userId = userId;
+    _onVisitXpAwarded = onVisitXpAwarded;
 
     // Pre-load circle icons for all place categories
     await PlaceOfInterest.preloadIcons();
@@ -241,20 +265,26 @@ class MapController extends ChangeNotifier {
       );
 
       center = userCenter;
-      currentRegion = region;
       myLocationEnabled = true;
       isLoading = false;
 
       if (region == null) {
+        currentRegion = null;
         message = 'No SA2 region found';
       } else {
-        message = region.name;
-        _cacheRegionAsPolygons(region: region);
-        await _markRegionAsVisited(region.id);
+        currentRegion = region;
+        final cacheResult = _cacheRegionAsPolygons(region: region);
+        final effectiveRegion = cacheResult.region;
+
+        // XP must use the cached effective polygon because the cache preserves
+        // PostGIS area_square_metres when a later response omits it.
+        currentRegion = effectiveRegion;
+        message = effectiveRegion.name;
+        await _markRegionAsVisited(effectiveRegion);
         _refreshCachedPolygonsStyles();
 
         // Load places for the current (unlocked) region
-        await _loadPlacesForRegion(region.id);
+        await _loadPlacesForRegion(effectiveRegion.id);
       }
 
       polygons = _regionPolygonCache.polygons;
@@ -338,9 +368,8 @@ class MapController extends ChangeNotifier {
         return;
       }
 
-      currentRegion = region;
-
       if (region == null) {
+        currentRegion = null;
         message = 'No SA2 region found';
         _refreshCachedPolygonsStyles();
         notifyListeners();
@@ -351,11 +380,17 @@ class MapController extends ChangeNotifier {
         '[MapController] Current region changed: $previousRegionId -> ${region.id}',
       );
 
-      message = region.name;
-      _cacheRegionAsPolygons(region: region);
-      await _markRegionAsVisited(region.id);
+      currentRegion = region;
+      final cacheResult = _cacheRegionAsPolygons(region: region);
+      final effectiveRegion = cacheResult.region;
+
+      // Preserve the backend/PostGIS square-metre area through the unlock flow;
+      // 50 XP is only the fallback when no valid area is available anywhere.
+      currentRegion = effectiveRegion;
+      message = effectiveRegion.name;
+      await _markRegionAsVisited(effectiveRegion);
       _refreshCachedPolygonsStyles();
-      await _loadPlacesForRegion(region.id);
+      await _loadPlacesForRegion(effectiveRegion.id);
       notifyListeners();
     } catch (error) {
       debugPrint('[MapController] Error resolving current region: $error');
@@ -391,9 +426,9 @@ class MapController extends ChangeNotifier {
       var newRegionCount = 0;
 
       for (final region in regions) {
-        final wasAdded = _cacheRegionAsPolygons(region: region);
+        final cacheResult = _cacheRegionAsPolygons(region: region);
 
-        if (wasAdded) {
+        if (cacheResult.wasAdded) {
           newRegionCount++;
         }
       }
@@ -417,8 +452,10 @@ class MapController extends ChangeNotifier {
     }
   }
 
-  bool _cacheRegionAsPolygons({required RegionPolygon region}) {
-    final wasAdded = _regionPolygonCache.cacheRegion(
+  RegionPolygonCacheResult _cacheRegionAsPolygons({
+    required RegionPolygon region,
+  }) {
+    final cacheResult = _regionPolygonCache.cacheRegion(
       region: region,
       isVisited: _visitedRegionIds.contains(region.id),
       isCurrentRegion: currentRegion?.id == region.id,
@@ -427,7 +464,7 @@ class MapController extends ChangeNotifier {
 
     polygons = _regionPolygonCache.polygons;
 
-    return wasAdded;
+    return cacheResult;
   }
 
   void _refreshCachedPolygonsStyles() {
@@ -574,7 +611,7 @@ class MapController extends ChangeNotifier {
   /// Get all visited region IDs.
   Set<String> get visitedRegionIds => Set.unmodifiable(_visitedRegionIds);
 
-  /// Calculate distance in meters between user's current location and a place.
+  /// Calculate distance in metres between user's current location and a place.
   /// Returns null if unable to get user location.
   Future<double?> getDistanceToPlace(PlaceOfInterest place) async {
     try {
@@ -592,7 +629,7 @@ class MapController extends ChangeNotifier {
   }
 
   /// Check if user is within proximity threshold of a place.
-  /// Returns the distance in meters, or null if unable to determine.
+  /// Returns the distance in metres, or null if unable to determine.
   Future<({bool isNear, double? distance})> checkProximity(
     PlaceOfInterest place,
   ) async {
@@ -604,8 +641,13 @@ class MapController extends ChangeNotifier {
   }
 
   /// Mark a place as visited.
-  /// Validates that user is within [visitProximityThreshold] meters of the place.
-  Future<VisitResult> markPlaceAsVisited(PlaceOfInterest place) async {
+  /// Validates that user is within [visitProximityThreshold] metres of the place.
+  Future<VisitResult> markPlaceAsVisited(
+    PlaceOfInterest place, {
+    String? customName,
+    String? description,
+    List<String>? mediaUrls,
+  }) async {
     if (_userId == null) {
       debugPrint('[MapController] Cannot mark visited: no user logged in');
       message = 'Please log in to mark places as visited';
@@ -634,26 +676,35 @@ class MapController extends ChangeNotifier {
     }
 
     try {
-      await _visitService.markVisited(userId: _userId!, place: place);
-
-      _visitedPlaceIds.add(place.id);
-      final regionVisitChanged = await _markRegionAsVisited(place.regionId);
-      if (regionVisitChanged) {
-        _refreshCachedPolygonsStyles();
-      }
-      _rebuildMarkers();
-
-      message = 'Visited ${place.name}!';
-      notifyListeners();
-
-      debugPrint('[MapController] Marked place ${place.id} as visited');
-      return VisitResult.success;
+      await _visitService.markVisited(
+        userId: _userId!,
+        place: place,
+        customName: customName,
+        description: description,
+        mediaUrls: mediaUrls,
+      );
     } catch (error) {
       debugPrint('[MapController] Error marking place as visited: $error');
       message = 'Could not save visit: $error';
       notifyListeners();
       return VisitResult.error;
     }
+
+    // Flat visit XP only after Firestore persisted the visit (not tile area XP).
+    try {
+      await _onVisitXpAwarded?.call(XpRewardConfig.visitXpReward);
+    } catch (error) {
+      debugPrint('[MapController] Visit XP award failed after save: $error');
+    }
+
+    _visitedPlaceIds.add(place.id);
+    _rebuildMarkers();
+
+    message = 'Visited ${place.name}!';
+    notifyListeners();
+
+    debugPrint('[MapController] Marked place ${place.id} as visited');
+    return VisitResult.success;
   }
 
   /// Get a place by its ID from the cache.
@@ -668,7 +719,11 @@ class MapController extends ChangeNotifier {
     return null;
   }
 
-  Future<bool> _markRegionAsVisited(String regionId) async {
+  /// Persists a region unlock and awards XP only when persistence confirms the
+  /// polygon was not previously unlocked by this user.
+  Future<bool> _markRegionAsVisited(RegionPolygon region) async {
+    final regionId = region.id;
+
     if (_visitedRegionIds.contains(regionId)) {
       return false;
     }
@@ -677,20 +732,33 @@ class MapController extends ChangeNotifier {
       final didPersistVisit = await _visitedRegionService.markVisited(regionId);
 
       if (!didPersistVisit) {
-        debugPrint(
-          '[MapController] Region $regionId visit was not persisted because there is no authenticated user',
-        );
         return false;
       }
 
       _visitedRegionIds.add(regionId);
-      debugPrint('[MapController] Marked region $regionId as visited');
+      final xpResult = await _awardUnlockXp(region);
+      if (xpResult == null || xpResult.didLevelUp) {
+        return true;
+      }
+
+      onRegionUnlockRewarded?.call(region, xpResult.xpAwarded);
       return true;
     } catch (error) {
       debugPrint(
         '[MapController] Error marking region $regionId as visited: $error',
       );
       return false;
+    }
+  }
+
+  Future<TileUnlockXpResult?> _awardUnlockXp(RegionPolygon region) async {
+    try {
+      return await _tileUnlockXpService.awardForUnlockedPolygon(region);
+    } catch (error) {
+      debugPrint(
+        '[MapController] Error awarding XP for region ${region.id}: $error',
+      );
+      return null;
     }
   }
 }

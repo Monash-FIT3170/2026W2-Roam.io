@@ -1,32 +1,37 @@
 /*
- * Author: Rushil Patel
- * Last Modified: 27/04/2026
+ * Author: Sanjevan Rajasegar
+ * Last Modified: 12/05/2026
  * Description:
- *   Represents spatial region geometry and converts backend polygons into
- *   Google Maps polygon overlays.
+ *   Represents region geometry, confirmed square-metre area, and Google Maps
+ *   polygon conversion for unlock rewards and rendering.
  */
-// Defines the region polygon model and converts backend geometry into Google
-// Maps polygons. This is needed to translate raw spatial data into something
-// the map can actually draw and interact with.
 
 import 'dart:convert';
 import 'dart:ui';
 
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 
-/// Region shape and metadata returned by the spatial API.
+/// Region shape, metadata, and confirmed square-metre area from the spatial API.
 class RegionPolygon {
   final String id;
   final String name;
+  final double? areaSquareMetres;
   final Map<String, dynamic> geometry;
 
   const RegionPolygon({
     required this.id,
     required this.name,
+    required this.areaSquareMetres,
     required this.geometry,
   });
 
-  /// Creates a region polygon from API JSON.
+  /// Creates a region polygon from API JSON, preserving invalid area as null so
+  /// unlock XP can fall back through XpRewardConfig.
+  ///
+  /// The backend should return the PostGIS area calculation as
+  /// [area_square_metres]. Valid square-metre values must survive parsing,
+  /// caching, and unlock reward flow; the 50 XP fallback is only for genuinely
+  /// missing or invalid area.
   factory RegionPolygon.fromJson(Map<String, dynamic> json) {
     final rawGeometry = json['geometry'];
 
@@ -34,6 +39,7 @@ class RegionPolygon {
     return RegionPolygon(
       id: json['id'] as String,
       name: json['name'] as String,
+      areaSquareMetres: _parseAreaSquareMetres(_rawAreaSquareMetres(json)),
       geometry: rawGeometry is String
           ? jsonDecode(rawGeometry) as Map<String, dynamic>
           : Map<String, dynamic>.from(rawGeometry as Map),
@@ -115,5 +121,22 @@ class RegionPolygon {
       final lat = (coord[1] as num).toDouble();
       return LatLng(lat, lng);
     }).toList();
+  }
+
+  static double? _parseAreaSquareMetres(dynamic value) {
+    final area = value is num ? value.toDouble() : double.tryParse('$value');
+
+    if (area == null || !area.isFinite || area <= 0) {
+      return null;
+    }
+
+    return area;
+  }
+
+  static dynamic _rawAreaSquareMetres(Map<String, dynamic> json) {
+    return json['area_square_metres'] ??
+        json['areaSquareMetres'] ??
+        json['area_square_meters'] ??
+        json['areaSquareMeters'];
   }
 }
