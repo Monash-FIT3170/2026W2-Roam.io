@@ -42,6 +42,8 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
   VisitedRegionService? _visitedRegionService;
   String? _tilesVisitedUserId;
   Future<int>? _tilesVisitedCountFuture;
+  String? _totalVisitsUserId;
+  Future<int>? _totalVisitsCountFuture;
 
   VisitService get _effectiveVisitService {
     return _visitService ??= widget.visitService ?? VisitService();
@@ -99,6 +101,7 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
                     final xp = auth.currentProfile?.xp;
                     final uid = auth.currentUser?.uid;
                     final tilesVisitedFuture = _tilesVisitedCountFutureFor(uid);
+                    final totalVisitsFuture = _totalVisitsCountFutureFor(uid);
 
                     return Row(
                       children: [
@@ -130,12 +133,19 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
                         ),
                         const SizedBox(width: 12),
                         Expanded(
-                          child: _buildStatCard(
-                            context,
-                            title: 'Total Visits',
-                            value: '156',
-                            icon: Icons.repeat,
-                            color: AppColors.sage,
+                          child: FutureBuilder<int>(
+                            future: totalVisitsFuture,
+                            builder: (context, snapshot) {
+                              return _buildStatCard(
+                                context,
+                                title: 'Total Visits',
+                                value: snapshot.hasData
+                                    ? _formatStatValue(snapshot.data!)
+                                    : '...',
+                                icon: Icons.repeat,
+                                color: AppColors.sage,
+                              );
+                            },
                           ),
                         ),
                       ],
@@ -289,5 +299,20 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
     }
 
     return _tilesVisitedCountFuture!;
+  }
+
+  Future<int> _totalVisitsCountFutureFor(String? uid) {
+    if (uid == null) {
+      _totalVisitsUserId = null;
+      _totalVisitsCountFuture = Future<int>.value(0);
+      return _totalVisitsCountFuture!;
+    }
+
+    if (_totalVisitsUserId != uid || _totalVisitsCountFuture == null) {
+      _totalVisitsUserId = uid;
+      _totalVisitsCountFuture = _effectiveVisitService.getVisitCount(uid);
+    }
+
+    return _totalVisitsCountFuture!;
   }
 }
