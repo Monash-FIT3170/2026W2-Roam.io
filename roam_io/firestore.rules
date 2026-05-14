@@ -18,10 +18,10 @@ service cloud.firestore {
       
       // Visits subcollection - tracks places the user has visited
       match /visits/{visitId} {
-        // Only the signed-in owner can read/create their own visits.
-        allow read, create: if request.auth != null && request.auth.uid == userId;
-        // No updates or deletes - visits are permanent
-        allow update, delete: if false;
+        // Only the signed-in owner can read/create/update their own visits.
+        allow read, create, update: if request.auth != null && request.auth.uid == userId;
+        // No deletes - visits are permanent
+        allow delete: if false;
       }
     }
 
@@ -40,10 +40,10 @@ service cloud.firestore {
     
     // User visits subcollection - tracks places the user has visited
     match /users/{userId}/visits/{visitId} {
-      // Only the signed-in owner can read/create their own visits.
-      allow read, create: if request.auth != null && request.auth.uid == userId;
-      // No updates or deletes - visits are permanent
-      allow update, delete: if false;
+      // Only the signed-in owner can read/create/update their own visits.
+      allow read, create, update: if request.auth != null && request.auth.uid == userId;
+      // No deletes - visits are permanent
+      allow delete: if false;
     }
 
     // Deny all other collections/documents by default for MVP safety.
