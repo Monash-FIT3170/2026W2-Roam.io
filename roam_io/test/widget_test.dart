@@ -44,7 +44,7 @@ void main() {
         'xp': 250,
       });
 
-      expect(profile.level, 3);
+      expect(profile.level, 2);
     });
 
     test('writes XP and level fields to a Firestore map', () {
@@ -70,9 +70,9 @@ void main() {
   group('QAP XP unit tests', () {
     test('ART-65 increases XP required as levels get higher', () {
       expect(ProfileModel.xpForLevel(1), 100);
-      expect(ProfileModel.xpForLevel(2), 112);
-      expect(ProfileModel.xpForLevel(3), 125);
-      expect(ProfileModel.xpForLevel(4), 140);
+      expect(ProfileModel.xpForLevel(2), 300);
+      expect(ProfileModel.xpForLevel(3), 500);
+      expect(ProfileModel.xpForLevel(4), 700);
       expect(
         ProfileModel.xpForLevel(4),
         greaterThan(ProfileModel.xpForLevel(3)),
@@ -83,9 +83,9 @@ void main() {
       expect(ProfileModel.levelFromXp(-1), 1);
       expect(ProfileModel.levelFromXp(99), 1);
       expect(ProfileModel.levelFromXp(100), 2);
-      expect(ProfileModel.levelFromXp(211), 2);
-      expect(ProfileModel.levelFromXp(212), 3);
-      expect(ProfileModel.levelFromXp(337), 4);
+      expect(ProfileModel.levelFromXp(399), 2);
+      expect(ProfileModel.levelFromXp(400), 3);
+      expect(ProfileModel.levelFromXp(900), 4);
     });
 
     test('ART-65 caps cumulative XP calculations at the maximum level', () {
