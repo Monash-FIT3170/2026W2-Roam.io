@@ -54,8 +54,8 @@ void main() {
 
       expect(repository.updatedXp, <int>[212]);
       expect(provider.currentProfile?.xp, 212);
-      expect(provider.currentProfile?.level, 3);
-      expect(provider.pendingLevelUp, 3);
+      expect(provider.currentProfile?.level, 2);
+      expect(provider.pendingLevelUp, 2);
 
       provider.dispose();
     });

@@ -15,19 +15,13 @@ class ProfileModel {
   /// Base XP requirement for the first level-up.
   static const int baseXpPerLevel = 100;
 
-  /// Growth rate used to scale XP requirements for each subsequent level.
-  static const double xpGrowthRate = 1.12;
-
   /// Returns the XP required to progress from [level] to [level + 1].
   static int xpForLevel(int level) {
     if (level <= 1) {
       return baseXpPerLevel;
     }
 
-    return math.max(
-      baseXpPerLevel,
-      (baseXpPerLevel * math.pow(xpGrowthRate, level - 1)).round(),
-    );
+    return baseXpPerLevel * (2 * level - 1);
   }
 
   /// Returns the cumulative XP required to reach [level].
@@ -36,16 +30,9 @@ class ProfileModel {
   static int totalXpToReachLevel(int level) {
     if (level <= 1) return 0;
 
-    var total = 0;
-    for (
-      var currentLevel = 1;
-      currentLevel < math.min(level, maxLevel);
-      currentLevel += 1
-    ) {
-      total += xpForLevel(currentLevel);
-    }
-
-    return total;
+    final effectiveLevel = math.min(level, maxLevel);
+    final offset = effectiveLevel - 1;
+    return baseXpPerLevel * offset * offset;
   }
 
   /// Converts earned XP into a profile level.
