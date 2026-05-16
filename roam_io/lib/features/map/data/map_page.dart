@@ -116,7 +116,6 @@ class _MapPageState extends State<MapPage> {
 
 class _HeatmapToggleButton extends StatelessWidget {
   const _HeatmapToggleButton({
-    super.key,
     required this.isEnabled,
     required this.onPressed,
   });

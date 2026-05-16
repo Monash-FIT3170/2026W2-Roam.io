@@ -135,7 +135,7 @@ class VisitService {
     for (final visit in visits) {
       countsByRegion.update(
         visit.regionId,
-        (count) => count + 1,
+        (existingCount) => existingCount + 1,
         ifAbsent: () => 1,
       );
     }

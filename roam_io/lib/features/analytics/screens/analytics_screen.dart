@@ -293,7 +293,7 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
             width: 56,
             height: 56,
             decoration: BoxDecoration(
-              color: bubbleColor.withOpacity(0.22),
+              color: bubbleColor.withValues(alpha: (0.22 * 255)),
               shape: BoxShape.circle,
             ),
             child: Center(
