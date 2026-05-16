@@ -196,7 +196,7 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
       builder: (context, auth, _) {
         final uid = auth.currentUser?.uid;
         final locationFuture = uid == null
-            ? Future<List<Visit>>.value(<Visit>[]) 
+            ? Future<List<Visit>>.value(<Visit>[])
             : _effectiveVisitService.getAllVisits(uid);
 
         return FutureBuilder<List<Visit>>(
@@ -206,7 +206,8 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
               return _buildLocationBubble(
                 context,
                 title: 'Loading top location...',
-                subtitle: 'Just a moment while we load your most visited place.',
+                subtitle:
+                    'Just a moment while we load your most visited place.',
                 bubbleIcon: Icons.location_on,
               );
             }
@@ -249,7 +250,8 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
 
     for (final visit in visits) {
       final count = counts[visit.placeId] ?? 0;
-      if (best == null || count > bestCount ||
+      if (best == null ||
+          count > bestCount ||
           (count == bestCount && visit.visitedAt.isAfter(best.visitedAt))) {
         best = visit;
         bestCount = count;
@@ -302,11 +304,7 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
                   color: bubbleColor,
                   shape: BoxShape.circle,
                 ),
-                child: Icon(
-                  bubbleIcon,
-                  color: Colors.white,
-                  size: 18,
-                ),
+                child: Icon(bubbleIcon, color: Colors.white, size: 18),
               ),
             ),
           ),

@@ -64,21 +64,24 @@ void main() {
       expect(cache.regionForId('region-1')?.areaSquareMetres, 4000000);
     });
 
-    test('keeps unvisited regions fogged even when heatmap intensity exists', () {
-      final cache = RegionPolygonCache();
+    test(
+      'keeps unvisited regions fogged even when heatmap intensity exists',
+      () {
+        final cache = RegionPolygonCache();
 
-      cache.cacheRegion(
-        region: _region(areaSquareMetres: 4000000),
-        isVisited: false,
-        isCurrentRegion: false,
-        onRegionTapped: (_, _) {},
-        heatmapIntensity: 1,
-      );
+        cache.cacheRegion(
+          region: _region(areaSquareMetres: 4000000),
+          isVisited: false,
+          isCurrentRegion: false,
+          onRegionTapped: (_, _) {},
+          heatmapIntensity: 1,
+        );
 
-      final polygon = cache.polygons.single;
+        final polygon = cache.polygons.single;
 
-      expect(polygon.fillColor, const Color(0xCC080808));
-    });
+        expect(polygon.fillColor, const Color(0xCC080808));
+      },
+    );
   });
 }
 

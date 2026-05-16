@@ -166,7 +166,9 @@ class VisitService {
       counts[name] = (counts[name] ?? 0) + 1;
     }
 
-    final mostVisited = counts.entries.reduce((a, b) => a.value > b.value ? a : b);
+    final mostVisited = counts.entries.reduce(
+      (a, b) => a.value > b.value ? a : b,
+    );
     return mostVisited.key;
   }
 

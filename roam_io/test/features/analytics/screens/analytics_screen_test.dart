@@ -213,7 +213,9 @@ void main() {
 
     expect(find.text('No locations yet'), findsOneWidget);
     expect(
-      find.text('Visit places on the map to see your most visited location here.'),
+      find.text(
+        'Visit places on the map to see your most visited location here.',
+      ),
       findsOneWidget,
     );
     expect(find.text('Most Visited Location'), findsOneWidget);

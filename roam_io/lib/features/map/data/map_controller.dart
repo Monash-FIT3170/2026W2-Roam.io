@@ -240,7 +240,9 @@ class MapController extends ChangeNotifier {
         '[MapController] Loaded visit counts for ${_visitCountsByRegion.length} regions',
       );
     } catch (error) {
-      debugPrint('[MapController] Error loading visit counts by region: $error');
+      debugPrint(
+        '[MapController] Error loading visit counts by region: $error',
+      );
     }
   }
 
