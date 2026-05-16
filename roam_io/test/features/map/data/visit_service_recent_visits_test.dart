@@ -93,4 +93,39 @@ void main() {
       await sub.cancel();
     });
   });
+
+  group('VisitService.getVisitCountsByRegion', () {
+    test('counts completed visits per region', () async {
+      final firestore = FakeFirebaseFirestore();
+      final service = VisitService(firestore: firestore);
+      const userId = 'user-c';
+
+      Future<void> seedVisit({
+        required int placeId,
+        required String regionId,
+      }) async {
+        await firestore
+            .collection('profiles')
+            .doc(userId)
+            .collection('visits')
+            .doc(placeId.toString())
+            .set({
+              'placeId': placeId,
+              'googlePlaceId': 'g$placeId',
+              'placeName': 'Place $placeId',
+              'regionId': regionId,
+              'category': 'nature',
+              'visitedAt': Timestamp.fromDate(DateTime(2026, 5, placeId)),
+            });
+      }
+
+      await seedVisit(placeId: 1, regionId: 'tile-a');
+      await seedVisit(placeId: 2, regionId: 'tile-a');
+      await seedVisit(placeId: 3, regionId: 'tile-b');
+
+      final counts = await service.getVisitCountsByRegion(userId);
+
+      expect(counts, <String, int>{'tile-a': 2, 'tile-b': 1});
+    });
+  });
 }

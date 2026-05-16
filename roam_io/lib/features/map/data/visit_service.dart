@@ -123,6 +123,26 @@ class VisitService {
     return snapshot.count ?? 0;
   }
 
+  /// Gets completed visit counts grouped by region for a user.
+  ///
+  /// This counts saved place visits, not unlocked map tiles. Analytics and
+  /// heatmap UIs can combine this with visited region IDs to keep visits and
+  /// tiles distinct.
+  Future<Map<String, int>> getVisitCountsByRegion(String userId) async {
+    final visits = await getAllVisits(userId);
+    final countsByRegion = <String, int>{};
+
+    for (final visit in visits) {
+      countsByRegion.update(
+        visit.regionId,
+        (existingCount) => existingCount + 1,
+        ifAbsent: () => 1,
+      );
+    }
+
+    return countsByRegion;
+  }
+
   /// Stream of visited place IDs for real-time updates.
   ///
   /// Use this to keep the UI in sync when visits change.
@@ -130,6 +150,26 @@ class VisitService {
     return _visitsCollection(userId).snapshots().map(
       (snapshot) => snapshot.docs.map((doc) => int.parse(doc.id)).toSet(),
     );
+  }
+
+  /// Gets the most visited place name for a user.
+  ///
+  /// Returns the display name of the place with the highest visit count.
+  /// If no visits, returns null.
+  Future<String?> getMostVisitedPlaceName(String userId) async {
+    final visits = await getAllVisits(userId);
+    if (visits.isEmpty) return null;
+
+    final counts = <String, int>{};
+    for (final visit in visits) {
+      final name = visit.displayName;
+      counts[name] = (counts[name] ?? 0) + 1;
+    }
+
+    final mostVisited = counts.entries.reduce(
+      (a, b) => a.value > b.value ? a : b,
+    );
+    return mostVisited.key;
   }
 
   /// Real-time list of the user's most recent visits (newest first).

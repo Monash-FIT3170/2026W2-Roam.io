@@ -5,6 +5,8 @@
  *   Tests region polygon cache preservation of square-metre area values.
  */
 
+import 'dart:ui';
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:roam_io/features/map/data/region_polygon.dart';
 import 'package:roam_io/features/map/data/region_polygon_cache.dart';
@@ -61,6 +63,25 @@ void main() {
       expect(secondResult.region.areaSquareMetres, 4000000);
       expect(cache.regionForId('region-1')?.areaSquareMetres, 4000000);
     });
+
+    test(
+      'keeps unvisited regions fogged even when heatmap intensity exists',
+      () {
+        final cache = RegionPolygonCache();
+
+        cache.cacheRegion(
+          region: _region(areaSquareMetres: 4000000),
+          isVisited: false,
+          isCurrentRegion: false,
+          onRegionTapped: (_, _) {},
+          heatmapIntensity: 1,
+        );
+
+        final polygon = cache.polygons.single;
+
+        expect(polygon.fillColor, const Color(0xCC080808));
+      },
+    );
   });
 }
 

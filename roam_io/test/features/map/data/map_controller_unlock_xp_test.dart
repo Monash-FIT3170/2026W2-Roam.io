@@ -380,6 +380,11 @@ class _FakeVisitService implements VisitService {
   Future<Set<int>> getVisitedPlaceIds(String userId) async => <int>{};
 
   @override
+  Future<Map<String, int>> getVisitCountsByRegion(String userId) async {
+    return const <String, int>{};
+  }
+
+  @override
   dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
 }
 
