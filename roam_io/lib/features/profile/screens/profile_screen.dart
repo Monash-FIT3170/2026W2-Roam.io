@@ -6,7 +6,6 @@
  *   photo, password access, logout, and theme preference.
  */
 
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
@@ -146,20 +145,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(SnackBar(content: Text(auth.errorMessage!)));
-    }
-  }
-
-  Future<void> _addTestXp() async {
-    final auth = context.read<AuthProvider>();
-    if (auth.isBusy) return;
-
-    final didLevelUp = await auth.addXp(100);
-    if (!mounted) return;
-
-    if (didLevelUp) {
-      AppToast.success(context, 'Added 100 XP and leveled up!');
-    } else {
-      AppToast.show(context, 'Added 100 XP for testing.');
     }
   }
 
@@ -356,33 +341,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                     textColor: colorScheme.onSurface,
                                   ),
                                   const SizedBox(height: 14),
-                                  if (kDebugMode) ...[
-                                    SizedBox(
-                                      width: double.infinity,
-                                      child: OutlinedButton.icon(
-                                        onPressed: auth.isBusy ? null : _addTestXp,
-                                        icon: const Icon(
-                                          Icons.add_rounded,
-                                          size: 18,
-                                        ),
-                                        label: const Text('Add 100 XP'),
-                                        style: OutlinedButton.styleFrom(
-                                          foregroundColor: AppColors.sage,
-                                          side: BorderSide(
-                                            color: AppColors.sage.withAlpha(150),
-                                          ),
-                                          shape: RoundedRectangleBorder(
-                                            borderRadius:
-                                                BorderRadius.circular(16),
-                                          ),
-                                          padding: const EdgeInsets.symmetric(
-                                            vertical: 14,
-                                          ),
-                                        ),
-                                      ),
-                                    ),
-                                    const SizedBox(height: 14),
-                                  ],
                                 ],
 
                                 _ProfileInfoTile(
