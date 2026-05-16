@@ -146,15 +146,37 @@ app.get('/places/region/:regionId', async (req, res) => {
       });
     }
 
-    // 2. Cache MISS - need to fetch from Google
-    // First, get the region's centroid
+    // 2. Cache MISS - need to fetch from Google from several points in the tile
+    // for better coverage than centroid-only searching.
     const regionResult = await pool.query(
-      `SELECT 
-        ST_Y(ST_Centroid(geometry)) as lat,
-        ST_X(ST_Centroid(geometry)) as lng,
-        name
-      FROM regions 
-      WHERE id = $1`,
+      `WITH tile AS (
+        SELECT geometry, name FROM regions WHERE id = $1
+      ),
+      bbox AS (
+        SELECT
+          ST_XMin(geometry) AS xmin,
+          ST_XMax(geometry) AS xmax,
+          ST_YMin(geometry) AS ymin,
+          ST_YMax(geometry) AS ymax,
+          ST_X(ST_Centroid(geometry)) AS cx,
+          ST_Y(ST_Centroid(geometry)) AS cy,
+          geometry,
+          name
+        FROM tile
+      )
+      SELECT
+        name,
+        json_agg(json_build_object('lat', lat, 'lng', lng)) AS search_points,
+        CEIL(GREATEST(xmax - xmin, ymax - ymin) * 111320 * 0.6) AS radius_meters
+      FROM bbox,
+      LATERAL (VALUES
+        (cy, cx),
+        (cy + (ymax - cy) * 0.5, cx + (xmax - cx) * 0.5),
+        (cy + (ymax - cy) * 0.5, cx - (cx - xmin) * 0.5),
+        (cy - (cy - ymin) * 0.5, cx + (xmax - cx) * 0.5),
+        (cy - (cy - ymin) * 0.5, cx - (cx - xmin) * 0.5)
+      ) AS points(lat, lng)
+      GROUP BY name, xmin, xmax, ymin, ymax`,
       [regionId]
     );
 
@@ -162,21 +184,77 @@ app.get('/places/region/:regionId', async (req, res) => {
       return res.status(404).json({ error: 'Region not found' });
     }
 
-    const { lat, lng, name: regionName } = regionResult.rows[0];
-    console.log(`[Places] Cache MISS for region ${regionId} (${regionName}). Fetching from Google...`);
+    const { name: regionName, search_points, radius_meters } = regionResult.rows[0];
+    const searchRadius = Math.min(50000, Math.max(300, Number(radius_meters)));
 
-    // 3. Fetch from Google Places API
-    let googlePlaces = [];
-    try {
-      googlePlaces = await fetchPlacesFromGoogle(lat, lng);
-      console.log(`[Places] Fetched ${googlePlaces.length} places from Google for ${regionName}`);
-    } catch (googleError) {
-      console.error(`[Places] Google API error for ${regionId}:`, googleError.message);
-      // Continue with empty places - we'll still mark it as cached
+    console.log(
+      `[Places] Cache MISS for region ${regionId} (${regionName}). Multi-point search with ${search_points.length} points, radius ${searchRadius}m...`
+    );
+
+    // 3. Fetch from Google Places API, deduping by Google place id
+    const placesMap = new Map();
+    for (const point of search_points) {
+      try {
+        console.log(`[Places] Searching from point (${point.lat.toFixed(4)}, ${point.lng.toFixed(4)})`);
+
+        const places = await fetchPlacesFromGoogle({
+          lat: point.lat,
+          lng: point.lng,
+          radiusMeters: searchRadius,
+        });
+
+        for (const place of places) {
+          if (!placesMap.has(place.id)) {
+            placesMap.set(place.id, place);
+          }
+        }
+
+        console.log(`[Places] Found ${places.length} places, total unique: ${placesMap.size}`);
+      } catch (googleError) {
+        console.error(
+          `[Places] Google API error at point (${point.lat}, ${point.lng}):`,
+          googleError.message,
+          googleError.response?.data || ''
+        );
+      }
     }
 
-    // 4. Store each place in database
+    const googlePlaces = Array.from(placesMap.values());
+    console.log(`[Places] Total unique places from all points: ${googlePlaces.length}`);
+
+    // Filter places to only those inside the tile, sort by rating, take top 20.
+    const placesWithinTile = [];
     for (const place of googlePlaces) {
+      if (!place.location?.longitude || !place.location?.latitude) continue;
+
+      const containsResult = await pool.query(
+        `SELECT ST_Contains(
+          (SELECT geometry FROM regions WHERE id = $1),
+          ST_SetSRID(ST_Point($2, $3), 4326)
+        ) AS within`,
+        [regionId, place.location.longitude, place.location.latitude]
+      );
+
+      if (containsResult.rows[0]?.within) {
+        placesWithinTile.push(place);
+      }
+    }
+
+    placesWithinTile.sort((a, b) => {
+      const ratingA = a.rating || 0;
+      const ratingB = b.rating || 0;
+      if (ratingB !== ratingA) return ratingB - ratingA;
+      return (b.userRatingCount || 0) - (a.userRatingCount || 0);
+    });
+
+    const top20Places = placesWithinTile.slice(0, 20);
+
+    console.log(
+      `[Places] Filtered to ${placesWithinTile.length} places within tile, keeping top ${top20Places.length}`
+    );
+
+    // 4. Store each selected place in database
+    for (const place of top20Places) {
       const category = mapToCategory(place.types);
       const photoRef = place.photos?.[0]?.name || null;
 
@@ -213,7 +291,7 @@ app.get('/places/region/:regionId', async (req, res) => {
       `INSERT INTO region_places_cache (region_id, place_count)
        VALUES ($1, $2)
        ON CONFLICT (region_id) DO UPDATE SET fetched_at = NOW(), place_count = $2`,
-      [regionId, googlePlaces.length]
+      [regionId, top20Places.length]
     );
 
     // 6. Return places that are ACTUALLY within the region's polygon
