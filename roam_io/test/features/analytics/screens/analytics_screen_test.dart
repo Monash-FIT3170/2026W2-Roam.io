@@ -120,6 +120,106 @@ void main() {
 
     provider.dispose();
   });
+
+  testWidgets('shows most visited location bubble for repeated visits', (
+    tester,
+  ) async {
+    final provider = AuthProvider(
+      authRepository: _FakeAuthRepository(_buildProfile(xp: 75)),
+    );
+    await provider.refreshCurrentUser();
+
+    final visits = <Visit>[
+      Visit(
+        placeId: 1,
+        googlePlaceId: 'g-1',
+        placeName: 'Lakeside Cafe',
+        regionId: 'region-a',
+        category: 'food_drink',
+        visitedAt: DateTime(2026, 5, 10, 10),
+      ),
+      Visit(
+        placeId: 2,
+        googlePlaceId: 'g-2',
+        placeName: 'City Park',
+        regionId: 'region-b',
+        category: 'nature',
+        visitedAt: DateTime(2026, 5, 12, 12),
+      ),
+      Visit(
+        placeId: 1,
+        googlePlaceId: 'g-1',
+        placeName: 'Lakeside Cafe',
+        regionId: 'region-a',
+        category: 'food_drink',
+        visitedAt: DateTime(2026, 5, 15, 15),
+      ),
+    ];
+
+    await tester.pumpWidget(
+      ChangeNotifierProvider<AuthProvider>.value(
+        value: provider,
+        child: MaterialApp(
+          home: Scaffold(
+            body: AnalyticsScreen(
+              visitService: _FakeVisitService(
+                totalVisitCount: 3,
+                allVisits: visits,
+              ),
+              visitedRegionService: _FakeVisitedRegionService(<String>{
+                'region-a',
+                'region-b',
+              }),
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Most Visited Location'), findsOneWidget);
+    expect(find.text('Your top location'), findsOneWidget);
+    expect(find.text('Lakeside Cafe'), findsOneWidget);
+    expect(find.text('City Park'), findsNothing);
+
+    provider.dispose();
+  });
+
+  testWidgets('shows empty most visited location state when no visits', (
+    tester,
+  ) async {
+    final provider = AuthProvider(
+      authRepository: _FakeAuthRepository(_buildProfile(xp: 75)),
+    );
+    await provider.refreshCurrentUser();
+
+    await tester.pumpWidget(
+      ChangeNotifierProvider<AuthProvider>.value(
+        value: provider,
+        child: MaterialApp(
+          home: Scaffold(
+            body: AnalyticsScreen(
+              visitService: _FakeVisitService(
+                totalVisitCount: 0,
+                allVisits: const <Visit>[],
+              ),
+              visitedRegionService: _FakeVisitedRegionService(<String>{}),
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('No locations yet'), findsOneWidget);
+    expect(
+      find.text('Visit places on the map to see your most visited location here.'),
+      findsOneWidget,
+    );
+    expect(find.text('Most Visited Location'), findsOneWidget);
+
+    provider.dispose();
+  });
 }
 
 ProfileModel _buildProfile({required int xp}) {
@@ -162,13 +262,22 @@ class _FakeAuthRepository implements AuthRepository {
 }
 
 class _FakeVisitService implements VisitService {
-  _FakeVisitService({required this.totalVisitCount});
+  _FakeVisitService({
+    required this.totalVisitCount,
+    this.allVisits = const <Visit>[],
+  });
 
   final int totalVisitCount;
+  final List<Visit> allVisits;
 
   @override
   Future<int> getVisitCount(String userId) async {
     return totalVisitCount;
+  }
+
+  @override
+  Future<List<Visit>> getAllVisits(String userId) async {
+    return allVisits;
   }
 
   @override

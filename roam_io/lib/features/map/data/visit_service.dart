@@ -152,6 +152,24 @@ class VisitService {
     );
   }
 
+  /// Gets the most visited place name for a user.
+  ///
+  /// Returns the display name of the place with the highest visit count.
+  /// If no visits, returns null.
+  Future<String?> getMostVisitedPlaceName(String userId) async {
+    final visits = await getAllVisits(userId);
+    if (visits.isEmpty) return null;
+
+    final counts = <String, int>{};
+    for (final visit in visits) {
+      final name = visit.displayName;
+      counts[name] = (counts[name] ?? 0) + 1;
+    }
+
+    final mostVisited = counts.entries.reduce((a, b) => a.value > b.value ? a : b);
+    return mostVisited.key;
+  }
+
   /// Real-time list of the user's most recent visits (newest first).
   ///
   /// Limited to [limit] documents for efficient analytics/history UIs.
