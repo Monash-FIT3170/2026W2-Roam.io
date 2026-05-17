@@ -1,9 +1,10 @@
 /*
  * Author: Sanjevan Rajasegar
- * Last Modified: 12/05/2026
+ * Last Modified: 17/05/2026
  * Description:
  *   Verifies VisitService.watchRecentVisits caps results, orders by visitedAt
- *   descending, and reacts to Firestore updates under fake_cloud_firestore.
+ *   descending, reacts to Firestore updates under fake_cloud_firestore, and
+ *   counts completed visits grouped by region for analytics and heatmaps.
  */
 
 import 'package:cloud_firestore/cloud_firestore.dart';

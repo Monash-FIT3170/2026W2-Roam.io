@@ -1,10 +1,11 @@
 /*
  * Author: Sanjevan Rajasegar
- * Last Modified: 12/05/2026
+ * Last Modified: 17/05/2026
  * Description:
  *   Hosts the map screen and wires widget lifecycle to the map controller. This
- *   file keeps UI thin while controller setup, visit XP wiring, and cleanup run
- *   in the correct Flutter lifecycle hooks.
+ *   file keeps UI thin while controller setup, visit XP wiring, heatmap
+ *   toggling, place detail display, unlock reward feedback, and cleanup run in
+ *   the correct Flutter lifecycle hooks.
  */
 
 import 'package:flutter/material.dart';

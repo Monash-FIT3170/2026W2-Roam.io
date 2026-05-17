@@ -1,8 +1,9 @@
 /*
  * Author: Nathan Nunes
- * Last Modified: 14/05/2026
+ * Last Modified: 17/05/2026
  * Description:
- *   Regression tests for analytics screen profile-driven stat values.
+ *   Regression tests for analytics screen profile-driven stat values, visited
+ *   tile totals, total completed visits, and most visited location states.
  */
 
 import 'package:firebase_auth/firebase_auth.dart' as firebase_auth;

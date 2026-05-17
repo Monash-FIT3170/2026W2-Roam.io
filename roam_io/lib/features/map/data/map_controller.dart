@@ -1,3 +1,15 @@
+/*
+ * Author: Sanjevan Rajasegar
+ * Last Modified: 17/05/2026
+ * Description:
+ *   Owns the map feature's state and business logic. This controller resolves
+ *   the user's current region, loads viewport polygons and places, caches map
+ *   data for redraws, persists visits, awards visit and region unlock XP, and
+ *   exposes heatmap styling state for visited tiles. MapPage keeps the widget
+ *   layer thin by delegating map lifecycle, location updates, marker updates,
+ *   region unlock callbacks, and visit validation to this file.
+ */
+
 import 'dart:async';
 
 import 'package:flutter/material.dart';

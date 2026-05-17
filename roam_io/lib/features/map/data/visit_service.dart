@@ -1,9 +1,11 @@
 /*
  * Author: Sanjevan Rajasegar
- * Last Modified: 12/05/2026
+ * Last Modified: 17/05/2026
  * Description:
  *   Firestore-backed service for reading and writing user place visits under
- *   profiles/{userId}/visits, including a stream of the most recent visits.
+ *   profiles/{userId}/visits. It supports visit lookup, recent visit streams,
+ *   total counts, region grouped counts for heatmaps, and most-visited place
+ *   summaries for analytics.
  */
 
 import 'package:cloud_firestore/cloud_firestore.dart';

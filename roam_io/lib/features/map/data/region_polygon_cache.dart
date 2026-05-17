@@ -1,9 +1,11 @@
 /*
  * Author: Sanjevan Rajasegar
- * Last Modified: 12/05/2026
+ * Last Modified: 17/05/2026
  * Description:
  *   Caches loaded region polygons so map rendering and region unlock reward
- *   lookups can reuse the same RegionPolygon data.
+ *   lookups can reuse the same RegionPolygon data. It preserves backend area
+ *   values across partial responses and rebuilds polygon styles for normal,
+ *   current-region, visited, and heatmap tile states.
  */
 
 import 'package:flutter/material.dart';

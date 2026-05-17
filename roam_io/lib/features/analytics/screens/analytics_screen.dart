@@ -1,10 +1,11 @@
 /*
  * Author: Sanjevan Rajasegar
- * Last Modified: 12/05/2026
+ * Last Modified: 17/05/2026
  * Description:
  *   Provides a vertically scrollable analytics UI for exploration progress,
- *   statistics, heatmap activity, and recent visited locations (bottom inset
- *   for the extended-body tab bar).
+ *   profile XP, visited tile totals, completed visit totals, most visited
+ *   location, and recent visited locations (bottom inset for the extended-body
+ *   tab bar).
  */
 
 import 'package:flutter/material.dart';

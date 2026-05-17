@@ -1,8 +1,9 @@
 /*
  * Author: Sanjevan Rajasegar
- * Last Modified: 12/05/2026
+ * Last Modified: 17/05/2026
  * Description:
- *   Tests region polygon cache preservation of square-metre area values.
+ *   Tests region polygon cache preservation of square-metre area values and
+ *   verifies that unvisited polygons stay fogged when heatmap intensity exists.
  */
 
 import 'dart:ui';
