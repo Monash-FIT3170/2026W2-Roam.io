@@ -1,9 +1,10 @@
 /*
  * Author: Sanjevan Rajasegar
- * Last Modified: 12/05/2026
+ * Last Modified: 17/05/2026
  * Description:
  *   Verifies VisitService.watchRecentVisits caps results, orders by visitedAt
- *   descending, and reacts to Firestore updates under fake_cloud_firestore.
+ *   descending, reacts to Firestore updates under fake_cloud_firestore, and
+ *   counts completed visits grouped by region for analytics and heatmaps.
  */
 
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -91,6 +92,41 @@ void main() {
       expect(emissions.last.map((v) => v.placeId).toList(), [1, 2]);
 
       await sub.cancel();
+    });
+  });
+
+  group('VisitService.getVisitCountsByRegion', () {
+    test('counts completed visits per region', () async {
+      final firestore = FakeFirebaseFirestore();
+      final service = VisitService(firestore: firestore);
+      const userId = 'user-c';
+
+      Future<void> seedVisit({
+        required int placeId,
+        required String regionId,
+      }) async {
+        await firestore
+            .collection('profiles')
+            .doc(userId)
+            .collection('visits')
+            .doc(placeId.toString())
+            .set({
+              'placeId': placeId,
+              'googlePlaceId': 'g$placeId',
+              'placeName': 'Place $placeId',
+              'regionId': regionId,
+              'category': 'nature',
+              'visitedAt': Timestamp.fromDate(DateTime(2026, 5, placeId)),
+            });
+      }
+
+      await seedVisit(placeId: 1, regionId: 'tile-a');
+      await seedVisit(placeId: 2, regionId: 'tile-a');
+      await seedVisit(placeId: 3, regionId: 'tile-b');
+
+      final counts = await service.getVisitCountsByRegion(userId);
+
+      expect(counts, <String, int>{'tile-a': 2, 'tile-b': 1});
     });
   });
 }

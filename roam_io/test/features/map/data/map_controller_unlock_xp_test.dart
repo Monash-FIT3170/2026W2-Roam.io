@@ -1,6 +1,6 @@
 /*
  * Author: Sanjevan Rajasegar
- * Last Modified: 12/05/2026
+ * Last Modified: 17/05/2026
  * Description:
  *   Tests idempotent region unlock XP awards and feedback events from the map
  *   controller.
@@ -381,6 +381,11 @@ class _FakePlacesService implements PlacesService {
 class _FakeVisitService implements VisitService {
   @override
   Future<Set<int>> getVisitedPlaceIds(String userId) async => <int>{};
+
+  @override
+  Future<Map<String, int>> getVisitCountsByRegion(String userId) async {
+    return const <String, int>{};
+  }
 
   @override
   dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
