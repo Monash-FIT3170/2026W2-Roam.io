@@ -42,8 +42,8 @@ class TileUnlockXpService {
   ///
   /// MapPage injects AuthProvider.addXp so local profile XP, level, and pending
   /// level-up state update immediately after the Firestore write succeeds. The
-  /// result records whether a level-up happened so normal unlock toast feedback
-  /// can be skipped while the level-up celebration is shown.
+  /// result records whether a level-up happened so unlock toast feedback can be
+  /// placed inside the level-up celebration overlay when applicable.
   Future<TileUnlockXpResult> awardForUnlockedPolygon(
     RegionPolygon polygon,
   ) async {

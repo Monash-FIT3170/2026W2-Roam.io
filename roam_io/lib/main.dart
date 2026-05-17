@@ -45,7 +45,11 @@ class _MyAppState extends State<MyApp> {
           // Listen for level-up events
           WidgetsBinding.instance.addPostFrameCallback((_) {
             if (auth.pendingLevelUp != null && _levelUpOverlay == null) {
-              _showLevelUpCelebration(auth.pendingLevelUp!);
+              final unlockToast = auth.takePendingUnlockToast();
+              _showLevelUpCelebration(
+                auth.pendingLevelUp!,
+                rewardToastMessage: unlockToast,
+              );
               auth.clearPendingLevelUp();
             }
           });
@@ -64,10 +68,14 @@ class _MyAppState extends State<MyApp> {
     );
   }
 
-  void _showLevelUpCelebration(int newLevel) {
+  void _showLevelUpCelebration(
+    int newLevel, {
+    String? rewardToastMessage,
+  }) {
     _levelUpOverlay = OverlayEntry(
       builder: (context) => LevelUpCelebration(
         newLevel: newLevel,
+        rewardToastMessage: rewardToastMessage,
         onDismiss: () {
           _levelUpOverlay?.remove();
           _levelUpOverlay = null;

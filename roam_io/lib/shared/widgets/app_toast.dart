@@ -1,6 +1,6 @@
 /*
  * Author: Sanjevan Rajasegar
- * Last Modified: 12/05/2026
+ * Last Modified: 17/05/2026
  * Description:
  *   Provides reusable floating toast messages for success, error, and general
  *   feedback (optional subtitle for two-line messages, e.g. visit + XP).
@@ -10,11 +10,88 @@ import 'package:flutter/material.dart';
 
 import '../../theme/app_colours.dart';
 
+/// Floating toast banner used in snack bars and level-up overlays.
+class AppToastBanner extends StatelessWidget {
+  const AppToastBanner({
+    super.key,
+    required this.message,
+    this.icon = Icons.check_circle_rounded,
+    this.subtitle,
+  });
+
+  final String message;
+  final IconData icon;
+  final String? subtitle;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: AppColors.sage,
+      elevation: 0,
+      borderRadius: BorderRadius.circular(28),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Padding(
+              padding: const EdgeInsets.only(top: 2),
+              child: Icon(icon, color: Colors.white, size: 20),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: subtitle == null || subtitle!.isEmpty
+                  ? Text(
+                      message,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    )
+                  : Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          message,
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.w700,
+                            height: 1.25,
+                          ),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          subtitle!,
+                          style: TextStyle(
+                            color: Colors.white.withValues(alpha: 0.92),
+                            fontWeight: FontWeight.w600,
+                            fontSize: 13,
+                            height: 1.2,
+                          ),
+                        ),
+                      ],
+                    ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 /// Shows app-styled snack bar feedback from screen event handlers.
 class AppToast {
   const AppToast._();
 
+  /// Bottom inset that clears the main shell's floating navigation bar.
+  static double bottomMarginFor(BuildContext context) {
+    final viewPadding = MediaQuery.viewPaddingOf(context);
+    return viewPadding.bottom + 100;
+  }
+
   static SnackBar _styledSnackBar({
+    required BuildContext context,
     required String message,
     required IconData icon,
     String? subtitle,
@@ -22,54 +99,11 @@ class AppToast {
     return SnackBar(
       behavior: SnackBarBehavior.floating,
       duration: const Duration(seconds: 2),
-      backgroundColor: AppColors.sage,
+      backgroundColor: Colors.transparent,
       elevation: 0,
-      margin: const EdgeInsets.fromLTRB(24, 0, 24, 5),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(28)),
-      content: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Padding(
-            padding: const EdgeInsets.only(top: 2),
-            child: Icon(icon, color: Colors.white, size: 20),
-          ),
-          const SizedBox(width: 10),
-          Expanded(
-            child: subtitle == null || subtitle.isEmpty
-                ? Text(
-                    message,
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontWeight: FontWeight.w700,
-                    ),
-                  )
-                : Column(
-                    mainAxisSize: MainAxisSize.min,
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        message,
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontWeight: FontWeight.w700,
-                          height: 1.25,
-                        ),
-                      ),
-                      const SizedBox(height: 2),
-                      Text(
-                        subtitle,
-                        style: TextStyle(
-                          color: Colors.white.withValues(alpha: 0.92),
-                          fontWeight: FontWeight.w600,
-                          fontSize: 13,
-                          height: 1.2,
-                        ),
-                      ),
-                    ],
-                  ),
-          ),
-        ],
-      ),
+      padding: EdgeInsets.zero,
+      margin: EdgeInsets.fromLTRB(24, 0, 24, bottomMarginFor(context)),
+      content: AppToastBanner(message: message, icon: icon, subtitle: subtitle),
     );
   }
 
@@ -83,7 +117,12 @@ class AppToast {
     final messenger = ScaffoldMessenger.of(context);
     messenger.hideCurrentSnackBar();
     messenger.showSnackBar(
-      _styledSnackBar(message: message, icon: icon, subtitle: subtitle),
+      _styledSnackBar(
+        context: context,
+        message: message,
+        icon: icon,
+        subtitle: subtitle,
+      ),
     );
   }
 
@@ -100,7 +139,12 @@ class AppToast {
   }) {
     messenger.hideCurrentSnackBar();
     messenger.showSnackBar(
-      _styledSnackBar(message: message, icon: icon, subtitle: subtitle),
+      _styledSnackBar(
+        context: messenger.context,
+        message: message,
+        icon: icon,
+        subtitle: subtitle,
+      ),
     );
   }
 

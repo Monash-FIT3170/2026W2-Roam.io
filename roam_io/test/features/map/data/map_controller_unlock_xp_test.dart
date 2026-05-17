@@ -213,7 +213,7 @@ void main() {
       controller.disposeController();
     });
 
-    test('level-up suppresses normal unlock feedback', () async {
+    test('level-up still emits unlock feedback for celebration toast', () async {
       final awardedXp = <int>[];
       final feedbackEvents = <String>[];
       final controller = _buildController(
@@ -226,7 +226,7 @@ void main() {
       await controller.initialise(userId: 'user-1');
 
       expect(awardedXp, <int>[75]);
-      expect(feedbackEvents, isEmpty);
+      expect(feedbackEvents, <String>['Region One:75']);
 
       controller.disposeController();
     });
