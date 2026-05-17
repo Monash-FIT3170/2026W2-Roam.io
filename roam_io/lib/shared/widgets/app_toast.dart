@@ -87,7 +87,7 @@ class AppToast {
   /// Bottom inset that clears the main shell's floating navigation bar.
   static double bottomMarginFor(BuildContext context) {
     final viewPadding = MediaQuery.viewPaddingOf(context);
-    return viewPadding.bottom + 100;
+    return viewPadding.bottom;
   }
 
   static SnackBar _styledSnackBar({
