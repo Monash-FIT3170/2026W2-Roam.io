@@ -34,23 +34,20 @@ class _LevelUpCelebrationState extends State<LevelUpCelebration>
 
   @override
   void initState() {
-    _particles = List<_FireworkParticle>.generate(
-      _particleCount,
-      (index) {
-        final angle = index * (2 * math.pi / _particleCount);
-        return _FireworkParticle(
-          angle: angle,
-          radiusFactor: 0.35 + (index % 5) * 0.02,
-          length: 8.0 + (index % 3) * 4.0,
-          color: [
-            AppColors.sage,
-            AppColors.sand,
-            AppColors.clay,
-            Colors.white,
-          ][index % 4],
-        );
-      },
-    );
+    _particles = List<_FireworkParticle>.generate(_particleCount, (index) {
+      final angle = index * (2 * math.pi / _particleCount);
+      return _FireworkParticle(
+        angle: angle,
+        radiusFactor: 0.35 + (index % 5) * 0.02,
+        length: 8.0 + (index % 3) * 4.0,
+        color: [
+          AppColors.sage,
+          AppColors.sand,
+          AppColors.clay,
+          Colors.white,
+        ][index % 4],
+      );
+    });
     super.initState();
 
     // Main fade in/out animation
