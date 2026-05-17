@@ -1,3 +1,10 @@
+/*
+ * Author: Sanjevan Rajasegar
+ * Last Modified: 17/05/2026
+ * Description:
+ *   Shared minimal firebase_auth.User test double for auth-related widget tests.
+ */
+
 import 'package:firebase_auth/firebase_auth.dart' as firebase_auth;
 
 /// Minimal [firebase_auth.User] for widget and provider tests.

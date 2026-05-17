@@ -1,3 +1,10 @@
+/*
+ * Author: Sanjevan Rajasegar
+ * Last Modified: 17/05/2026
+ * Description:
+ *   Widget tests for login form validation and sign-in loading state.
+ */
+
 import 'dart:async';
 
 import 'package:firebase_auth/firebase_auth.dart' as firebase_auth;
@@ -98,6 +105,7 @@ class _MinimalAuthRepository implements AuthRepository {
   dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
 }
 
+/// Delays [signIn] so the login screen can show its busy indicator.
 class _BlockingSignInRepository implements AuthRepository {
   _BlockingSignInRepository(this._block);
 

@@ -1,3 +1,10 @@
+/*
+ * Author: Sanjevan Rajasegar
+ * Last Modified: 17/05/2026
+ * Description:
+ *   Widget tests for main shell tab switching and journeys screen content.
+ */
+
 import 'package:firebase_auth/firebase_auth.dart' as firebase_auth;
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_core_platform_interface/test.dart';
@@ -13,6 +20,7 @@ import 'package:roam_io/features/profile/domain/profile_model.dart';
 import '../../../support/fake_firebase_user.dart';
 
 void main() {
+  // Map tab loads Firebase-backed widgets during the first pump.
   setUpAll(() async {
     TestWidgetsFlutterBinding.ensureInitialized();
     setupFirebaseCoreMocks();
@@ -36,6 +44,7 @@ void main() {
     await tester.pump();
     await tester.pump(const Duration(seconds: 1));
 
+    // IndexedStack keeps offstage tabs in the tree; include them in finders.
     expect(find.byType(JourneysScreen, skipOffstage: false), findsOneWidget);
 
     await tester.tap(find.text('JOURNEYS'));
@@ -45,6 +54,7 @@ void main() {
   });
 }
 
+/// Signed-in user with profile so the shell can render authenticated tabs.
 class _MainShellAuthRepository implements AuthRepository {
   _MainShellAuthRepository()
     : _user = FakeFirebaseUser(

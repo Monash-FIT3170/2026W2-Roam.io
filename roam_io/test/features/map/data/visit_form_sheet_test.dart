@@ -1,3 +1,10 @@
+/*
+ * Author: Sanjevan Rajasegar
+ * Last Modified: 17/05/2026
+ * Description:
+ *   Widget tests for VisitFormSheet create/edit modes, validation, and save flows.
+ */
+
 import 'dart:typed_data';
 
 import 'package:fake_cloud_firestore/fake_cloud_firestore.dart';
@@ -13,6 +20,7 @@ import 'package:roam_io/services/storage_service.dart';
 
 import '../../../support/map_test_doubles.dart';
 
+/// Storage double that avoids touching [FirebaseStorage] in widget tests.
 StorageService _testStorage() {
   return StorageService(
     visitMediaUploadOverride:
@@ -27,6 +35,7 @@ StorageService _testStorage() {
 }
 
 void main() {
+  // VisitFormSheet may initialise Firebase when storage is not fully mocked.
   setUpAll(() async {
     TestWidgetsFlutterBinding.ensureInitialized();
     setupFirebaseCoreMocks();
@@ -333,6 +342,7 @@ void main() {
   });
 }
 
+/// Records arguments passed to [markVisited] and [updateVisit] for assertions.
 class _CapturingVisitService extends VisitService {
   _CapturingVisitService() : super(firestore: FakeFirebaseFirestore());
 
@@ -381,6 +391,7 @@ class _CapturingVisitService extends VisitService {
   }
 }
 
+/// Forces save failures so the sheet can surface an error snackbar.
 class _ThrowingVisitService extends VisitService {
   _ThrowingVisitService() : super(firestore: FakeFirebaseFirestore());
 

@@ -1,3 +1,10 @@
+/*
+ * Author: Sanjevan Rajasegar
+ * Last Modified: 17/05/2026
+ * Description:
+ *   Widget tests routing AuthGateScreen to login, verify email, or main shell.
+ */
+
 import 'package:firebase_auth/firebase_auth.dart' as firebase_auth;
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_core_platform_interface/test.dart';
@@ -15,6 +22,7 @@ import 'package:roam_io/features/profile/domain/profile_model.dart';
 import '../../../support/fake_firebase_user.dart';
 
 void main() {
+  // MainShellScreen initialises Firebase-dependent map widgets.
   setUpAll(() async {
     TestWidgetsFlutterBinding.ensureInitialized();
     setupFirebaseCoreMocks();
@@ -95,6 +103,7 @@ void main() {
   });
 }
 
+/// Configurable auth repository for exercising each AuthGate branch.
 class _AuthGateRepository implements AuthRepository {
   _AuthGateRepository({
     required firebase_auth.User? user,

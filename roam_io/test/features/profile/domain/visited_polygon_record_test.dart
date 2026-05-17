@@ -1,3 +1,10 @@
+/*
+ * Author: Sanjevan Rajasegar
+ * Last Modified: 17/05/2026
+ * Description:
+ *   Unit tests for VisitedPolygonRecord Firestore map parsing and serialization.
+ */
+
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:roam_io/features/profile/domain/visited_polygon_record.dart';
@@ -17,6 +24,7 @@ void main() {
       expect(record.visitedAt, at);
     });
 
+    // Older documents may still use camelCase field names from earlier clients.
     test('accepts camelCase legacy keys', () {
       final record = VisitedPolygonRecord.fromMap(<String, dynamic>{
         'profileId': 'legacy-profile',

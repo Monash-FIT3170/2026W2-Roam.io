@@ -1,3 +1,10 @@
+/*
+ * Author: Sanjevan Rajasegar
+ * Last Modified: 17/05/2026
+ * Description:
+ *   Tests RegionPolygon geometry JSON parsing and Google Maps polygon conversion.
+ */
+
 import 'dart:convert';
 
 import 'package:flutter_test/flutter_test.dart';
@@ -28,6 +35,7 @@ void main() {
       expect(polygon.geometry['type'], 'Polygon');
     });
 
+    // Spatial API may return geometry as a JSON-encoded string rather than a map.
     test('parses geometry when it is a JSON string', () {
       final geometryString = jsonEncode(<String, dynamic>{
         'type': 'Polygon',

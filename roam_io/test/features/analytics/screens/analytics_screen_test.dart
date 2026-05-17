@@ -1,3 +1,10 @@
+/*
+ * Author: Sanjevan Rajasegar
+ * Last Modified: 17/05/2026
+ * Description:
+ *   Widget tests for analytics screen headers and stat labels when signed out.
+ */
+
 import 'package:fake_cloud_firestore/fake_cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart' as firebase_auth;
 import 'package:flutter/material.dart';
@@ -8,6 +15,7 @@ import 'package:roam_io/features/auth/data/auth_repository.dart';
 import 'package:roam_io/features/auth/providers/auth_provider.dart';
 import 'package:roam_io/features/map/data/visit_service.dart';
 
+/// Auth repository that yields no user so analytics shows signed-out layout.
 class _UnauthenticatedAuthRepository implements AuthRepository {
   @override
   Stream<firebase_auth.User?> authStateChanges() async* {

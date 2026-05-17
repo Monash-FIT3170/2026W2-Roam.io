@@ -1,3 +1,10 @@
+/*
+ * Author: Sanjevan Rajasegar
+ * Last Modified: 17/05/2026
+ * Description:
+ *   Unit tests for AuthProvider error mapping and XP level-up notifications.
+ */
+
 import 'package:firebase_auth/firebase_auth.dart' as firebase_auth;
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -54,6 +61,7 @@ void main() {
   });
 
   group('AuthProvider XP', () {
+    // Profile is loaded via authStateChanges before addXp is exercised.
     test('sets pendingLevelUp when addXp crosses a level boundary', () async {
       final now = DateTime(2026, 5, 1);
       final profile = ProfileModel(
@@ -105,6 +113,7 @@ void main() {
   });
 }
 
+/// Invokes optional callbacks so Firebase and Firestore errors can be injected.
 class _ThrowingAuthRepository implements AuthRepository {
   _ThrowingAuthRepository({this.onSignIn, this.onUpdateDarkMode});
 
@@ -135,6 +144,7 @@ class _ThrowingAuthRepository implements AuthRepository {
   dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
 }
 
+/// Mirrors [addXp] into an in-memory profile for level-up assertions.
 class _XpTrackingRepository implements AuthRepository {
   _XpTrackingRepository({
     required this.user,

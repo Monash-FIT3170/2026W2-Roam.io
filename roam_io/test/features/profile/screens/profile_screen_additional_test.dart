@@ -1,3 +1,10 @@
+/*
+ * Author: Sanjevan Rajasegar
+ * Last Modified: 17/05/2026
+ * Description:
+ *   Widget tests for profile navigation, sign-out, and display-name validation.
+ */
+
 import 'package:firebase_auth/firebase_auth.dart' as firebase_auth;
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_core_platform_interface/test.dart';
@@ -13,6 +20,7 @@ import 'package:roam_io/features/profile/screens/profile_screen.dart';
 import '../../../support/fake_firebase_user.dart';
 
 void main() {
+  // ProfileScreen reads Firebase-backed auth state on first build.
   setUpAll(() async {
     TestWidgetsFlutterBinding.ensureInitialized();
     setupFirebaseCoreMocks();
@@ -34,6 +42,7 @@ void main() {
     await tester.pump();
     await tester.pump();
 
+    // Profile actions sit below the fold in a scrollable column.
     final changePassword = find.text('Change Password');
     await tester.ensureVisible(changePassword);
     await tester.tap(changePassword);
@@ -47,6 +56,7 @@ void main() {
     final repo = _ProfileActionsRepository();
     final provider = AuthProvider(authRepository: repo);
 
+    // Provider must wrap MaterialApp so pushed routes can read AuthProvider.
     await tester.pumpWidget(
       ChangeNotifierProvider<AuthProvider>.value(
         value: provider,

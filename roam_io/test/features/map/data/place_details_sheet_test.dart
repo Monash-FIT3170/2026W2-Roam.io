@@ -1,3 +1,10 @@
+/*
+ * Author: Sanjevan Rajasegar
+ * Last Modified: 17/05/2026
+ * Description:
+ *   Widget tests for place details distance display and mark-as-visited flows.
+ */
+
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_core_platform_interface/test.dart';
 import 'package:flutter/material.dart';
@@ -8,6 +15,7 @@ import 'package:roam_io/features/map/data/place_details_sheet.dart';
 import '../../../support/map_test_doubles.dart';
 
 void main() {
+  // MapController and sheet may touch Firebase during proximity updates.
   setUpAll(() async {
     TestWidgetsFlutterBinding.ensureInitialized();
     setupFirebaseCoreMocks();

@@ -1,3 +1,10 @@
+/*
+ * Author: Sanjevan Rajasegar
+ * Last Modified: 17/05/2026
+ * Description:
+ *   Unit tests for MapController proximity checks and visit marking outcomes.
+ */
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:roam_io/features/map/data/map_controller.dart';
 
@@ -6,6 +13,7 @@ import '../../../support/map_test_doubles.dart';
 void main() {
   group('MapController.checkProximity', () {
     test('returns isNear true when within threshold', () async {
+      // Same coordinates as [testPlace] so distance is effectively zero.
       final lat = -37.8136;
       final lng = 144.9631;
       final controller = MapController(

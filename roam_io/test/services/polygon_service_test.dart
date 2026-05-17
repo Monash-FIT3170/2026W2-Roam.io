@@ -1,4 +1,3 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
 /*
  * Author: Sanjevan Rajasegar
  * Last Modified: 12/05/2026
@@ -6,6 +5,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
  *   Tests persisted polygon unlock records and duplicate unlock prevention.
  */
 
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:fake_cloud_firestore/fake_cloud_firestore.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:roam_io/services/polygon_service.dart';
