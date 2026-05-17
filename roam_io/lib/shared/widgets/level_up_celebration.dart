@@ -147,9 +147,7 @@ class _LevelUpCelebrationState extends State<LevelUpCelebration>
                     left: 24,
                     right: 24,
                     bottom: AppToast.bottomMarginFor(context),
-                    child: AppToastBanner(
-                      message: widget.rewardToastMessage!,
-                    ),
+                    child: AppToastBanner(message: widget.rewardToastMessage!),
                   ),
 
                 // Main content

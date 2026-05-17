@@ -213,23 +213,26 @@ void main() {
       controller.disposeController();
     });
 
-    test('level-up still emits unlock feedback for celebration toast', () async {
-      final awardedXp = <int>[];
-      final feedbackEvents = <String>[];
-      final controller = _buildController(
-        region: _region(areaSquareMetres: 4000000),
-        awardedXp: awardedXp,
-        feedbackEvents: feedbackEvents,
-        didLevelUpOnAddXp: true,
-      );
+    test(
+      'level-up still emits unlock feedback for celebration toast',
+      () async {
+        final awardedXp = <int>[];
+        final feedbackEvents = <String>[];
+        final controller = _buildController(
+          region: _region(areaSquareMetres: 4000000),
+          awardedXp: awardedXp,
+          feedbackEvents: feedbackEvents,
+          didLevelUpOnAddXp: true,
+        );
 
-      await controller.initialise(userId: 'user-1');
+        await controller.initialise(userId: 'user-1');
 
-      expect(awardedXp, <int>[75]);
-      expect(feedbackEvents, <String>['Region One:75']);
+        expect(awardedXp, <int>[75]);
+        expect(feedbackEvents, <String>['Region One:75']);
 
-      controller.disposeController();
-    });
+        controller.disposeController();
+      },
+    );
 
     test('already visited region does not award unlock XP', () async {
       final awardedXp = <int>[];

@@ -68,10 +68,7 @@ class _MyAppState extends State<MyApp> {
     );
   }
 
-  void _showLevelUpCelebration(
-    int newLevel, {
-    String? rewardToastMessage,
-  }) {
+  void _showLevelUpCelebration(int newLevel, {String? rewardToastMessage}) {
     _levelUpOverlay = OverlayEntry(
       builder: (context) => LevelUpCelebration(
         newLevel: newLevel,
