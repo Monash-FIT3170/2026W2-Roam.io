@@ -9,6 +9,7 @@
 import 'package:flutter/material.dart';
 
 import '../../theme/app_colours.dart';
+import 'app_bottom_nav_bar.dart';
 
 /// Floating toast banner used in snack bars and level-up overlays.
 class AppToastBanner extends StatelessWidget {
@@ -84,10 +85,20 @@ class AppToastBanner extends StatelessWidget {
 class AppToast {
   const AppToast._();
 
-  /// Bottom inset that clears the main shell's floating navigation bar.
-  static double bottomMarginFor(BuildContext context) {
-    final viewPadding = MediaQuery.viewPaddingOf(context);
-    return viewPadding.bottom + 24;
+  /// Gap above the shell nav bar; shared by scaffold snack bars and overlays.
+  static const double gapAboveShellChrome = 24;
+
+  /// Bottom margin for scaffold snack bars (laid out above [AppBottomNavBar]).
+  static EdgeInsets snackBarMargin(BuildContext context) {
+    return const EdgeInsets.fromLTRB(24, 0, 24, gapAboveShellChrome);
+  }
+
+  /// Distance from the physical screen bottom for overlay-positioned toasts.
+  ///
+  /// Matches the on-screen position of [snackBarMargin] toasts (e.g. tile unlock).
+  static double overlayBottom(BuildContext context) {
+    return AppBottomNavBar.clearanceFromScreenBottom(context) +
+        gapAboveShellChrome;
   }
 
   static SnackBar _styledSnackBar({
@@ -102,7 +113,7 @@ class AppToast {
       backgroundColor: Colors.transparent,
       elevation: 0,
       padding: EdgeInsets.zero,
-      margin: EdgeInsets.fromLTRB(24, 0, 24, bottomMarginFor(context)),
+      margin: snackBarMargin(context),
       content: AppToastBanner(message: message, icon: icon, subtitle: subtitle),
     );
   }
