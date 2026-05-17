@@ -1,9 +1,11 @@
 /*
  * Author: Sanjevan Rajasegar
- * Last Modified: 12/05/2026
+ * Last Modified: 17/05/2026
  * Description:
  *   Caches loaded region polygons so map rendering and region unlock reward
- *   lookups can reuse the same RegionPolygon data.
+ *   lookups can reuse the same RegionPolygon data. It preserves backend area
+ *   values across partial responses and rebuilds polygon styles for normal,
+ *   current-region, visited, and heatmap tile states.
  */
 
 import 'package:flutter/material.dart';
@@ -23,6 +25,10 @@ class RegionPolygonCache {
 
   static const Color _currentRegionStrokeColor = Color(0xFFF3D27A);
   static const int _currentRegionStrokeWidth = 5;
+
+  static const Color _heatmapColdColor = Color(0xFF3D8BFF);
+  static const Color _heatmapWarmColor = Color(0xFFFFC247);
+  static const Color _heatmapHotColor = Color(0xFFE53935);
 
   // Keeps the original region data in memory so we can reuse it later.
   // The key is the region's unique ID.
@@ -44,6 +50,7 @@ class RegionPolygonCache {
     required bool isVisited,
     required bool isCurrentRegion,
     required void Function(String regionId, String regionName) onRegionTapped,
+    double? heatmapIntensity,
   }) {
     final wasAlreadyCached = _regionsById.containsKey(region.id);
     final previousRegion = _regionsById[region.id];
@@ -64,8 +71,12 @@ class RegionPolygonCache {
       strokeColor: _strokeColorForRegion(
         isVisited: isVisited,
         isCurrentRegion: isCurrentRegion,
+        heatmapIntensity: heatmapIntensity,
       ),
-      fillColor: _fillColorForVisited(isVisited),
+      fillColor: _fillColorForRegion(
+        isVisited: isVisited,
+        heatmapIntensity: heatmapIntensity,
+      ),
       strokeWidth: _strokeWidthForRegion(
         isVisited: isVisited,
         isCurrentRegion: isCurrentRegion,
@@ -89,6 +100,7 @@ class RegionPolygonCache {
     required bool Function(String regionId) shouldRenderAsVisited,
     required bool Function(String regionId) isCurrentRegion,
     required void Function(String regionId, String regionName) onRegionTapped,
+    double? Function(String regionId)? heatmapIntensityForRegion,
   }) {
     for (final region in _regionsById.values) {
       cacheRegion(
@@ -96,6 +108,7 @@ class RegionPolygonCache {
         isVisited: shouldRenderAsVisited(region.id),
         isCurrentRegion: isCurrentRegion(region.id),
         onRegionTapped: onRegionTapped,
+        heatmapIntensity: heatmapIntensityForRegion?.call(region.id),
       );
     }
   }
@@ -108,16 +121,32 @@ class RegionPolygonCache {
   Color _strokeColorForRegion({
     required bool isVisited,
     required bool isCurrentRegion,
+    double? heatmapIntensity,
   }) {
     if (isCurrentRegion) {
       return _currentRegionStrokeColor;
     }
 
+    if (isVisited && heatmapIntensity != null) {
+      return _heatmapColor(heatmapIntensity).withValues(alpha: 0.9);
+    }
+
     return isVisited ? _visitedStrokeColor : _unvisitedStrokeColor;
   }
 
-  Color _fillColorForVisited(bool isVisited) {
-    return isVisited ? _visitedFillColor : _unvisitedFillColor;
+  Color _fillColorForRegion({
+    required bool isVisited,
+    double? heatmapIntensity,
+  }) {
+    if (!isVisited) {
+      return _unvisitedFillColor;
+    }
+
+    if (heatmapIntensity != null) {
+      return _heatmapColor(heatmapIntensity).withValues(alpha: 0.48);
+    }
+
+    return _visitedFillColor;
   }
 
   int _strokeWidthForRegion({
@@ -129,6 +158,24 @@ class RegionPolygonCache {
     }
 
     return isVisited ? _visitedStrokeWidth : _unvisitedStrokeWidth;
+  }
+
+  Color _heatmapColor(double intensity) {
+    final clampedIntensity = intensity.clamp(0.0, 1.0).toDouble();
+
+    if (clampedIntensity <= 0.5) {
+      return Color.lerp(
+        _heatmapColdColor,
+        _heatmapWarmColor,
+        clampedIntensity * 2,
+      )!;
+    }
+
+    return Color.lerp(
+      _heatmapWarmColor,
+      _heatmapHotColor,
+      (clampedIntensity - 0.5) * 2,
+    )!;
   }
 }
 
