@@ -803,7 +803,7 @@ class MapController extends ChangeNotifier {
 
       _visitedRegionIds.add(regionId);
       final xpResult = await _awardUnlockXp(region);
-      if (xpResult == null || xpResult.didLevelUp) {
+      if (xpResult == null) {
         return true;
       }
 
