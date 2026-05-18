@@ -7,9 +7,7 @@
  */
 
 /// Central configuration for XP reward amounts used across features.
-class XpRewardConfig {
-  const XpRewardConfig._();
-
+abstract final class XpRewardConfig {
   /// Fixed XP awarded for each successfully persisted place visit.
   ///
   /// Not derived from polygon area, distance, or place metadata.
