@@ -62,7 +62,7 @@ jobs:
         uses: VeryGoodOpenSource/very_good_coverage@v3
         with:
           path: roam_io/coverage/lcov.info
-          min_coverage: 10
+          min_coverage: 70
 
       - name: Upload coverage report
         uses: actions/upload-artifact@v4
