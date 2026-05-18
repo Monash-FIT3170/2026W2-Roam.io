@@ -1,3 +1,8 @@
+# Author: Sanjevan Rajasegat
+# Last Modified: 18/05/2026
+# Description:
+#   Flutter CI workflow for format, analysis, tests, coverage enforcement, and APK builds.
+
 name: Flutter CI
 
 on:

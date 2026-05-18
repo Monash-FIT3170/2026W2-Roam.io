@@ -1,3 +1,11 @@
+/*
+ * Author: Sanjevan Rajasegar
+ * Last Modified: 18/05/2026
+ * Description:
+ *   Unit tests for VisitedPolygonRecord Firestore mapping aliases and date
+ *   parsing fallbacks added for ART-68 coverage enforcement.
+ */
+
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:roam_io/features/profile/domain/visited_polygon_record.dart';

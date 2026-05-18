@@ -1,3 +1,11 @@
+/*
+ * Author: Sanjevan Rajasegar
+ * Last Modified: 18/05/2026
+ * Description:
+ *   Tests AuthRepository delegation, authenticated-user guards, profile writes,
+ *   and profile photo upload branches for ART-68 coverage enforcement.
+ */
+
 import 'dart:async';
 import 'dart:typed_data';
 

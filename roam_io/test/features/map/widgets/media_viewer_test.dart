@@ -1,3 +1,11 @@
+/*
+ * Author: Jacob De La Paz
+ * Last Modified: 18/05/2026
+ * Description:
+ *   Widget tests for MediaViewer image display, initial page selection, and
+ *   route presentation coverage added for ART-68 CI coverage enforcement.
+ */
+
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:roam_io/features/map/widgets/media_viewer.dart';

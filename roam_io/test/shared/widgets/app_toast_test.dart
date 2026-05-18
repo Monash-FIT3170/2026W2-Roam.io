@@ -1,3 +1,11 @@
+/*
+ * Author: Sanjevan Rajasegar
+ * Last Modified: 18/05/2026
+ * Description:
+ *   Widget tests for AppToast message, subtitle, success, error, and messenger
+ *   display paths added for ART-68 coverage enforcement.
+ */
+
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:roam_io/shared/widgets/app_toast.dart';
