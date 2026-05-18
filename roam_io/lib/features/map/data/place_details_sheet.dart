@@ -1,33 +1,57 @@
+/*
+ * Author: Sanjevan Rajasegar
+ * Last Modified: 12/05/2026
+ * Description:
+ *   Bottom sheet when a place marker is tapped: details, distance, and marking
+ *   a visit with a single app-style success toast (visit + XP; level-up overlay
+ *   is still shown by the root app when applicable).
+ */
+
 import 'package:flutter/material.dart';
 
+import '../../../shared/widgets/app_toast.dart';
 import '../../../theme/app_colours.dart';
+import '../../profile/domain/xp_reward_config.dart';
+import '../widgets/media_viewer.dart';
 import 'map_controller.dart';
 import 'place_of_interest.dart';
+import 'visit.dart';
+import 'visit_form_sheet.dart';
+import 'visit_service.dart';
 
 /// Bottom sheet displayed when a place marker is tapped.
 /// Shows place details and allows marking the place as visited.
+/// For visited places, shows custom name, description, and media.
 class PlaceDetailsSheet extends StatefulWidget {
   const PlaceDetailsSheet({
     super.key,
     required this.place,
     required this.mapController,
+    this.scaffoldMessenger,
   });
 
   final PlaceOfInterest place;
   final MapController mapController;
+
+  /// Host [ScaffoldMessengerState] for snackbars/toasts after the sheet pops.
+  final ScaffoldMessengerState? scaffoldMessenger;
 
   /// Shows the place details sheet as a modal bottom sheet.
   static Future<void> show({
     required BuildContext context,
     required PlaceOfInterest place,
     required MapController mapController,
+    ScaffoldMessengerState? scaffoldMessenger,
   }) {
     return showModalBottomSheet(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (context) =>
-          PlaceDetailsSheet(place: place, mapController: mapController),
+      builder: (context) => PlaceDetailsSheet(
+        place: place,
+        mapController: mapController,
+        scaffoldMessenger: scaffoldMessenger,
+      ),
     );
   }
 
@@ -36,14 +60,18 @@ class PlaceDetailsSheet extends StatefulWidget {
 }
 
 class _PlaceDetailsSheetState extends State<PlaceDetailsSheet> {
-  bool _isLoading = false;
   double? _distance;
   String? _errorMessage;
+  Visit? _visitData;
+  bool _isLoadingVisit = false;
 
   @override
   void initState() {
     super.initState();
     _loadDistance();
+    if (_isVisited) {
+      _loadVisitData();
+    }
   }
 
   Future<void> _loadDistance() async {
@@ -57,61 +85,140 @@ class _PlaceDetailsSheetState extends State<PlaceDetailsSheet> {
     }
   }
 
+  Future<void> _loadVisitData() async {
+    final userId = widget.mapController.userId;
+    if (userId == null) return;
+
+    setState(() {
+      _isLoadingVisit = true;
+    });
+
+    try {
+      final visitService = VisitService();
+      final visit = await visitService.getVisit(
+        userId: userId,
+        placeId: widget.place.id,
+      );
+      if (mounted) {
+        setState(() {
+          _visitData = visit;
+          _isLoadingVisit = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _isLoadingVisit = false;
+        });
+      }
+    }
+  }
+
   bool get _isVisited => widget.mapController.isPlaceVisited(widget.place.id);
 
-  String _formatDistance(double meters) {
-    if (meters < 1000) {
-      return '${meters.round()}m away';
+  String _formatDistance(double metres) {
+    if (metres < 1000) {
+      return '${metres.round()}m away';
     } else {
-      return '${(meters / 1000).toStringAsFixed(1)}km away';
+      return '${(metres / 1000).toStringAsFixed(1)}km away';
     }
   }
 
   Future<void> _handleMarkVisited() async {
     setState(() {
-      _isLoading = true;
       _errorMessage = null;
     });
 
-    final result = await widget.mapController.markPlaceAsVisited(widget.place);
-
-    if (!mounted) return;
-
-    setState(() {
-      _isLoading = false;
-    });
-
-    switch (result) {
-      case VisitResult.success:
-        // Show success and close sheet
-        Navigator.of(context).pop();
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Visited ${widget.place.name}!'),
-            backgroundColor: AppColors.sage,
-          ),
-        );
-        break;
-      case VisitResult.tooFar:
-        setState(() {
-          _errorMessage =
-              'You need to be within ${MapController.visitProximityThreshold.round()}m to visit this place';
-        });
-        break;
-      case VisitResult.notLoggedIn:
-        setState(() {
-          _errorMessage = 'Please log in to mark places as visited';
-        });
-        break;
-      case VisitResult.alreadyVisited:
-        // Should not happen, button is hidden
-        break;
-      case VisitResult.error:
-        setState(() {
-          _errorMessage = 'Something went wrong. Please try again.';
-        });
-        break;
+    // Check proximity first
+    if (_distance != null &&
+        _distance! > MapController.visitProximityThreshold) {
+      setState(() {
+        _errorMessage =
+            'You need to be within ${MapController.visitProximityThreshold.round()}m to visit this place';
+      });
+      return;
     }
+
+    final userId = widget.mapController.userId;
+    if (userId == null) {
+      setState(() {
+        _errorMessage = 'Please log in to mark places as visited';
+      });
+      return;
+    }
+
+    final messenger =
+        widget.scaffoldMessenger ?? ScaffoldMessenger.maybeOf(context);
+
+    // Navigate to visit form
+    if (!mounted) return;
+    Navigator.of(context).pop(); // Close current sheet
+
+    final result = await VisitFormSheet.show(
+      context: context,
+      place: widget.place,
+      userId: userId,
+      onCreateVisit:
+          ({
+            String? customName,
+            String? description,
+            List<String>? mediaUrls,
+          }) async {
+            final visitResult = await widget.mapController.markPlaceAsVisited(
+              widget.place,
+              customName: customName,
+              description: description,
+              mediaUrls: mediaUrls,
+            );
+
+            if (visitResult != VisitResult.success) {
+              throw Exception('Visit failed: $visitResult');
+            }
+          },
+    );
+
+    if (result == VisitFormResult.success) {
+      // Refresh the map controller's visited places
+      await widget.mapController.refreshVisitedPlaces();
+      if (messenger != null) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (!messenger.mounted) return;
+          AppToast.successForMessenger(
+            messenger,
+            'Visited ${widget.place.name}!',
+            subtitle: '+${XpRewardConfig.visitXpReward} XP',
+          );
+        });
+      }
+    }
+  }
+
+  Future<void> _handleEditVisit() async {
+    final userId = widget.mapController.userId;
+    if (userId == null || _visitData == null) return;
+
+    Navigator.of(context).pop(); // Close current sheet
+
+    final result = await VisitFormSheet.show(
+      context: context,
+      place: widget.place,
+      userId: userId,
+      existingVisit: _visitData,
+    );
+
+    if (result == VisitFormResult.success) {
+      // Refresh the map controller's visited places
+      await widget.mapController.refreshVisitedPlaces();
+    }
+  }
+
+  void _openMediaViewer(int index) {
+    if (_visitData == null || _visitData!.mediaUrls.isEmpty) return;
+    MediaViewer.show(
+      context: context,
+      mediaUrls: _visitData!.mediaUrls,
+      initialIndex: index,
+    );
   }
 
   @override
@@ -120,6 +227,9 @@ class _PlaceDetailsSheetState extends State<PlaceDetailsSheet> {
     final isNearby =
         _distance != null &&
         _distance! <= MapController.visitProximityThreshold;
+
+    // Use custom name if available, otherwise place name
+    final displayName = _visitData?.displayName ?? widget.place.name;
 
     return Container(
       decoration: BoxDecoration(
@@ -157,9 +267,7 @@ class _PlaceDetailsSheetState extends State<PlaceDetailsSheet> {
                     height: 12,
                     margin: const EdgeInsets.only(top: 6, right: 12),
                     decoration: BoxDecoration(
-                      color: _isVisited
-                          ? const Color(0xFF6B7280)
-                          : widget.place.category.markerColor,
+                      color: widget.place.category.markerColor,
                       shape: BoxShape.circle,
                     ),
                   ),
@@ -167,10 +275,7 @@ class _PlaceDetailsSheetState extends State<PlaceDetailsSheet> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(
-                          widget.place.name,
-                          style: theme.textTheme.titleLarge,
-                        ),
+                        Text(displayName, style: theme.textTheme.titleLarge),
                         const SizedBox(height: 4),
                         Text(
                           widget.place.category.displayName,
@@ -215,28 +320,9 @@ class _PlaceDetailsSheetState extends State<PlaceDetailsSheet> {
 
               const SizedBox(height: 16),
 
-              // Rating and distance row
+              // Distance row
               Row(
                 children: [
-                  // Rating
-                  if (widget.place.rating != null) ...[
-                    Icon(Icons.star, size: 18, color: Colors.amber[700]),
-                    const SizedBox(width: 4),
-                    Text(
-                      widget.place.rating!.toStringAsFixed(1),
-                      style: theme.textTheme.bodyMedium?.copyWith(
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                    if (widget.place.userRatingsTotal != null) ...[
-                      Text(
-                        ' (${widget.place.userRatingsTotal})',
-                        style: theme.textTheme.bodySmall,
-                      ),
-                    ],
-                    const SizedBox(width: 16),
-                  ],
-
                   // Distance
                   Icon(
                     Icons.location_on,
@@ -265,26 +351,110 @@ class _PlaceDetailsSheetState extends State<PlaceDetailsSheet> {
                 ],
               ),
 
-              // Address if available
-              if (widget.place.address != null) ...[
-                const SizedBox(height: 12),
-                Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Icon(
-                      Icons.place_outlined,
-                      size: 18,
-                      color: Colors.grey[600],
+              // Visit details (for visited places)
+              if (_isVisited) ...[
+                if (_isLoadingVisit) ...[
+                  const SizedBox(height: 16),
+                  const Center(
+                    child: SizedBox(
+                      width: 24,
+                      height: 24,
+                      child: CircularProgressIndicator(strokeWidth: 2),
                     ),
-                    const SizedBox(width: 4),
-                    Expanded(
-                      child: Text(
-                        widget.place.address!,
-                        style: theme.textTheme.bodySmall,
+                  ),
+                ] else if (_visitData != null) ...[
+                  // Description
+                  if (_visitData!.description != null &&
+                      _visitData!.description!.isNotEmpty) ...[
+                    const SizedBox(height: 16),
+                    Text('Description', style: theme.textTheme.titleSmall),
+                    const SizedBox(height: 4),
+                    Text(
+                      _visitData!.description!,
+                      style: theme.textTheme.bodyMedium?.copyWith(
+                        color: Colors.grey[700],
                       ),
                     ),
                   ],
-                ),
+
+                  // Media gallery
+                  if (_visitData!.mediaUrls.isNotEmpty) ...[
+                    const SizedBox(height: 16),
+                    Text('Media', style: theme.textTheme.titleSmall),
+                    const SizedBox(height: 8),
+                    SizedBox(
+                      height: 80,
+                      child: ListView.builder(
+                        scrollDirection: Axis.horizontal,
+                        itemCount: _visitData!.mediaUrls.length,
+                        itemBuilder: (context, index) {
+                          final url = _visitData!.mediaUrls[index];
+                          final isVideo =
+                              url.toLowerCase().contains('.mp4') ||
+                              url.toLowerCase().contains('.mov');
+                          return GestureDetector(
+                            onTap: () => _openMediaViewer(index),
+                            child: Container(
+                              width: 80,
+                              height: 80,
+                              margin: const EdgeInsets.only(right: 8),
+                              decoration: BoxDecoration(
+                                borderRadius: BorderRadius.circular(8),
+                                color: Colors.grey[300],
+                              ),
+                              child: ClipRRect(
+                                borderRadius: BorderRadius.circular(8),
+                                child: Stack(
+                                  fit: StackFit.expand,
+                                  children: [
+                                    if (isVideo)
+                                      const Center(
+                                        child: Icon(
+                                          Icons.videocam,
+                                          size: 32,
+                                          color: Colors.grey,
+                                        ),
+                                      )
+                                    else
+                                      Image.network(
+                                        url,
+                                        fit: BoxFit.cover,
+                                        errorBuilder: (_, _, _) => const Center(
+                                          child: Icon(
+                                            Icons.broken_image,
+                                            color: Colors.grey,
+                                          ),
+                                        ),
+                                      ),
+                                    if (isVideo)
+                                      Positioned(
+                                        right: 4,
+                                        bottom: 4,
+                                        child: Container(
+                                          padding: const EdgeInsets.all(2),
+                                          decoration: BoxDecoration(
+                                            color: Colors.black54,
+                                            borderRadius: BorderRadius.circular(
+                                              4,
+                                            ),
+                                          ),
+                                          child: const Icon(
+                                            Icons.play_arrow,
+                                            color: Colors.white,
+                                            size: 16,
+                                          ),
+                                        ),
+                                      ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          );
+                        },
+                      ),
+                    ),
+                  ],
+                ],
               ],
 
               // Error message
@@ -319,23 +489,31 @@ class _PlaceDetailsSheetState extends State<PlaceDetailsSheet> {
 
               const SizedBox(height: 20),
 
-              // Mark as Visited button (only show if not already visited)
-              if (!_isVisited)
+              // Action buttons
+              if (_isVisited)
+                // Edit button for visited places
+                SizedBox(
+                  width: double.infinity,
+                  child: OutlinedButton.icon(
+                    onPressed: _handleEditVisit,
+                    icon: const Icon(Icons.edit),
+                    label: const Text('Edit Visit'),
+                    style: OutlinedButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                    ),
+                  ),
+                )
+              else
+                // Mark as Visited button
                 SizedBox(
                   width: double.infinity,
                   child: ElevatedButton.icon(
-                    onPressed: _isLoading ? null : _handleMarkVisited,
-                    icon: _isLoading
-                        ? const SizedBox(
-                            width: 20,
-                            height: 20,
-                            child: CircularProgressIndicator(
-                              strokeWidth: 2,
-                              color: Colors.white,
-                            ),
-                          )
-                        : const Icon(Icons.check),
-                    label: Text(_isLoading ? 'Saving...' : 'Mark as Visited'),
+                    onPressed: _handleMarkVisited,
+                    icon: const Icon(Icons.check),
+                    label: const Text('Mark as Visited'),
                     style: ElevatedButton.styleFrom(
                       backgroundColor: AppColors.sage,
                       foregroundColor: Colors.white,

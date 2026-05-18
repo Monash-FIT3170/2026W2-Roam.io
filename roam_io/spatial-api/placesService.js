@@ -26,48 +26,73 @@ const INCLUDED_TYPES = [
  * Fetch places from Google Places API for a given location.
  * Uses the new Places API (v1) with field masks to minimize cost.
  * 
- * @param {number} lat - Latitude of the center point
- * @param {number} lng - Longitude of the center point
- * @param {number} radiusMeters - Search radius in meters (default: 2000)
+ * @param {number|Object} latOrOptions - Latitude or options object.
+ * @param {number} lngArg - Longitude of the center point.
+ * @param {number} radiusMetresArg - Search radius in metres (default: 2000).
  * @returns {Promise<Array>} Array of place objects from Google
  */
-async function fetchPlacesFromGoogle(lat, lng, radiusMeters = 2000) {
+async function fetchPlacesFromGoogle(latOrOptions, lngArg, radiusMetresArg = 2000) {
   if (!GOOGLE_PLACES_API_KEY) {
     throw new Error('GOOGLE_PLACES_API_KEY is not configured');
   }
 
-  const response = await axios.post(
-    NEARBY_SEARCH_URL,
-    {
-      includedTypes: INCLUDED_TYPES,
-      maxResultCount: 20,
-      locationRestriction: {
-        circle: {
-          center: { latitude: lat, longitude: lng },
-          radius: radiusMeters,
+  const options =
+    typeof latOrOptions === 'object'
+      ? latOrOptions
+      : { lat: latOrOptions, lng: lngArg, radiusMetres: radiusMetresArg };
+  const {
+    lat,
+    lng,
+    radiusMetres = 2000,
+    radiusMeters,
+    maxResults = 20,
+  } = options;
+  const searchRadius = radiusMeters ?? radiusMetres;
+
+  const requestBody = {
+    includedTypes: INCLUDED_TYPES,
+    maxResultCount: Math.min(20, maxResults),
+    locationRestriction: {
+      circle: {
+        center: {
+          latitude: Number(lat),
+          longitude: Number(lng),
         },
+        radius: Number(searchRadius),
       },
     },
-    {
-      headers: {
-        'Content-Type': 'application/json',
-        'X-Goog-Api-Key': GOOGLE_PLACES_API_KEY,
-        // Request only essential fields (cheaper/free tier)
-        'X-Goog-FieldMask': [
-          'places.id',
-          'places.displayName',
-          'places.types',
-          'places.location',
-          'places.rating',
-          'places.userRatingCount',
-          'places.formattedAddress',
-          'places.photos',
-        ].join(','),
-      },
-    }
-  );
+  };
 
-  return response.data.places || [];
+  console.log(`[PlacesAPI] Requesting places at (${lat}, ${lng}) with radius ${searchRadius}m`);
+  console.log('[PlacesAPI] Request body:', JSON.stringify(requestBody, null, 2));
+
+  const response = await axios.post(NEARBY_SEARCH_URL, requestBody, {
+    headers: {
+      'Content-Type': 'application/json',
+      'X-Goog-Api-Key': GOOGLE_PLACES_API_KEY,
+      // Request only essential fields (cheaper/free tier)
+      'X-Goog-FieldMask': [
+        'places.id',
+        'places.displayName',
+        'places.types',
+        'places.location',
+        'places.rating',
+        'places.userRatingCount',
+        'places.formattedAddress',
+        'places.photos',
+      ].join(','),
+    },
+  });
+
+  const places = response.data.places || [];
+  console.log(`[PlacesAPI] Response status: ${response.status}`);
+  console.log(`[PlacesAPI] Places returned: ${places.length}`);
+  if (places.length > 0) {
+    console.log(`[PlacesAPI] First place: ${places[0].displayName?.text} at (${places[0].location?.latitude}, ${places[0].location?.longitude})`);
+    console.log('[PlacesAPI] Place types sample:', places.slice(0, 3).map((place) => `${place.displayName?.text}: ${place.types?.join(', ')}`));
+  }
+
+  return places;
 }
 
 /**

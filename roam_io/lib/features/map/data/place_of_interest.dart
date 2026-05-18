@@ -104,11 +104,9 @@ class PlaceOfInterest {
   static final Map<PlaceCategory, Map<MarkerSize, BitmapDescriptor>>
   _iconCache = {};
 
-  // Cache for visited icons: [size] -> icon (same style for all categories)
-  static final Map<MarkerSize, BitmapDescriptor> _visitedIconCache = {};
-
-  // Visited marker color - a muted green with checkmark
-  static const Color _visitedColor = Color(0xFF6B7280); // Gray-500
+  // Cache for visited icons: [category][size] -> icon (keeps category color with checkmark)
+  static final Map<PlaceCategory, Map<MarkerSize, BitmapDescriptor>>
+  _visitedIconCache = {};
 
   // Current marker size level
   static MarkerSize _currentSize = MarkerSize.medium;
@@ -118,20 +116,20 @@ class PlaceOfInterest {
 
   /// Pre-generate all category icons at all sizes. Call this once at app startup.
   static Future<void> preloadIcons() async {
-    // Generate category icons
+    // Generate category icons and visited icons for each category
     for (final category in PlaceCategory.values) {
       _iconCache[category] = {};
+      _visitedIconCache[category] = {};
       for (final size in MarkerSize.values) {
         _iconCache[category]![size] = await _createCircleIcon(
           category.markerColor,
           size: size.pixelSize,
         );
+        _visitedIconCache[category]![size] = await _createVisitedIcon(
+          category.markerColor,
+          size: size.pixelSize,
+        );
       }
-    }
-
-    // Generate visited icons (same for all categories)
-    for (final size in MarkerSize.values) {
-      _visitedIconCache[size] = await _createVisitedIcon(size: size.pixelSize);
     }
   }
 
@@ -186,16 +184,19 @@ class PlaceOfInterest {
     return BitmapDescriptor.bytes(bytes!.buffer.asUint8List());
   }
 
-  /// Creates a visited icon: gray circle with white checkmark.
-  static Future<BitmapDescriptor> _createVisitedIcon({double size = 36}) async {
+  /// Creates a visited icon: colored circle with white checkmark.
+  static Future<BitmapDescriptor> _createVisitedIcon(
+    Color color, {
+    double size = 36,
+  }) async {
     final recorder = ui.PictureRecorder();
     final canvas = Canvas(recorder);
 
     final strokeWidth = size / 12;
 
-    // Fill circle (gray)
+    // Fill circle (category color)
     final fillPaint = Paint()
-      ..color = _visitedColor
+      ..color = color
       ..style = PaintingStyle.fill;
 
     // White border
@@ -320,10 +321,10 @@ class PlaceOfInterest {
     final BitmapDescriptor icon;
 
     if (visited) {
-      // Use visited icon (gray with checkmark)
+      // Use visited icon (category color with checkmark)
       icon =
-          _visitedIconCache[_currentSize] ??
-          BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueAzure);
+          _visitedIconCache[category]?[_currentSize] ??
+          BitmapDescriptor.defaultMarkerWithHue(category.markerHue);
     } else {
       // Use category-colored icon
       icon =
@@ -334,17 +335,9 @@ class PlaceOfInterest {
     return Marker(
       markerId: MarkerId('place_$id'),
       position: location,
-      infoWindow: InfoWindow(title: name, snippet: _buildSnippet()),
+      infoWindow: InfoWindow.noText,
       icon: icon,
       onTap: onTap == null ? null : () => onTap(this),
     );
-  }
-
-  String _buildSnippet() {
-    final parts = <String>[category.displayName];
-    if (rating != null) {
-      parts.add('★ ${rating!.toStringAsFixed(1)}');
-    }
-    return parts.join(' • ');
   }
 }

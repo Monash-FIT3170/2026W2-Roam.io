@@ -8,7 +8,7 @@ import 'package:roam_io/features/profile/domain/profile_model.dart';
 import 'package:roam_io/shared/widgets/level_up_celebration.dart';
 
 /*
- * Author: [Insert Name Here]
+ * Author: Sanjevan Rajasegar
  * Last Modified: 6/05/2026
  * Description:
  *   Verifies profile model mapping behaviour for the dark mode preference
@@ -44,7 +44,7 @@ void main() {
         'xp': 250,
       });
 
-      expect(profile.level, 3);
+      expect(profile.level, 2);
     });
 
     test('writes XP and level fields to a Firestore map', () {
@@ -70,9 +70,9 @@ void main() {
   group('QAP XP unit tests', () {
     test('ART-65 increases XP required as levels get higher', () {
       expect(ProfileModel.xpForLevel(1), 100);
-      expect(ProfileModel.xpForLevel(2), 112);
-      expect(ProfileModel.xpForLevel(3), 125);
-      expect(ProfileModel.xpForLevel(4), 140);
+      expect(ProfileModel.xpForLevel(2), 300);
+      expect(ProfileModel.xpForLevel(3), 500);
+      expect(ProfileModel.xpForLevel(4), 700);
       expect(
         ProfileModel.xpForLevel(4),
         greaterThan(ProfileModel.xpForLevel(3)),
@@ -83,9 +83,9 @@ void main() {
       expect(ProfileModel.levelFromXp(-1), 1);
       expect(ProfileModel.levelFromXp(99), 1);
       expect(ProfileModel.levelFromXp(100), 2);
-      expect(ProfileModel.levelFromXp(211), 2);
-      expect(ProfileModel.levelFromXp(212), 3);
-      expect(ProfileModel.levelFromXp(337), 4);
+      expect(ProfileModel.levelFromXp(399), 2);
+      expect(ProfileModel.levelFromXp(400), 3);
+      expect(ProfileModel.levelFromXp(900), 4);
     });
 
     test('ART-65 caps cumulative XP calculations at the maximum level', () {
@@ -176,8 +176,8 @@ void main() {
     expect(MapStyles.forBrightness(Brightness.dark), MapStyles.dark);
   });
 
-  test('MapStyles clears custom style for light brightness', () {
-    expect(MapStyles.forBrightness(Brightness.light), isNull);
+  test('MapStyles applies retro style for light brightness', () {
+    expect(MapStyles.forBrightness(Brightness.light), MapStyles.light);
   });
 
   test('MapStyles dark style is valid Google Maps JSON', () {

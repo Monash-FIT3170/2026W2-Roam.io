@@ -1,7 +1,15 @@
+/*
+ * Author: Sanjevan Rajasegar
+ * Last Modified: 12/05/2026
+ * Description:
+ *   Persists visited polygon records and reports whether an unlock is new.
+ */
+
 import 'package:cloud_firestore/cloud_firestore.dart';
 
 import '../features/profile/domain/visited_polygon_record.dart';
 
+/// Reads and writes persisted polygon unlock records for profiles.
 class PolygonService {
   static const String _visitedPolygonsCollectionName = 'polygons_visited';
   static const String _profileIdFieldName = 'profile_id';
@@ -32,8 +40,12 @@ class PolygonService {
     ).toList();
   }
 
-  // Inserts or updates a visited polygon for the profile.
-  Future<void> upsertVisitedPolygon({
+  /// Inserts a visited polygon for the profile.
+  ///
+  /// Returns true only when this call creates the first persisted unlock for the
+  /// polygon. Existing polygons are left unchanged so callers can avoid awarding
+  /// duplicate unlock XP.
+  Future<bool> upsertVisitedPolygon({
     required String profileId,
     required String polygonId,
     DateTime? visitedAt,
@@ -41,12 +53,16 @@ class PolygonService {
     final time = visitedAt ?? DateTime.now();
     final document = await _resolveVisitedPolygonDocument(profileId);
 
-    await _firestore.runTransaction((transaction) async {
+    return _firestore.runTransaction<bool>((transaction) async {
       final snapshot = await transaction.get(document);
       final currentData = snapshot.data();
       final currentPolygonMap =
           (currentData?[_visitedPolygonsMapField] as Map<String, dynamic>?) ??
           <String, dynamic>{};
+
+      if (currentPolygonMap.containsKey(polygonId)) {
+        return false;
+      }
 
       final updatedPolygonMap = Map<String, dynamic>.from(currentPolygonMap)
         ..[polygonId] = Timestamp.fromDate(time);
@@ -56,6 +72,8 @@ class PolygonService {
         _userIdFieldName: profileId,
         _visitedPolygonsMapField: updatedPolygonMap,
       }, SetOptions(merge: true));
+
+      return true;
     });
   }
 

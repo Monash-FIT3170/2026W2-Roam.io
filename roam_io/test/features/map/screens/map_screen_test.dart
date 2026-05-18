@@ -25,15 +25,15 @@ void main() {
     expect(map.onCameraIdle, isNotNull);
   });
 
-  testWidgets('light theme clears custom Google Map style', (tester) async {
+  testWidgets('light theme applies light Google Map style', (tester) async {
     await _pumpMapRender(tester, theme: ThemeData.light());
 
-    expect(_googleMap(tester).style, isNull);
+    expect(_googleMap(tester).style, MapStyles.light);
   });
 
   testWidgets('theme change updates Google Map style', (tester) async {
     await _pumpMapRender(tester, theme: ThemeData.light());
-    expect(_googleMap(tester).style, isNull);
+    expect(_googleMap(tester).style, MapStyles.light);
 
     await _pumpMapRender(tester, theme: ThemeData.dark());
     expect(_googleMap(tester).style, MapStyles.dark);
