@@ -14,6 +14,8 @@ import '../providers/auth_provider.dart';
 import 'login_screen.dart';
 import 'verify_email_screen.dart';
 
+import '../../../shared/widgets/splash_loading_screen.dart';
+
 /// Chooses the correct top-level screen based on authentication state.
 class AuthGateScreen extends StatefulWidget {
   const AuthGateScreen({super.key});
@@ -37,9 +39,7 @@ class _AuthGateState extends State<AuthGateScreen> {
     return Consumer<AuthProvider>(
       builder: (context, auth, _) {
         if (auth.viewState == AuthViewState.loading) {
-          return const Scaffold(
-            body: Center(child: CircularProgressIndicator()),
-          );
+          return const SplashLoadingScreen();
         }
 
         if (!auth.isAuthenticated) {

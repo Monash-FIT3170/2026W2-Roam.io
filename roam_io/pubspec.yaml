@@ -60,6 +60,10 @@ dev_dependencies:
   # rules and activating additional ones.
   flutter_lints: ^6.0.0
 
+  # For app icon and launch screen generation
+  flutter_launcher_icons:
+  flutter_native_splash:
+
 # For information on the generic Dart part of this file, see the
 # following page: https://dart.dev/tools/pub/pubspec
 
@@ -77,6 +81,9 @@ flutter:
   assets:
     - assets/map_styles/visited_tiles.json
     - assets/map_styles/unvisited_tiles.json
+    - assets/logos/roam_io_logo.png
+    - assets/logos/roam_io_logo_with_text.png
+
 
   # An image asset can refer to one or more resolution-specific "variants", see
   # https://flutter.dev/to/resolution-aware-images
@@ -103,3 +110,19 @@ flutter:
   #
   # For details regarding fonts from package dependencies,
   # see https://flutter.dev/to/font-from-package
+
+flutter_launcher_icons:
+  android: true
+  ios: true
+  image_path: "assets/logos/roam_io_logo.png"
+  adaptive_icon_background: "#F2EBDC"
+  adaptive_icon_foreground: "assets/logos/roam_io_logo.png"
+  remove_alpha_ios: true
+
+flutter_native_splash:
+  color: "#F2EBDC"
+  image: assets/logos/roam_io_logo_with_text.png
+
+  android_12:
+    color: "#F2EBDC"
+    image: assets/logos/roam_io_logo.png
