@@ -4,6 +4,14 @@ import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'place_of_interest.dart';
 import 'places_service.dart';
 
+/*
+ * Author: Rushil Patel
+ * Description:
+ *   Manages place-of-interest markers displayed on the map.
+ *   Loads region places, creates Google Maps markers, tracks
+ *   visited locations, and rebuilds marker visuals when zoom
+ *   level or visit state changes.
+ */
 
 
 class PlaceMarkerManager {

@@ -1,5 +1,5 @@
 /*
- * Author: Sanjevan Rajasegar / Rushil Patel
+ * Author: Sanjevan Rajasegar
  * Last Modified: 23/05/2026
  * Description:
  *   Caches loaded region polygons so map rendering can reuse already-fetched
