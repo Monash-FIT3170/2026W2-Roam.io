@@ -4,6 +4,8 @@ import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'place_of_interest.dart';
 import 'places_service.dart';
 
+
+
 class PlaceMarkerManager {
   PlaceMarkerManager({
     PlacesService? placesService,
@@ -18,7 +20,6 @@ class PlaceMarkerManager {
 
   void setVisitedPlaceIds(Set<int> visitedPlaceIds) {
     _visitedPlaceIds = visitedPlaceIds;
-    rebuildMarkers();
   }
 
   Future<List<PlaceOfInterest>> loadPlacesForRegion({
@@ -41,23 +42,23 @@ class PlaceMarkerManager {
   }
 
   bool updateMarkerSizeForZoom(double zoom) {
-    final sizeChanged = PlaceOfInterest.updateSizeForZoom(zoom);
+    final didChange = PlaceOfInterest.updateSizeForZoom(zoom);
 
-    if (sizeChanged) {
+    if (didChange) {
       rebuildMarkers();
     }
 
-    return sizeChanged;
+    return didChange;
   }
 
   void rebuildMarkers({
     void Function(PlaceOfInterest place)? onPlaceTapped,
   }) {
-    final allMarkers = <Marker>{};
+    final rebuiltMarkers = <Marker>{};
 
     for (final places in _placesByRegionId.values) {
       for (final place in places) {
-        allMarkers.add(
+        rebuiltMarkers.add(
           place.toMarker(
             visited: _visitedPlaceIds.contains(place.id),
             onTap: onPlaceTapped,
@@ -66,7 +67,7 @@ class PlaceMarkerManager {
       }
     }
 
-    markers = allMarkers;
+    markers = rebuiltMarkers;
   }
 
   PlaceOfInterest? getPlaceById(int placeId) {

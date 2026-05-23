@@ -142,10 +142,53 @@ class MapStyles {
 ]
 ''';
 
+  static const String fogStyle = '''
+[
+  {
+    "elementType": "geometry",
+    "stylers": [
+      { "color": "#080808" }
+    ]
+  },
+  {
+    "elementType": "labels",
+    "stylers": [
+      { "visibility": "off" }
+    ]
+  },
+  {
+    "featureType": "road",
+    "elementType": "geometry",
+    "stylers": [
+      { "color": "#080808" }
+    ]
+  },
+  {
+    "featureType": "water",
+    "elementType": "geometry",
+    "stylers": [
+      { "color": "#080808" }
+    ]
+  },
+  {
+    "featureType": "poi",
+    "stylers": [
+      { "visibility": "off" }
+    ]
+  },
+  {
+    "featureType": "transit",
+    "stylers": [
+      { "visibility": "off" }
+    ]
+  }
+]
+''';
+
   /// Returns the map style for the active app brightness.
   /// Returns [dark] for dark mode, [light] for light mode.
   /// Both styles hide all labels to keep polygons and markers clean.
   static String forBrightness(Brightness brightness) {
-    return brightness == Brightness.dark ? dark : light;
+    return fogStyle;//brightness == Brightness.dark ? dark : light;
   }
 }
