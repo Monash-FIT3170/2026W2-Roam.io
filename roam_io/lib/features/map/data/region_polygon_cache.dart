@@ -1,11 +1,18 @@
 /*
  * Author: Sanjevan Rajasegar
- * Last Modified: 17/05/2026
+ * Last Modified: 23/05/2026
  * Description:
- *   Caches loaded region polygons so map rendering and region unlock reward
- *   lookups can reuse the same RegionPolygon data. It preserves backend area
- *   values across partial responses and rebuilds polygon styles for normal,
- *   current-region, visited, and heatmap tile states.
+ *   Caches loaded region polygons so map rendering can reuse already-fetched
+ *   geometry instead of rebuilding everything after every camera movement.
+ *
+ *   This class owns polygon styling only:
+ *   - unvisited/fogged tiles
+ *   - visited/unlocked tiles
+ *   - current user tile
+ *   - heatmap colouring
+ *
+ *   It also supports display filtering so SA1 fog tiles can be hidden when the
+ *   user zooms out, while still keeping visited/current regions visible.
  */
 
 import 'package:flutter/material.dart';
@@ -13,7 +20,7 @@ import 'package:google_maps_flutter/google_maps_flutter.dart';
 
 import 'region_polygon.dart';
 
-/// Keeps loaded RegionPolygon objects and rendered Google Maps polygons in sync.
+/// Keeps loaded [RegionPolygon] objects and rendered Google Maps polygons in sync.
 class RegionPolygonCache {
   static const Color _visitedStrokeColor = Color(0x80F3D27A);
   static const Color _visitedFillColor = Color(0x00000000);
@@ -30,21 +37,11 @@ class RegionPolygonCache {
   static const Color _heatmapWarmColor = Color(0xFFFFC247);
   static const Color _heatmapHotColor = Color(0xFFE53935);
 
-  // Keeps the original region data in memory so we can reuse it later.
-  // The key is the region's unique ID.
   final Map<String, RegionPolygon> _regionsById = <String, RegionPolygon>{};
-
-  // Keeps the Google Maps polygons that were built from the region data.
-  // These are the actual shapes the map widget will render.
   final Map<String, Polygon> _polygonsById = <String, Polygon>{};
+  final Map<String, String> _polygonIdToRegionId = <String, String>{};
 
-  /// Saves a region, builds its map polygons, and applies the correct style.
-  ///
-  /// [RegionPolygon.areaSquareMetres] is calculated by PostGIS and returned as
-  /// area_square_metres by the backend. If a later API response omits that
-  /// value, the cache keeps the last confirmed square-metre area so valid
-  /// unlock XP remains area-scaled. The 50 XP fallback is only for regions with
-  /// genuinely missing or invalid area.
+  /// Saves a region, builds its polygons, and applies the correct visual style.
   RegionPolygonCacheResult cacheRegion({
     required RegionPolygon region,
     required bool isVisited,
@@ -54,6 +51,7 @@ class RegionPolygonCache {
   }) {
     final wasAlreadyCached = _regionsById.containsKey(region.id);
     final previousRegion = _regionsById[region.id];
+
     final effectiveRegion =
         region.areaSquareMetres == null &&
             previousRegion?.areaSquareMetres != null
@@ -86,6 +84,7 @@ class RegionPolygonCache {
 
     for (final polygon in googlePolygons) {
       _polygonsById[polygon.polygonId.value] = polygon;
+      _polygonIdToRegionId[polygon.polygonId.value] = effectiveRegion.id;
     }
 
     return RegionPolygonCacheResult(
@@ -94,8 +93,7 @@ class RegionPolygonCache {
     );
   }
 
-  // Rebuilds the polygons for every cached region.
-  // This is useful when the visited state changes and the colors need to update.
+  /// Rebuilds styles for every cached region.
   void refreshStyles({
     required bool Function(String regionId) shouldRenderAsVisited,
     required bool Function(String regionId) isCurrentRegion,
@@ -113,10 +111,42 @@ class RegionPolygonCache {
     }
   }
 
-  // Returns all polygons that are ready to be drawn on the map.
+  /// Returns all polygons, including unvisited/fogged polygons.
   Set<Polygon> get polygons => _polygonsById.values.toSet();
 
-  RegionPolygon? regionForId(String regionId) => _regionsById[regionId];
+  /// Returns polygons that should currently be displayed.
+  ///
+  /// When zoomed in, [showUnvisitedRegions] is true and SA1 fog tiles render.
+  /// When zoomed out, unvisited fog tiles are hidden, but visited/current tiles
+  /// remain visible so the user still sees meaningful progress.
+  Set<Polygon> polygonsForDisplay({
+    required bool showUnvisitedRegions,
+    required Set<String> visitedRegionIds,
+    String? currentRegionId,
+  }) {
+    final visiblePolygons = <Polygon>{};
+
+    for (final entry in _polygonsById.entries) {
+      final polygonId = entry.key;
+      final polygon = entry.value;
+      final regionId = _polygonIdToRegionId[polygonId];
+
+      if (regionId == null) continue;
+
+      final isVisited = visitedRegionIds.contains(regionId);
+      final isCurrent = currentRegionId == regionId;
+
+      if (showUnvisitedRegions || isVisited || isCurrent) {
+        visiblePolygons.add(polygon);
+      }
+    }
+
+    return visiblePolygons;
+  }
+
+  RegionPolygon? regionForId(String regionId) {
+    return _regionsById[regionId];
+  }
 
   Color _strokeColorForRegion({
     required bool isVisited,
@@ -179,7 +209,7 @@ class RegionPolygonCache {
   }
 }
 
-/// The effective cached region plus whether it was newly added to the cache.
+/// Returned when a region is cached.
 class RegionPolygonCacheResult {
   const RegionPolygonCacheResult({
     required this.region,
