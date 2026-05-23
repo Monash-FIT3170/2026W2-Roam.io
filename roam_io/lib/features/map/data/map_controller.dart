@@ -1,16 +1,15 @@
 /*
- * Author: Sanjevan Rajasegar / Rushil Patel
- * Last Modified: 23/05/2026
+ * Author: Sanjevan Rajasegar 
+ * Last Modified: 24/05/2026
  * Description:
- *   Coordinates the map feature without owning every low-level detail.
+ *   Coordinates the map feature
  *
- *   Responsibilities:
- *   - map lifecycle and camera callbacks
- *   - current region tracking
- *   - visit persistence and XP reward coordination
- *   - delegating viewport loading to ViewportRegionLoader
- *   - delegating marker/place caching to PlaceMarkerManager
- *   - delegating polygon styling/display filtering to RegionPolygonCache
+ *   Current MVP behaviour:
+ *   - SA1 tiles render normally when zoomed in.
+ *   - When zoomed out far, unvisited SA1 fog tiles are hidden.
+ *   - Visited/current tiles remain visible as progress markers.
+ *   - SA3 polygon rendering is intentionally disabled for now because swapping
+ *     large Google Maps polygon sets causes UI freezes.
  */
 
 import 'dart:async';
@@ -18,7 +17,6 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
-import 'package:roam_io/features/map/data/region_polygon_cache.dart';
 
 import '../../profile/domain/xp_reward_config.dart';
 import 'geolocator_service.dart';
@@ -76,13 +74,12 @@ class MapController extends ChangeNotifier {
 ]
 ''';
 
-    MapController({
+  MapController({
     GeoLocatorService? geoLocatorService,
     RegionService? regionService,
     VisitService? visitService,
     VisitedRegionService? visitedRegionService,
-    RegionPolygonCache? sa1PolygonCache,
-    RegionPolygonCache? sa3PolygonCache,
+    RegionPolygonCache? regionPolygonCache,
     TileUnlockXpService? tileUnlockXpService,
     ViewportRegionLoader? viewportRegionLoader,
     PlaceMarkerManager? placeMarkerManager,
@@ -92,8 +89,7 @@ class MapController extends ChangeNotifier {
         _visitService = visitService ?? VisitService(),
         _visitedRegionService =
             visitedRegionService ?? VisitedRegionService(),
-        _sa1PolygonCache = sa1PolygonCache ?? RegionPolygonCache(),
-        _sa3PolygonCache = sa3PolygonCache ?? RegionPolygonCache(),
+        _regionPolygonCache = regionPolygonCache ?? RegionPolygonCache(),
         _tileUnlockXpService = tileUnlockXpService ?? TileUnlockXpService(),
         _viewportRegionLoader =
             viewportRegionLoader ?? ViewportRegionLoader(),
@@ -104,15 +100,11 @@ class MapController extends ChangeNotifier {
   final RegionService _regionService;
   final VisitService _visitService;
   final VisitedRegionService _visitedRegionService;
-  final RegionPolygonCache _sa1PolygonCache;
-  final RegionPolygonCache _sa3PolygonCache;
+  final RegionPolygonCache _regionPolygonCache;
   final TileUnlockXpService _tileUnlockXpService;
   final ViewportRegionLoader _viewportRegionLoader;
   final PlaceMarkerManager _placeMarkerManager;
   final MapViewportPolicy _viewportPolicy;
-
-  bool _hasLoadedSa3Overview = false;
-  bool _isLoadingSa3Overview = false;
 
   GoogleMapController? _googleMapController;
   StreamSubscription<Position>? _locationUpdatesSubscription;
@@ -220,140 +212,85 @@ class MapController extends ChangeNotifier {
 
     await _googleMapController?.animateCamera(
       CameraUpdate.newLatLngZoom(center, defaultZoom),
-
     );
 
+    // Initial viewport loading happens after the real user location is resolved.
   }
-
-  Future<void> _preloadSa3Overview() async {
-  if (_hasLoadedSa3Overview || _isLoadingSa3Overview) {
-    return;
-  }
-
-  _isLoadingSa3Overview = true;
-
-  try {
-    debugPrint('[MapController] Preloading all SA3 regions...');
-
-    final sa3Regions = await _regionService.getAllSa3Regions();
-
-    for (final region in sa3Regions) {
-      _cacheRegionAsPolygons(
-        region,
-        mode: MapLayerMode.sa3Overview,
-      );
-    }
-
-    _hasLoadedSa3Overview = true;
-
-    debugPrint(
-      '[MapController] Preloaded ${sa3Regions.length} SA3 overview regions',
-    );
-
-    _syncPolygonsForCurrentMode();
-    notifyListeners();
-  } catch (error) {
-    debugPrint('[MapController] Failed to preload SA3 overview: $error');
-  } finally {
-    _isLoadingSa3Overview = false;
-  }
-}
 
   void onCameraMove(CameraPosition position) {
-  _currentZoom = position.zoom;
+    _currentZoom = position.zoom;
 
-  final nextMode = _viewportPolicy.modeForZoom(
-    zoom: position.zoom,
-    currentMode: _currentLayerMode,
-  );
-
-  if (nextMode != _currentLayerMode) {
-    _currentLayerMode = nextMode;
-
-    if (_currentLayerMode == MapLayerMode.sa3Overview &&
-        !_hasLoadedSa3Overview) {
-      unawaited(_preloadSa3Overview());
-    }
-
-    _syncPolygonsForCurrentMode();
-    notifyListeners();
-  }
-
-  final markerSizeChanged = _placeMarkerManager.updateMarkerSizeForZoom(
-    position.zoom,
-  );
-
-  if (markerSizeChanged) {
-    _placeMarkerManager.rebuildMarkers(onPlaceTapped: onPlaceTapped);
-    markers = _placeMarkerManager.markers;
-    notifyListeners();
-  }
-}
-
-
- Future<void> loadViewportRegions({bool force = false}) async {
-  final controller = _googleMapController;
-  if (controller == null) return;
-
-  final targetMode = _viewportPolicy.modeForZoom(
-    zoom: _currentZoom,
-    currentMode: _currentLayerMode,
-  );
-
-  if (targetMode == MapLayerMode.sa3Overview) {
-    if (!_hasLoadedSa3Overview) {
-      await _preloadSa3Overview();
-    }
-
-    _currentLayerMode = MapLayerMode.sa3Overview;
-    _syncPolygonsForCurrentMode();
-    notifyListeners();
-    return;
-  }
-
-  isLoadingViewport = true;
-  notifyListeners();
-
-  try {
-    final result = await _viewportRegionLoader.load(
-      mapController: controller,
-      currentZoom: _currentZoom,
-      currentMode: _currentLayerMode,
-      force: force,
+    final markerSizeChanged = _placeMarkerManager.updateMarkerSizeForZoom(
+      position.zoom,
     );
 
-    _currentLayerMode = result.mode;
+    if (markerSizeChanged) {
+      _placeMarkerManager.rebuildMarkers(onPlaceTapped: onPlaceTapped);
+      markers = _placeMarkerManager.markers;
+      notifyListeners();
+    }
+  }
 
-    if (result.message != null) {
-      message = result.message;
+  Future<void> loadViewportRegions({bool force = false}) async {
+    final controller = _googleMapController;
+    if (controller == null) return;
+
+    final targetMode = _viewportPolicy.modeForZoom(
+      zoom: _currentZoom,
+      currentMode: _currentLayerMode,
+    );
+
+    if (targetMode == MapLayerMode.sa3Overview) {
+      _currentLayerMode = MapLayerMode.sa3Overview;
+      _syncPolygonsForCurrentMode();
+      notifyListeners();
+      return;
     }
 
-    if (!result.didSkip) {
-      var newRegionCount = 0;
+    if (_currentLayerMode != MapLayerMode.sa1Detail) {
+      _currentLayerMode = MapLayerMode.sa1Detail;
+      _syncPolygonsForCurrentMode();
+      notifyListeners();
+    }
 
-      for (final region in result.regions) {
-        final cacheResult = _cacheRegionAsPolygons(
-          region,
-          mode: MapLayerMode.sa1Detail,
-        );
+    isLoadingViewport = true;
+    notifyListeners();
 
-        if (cacheResult.wasAdded) {
-          newRegionCount++;
-        }
+    try {
+      final result = await _viewportRegionLoader.load(
+        mapController: controller,
+        currentZoom: _currentZoom,
+        currentMode: _currentLayerMode,
+        force: force,
+      );
+
+      if (result.message != null) {
+        message = result.message;
       }
 
-      message = 'Loaded $newRegionCount new nearby tiles';
-    }
+      if (!result.didSkip) {
+        var newRegionCount = 0;
 
-    _syncPolygonsForCurrentMode();
-  } catch (error) {
-    message = 'Could not load nearby regions: $error';
-    debugPrint('[MapController] Viewport loading error: $error');
-  } finally {
-    isLoadingViewport = false;
-    notifyListeners();
+        for (final region in result.regions) {
+          final cacheResult = _cacheRegionAsPolygons(region);
+
+          if (cacheResult.wasAdded) {
+            newRegionCount++;
+          }
+        }
+
+        message = 'Loaded $newRegionCount new nearby tiles';
+      }
+
+      _syncPolygonsForCurrentMode();
+    } catch (error) {
+      message = 'Could not load nearby regions: $error';
+      debugPrint('[MapController] Viewport loading error: $error');
+    } finally {
+      isLoadingViewport = false;
+      notifyListeners();
+    }
   }
-}
 
   void onRegionTapped(String regionId, String regionName) {
     message = regionName;
@@ -504,7 +441,6 @@ class MapController extends ChangeNotifier {
 
       await Future.delayed(const Duration(milliseconds: 350));
       await loadViewportRegions(force: true);
-      unawaited(_preloadSa3Overview());
 
       await _startLocationUpdates();
     } catch (error) {
@@ -521,10 +457,7 @@ class MapController extends ChangeNotifier {
   Future<void> _handleCurrentRegion(RegionPolygon region) async {
     currentRegion = region;
 
-    final cacheResult = _cacheRegionAsPolygons(
-      region,
-      mode: MapLayerMode.sa1Detail,
-    );
+    final cacheResult = _cacheRegionAsPolygons(region);
     final effectiveRegion = cacheResult.region;
 
     currentRegion = effectiveRegion;
@@ -628,63 +561,47 @@ class MapController extends ChangeNotifier {
     }
   }
 
-  RegionPolygonCacheResult _cacheRegionAsPolygons(
-  RegionPolygon region, {
-  required MapLayerMode mode,
-}) {
-  final cache = mode == MapLayerMode.sa1Detail
-      ? _sa1PolygonCache
-      : _sa3PolygonCache;
+  RegionPolygonCacheResult _cacheRegionAsPolygons(RegionPolygon region) {
+    final cacheResult = _regionPolygonCache.cacheRegion(
+      region: region,
+      isVisited: _visitedRegionIds.contains(region.id),
+      isCurrentRegion: currentRegion?.id == region.id,
+      onRegionTapped: onRegionTapped,
+      heatmapIntensity: _heatmapIntensityForRegion(region.id),
+    );
 
-  final cacheResult = cache.cacheRegion(
-    region: region,
-    isVisited: mode == MapLayerMode.sa1Detail
-        ? _visitedRegionIds.contains(region.id)
-        : false,
-    isCurrentRegion: mode == MapLayerMode.sa1Detail
-        ? currentRegion?.id == region.id
-        : false,
-    onRegionTapped: onRegionTapped,
-    heatmapIntensity: mode == MapLayerMode.sa1Detail
-        ? _heatmapIntensityForRegion(region.id)
-        : null,
-  );
+    _syncPolygonsForCurrentMode();
 
-  _syncPolygonsForCurrentMode();
-
-  return cacheResult;
-}
+    return cacheResult;
+  }
 
   void _refreshCachedPolygonsStyles() {
-  _sa1PolygonCache.refreshStyles(
-    shouldRenderAsVisited: (regionId) => _visitedRegionIds.contains(regionId),
-    isCurrentRegion: (regionId) => currentRegion?.id == regionId,
-    onRegionTapped: onRegionTapped,
-    heatmapIntensityForRegion: _heatmapIntensityForRegion,
-  );
+    _regionPolygonCache.refreshStyles(
+      shouldRenderAsVisited: (regionId) => _visitedRegionIds.contains(regionId),
+      isCurrentRegion: (regionId) => currentRegion?.id == regionId,
+      onRegionTapped: onRegionTapped,
+      heatmapIntensityForRegion: _heatmapIntensityForRegion,
+    );
 
-  _sa3PolygonCache.refreshStyles(
-    shouldRenderAsVisited: (_) => false,
-    isCurrentRegion: (_) => false,
-    onRegionTapped: onRegionTapped,
-  );
-
-  _syncPolygonsForCurrentMode();
-}
+    _syncPolygonsForCurrentMode();
+  }
 
   void _syncPolygonsForCurrentMode() {
-  if (_currentLayerMode == MapLayerMode.sa1Detail) {
-    polygons = _sa1PolygonCache.polygonsForDisplay(
-      showUnvisitedRegions: true,
+    if (_currentLayerMode == MapLayerMode.sa1Detail) {
+      polygons = _regionPolygonCache.polygonsForDisplay(
+        showUnvisitedRegions: true,
+        visitedRegionIds: _visitedRegionIds,
+        currentRegionId: currentRegion?.id,
+      );
+      return;
+    }
+
+    polygons = _regionPolygonCache.polygonsForDisplay(
+      showUnvisitedRegions: false,
       visitedRegionIds: _visitedRegionIds,
       currentRegionId: currentRegion?.id,
     );
-    return;
   }
-
-  polygons = _sa3PolygonCache.polygons;
-}
-
 
   Future<void> _loadUserVisitState() async {
     if (_userId == null) {

@@ -1,5 +1,16 @@
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 
+
+/*
+ * Author: Rushil Patel
+ * Description:
+ *   Centralises map zoom behaviour and viewport-loading rules.
+ *   Determines when the map should display detailed SA1 tiles versus
+ *   overview mode, and provides viewport expansion logic used for
+ *   prefetching nearby regions before they enter the visible screen.
+ */
+
+
 enum MapLayerMode {
   sa3Overview,
   sa1Detail,

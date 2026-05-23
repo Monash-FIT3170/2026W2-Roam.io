@@ -5,6 +5,15 @@ import 'map_viewport_policy.dart';
 import 'region_polygon.dart';
 import 'region_service.dart';
 
+/*
+ * Author: Rushil Patel
+ * Description:
+ *   Handles viewport-based region loading for the map feature.
+ *   Tracks previously loaded map coverage, applies viewport
+ *   prefetching rules, and prevents unnecessary network requests
+ *   when the current screen area has already been cached.
+ */
+
 class ViewportRegionLoadResult {
   const ViewportRegionLoadResult({
     required this.regions,

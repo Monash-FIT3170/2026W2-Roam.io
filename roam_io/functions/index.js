@@ -171,8 +171,9 @@ app.get('/sa3/all', async (req, res) => {
       SELECT
         id,
         name,
-        ST_Area(geography(geometry)) AS area_square_metres,
-        ST_AsGeoJSON(geometry) AS geometry
+        ST_AsGeoJSON(
+          ST_SimplifyPreserveTopology(geometry, 0.001)
+        ) AS geometry
       FROM sa3_regions;
     `;
 
@@ -187,7 +188,6 @@ app.get('/sa3/all', async (req, res) => {
     });
   }
 });
-
 
 
 
