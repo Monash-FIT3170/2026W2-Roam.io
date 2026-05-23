@@ -29,7 +29,7 @@ class ViewportRegionLoader {
   final RegionService _regionService;
   final MapViewportPolicy _policy;
 
-  LatLngBounds? _lastLoadedBounds;
+  LatLngBounds? _loadedCoverageBounds;
   DateTime? _lastLoadTime;
   bool _isLoading = false;
 
@@ -38,6 +38,7 @@ class ViewportRegionLoader {
   Future<ViewportRegionLoadResult> load({
     required GoogleMapController mapController,
     required double currentZoom,
+    bool force = false,
   }) async {
     final mode = _policy.modeForZoom(currentZoom);
 
@@ -50,7 +51,7 @@ class ViewportRegionLoader {
       );
     }
 
-    if (_isLoading || _isInsideDebounceWindow()) {
+    if (!force && (_isLoading || _isInsideDebounceWindow())) {
       return ViewportRegionLoadResult(
         regions: const [],
         mode: mode,
@@ -59,32 +60,38 @@ class ViewportRegionLoader {
     }
 
     final visibleBounds = await mapController.getVisibleRegion();
-    final expandedBounds = _policy.expandBounds(visibleBounds);
 
-    if (_lastLoadedBounds != null &&
-        _policy.areBoundsSimilar(_lastLoadedBounds!, expandedBounds)) {
+    if (!force &&
+        _loadedCoverageBounds != null &&
+        _policy.containsBounds(
+          outer: _loadedCoverageBounds!,
+          inner: visibleBounds,
+        )) {
       return ViewportRegionLoadResult(
         regions: const [],
         mode: mode,
         didSkip: true,
-        message: 'Already loaded this area',
       );
     }
+
+    final prefetchBounds = _policy.expandBounds(visibleBounds);
 
     _isLoading = true;
 
     try {
       final regions = await _regionService.getRegionsForViewport(
-        south: expandedBounds.southwest.latitude,
-        west: expandedBounds.southwest.longitude,
-        north: expandedBounds.northeast.latitude,
-        east: expandedBounds.northeast.longitude,
+        south: prefetchBounds.southwest.latitude,
+        west: prefetchBounds.southwest.longitude,
+        north: prefetchBounds.northeast.latitude,
+        east: prefetchBounds.northeast.longitude,
       );
 
-      _lastLoadedBounds = expandedBounds;
+      _loadedCoverageBounds = prefetchBounds;
+      _lastLoadTime = DateTime.now();
 
       debugPrint(
-        '[ViewportRegionLoader] Loaded ${regions.length} regions at zoom $currentZoom',
+        '[ViewportRegionLoader] Prefetched ${regions.length} SA1 tiles '
+        'at zoom $currentZoom force=$force',
       );
 
       return ViewportRegionLoadResult(
@@ -102,17 +109,11 @@ class ViewportRegionLoader {
     final now = DateTime.now();
 
     if (_lastLoadTime == null) {
-      _lastLoadTime = now;
       return false;
     }
 
-    final diff = now.difference(_lastLoadTime!);
+    final difference = now.difference(_lastLoadTime!);
 
-    if (diff.inMilliseconds < MapViewportPolicy.debounceMilliseconds) {
-      return true;
-    }
-
-    _lastLoadTime = now;
-    return false;
+    return difference.inMilliseconds < MapViewportPolicy.debounceMilliseconds;
   }
 }

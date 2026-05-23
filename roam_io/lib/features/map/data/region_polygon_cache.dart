@@ -1,5 +1,5 @@
 /*
- * Author: Sanjevan Rajasegar
+ * Author: Sanjevan Rajasegar / Rushil Patel
  * Last Modified: 23/05/2026
  * Description:
  *   Caches loaded region polygons so map rendering can reuse already-fetched
@@ -27,10 +27,11 @@ class RegionPolygonCache {
   static const int _visitedStrokeWidth = 3;
 
   static const Color _unvisitedStrokeColor = Color(0xFF4A4A4A);
-  static const Color _unvisitedFillColor = Color(0xCC080808);
+  static const Color _unvisitedFillColor = Color(0x99000000);
   static const int _unvisitedStrokeWidth = 2;
 
   static const Color _currentRegionStrokeColor = Color(0xFFF3D27A);
+  static const Color _currentRegionFillColor = Color(0x22F3D27A);
   static const int _currentRegionStrokeWidth = 5;
 
   static const Color _heatmapColdColor = Color(0xFF3D8BFF);
@@ -73,6 +74,7 @@ class RegionPolygonCache {
       ),
       fillColor: _fillColorForRegion(
         isVisited: isVisited,
+        isCurrentRegion: isCurrentRegion,
         heatmapIntensity: heatmapIntensity,
       ),
       strokeWidth: _strokeWidthForRegion(
@@ -165,19 +167,24 @@ class RegionPolygonCache {
   }
 
   Color _fillColorForRegion({
-    required bool isVisited,
-    double? heatmapIntensity,
-  }) {
-    if (!isVisited) {
-      return _unvisitedFillColor;
-    }
-
-    if (heatmapIntensity != null) {
-      return _heatmapColor(heatmapIntensity).withValues(alpha: 0.48);
-    }
-
-    return _visitedFillColor;
+  required bool isVisited,
+  required bool isCurrentRegion,
+  double? heatmapIntensity,
+}) {
+  if (isCurrentRegion) {
+    return _currentRegionFillColor;
   }
+
+  if (!isVisited) {
+    return _unvisitedFillColor;
+  }
+
+  if (heatmapIntensity != null) {
+    return _heatmapColor(heatmapIntensity).withValues(alpha: 0.48);
+  }
+
+  return _visitedFillColor;
+}
 
   int _strokeWidthForRegion({
     required bool isVisited,

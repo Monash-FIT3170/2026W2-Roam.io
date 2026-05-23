@@ -9,8 +9,10 @@ class MapViewportPolicy {
   static const double defaultZoom = 16.0;
   static const double minimumTileDetailZoom = 15.0;
 
-  static const int debounceMilliseconds = 700;
-  static const double viewportPaddingRatio = 0.25;
+  static const int debounceMilliseconds = 650;
+
+  // Loads extra area around the visible screen so nearby panning feels smooth.
+  static const double prefetchPaddingRatio = 0.75;
 
   static const String zoomInMessage = 'Zoom in to reveal SA1 tiles';
 
@@ -28,8 +30,8 @@ class MapViewportPolicy {
     final latSpan = bounds.northeast.latitude - bounds.southwest.latitude;
     final lngSpan = bounds.northeast.longitude - bounds.southwest.longitude;
 
-    final latPadding = latSpan * viewportPaddingRatio;
-    final lngPadding = lngSpan * viewportPaddingRatio;
+    final latPadding = latSpan.abs() * prefetchPaddingRatio;
+    final lngPadding = lngSpan.abs() * prefetchPaddingRatio;
 
     return LatLngBounds(
       southwest: LatLng(
@@ -43,25 +45,13 @@ class MapViewportPolicy {
     );
   }
 
-  bool areBoundsSimilar(LatLngBounds oldBounds, LatLngBounds newBounds) {
-    final latSpan = oldBounds.northeast.latitude - oldBounds.southwest.latitude;
-    final lngSpan = oldBounds.northeast.longitude - oldBounds.southwest.longitude;
-
-    final latThreshold = latSpan.abs() * 0.2;
-    final lngThreshold = lngSpan.abs() * 0.2;
-
-    final southDiff =
-        (newBounds.southwest.latitude - oldBounds.southwest.latitude).abs();
-    final westDiff =
-        (newBounds.southwest.longitude - oldBounds.southwest.longitude).abs();
-    final northDiff =
-        (newBounds.northeast.latitude - oldBounds.northeast.latitude).abs();
-    final eastDiff =
-        (newBounds.northeast.longitude - oldBounds.northeast.longitude).abs();
-
-    return southDiff < latThreshold &&
-        westDiff < lngThreshold &&
-        northDiff < latThreshold &&
-        eastDiff < lngThreshold;
+  bool containsBounds({
+    required LatLngBounds outer,
+    required LatLngBounds inner,
+  }) {
+    return inner.southwest.latitude >= outer.southwest.latitude &&
+        inner.southwest.longitude >= outer.southwest.longitude &&
+        inner.northeast.latitude <= outer.northeast.latitude &&
+        inner.northeast.longitude <= outer.northeast.longitude;
   }
 }

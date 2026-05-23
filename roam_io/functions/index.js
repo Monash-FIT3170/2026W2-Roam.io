@@ -119,7 +119,7 @@ app.post('/regions/viewport', async (req, res) => {
         geometry,
         ST_MakeEnvelope($1, $2, $3, $4, 4326)
       )
-      LIMIT 80;
+      LIMIT 400;
     `;
 
     const result = await getPool().query(query, [west, south, east, north]);

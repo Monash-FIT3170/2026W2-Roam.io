@@ -1,8 +1,8 @@
 /*
- * Author: Sanjevan Rajasegar
+ * Author: Sanjevan Rajasegar / Rushil Patel
  * Last Modified: 23/05/2026
  * Description:
- *   Coordinates the map feature
+ *   Coordinates the map feature without owning every low-level detail.
  *
  *   Responsibilities:
  *   - map lifecycle and camera callbacks
@@ -18,11 +18,11 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
-import 'package:roam_io/features/map/data/place_market_manager.dart';
 
 import '../../profile/domain/xp_reward_config.dart';
 import 'geolocator_service.dart';
 import 'map_viewport_policy.dart';
+import 'place_marker_manager.dart';
 import 'place_of_interest.dart';
 import 'region_polygon.dart';
 import 'region_polygon_cache.dart';
@@ -92,10 +92,10 @@ class MapController extends ChangeNotifier {
             visitedRegionService ?? VisitedRegionService(),
         _regionPolygonCache = regionPolygonCache ?? RegionPolygonCache(),
         _tileUnlockXpService = tileUnlockXpService ?? TileUnlockXpService(),
-        _viewportPolicy = viewportPolicy ?? MapViewportPolicy(),
         _viewportRegionLoader =
             viewportRegionLoader ?? ViewportRegionLoader(),
-        _placeMarkerManager = placeMarkerManager ?? PlaceMarkerManager();
+        _placeMarkerManager = placeMarkerManager ?? PlaceMarkerManager(),
+        _viewportPolicy = viewportPolicy ?? MapViewportPolicy();
 
   final GeoLocatorService _geoLocatorService;
   final RegionService _regionService;
@@ -178,7 +178,6 @@ class MapController extends ChangeNotifier {
     markers = _placeMarkerManager.markers;
 
     _refreshCachedPolygonsStyles();
-
     notifyListeners();
   }
 
@@ -214,9 +213,9 @@ class MapController extends ChangeNotifier {
 
     await _googleMapController?.animateCamera(
       CameraUpdate.newLatLngZoom(center, defaultZoom),
+
     );
 
-    await loadViewportRegions();
   }
 
   void onCameraMove(CameraPosition position) {
@@ -234,7 +233,7 @@ class MapController extends ChangeNotifier {
     }
   }
 
-  Future<void> loadViewportRegions() async {
+  Future<void> loadViewportRegions({bool force = false}) async {
     final controller = _googleMapController;
     if (controller == null) return;
 
@@ -245,6 +244,7 @@ class MapController extends ChangeNotifier {
       final result = await _viewportRegionLoader.load(
         mapController: controller,
         currentZoom: _currentZoom,
+        force: force
       );
 
       _currentLayerMode = result.mode;
@@ -423,6 +423,9 @@ class MapController extends ChangeNotifier {
       await _googleMapController?.animateCamera(
         CameraUpdate.newLatLngZoom(userCenter, defaultZoom),
       );
+
+      await Future.delayed(const Duration(milliseconds: 350));
+      await loadViewportRegions(force: true);
 
       await _startLocationUpdates();
     } catch (error) {
