@@ -22,17 +22,31 @@ import 'region_polygon.dart';
 
 /// Keeps loaded [RegionPolygon] objects and rendered Google Maps polygons in sync.
 class RegionPolygonCache {
-  static const Color _visitedStrokeColor = Color(0x80F3D27A);
-  static const Color _visitedFillColor = Color(0x00000000);
+  /*
+  static const Color _visitedStrokeColor = Color(0xB0F3D27A);
+  static const Color _visitedFillColor = Color(0x18F3D27A);
   static const int _visitedStrokeWidth = 3;
 
   static const Color _unvisitedStrokeColor = Color(0xFF4A4A4A);
-  static const Color _unvisitedFillColor = Color(0x99000000);
+  static const Color _unvisitedFillColor = Color(0xCC000000);
   static const int _unvisitedStrokeWidth = 2;
 
   static const Color _currentRegionStrokeColor = Color(0xFFF3D27A);
-  static const Color _currentRegionFillColor = Color(0x22F3D27A);
+  static const Color _currentRegionFillColor = Color(0x33F3D27A);
   static const int _currentRegionStrokeWidth = 5;
+
+*/
+  static const Color _visitedStrokeColor = Color(0xFFFFFFFF);
+  static const Color _visitedFillColor = Color(0x30FFFFFF);
+  static const int _visitedStrokeWidth = 5;
+
+  static const Color _currentRegionStrokeColor = Color(0xFFFFFFFF);
+  static const Color _currentRegionFillColor = Color(0x30FFFFFF);
+  static const int _currentRegionStrokeWidth = 7;
+
+  static const Color _unvisitedStrokeColor = Color(0xFF4A4A4A);
+  static const Color _unvisitedFillColor = Color(0xCC000000);
+  static const int _unvisitedStrokeWidth = 2;
 
   static const Color _heatmapColdColor = Color(0xFF3D8BFF);
   static const Color _heatmapWarmColor = Color(0xFFFFC247);

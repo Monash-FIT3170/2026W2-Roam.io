@@ -181,7 +181,7 @@ static const String fogStyle = '''
     "featureType": "road",
     "elementType": "geometry.stroke",
     "stylers": [
-      { "color": "#1A1A1A" }
+      { "color": "#555555" }
     ]
   },
   {

@@ -19,6 +19,9 @@ class ViewportRegionLoadResult {
   final String? message;
 }
 
+/// Loads nearby SA1 tiles only.
+///
+/// SA3 is preloaded separately in MapController using getAllSa3Regions().
 class ViewportRegionLoader {
   ViewportRegionLoader({
     RegionService? regionService,
@@ -29,32 +32,33 @@ class ViewportRegionLoader {
   final RegionService _regionService;
   final MapViewportPolicy _policy;
 
-  LatLngBounds? _loadedCoverageBounds;
+  LatLngBounds? _loadedSa1CoverageBounds;
   DateTime? _lastLoadTime;
   bool _isLoading = false;
-
-  bool get isLoading => _isLoading;
 
   Future<ViewportRegionLoadResult> load({
     required GoogleMapController mapController,
     required double currentZoom,
+    required MapLayerMode currentMode,
     bool force = false,
   }) async {
-    final mode = _policy.modeForZoom(currentZoom);
+    final targetMode = _policy.modeForZoom(
+      zoom: currentZoom,
+      currentMode: currentMode,
+    );
 
-    if (!_policy.shouldLoadSa1Tiles(currentZoom)) {
+    if (targetMode == MapLayerMode.sa3Overview) {
       return const ViewportRegionLoadResult(
         regions: [],
-        mode: MapLayerMode.overview,
+        mode: MapLayerMode.sa3Overview,
         didSkip: true,
-        message: MapViewportPolicy.zoomInMessage,
       );
     }
 
     if (!force && (_isLoading || _isInsideDebounceWindow())) {
-      return ViewportRegionLoadResult(
-        regions: const [],
-        mode: mode,
+      return const ViewportRegionLoadResult(
+        regions: [],
+        mode: MapLayerMode.sa1Detail,
         didSkip: true,
       );
     }
@@ -62,19 +66,19 @@ class ViewportRegionLoader {
     final visibleBounds = await mapController.getVisibleRegion();
 
     if (!force &&
-        _loadedCoverageBounds != null &&
+        _loadedSa1CoverageBounds != null &&
         _policy.containsBounds(
-          outer: _loadedCoverageBounds!,
+          outer: _loadedSa1CoverageBounds!,
           inner: visibleBounds,
         )) {
-      return ViewportRegionLoadResult(
-        regions: const [],
-        mode: mode,
+      return const ViewportRegionLoadResult(
+        regions: [],
+        mode: MapLayerMode.sa1Detail,
         didSkip: true,
       );
     }
 
-    final prefetchBounds = _policy.expandBounds(visibleBounds);
+    final prefetchBounds = _policy.expandSa1Bounds(visibleBounds);
 
     _isLoading = true;
 
@@ -86,7 +90,7 @@ class ViewportRegionLoader {
         east: prefetchBounds.northeast.longitude,
       );
 
-      _loadedCoverageBounds = prefetchBounds;
+      _loadedSa1CoverageBounds = prefetchBounds;
       _lastLoadTime = DateTime.now();
 
       debugPrint(
@@ -96,9 +100,9 @@ class ViewportRegionLoader {
 
       return ViewportRegionLoadResult(
         regions: regions,
-        mode: mode,
+        mode: MapLayerMode.sa1Detail,
         didSkip: false,
-        message: 'Loaded ${regions.length} nearby tiles',
+        message: 'Loaded ${regions.length} nearby SA1 tiles',
       );
     } finally {
       _isLoading = false;
@@ -106,14 +110,11 @@ class ViewportRegionLoader {
   }
 
   bool _isInsideDebounceWindow() {
-    final now = DateTime.now();
+    if (_lastLoadTime == null) return false;
 
-    if (_lastLoadTime == null) {
-      return false;
-    }
+    final difference = DateTime.now().difference(_lastLoadTime!);
 
-    final difference = now.difference(_lastLoadTime!);
-
-    return difference.inMilliseconds < MapViewportPolicy.debounceMilliseconds;
+    return difference.inMilliseconds <
+        MapViewportPolicy.debounceMilliseconds;
   }
 }

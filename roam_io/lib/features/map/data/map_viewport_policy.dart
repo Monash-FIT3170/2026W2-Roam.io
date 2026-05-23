@@ -1,37 +1,43 @@
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 
 enum MapLayerMode {
-  overview,
-  tileDetail,
+  sa3Overview,
+  sa1Detail,
 }
 
 class MapViewportPolicy {
   static const double defaultZoom = 16.0;
-  static const double minimumTileDetailZoom = 15.0;
+
+  // Hysteresis:
+  // SA1 -> SA3 only when zoomed far out.
+  // SA3 -> SA1 only when zoomed clearly back in.
+  static const double sa1ExitZoom = 12.75;
+  static const double sa1EnterZoom = 13.75;
 
   static const int debounceMilliseconds = 650;
+  static const double sa1PrefetchPaddingRatio = 1.25;
 
-  // Loads extra area around the visible screen so nearby panning feels smooth.
-  static const double prefetchPaddingRatio = 0.75;
+  MapLayerMode modeForZoom({
+    required double zoom,
+    required MapLayerMode currentMode,
+  }) {
+    if (currentMode == MapLayerMode.sa1Detail) {
+      return zoom < sa1ExitZoom
+          ? MapLayerMode.sa3Overview
+          : MapLayerMode.sa1Detail;
+    }
 
-  static const String zoomInMessage = 'Zoom in to reveal SA1 tiles';
-
-  MapLayerMode modeForZoom(double zoom) {
-    return zoom >= minimumTileDetailZoom
-        ? MapLayerMode.tileDetail
-        : MapLayerMode.overview;
+    return zoom > sa1EnterZoom
+        ? MapLayerMode.sa1Detail
+        : MapLayerMode.sa3Overview;
   }
 
-  bool shouldLoadSa1Tiles(double zoom) {
-    return modeForZoom(zoom) == MapLayerMode.tileDetail;
-  }
-
-  LatLngBounds expandBounds(LatLngBounds bounds) {
+  LatLngBounds expandSa1Bounds(LatLngBounds bounds) {
     final latSpan = bounds.northeast.latitude - bounds.southwest.latitude;
     final lngSpan = bounds.northeast.longitude - bounds.southwest.longitude;
 
-    final latPadding = latSpan.abs() * prefetchPaddingRatio;
-    final lngPadding = lngSpan.abs() * prefetchPaddingRatio;
+    final latPadding = latSpan.abs() * sa1PrefetchPaddingRatio;
+    final lngPadding = lngSpan.abs() * sa1PrefetchPaddingRatio;
 
     return LatLngBounds(
       southwest: LatLng(

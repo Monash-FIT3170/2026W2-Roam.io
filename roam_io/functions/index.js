@@ -119,7 +119,7 @@ app.post('/regions/viewport', async (req, res) => {
         geometry,
         ST_MakeEnvelope($1, $2, $3, $4, 4326)
       )
-      LIMIT 400;
+      LIMIT 650;
     `;
 
     const result = await getPool().query(query, [west, south, east, north]);
@@ -131,6 +131,63 @@ app.post('/regions/viewport', async (req, res) => {
     });
   }
 });
+
+
+app.post('/sa3/viewport', async (req, res) => {
+  try {
+    const { south, west, north, east } = req.body;
+
+    if ([south, west, north, east].some((value) => value == null)) {
+      return res.status(400).json({
+        error: 'south, west, north, and east are required',
+      });
+    }
+
+    const query = `
+      SELECT
+        id,
+        name,
+        ST_Area(geography(geometry)) AS area_square_metres,
+        ST_AsGeoJSON(geometry) AS geometry
+      FROM sa3_regions
+      WHERE ST_Intersects(
+        geometry,
+        ST_MakeEnvelope($1, $2, $3, $4, 4326)
+      );
+    `;
+
+    const result = await getPool().query(query, [west, south, east, north]);
+    return res.json(result.rows);
+  } catch (error) {
+    console.error('Error in /sa3/viewport:', error);
+    return res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+
+app.get('/sa3/all', async (req, res) => {
+  try {
+    const query = `
+      SELECT
+        id,
+        name,
+        ST_Area(geography(geometry)) AS area_square_metres,
+        ST_AsGeoJSON(geometry) AS geometry
+      FROM sa3_regions;
+    `;
+
+    const result = await getPool().query(query);
+    return res.json(result.rows);
+  } catch (error) {
+    console.error('Error in /sa3/all:', error);
+
+    return res.status(500).json({
+      error: 'Internal server error',
+      details: error.message,
+    });
+  }
+});
+
 
 
 
