@@ -144,17 +144,14 @@ app.post('/sa3/viewport', async (req, res) => {
     }
 
     const query = `
-      SELECT
-        id,
-        name,
-        ST_Area(geography(geometry)) AS area_square_metres,
-        ST_AsGeoJSON(geometry) AS geometry
-      FROM sa3_regions
-      WHERE ST_Intersects(
-        geometry,
-        ST_MakeEnvelope($1, $2, $3, $4, 4326)
-      );
-    `;
+    SELECT
+      id,
+      name,
+      ST_AsGeoJSON(
+        ST_SimplifyPreserveTopology(geometry, 0.001)
+      ) AS geometry
+    FROM sa3_regions;
+  `;
 
     const result = await getPool().query(query, [west, south, east, north]);
     return res.json(result.rows);

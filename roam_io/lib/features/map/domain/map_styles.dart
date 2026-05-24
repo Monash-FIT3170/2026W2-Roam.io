@@ -246,6 +246,6 @@ class MapStyles {
   /// Returns [dark] for dark mode, [light] for light mode.
   /// Both styles hide all labels to keep polygons and markers clean.
   static String forBrightness(Brightness brightness) {
-    return fogStyle; //brightness == Brightness.dark ? dark : light;
+    return brightness == Brightness.dark ? dark : light;
   }
 }
