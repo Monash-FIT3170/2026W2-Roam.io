@@ -10,6 +10,36 @@
 
 </div>
 
+<hr>
+
+<h2>🎯 About Roam.io</h2>
+
+<p>
+  Roam.io is a gamified real-world exploration app that turns everyday movement into discovery.
+  Users uncover hidden map regions, discover nearby places, gain XP, and build a personal map of
+  where they have explored.
+</p>
+
+<h2>✨ Key Features</h2>
+
+<ul>
+  <li><strong>🗺️ Fog of War Exploration</strong> - Hidden map regions are revealed as users physically explore new areas.</li>
+  <li><strong>📍 Location Discovery</strong> - Nearby landmarks, cafes, parks, and points of interest appear as regions are unlocked.</li>
+  <li><strong>⚡ XP Progression</strong> - Users earn XP for exploring regions, discovering places, and completing challenges.</li>
+  <li><strong>🚶 Route Tracking</strong> - Users can track walks, drives, tram rides, and public transport journeys.</li>
+  <li><strong>🎯 Side Quests</strong> - Optional exploration tasks encourage users to visit new places.</li>
+</ul>
+
+<blockquote>
+  <p><strong>ⓘ Note</strong></p>
+  <p>
+    Roam.io focuses on making exploration feel meaningful by turning the real world into a discoverable,
+    evolving experience.
+  </p>
+</blockquote>
+
+<hr>
+
 <h2>👥 Team</h2>
 
 <table>
