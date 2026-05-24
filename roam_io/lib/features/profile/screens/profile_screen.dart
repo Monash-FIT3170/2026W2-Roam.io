@@ -713,43 +713,48 @@ class _DarkModePreferenceTile extends StatelessWidget {
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
     final isDark = Theme.of(context).brightness == Brightness.dark;
+    final borderRadius = BorderRadius.circular(15);
 
     return Container(
       decoration: BoxDecoration(
         color: isDark ? const Color(0xFF171A20) : AppColors.cream,
-        borderRadius: BorderRadius.circular(15),
+        borderRadius: borderRadius,
         border: Border.all(
           color: colorScheme.primary.withValues(alpha: isDark ? 0.2 : 0.1),
         ),
       ),
-      child: SwitchListTile(
-        dense: true,
-        visualDensity: const VisualDensity(horizontal: 0, vertical: -3),
-        value: enabled,
-        onChanged: onChanged,
-        secondary: Icon(
-          enabled ? Icons.dark_mode_rounded : Icons.light_mode_rounded,
-          size: 19,
-          color: colorScheme.primary,
-        ),
-        title: Text(
-          'Dark Mode',
-          style: TextStyle(
-            color: colorScheme.onSurface,
-            fontSize: 13,
-            fontWeight: FontWeight.w700,
+      child: Material(
+        color: Colors.transparent,
+        borderRadius: borderRadius,
+        child: SwitchListTile(
+          dense: true,
+          visualDensity: const VisualDensity(horizontal: 0, vertical: -3),
+          value: enabled,
+          onChanged: onChanged,
+          secondary: Icon(
+            enabled ? Icons.dark_mode_rounded : Icons.light_mode_rounded,
+            size: 19,
+            color: colorScheme.primary,
           ),
-        ),
-        subtitle: Text(
-          'Use a darker theme across the app.',
-          style: TextStyle(
-            color: colorScheme.onSurface.withValues(alpha: 0.6),
-            fontSize: 11,
+          title: Text(
+            'Dark Mode',
+            style: TextStyle(
+              color: colorScheme.onSurface,
+              fontSize: 13,
+              fontWeight: FontWeight.w700,
+            ),
           ),
+          subtitle: Text(
+            'Use a darker theme across the app.',
+            style: TextStyle(
+              color: colorScheme.onSurface.withValues(alpha: 0.6),
+              fontSize: 11,
+            ),
+          ),
+          activeThumbColor: Colors.white,
+          activeTrackColor: colorScheme.primary,
+          contentPadding: const EdgeInsets.symmetric(horizontal: 12),
         ),
-        activeThumbColor: Colors.white,
-        activeTrackColor: colorScheme.primary,
-        contentPadding: const EdgeInsets.symmetric(horizontal: 12),
       ),
     );
   }
