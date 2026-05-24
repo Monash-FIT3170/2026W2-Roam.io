@@ -13,7 +13,7 @@ import '../domain/map_styles.dart';
 
 /// Stateless Google Map wrapper used by the map page.
 class MapRender extends StatelessWidget {
-  static double defaultZoom = 13.5;
+  static double defaultZoom = 16.0;
 
   const MapRender({
     super.key,
@@ -39,7 +39,7 @@ class MapRender extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return GoogleMap(
-      initialCameraPosition: CameraPosition(target: initialCenter, zoom: 13.5),
+      initialCameraPosition: CameraPosition(target: initialCenter, zoom: 16.0),
       style: MapStyles.forBrightness(Theme.of(context).brightness),
       onMapCreated: onMapCreated,
       polygons: polygons,

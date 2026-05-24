@@ -80,7 +80,7 @@ void main() {
 
         final polygon = cache.polygons.single;
 
-        expect(polygon.fillColor, const Color(0xCC080808));
+        expect(polygon.fillColor, const Color(0xCC000000));
       },
     );
   });
