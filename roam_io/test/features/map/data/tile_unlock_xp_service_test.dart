@@ -25,10 +25,9 @@ void main() {
         _region(areaSquareMetres: 4000000),
       );
 
-      expect(result.xpAwarded, 75);
-      expect(result.xpAwarded, isNot(XpRewardConfig.baseTileUnlockXp));
+      expect(result.xpAwarded, 50);
       expect(result.didLevelUp, isFalse);
-      expect(awardedXp, <int>[75]);
+      expect(awardedXp, <int>[50]);
     });
 
     test('reports when the injected writer triggers a level-up', () async {
@@ -42,23 +41,24 @@ void main() {
       expect(result.didLevelUp, isTrue);
     });
 
-    test('uses minimum fallback XP when polygon area is missing', () async {
-      final awardedXp = <int>[];
-      final service = TileUnlockXpService(
-        addXp: (xpToAdd) async {
-          awardedXp.add(xpToAdd);
-          return false;
-        },
-      );
+  test('awards fixed XP when polygon area is missing', () async {
+    final awardedXp = <int>[];
 
-      final result = await service.awardForUnlockedPolygon(
-        _region(areaSquareMetres: null),
-      );
+    final service = TileUnlockXpService(
+      addXp: (xpToAdd) async {
+        awardedXp.add(xpToAdd);
+        return false;
+      },
+    );
 
-      expect(result.xpAwarded, XpRewardConfig.minTileUnlockXp);
-      expect(awardedXp, <int>[XpRewardConfig.minTileUnlockXp]);
-    });
+    final result = await service.awardForUnlockedPolygon(
+      _region(areaSquareMetres: null),
+    );
+
+    expect(result.xpAwarded, XpRewardConfig.tileUnlockXpReward);
+    expect(awardedXp, <int>[XpRewardConfig.tileUnlockXpReward]);
   });
+    });
 }
 
 RegionPolygon _region({required double? areaSquareMetres}) {
