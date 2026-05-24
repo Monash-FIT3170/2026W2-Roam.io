@@ -1,6 +1,5 @@
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 
-
 /*
  * Author: Rushil Patel
  * Description:
@@ -10,11 +9,7 @@ import 'package:google_maps_flutter/google_maps_flutter.dart';
  *   prefetching nearby regions before they enter the visible screen.
  */
 
-
-enum MapLayerMode {
-  sa3Overview,
-  sa1Detail,
-}
+enum MapLayerMode { sa3Overview, sa1Detail }
 
 class MapViewportPolicy {
   static const double defaultZoom = 16.0;

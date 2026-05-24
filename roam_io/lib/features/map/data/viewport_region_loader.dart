@@ -35,8 +35,8 @@ class ViewportRegionLoader {
   ViewportRegionLoader({
     RegionService? regionService,
     MapViewportPolicy? policy,
-  })  : _regionService = regionService ?? RegionService(),
-        _policy = policy ?? MapViewportPolicy();
+  }) : _regionService = regionService ?? RegionService(),
+       _policy = policy ?? MapViewportPolicy();
 
   final RegionService _regionService;
   final MapViewportPolicy _policy;
@@ -123,7 +123,6 @@ class ViewportRegionLoader {
 
     final difference = DateTime.now().difference(_lastLoadTime!);
 
-    return difference.inMilliseconds <
-        MapViewportPolicy.debounceMilliseconds;
+    return difference.inMilliseconds < MapViewportPolicy.debounceMilliseconds;
   }
 }

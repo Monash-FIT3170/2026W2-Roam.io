@@ -93,24 +93,24 @@ class RegionService {
     return regions;
   }
 
-
   Future<List<RegionPolygon>> getAllSa3Regions() async {
-  final response = await _client.get(
-    Uri.parse('${ApiConfig.spatialApiBaseUrl}/sa3/all'),
-  );
+    final response = await _client.get(
+      Uri.parse('${ApiConfig.spatialApiBaseUrl}/sa3/all'),
+    );
 
-  if (response.statusCode != 200) {
-    throw Exception('Failed to fetch SA3 regions: ${response.body}');
+    if (response.statusCode != 200) {
+      throw Exception('Failed to fetch SA3 regions: ${response.body}');
+    }
+
+    final decoded = jsonDecode(response.body) as List<dynamic>;
+
+    return decoded
+        .map(
+          (item) =>
+              RegionPolygon.fromJson(Map<String, dynamic>.from(item as Map)),
+        )
+        .toList();
   }
-
-  final decoded = jsonDecode(response.body) as List<dynamic>;
-
-  return decoded
-      .map((item) => RegionPolygon.fromJson(Map<String, dynamic>.from(item as Map)))
-      .toList();
-}
-
-
 
   void _debugLogAreaContract({
     required String endpoint,

@@ -31,13 +31,7 @@ import 'visit_service.dart';
 import 'visited_region_service.dart';
 import 'viewport_region_loader.dart';
 
-enum VisitResult {
-  success,
-  notLoggedIn,
-  alreadyVisited,
-  tooFar,
-  error,
-}
+enum VisitResult { success, notLoggedIn, alreadyVisited, tooFar, error }
 
 class MapController extends ChangeNotifier {
   static const LatLng fallbackCenter = LatLng(-37.8136, 144.9631);
@@ -84,17 +78,15 @@ class MapController extends ChangeNotifier {
     ViewportRegionLoader? viewportRegionLoader,
     PlaceMarkerManager? placeMarkerManager,
     MapViewportPolicy? viewportPolicy,
-  })  : _geoLocatorService = geoLocatorService ?? GeoLocatorService(),
-        _regionService = regionService ?? RegionService(),
-        _visitService = visitService ?? VisitService(),
-        _visitedRegionService =
-            visitedRegionService ?? VisitedRegionService(),
-        _regionPolygonCache = regionPolygonCache ?? RegionPolygonCache(),
-        _tileUnlockXpService = tileUnlockXpService ?? TileUnlockXpService(),
-        _viewportRegionLoader =
-            viewportRegionLoader ?? ViewportRegionLoader(),
-        _placeMarkerManager = placeMarkerManager ?? PlaceMarkerManager(),
-        _viewportPolicy = viewportPolicy ?? MapViewportPolicy();
+  }) : _geoLocatorService = geoLocatorService ?? GeoLocatorService(),
+       _regionService = regionService ?? RegionService(),
+       _visitService = visitService ?? VisitService(),
+       _visitedRegionService = visitedRegionService ?? VisitedRegionService(),
+       _regionPolygonCache = regionPolygonCache ?? RegionPolygonCache(),
+       _tileUnlockXpService = tileUnlockXpService ?? TileUnlockXpService(),
+       _viewportRegionLoader = viewportRegionLoader ?? ViewportRegionLoader(),
+       _placeMarkerManager = placeMarkerManager ?? PlaceMarkerManager(),
+       _viewportPolicy = viewportPolicy ?? MapViewportPolicy();
 
   final GeoLocatorService _geoLocatorService;
   final RegionService _regionService;
@@ -195,6 +187,7 @@ class MapController extends ChangeNotifier {
 
     if (_isHeatmapEnabled && _userId != null) {
       await _loadVisitCountsByRegion();
+      await loadViewportRegions(force: true);
     }
 
     _refreshCachedPolygonsStyles();
@@ -333,10 +326,7 @@ class MapController extends ChangeNotifier {
       return (isNear: false, distance: null);
     }
 
-    return (
-      isNear: distance <= visitProximityThreshold,
-      distance: distance,
-    );
+    return (isNear: distance <= visitProximityThreshold, distance: distance);
   }
 
   Future<VisitResult> markPlaceAsVisited(
@@ -611,11 +601,9 @@ class MapController extends ChangeNotifier {
       return;
     }
 
-    await Future.wait([
-      _loadVisitedPlaces(),
-      _loadVisitedRegionIds(),
-      _loadVisitCountsByRegion(),
-    ]);
+    await _loadVisitedPlaces();
+    await _loadVisitedRegionIds();
+    await _loadVisitCountsByRegion();
   }
 
   Future<void> _loadVisitedPlaces() async {
@@ -650,9 +638,11 @@ class MapController extends ChangeNotifier {
     try {
       _visitCountsByRegion = await _visitService.getVisitCountsByRegion(
         _userId!,
+        validRegionIds: _visitedRegionIds,
       );
+
       debugPrint(
-        '[MapController] Loaded visit counts for ${_visitCountsByRegion.length} regions',
+        '[MapController] Loaded visit counts for ${_visitCountsByRegion.length} SA1 regions',
       );
     } catch (error) {
       debugPrint(
@@ -719,10 +709,19 @@ class MapController extends ChangeNotifier {
     final maxVisitCount = _maxVisitCountAcrossVisitedRegions;
 
     if (maxVisitCount <= 0) {
-      return 0;
+      return 0.2;
     }
 
-    final regionVisitCount = _visitCountsByRegion[regionId] ?? 0;
+    final regionVisitCount = _visitCountsByRegion[regionId] ?? 1;
+
+    debugPrint(
+      '[Heatmap] region=$regionId '
+      'enabled=$_isHeatmapEnabled '
+      'visited=${_visitedRegionIds.contains(regionId)} '
+      'count=${_visitCountsByRegion[regionId]} '
+      'max=$_maxVisitCountAcrossVisitedRegions',
+    );
+
     return regionVisitCount / maxVisitCount;
   }
 
@@ -730,7 +729,7 @@ class MapController extends ChangeNotifier {
     var maxVisitCount = 0;
 
     for (final regionId in _visitedRegionIds) {
-      final regionVisitCount = _visitCountsByRegion[regionId] ?? 0;
+      final regionVisitCount = _visitCountsByRegion[regionId] ?? 1;
 
       if (regionVisitCount > maxVisitCount) {
         maxVisitCount = regionVisitCount;

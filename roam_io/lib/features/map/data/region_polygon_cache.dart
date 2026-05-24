@@ -181,24 +181,24 @@ class RegionPolygonCache {
   }
 
   Color _fillColorForRegion({
-  required bool isVisited,
-  required bool isCurrentRegion,
-  double? heatmapIntensity,
-}) {
-  if (isCurrentRegion) {
-    return _currentRegionFillColor;
-  }
+    required bool isVisited,
+    required bool isCurrentRegion,
+    double? heatmapIntensity,
+  }) {
+    if (isCurrentRegion) {
+      return _currentRegionFillColor;
+    }
 
-  if (!isVisited) {
-    return _unvisitedFillColor;
-  }
+    if (!isVisited) {
+      return _unvisitedFillColor;
+    }
 
-  if (heatmapIntensity != null) {
-    return _heatmapColor(heatmapIntensity).withValues(alpha: 0.48);
-  }
+    if (heatmapIntensity != null) {
+      return _heatmapColor(heatmapIntensity).withValues(alpha: 0.48);
+    }
 
-  return _visitedFillColor;
-}
+    return _visitedFillColor;
+  }
 
   int _strokeWidthForRegion({
     required bool isVisited,

@@ -141,7 +141,7 @@ class MapStyles {
   }
 ]
 ''';
-static const String fogStyle = '''
+  static const String fogStyle = '''
 [
   {
     "elementType": "geometry",
@@ -246,6 +246,6 @@ static const String fogStyle = '''
   /// Returns [dark] for dark mode, [light] for light mode.
   /// Both styles hide all labels to keep polygons and markers clean.
   static String forBrightness(Brightness brightness) {
-    return fogStyle;//brightness == Brightness.dark ? dark : light;
+    return fogStyle; //brightness == Brightness.dark ? dark : light;
   }
 }

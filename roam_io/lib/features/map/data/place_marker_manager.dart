@@ -13,11 +13,9 @@ import 'places_service.dart';
  *   level or visit state changes.
  */
 
-
 class PlaceMarkerManager {
-  PlaceMarkerManager({
-    PlacesService? placesService,
-  }) : _placesService = placesService ?? PlacesService();
+  PlaceMarkerManager({PlacesService? placesService})
+    : _placesService = placesService ?? PlacesService();
 
   final PlacesService _placesService;
 
@@ -59,9 +57,7 @@ class PlaceMarkerManager {
     return didChange;
   }
 
-  void rebuildMarkers({
-    void Function(PlaceOfInterest place)? onPlaceTapped,
-  }) {
+  void rebuildMarkers({void Function(PlaceOfInterest place)? onPlaceTapped}) {
     final rebuiltMarkers = <Marker>{};
 
     for (final places in _placesByRegionId.values) {
