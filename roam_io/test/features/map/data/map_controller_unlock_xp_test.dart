@@ -10,6 +10,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:roam_io/features/map/data/geolocator_service.dart';
 import 'package:roam_io/features/map/data/map_controller.dart';
+import 'package:roam_io/features/map/data/place_marker_manager.dart';
 import 'package:roam_io/features/map/data/place_of_interest.dart';
 import 'package:roam_io/features/map/data/places_service.dart';
 import 'package:roam_io/features/map/data/region_polygon.dart';
@@ -283,7 +284,7 @@ MapController _buildController({
   final controller = MapController(
     geoLocatorService: _FakeGeoLocatorService(),
     regionService: _FakeRegionService(region),
-    placesService: _FakePlacesService(),
+    placeMarkerManager: PlaceMarkerManager(placesService: _FakePlacesService()),
     visitService: _FakeVisitService(),
     regionPolygonCache: regionPolygonCache,
     visitedRegionService:
@@ -383,7 +384,10 @@ class _FakeVisitService implements VisitService {
   Future<Set<int>> getVisitedPlaceIds(String userId) async => <int>{};
 
   @override
-  Future<Map<String, int>> getVisitCountsByRegion(String userId) async {
+  Future<Map<String, int>> getVisitCountsByRegion(
+    String userId, {
+    Set<String>? validRegionIds,
+  }) async {
     return const <String, int>{};
   }
 
