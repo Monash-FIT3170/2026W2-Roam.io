@@ -1,3 +1,5 @@
+<div align="center">
+
 <h1>2026W2-Roam.io</h1>
 
 <h2>📌 Vision Statement</h2>
@@ -5,6 +7,8 @@
 <blockquote>
   Roam.io aims to make exploration feel meaningful by turning the real world into a discoverable, evolving experience.
 </blockquote>
+
+</div>
 
 <h2>👥 Team</h2>
 
