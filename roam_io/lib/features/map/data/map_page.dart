@@ -71,7 +71,7 @@ class _MapPageState extends State<MapPage> {
 
   void _showRegionUnlockReward(RegionPolygon region, int xpAwarded) {
     if (!mounted) return;
-    AppToast.success(context, 'Unlocked ${region.name} +$xpAwarded XP');
+    AppToast.success(context, 'Unlocked New Region +$xpAwarded XP');
   }
 
   @override
