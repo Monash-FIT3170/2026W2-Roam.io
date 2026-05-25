@@ -29,8 +29,12 @@ class _AuthGateState extends State<AuthGateScreen> {
   void initState() {
     super.initState();
     // Refresh after the first frame so Provider access has a mounted context.
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      context.read<AuthProvider>().refreshCurrentUser();
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      // Ensure splash screen is visible for at least 2 seconds
+      await Future.delayed(const Duration(milliseconds: 2000));
+      if (mounted) {
+        context.read<AuthProvider>().refreshCurrentUser();
+      }
     });
   }
 
