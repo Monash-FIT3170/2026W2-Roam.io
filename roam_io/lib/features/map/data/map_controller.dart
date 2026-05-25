@@ -128,6 +128,8 @@ class MapController extends ChangeNotifier {
 
   void Function(PlaceOfInterest place)? onPlaceSelected;
   void Function(RegionPolygon region, int xpAwarded)? onRegionUnlockRewarded;
+  void Function(RegionPolygon region, int xpAwarded)?
+  onRegionUnlockCelebrationRewarded;
 
   String? get userId => _userId;
   String get mapStyle => _mapStyle;
@@ -670,7 +672,11 @@ class MapController extends ChangeNotifier {
       final xpResult = await _awardUnlockXp(region);
 
       if (xpResult != null) {
-        onRegionUnlockRewarded?.call(region, xpResult.xpAwarded);
+        if (xpResult.didLevelUp) {
+          onRegionUnlockCelebrationRewarded?.call(region, xpResult.xpAwarded);
+        } else {
+          onRegionUnlockRewarded?.call(region, xpResult.xpAwarded);
+        }
       }
 
       return true;
