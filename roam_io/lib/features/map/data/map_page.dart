@@ -72,7 +72,7 @@ class _MapPageState extends State<MapPage> {
   void _showRegionUnlockReward(RegionPolygon region, int xpAwarded) {
     if (!mounted) return;
 
-    final message = 'Unlocked ${region.name} +$xpAwarded XP';
+    final message = 'Unlocked New Region +$xpAwarded XP';
     final auth = context.read<AuthProvider>();
 
     // When XP triggers a level-up, show the unlock toast inside the celebration
