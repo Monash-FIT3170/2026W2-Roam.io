@@ -41,24 +41,24 @@ void main() {
       expect(result.didLevelUp, isTrue);
     });
 
-  test('awards fixed XP when polygon area is missing', () async {
-    final awardedXp = <int>[];
+    test('awards fixed XP when polygon area is missing', () async {
+      final awardedXp = <int>[];
 
-    final service = TileUnlockXpService(
-      addXp: (xpToAdd) async {
-        awardedXp.add(xpToAdd);
-        return false;
-      },
-    );
+      final service = TileUnlockXpService(
+        addXp: (xpToAdd) async {
+          awardedXp.add(xpToAdd);
+          return false;
+        },
+      );
 
-    final result = await service.awardForUnlockedPolygon(
-      _region(areaSquareMetres: null),
-    );
+      final result = await service.awardForUnlockedPolygon(
+        _region(areaSquareMetres: null),
+      );
 
-    expect(result.xpAwarded, XpRewardConfig.tileUnlockXpReward);
-    expect(awardedXp, <int>[XpRewardConfig.tileUnlockXpReward]);
-  });
+      expect(result.xpAwarded, XpRewardConfig.tileUnlockXpReward);
+      expect(awardedXp, <int>[XpRewardConfig.tileUnlockXpReward]);
     });
+  });
 }
 
 RegionPolygon _region({required double? areaSquareMetres}) {
