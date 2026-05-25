@@ -6,9 +6,9 @@
  *   from failed saves, and scales linearly with distinct visits (not polygon area).
  */
 
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'dart:async';
 
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:fake_cloud_firestore/fake_cloud_firestore.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:geolocator/geolocator.dart';
