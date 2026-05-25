@@ -2,6 +2,7 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 
+import 'app_toast.dart';
 import '../../../theme/app_colours.dart';
 
 /// A full-screen level-up celebration overlay that appears when a user levels up.
@@ -11,10 +12,14 @@ class LevelUpCelebration extends StatefulWidget {
     super.key,
     required this.newLevel,
     required this.onDismiss,
+    this.rewardToastMessage,
   });
 
   final int newLevel;
   final VoidCallback onDismiss;
+
+  /// Optional unlock XP toast shown at the bottom, below the celebration content.
+  final String? rewardToastMessage;
 
   @override
   State<LevelUpCelebration> createState() => _LevelUpCelebrationState();
@@ -136,6 +141,14 @@ class _LevelUpCelebrationState extends State<LevelUpCelebration>
                     },
                   ),
                 ),
+
+                if (widget.rewardToastMessage != null)
+                  Positioned(
+                    left: 24,
+                    right: 24,
+                    bottom: AppToast.overlayBottom(context),
+                    child: AppToastBanner(message: widget.rewardToastMessage!),
+                  ),
 
                 // Main content
                 Center(

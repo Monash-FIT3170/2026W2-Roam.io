@@ -35,6 +35,7 @@ class AuthProvider extends ChangeNotifier {
   ProfileModel? _currentProfile;
   ProfilePhotoUploadResult? _lastProfilePhotoUploadResult;
   int? _pendingLevelUp;
+  String? _pendingUnlockToastMessage;
 
   AuthViewState get viewState => _viewState;
   bool get isBusy => _isBusy;
@@ -60,6 +61,18 @@ class AuthProvider extends ChangeNotifier {
   void clearPendingLevelUp() {
     _pendingLevelUp = null;
     notifyListeners();
+  }
+
+  /// Stages unlock XP toast copy to show inside the level-up celebration overlay.
+  void stageUnlockToast(String message) {
+    _pendingUnlockToastMessage = message;
+  }
+
+  /// Returns and clears a staged unlock toast, if any.
+  String? takePendingUnlockToast() {
+    final message = _pendingUnlockToastMessage;
+    _pendingUnlockToastMessage = null;
+    return message;
   }
 
   /// Registers a new user and refreshes the current Firebase/profile state.

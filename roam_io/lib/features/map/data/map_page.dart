@@ -1,10 +1,11 @@
 /*
  * Author: Sanjevan Rajasegar
- * Last Modified: 12/05/2026
+ * Last Modified: 17/05/2026
  * Description:
  *   Hosts the map screen and wires widget lifecycle to the map controller. This
- *   file keeps UI thin while controller setup, visit XP wiring, and cleanup run
- *   in the correct Flutter lifecycle hooks.
+ *   file keeps UI thin while controller setup, visit XP wiring, heatmap
+ *   toggling, place detail display, unlock reward feedback, and cleanup run in
+ *   the correct Flutter lifecycle hooks.
  */
 
 import 'package:flutter/material.dart';
@@ -70,7 +71,18 @@ class _MapPageState extends State<MapPage> {
 
   void _showRegionUnlockReward(RegionPolygon region, int xpAwarded) {
     if (!mounted) return;
-    AppToast.success(context, 'Unlocked ${region.name} +$xpAwarded XP');
+
+    final message = 'Unlocked ${region.name} +$xpAwarded XP';
+    final auth = context.read<AuthProvider>();
+
+    // When XP triggers a level-up, show the unlock toast inside the celebration
+    // overlay (below the centered content) instead of as a scaffold snackbar.
+    if (auth.pendingLevelUp != null) {
+      auth.stageUnlockToast(message);
+      return;
+    }
+
+    AppToast.success(context, message);
   }
 
   @override
@@ -84,23 +96,65 @@ class _MapPageState extends State<MapPage> {
   }
 
   // Build the map page UI from the controller's current state. The controller
+  // uses the shell [Scaffold] only — a nested scaffold here duplicates snackbars.
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      body: Stack(
-        children: [
-          MapRender(
-            initialCenter: _mapController.center,
-            polygons: _mapController.polygons,
-            mapStyle: _mapController.mapStyle,
-            markers: _mapController.markers,
-            myLocationEnabled: _mapController.myLocationEnabled,
-            onMapCreated: _mapController.onMapCreated,
-            // Load or refresh visible regions after the user stops moving the map.
-            onCameraIdle: _mapController.loadViewportRegions,
-            onCameraMove: _mapController.onCameraMove,
+    return Stack(
+      children: [
+        MapRender(
+          initialCenter: _mapController.center,
+          polygons: _mapController.polygons,
+          mapStyle: _mapController.mapStyle,
+          markers: _mapController.markers,
+          myLocationEnabled: _mapController.myLocationEnabled,
+          onMapCreated: _mapController.onMapCreated,
+          // Load or refresh visible regions after the user stops moving the map.
+          onCameraIdle: _mapController.loadViewportRegions,
+          onCameraMove: _mapController.onCameraMove,
+        ),
+        Positioned(
+          top: MediaQuery.paddingOf(context).top + 16,
+          right: 16,
+          child: _HeatmapToggleButton(
+            isEnabled: _mapController.isHeatmapEnabled,
+            onPressed: _mapController.toggleHeatmap,
           ),
-        ],
+        ),
+      ],
+    );
+  }
+}
+
+class _HeatmapToggleButton extends StatelessWidget {
+  const _HeatmapToggleButton({
+    required this.isEnabled,
+    required this.onPressed,
+  });
+
+  final bool isEnabled;
+  final Future<void> Function() onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final activeColor = Colors.deepOrange.shade600;
+    final inactiveColor = theme.colorScheme.surface;
+
+    return Tooltip(
+      message: isEnabled ? 'Hide heatmap' : 'Show heatmap',
+      child: Material(
+        color: isEnabled ? activeColor : inactiveColor,
+        elevation: 8,
+        shadowColor: Colors.black.withValues(alpha: 0.24),
+        shape: const CircleBorder(),
+        child: IconButton(
+          onPressed: () {
+            onPressed();
+          },
+          icon: const Icon(Icons.local_fire_department_rounded),
+          color: isEnabled ? Colors.white : theme.colorScheme.onSurface,
+          iconSize: 26,
+        ),
       ),
     );
   }

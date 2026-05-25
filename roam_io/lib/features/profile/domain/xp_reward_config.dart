@@ -3,7 +3,8 @@
  * Last Modified: 24/05/2026
  * Description:
  *   Central numeric XP reward constants for Roam.io flat visit rewards and
- *   area-based tile unlock rewards.
+ *   area-based tile unlock rewards. Updated for ART-68 coverage enforcement by
+ *   keeping the configuration type static-only without a private constructor.
  */
 
 /// Central configuration for XP reward amounts used across features.
