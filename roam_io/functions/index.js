@@ -119,7 +119,7 @@ app.post('/regions/viewport', async (req, res) => {
         geometry,
         ST_MakeEnvelope($1, $2, $3, $4, 4326)
       )
-      LIMIT 80;
+      LIMIT 650;
     `;
 
     const result = await getPool().query(query, [west, south, east, north]);
@@ -128,6 +128,60 @@ app.post('/regions/viewport', async (req, res) => {
     console.error('Error in /regions/viewport:', error);
     return res.status(500).json({
       error: 'Internal server error',
+    });
+  }
+});
+
+
+app.post('/sa3/viewport', async (req, res) => {
+  try {
+    const { south, west, north, east } = req.body;
+
+    if ([south, west, north, east].some((value) => value == null)) {
+      return res.status(400).json({
+        error: 'south, west, north, and east are required',
+      });
+    }
+
+    const query = `
+    SELECT
+      id,
+      name,
+      ST_AsGeoJSON(
+        ST_SimplifyPreserveTopology(geometry, 0.001)
+      ) AS geometry
+    FROM sa3_regions;
+  `;
+
+    const result = await getPool().query(query, [west, south, east, north]);
+    return res.json(result.rows);
+  } catch (error) {
+    console.error('Error in /sa3/viewport:', error);
+    return res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+
+app.get('/sa3/all', async (req, res) => {
+  try {
+    const query = `
+      SELECT
+        id,
+        name,
+        ST_AsGeoJSON(
+          ST_SimplifyPreserveTopology(geometry, 0.001)
+        ) AS geometry
+      FROM sa3_regions;
+    `;
+
+    const result = await getPool().query(query);
+    return res.json(result.rows);
+  } catch (error) {
+    console.error('Error in /sa3/all:', error);
+
+    return res.status(500).json({
+      error: 'Internal server error',
+      details: error.message,
     });
   }
 });

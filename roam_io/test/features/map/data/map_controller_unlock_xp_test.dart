@@ -10,6 +10,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:roam_io/features/map/data/geolocator_service.dart';
 import 'package:roam_io/features/map/data/map_controller.dart';
+import 'package:roam_io/features/map/data/place_marker_manager.dart';
 import 'package:roam_io/features/map/data/place_of_interest.dart';
 import 'package:roam_io/features/map/data/places_service.dart';
 import 'package:roam_io/features/map/data/region_polygon.dart';
@@ -213,23 +214,26 @@ void main() {
       controller.disposeController();
     });
 
-    test('level-up suppresses normal unlock feedback', () async {
-      final awardedXp = <int>[];
-      final feedbackEvents = <String>[];
-      final controller = _buildController(
-        region: _region(areaSquareMetres: 4000000),
-        awardedXp: awardedXp,
-        feedbackEvents: feedbackEvents,
-        didLevelUpOnAddXp: true,
-      );
+    test(
+      'level-up still emits unlock feedback for celebration toast',
+      () async {
+        final awardedXp = <int>[];
+        final feedbackEvents = <String>[];
+        final controller = _buildController(
+          region: _region(areaSquareMetres: 4000000),
+          awardedXp: awardedXp,
+          feedbackEvents: feedbackEvents,
+          didLevelUpOnAddXp: true,
+        );
 
-      await controller.initialise(userId: 'user-1');
+        await controller.initialise(userId: 'user-1');
 
-      expect(awardedXp, <int>[75]);
-      expect(feedbackEvents, isEmpty);
+        expect(awardedXp, <int>[75]);
+        expect(feedbackEvents, <String>['Region One:75']);
 
-      controller.disposeController();
-    });
+        controller.disposeController();
+      },
+    );
 
     test('already visited region does not award unlock XP', () async {
       final awardedXp = <int>[];
@@ -280,7 +284,7 @@ MapController _buildController({
   final controller = MapController(
     geoLocatorService: _FakeGeoLocatorService(),
     regionService: _FakeRegionService(region),
-    placesService: _FakePlacesService(),
+    placeMarkerManager: PlaceMarkerManager(placesService: _FakePlacesService()),
     visitService: _FakeVisitService(),
     regionPolygonCache: regionPolygonCache,
     visitedRegionService:
@@ -380,7 +384,10 @@ class _FakeVisitService implements VisitService {
   Future<Set<int>> getVisitedPlaceIds(String userId) async => <int>{};
 
   @override
-  Future<Map<String, int>> getVisitCountsByRegion(String userId) async {
+  Future<Map<String, int>> getVisitCountsByRegion(
+    String userId, {
+    Set<String>? validRegionIds,
+  }) async {
     return const <String, int>{};
   }
 

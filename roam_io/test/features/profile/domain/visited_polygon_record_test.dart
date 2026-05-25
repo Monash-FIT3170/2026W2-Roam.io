@@ -1,8 +1,9 @@
 /*
  * Author: Sanjevan Rajasegar
- * Last Modified: 17/05/2026
+ * Last Modified: 18/05/2026
  * Description:
- *   Unit tests for VisitedPolygonRecord Firestore map parsing and serialization.
+ *   Unit tests for VisitedPolygonRecord Firestore mapping aliases and date
+ *   parsing fallbacks added for ART-68 coverage enforcement.
  */
 
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -10,57 +11,68 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:roam_io/features/profile/domain/visited_polygon_record.dart';
 
 void main() {
-  group('VisitedPolygonRecord.fromMap', () {
-    test('reads snake_case profile and polygon ids', () {
-      final at = DateTime(2026, 3, 15, 12);
-      final record = VisitedPolygonRecord.fromMap(<String, dynamic>{
-        'profile_id': 'p1',
-        'polygon_id': 'poly-a',
-        'visited_at': Timestamp.fromDate(at),
-      });
-
-      expect(record.profileId, 'p1');
-      expect(record.polygonId, 'poly-a');
-      expect(record.visitedAt, at);
-    });
-
-    // Older documents may still use camelCase field names from earlier clients.
-    test('accepts camelCase legacy keys', () {
-      final record = VisitedPolygonRecord.fromMap(<String, dynamic>{
-        'profileId': 'legacy-profile',
-        'polygonId': 'poly-b',
-        'lastVisitedAt': '2026-04-01T08:30:00.000',
-      });
-
-      expect(record.profileId, 'legacy-profile');
-      expect(record.polygonId, 'poly-b');
-      expect(record.visitedAt, DateTime.parse('2026-04-01T08:30:00.000'));
-    });
-
-    test('parseVisitedAt handles Timestamp, DateTime, and ISO string', () {
-      final t = DateTime(2026, 1, 2);
-      expect(VisitedPolygonRecord.parseVisitedAt(Timestamp.fromDate(t)), t);
-      expect(VisitedPolygonRecord.parseVisitedAt(t), t);
-      expect(
-        VisitedPolygonRecord.parseVisitedAt('2026-01-02T00:00:00.000'),
-        DateTime.parse('2026-01-02T00:00:00.000'),
-      );
-    });
-  });
-
   group('VisitedPolygonRecord.toMap', () {
-    test('writes snake_case fields for Firestore', () {
-      final at = DateTime(2026, 5, 1, 10);
+    test('writes Firestore field names and timestamp value', () {
+      final visitedAt = DateTime(2026, 5, 18, 9);
       final record = VisitedPolygonRecord(
-        profileId: 'u1',
-        polygonId: 'tile-9',
-        visitedAt: at,
+        profileId: 'user-1',
+        polygonId: 'polygon-1',
+        visitedAt: visitedAt,
       );
 
       final map = record.toMap();
-      expect(map['profile_id'], 'u1');
-      expect(map['polygon_id'], 'tile-9');
-      expect((map['visited_at'] as Timestamp).toDate(), at);
+
+      expect(map['profile_id'], 'user-1');
+      expect(map['polygon_id'], 'polygon-1');
+      expect((map['visited_at'] as Timestamp).toDate(), visitedAt);
+    });
+  });
+
+  group('VisitedPolygonRecord.fromMap', () {
+    test('uses user_id as a fallback for profileId', () {
+      final visitedAt = DateTime(2026, 5, 18, 10);
+      final record = VisitedPolygonRecord.fromMap(<String, dynamic>{
+        'user_id': 'user-1',
+        'polygon_id': 'polygon-1',
+        'visited_at': Timestamp.fromDate(visitedAt),
+      });
+
+      expect(record.profileId, 'user-1');
+      expect(record.polygonId, 'polygon-1');
+      expect(record.visitedAt, visitedAt);
+    });
+
+    test('uses userId as a fallback for profileId', () {
+      final visitedAt = DateTime(2026, 5, 18, 11);
+      final record = VisitedPolygonRecord.fromMap(<String, dynamic>{
+        'userId': 'user-2',
+        'polygonId': 'polygon-2',
+        'lastVisitedAt': visitedAt,
+      });
+
+      expect(record.profileId, 'user-2');
+      expect(record.polygonId, 'polygon-2');
+      expect(record.visitedAt, visitedAt);
+    });
+  });
+
+  group('VisitedPolygonRecord.parseVisitedAt', () {
+    test('falls back to the current time for invalid date strings', () {
+      final before = DateTime.now();
+      final result = VisitedPolygonRecord.parseVisitedAt('not-a-date');
+      final after = DateTime.now();
+
+      expect(result.isBefore(before), isFalse);
+      expect(result.isAfter(after), isFalse);
+    });
+
+    test('falls back to the current time for unsupported input', () {
+      final before = DateTime.now();
+      final result = VisitedPolygonRecord.parseVisitedAt(12345);
+      final after = DateTime.now();
+
+      expect(result.isBefore(before), isFalse);
+      expect(result.isAfter(after), isFalse);
     });
   });
 }

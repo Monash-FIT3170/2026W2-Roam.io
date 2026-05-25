@@ -9,6 +9,19 @@ import 'package:flutter/material.dart';
 
 /// Renders the app's five-tab bottom navigation with a raised center map tab.
 class AppBottomNavBar extends StatelessWidget {
+  /// Height of the bar content inside the shell nav [SafeArea].
+  static const double barHeight = 98;
+
+  /// Bottom inset applied by the shell nav [SafeArea] (see [build]).
+  static const double outerBottomMinimum = 8;
+
+  /// Distance from the physical screen bottom to the top of the nav chrome.
+  static double clearanceFromScreenBottom(BuildContext context) {
+    return MediaQuery.viewPaddingOf(context).bottom +
+        outerBottomMinimum +
+        barHeight;
+  }
+
   final int currentIndex;
   final ValueChanged<int> onTap;
 
@@ -39,9 +52,9 @@ class AppBottomNavBar extends StatelessWidget {
 
     return SafeArea(
       top: false,
-      minimum: const EdgeInsets.fromLTRB(14, 0, 14, 8),
+      minimum: const EdgeInsets.fromLTRB(14, 0, 14, outerBottomMinimum),
       child: SizedBox(
-        height: 98,
+        height: barHeight,
         child: Stack(
           clipBehavior: Clip.none,
           alignment: Alignment.bottomCenter,

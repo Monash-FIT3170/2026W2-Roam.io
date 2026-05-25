@@ -130,13 +130,25 @@ class VisitService {
   /// This counts saved place visits, not unlocked map tiles. Analytics and
   /// heatmap UIs can combine this with visited region IDs to keep visits and
   /// tiles distinct.
-  Future<Map<String, int>> getVisitCountsByRegion(String userId) async {
+  Future<Map<String, int>> getVisitCountsByRegion(
+    String userId, {
+    Set<String>? validRegionIds,
+  }) async {
     final visits = await getAllVisits(userId);
     final countsByRegion = <String, int>{};
 
     for (final visit in visits) {
+      final regionId = visit.regionId.trim();
+
+      if (regionId.isEmpty) continue;
+
+      // Ignore old SA2/stale region IDs after the SA1 migration.
+      if (validRegionIds != null && !validRegionIds.contains(regionId)) {
+        continue;
+      }
+
       countsByRegion.update(
-        visit.regionId,
+        regionId,
         (existingCount) => existingCount + 1,
         ifAbsent: () => 1,
       );

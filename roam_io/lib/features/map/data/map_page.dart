@@ -71,7 +71,18 @@ class _MapPageState extends State<MapPage> {
 
   void _showRegionUnlockReward(RegionPolygon region, int xpAwarded) {
     if (!mounted) return;
-    AppToast.success(context, 'Unlocked New Region +$xpAwarded XP');
+
+    final message = 'Unlocked New Region +$xpAwarded XP';
+    final auth = context.read<AuthProvider>();
+
+    // When XP triggers a level-up, show the unlock toast inside the celebration
+    // overlay (below the centered content) instead of as a scaffold snackbar.
+    if (auth.pendingLevelUp != null) {
+      auth.stageUnlockToast(message);
+      return;
+    }
+
+    AppToast.success(context, message);
   }
 
   @override
@@ -85,32 +96,31 @@ class _MapPageState extends State<MapPage> {
   }
 
   // Build the map page UI from the controller's current state. The controller
+  // uses the shell [Scaffold] only — a nested scaffold here duplicates snackbars.
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      body: Stack(
-        children: [
-          MapRender(
-            initialCenter: _mapController.center,
-            polygons: _mapController.polygons,
-            mapStyle: _mapController.mapStyle,
-            markers: _mapController.markers,
-            myLocationEnabled: _mapController.myLocationEnabled,
-            onMapCreated: _mapController.onMapCreated,
-            // Load or refresh visible regions after the user stops moving the map.
-            onCameraIdle: _mapController.loadViewportRegions,
-            onCameraMove: _mapController.onCameraMove,
+    return Stack(
+      children: [
+        MapRender(
+          initialCenter: _mapController.center,
+          polygons: _mapController.polygons,
+          mapStyle: _mapController.mapStyle,
+          markers: _mapController.markers,
+          myLocationEnabled: _mapController.myLocationEnabled,
+          onMapCreated: _mapController.onMapCreated,
+          // Load or refresh visible regions after the user stops moving the map.
+          onCameraIdle: _mapController.loadViewportRegions,
+          onCameraMove: _mapController.onCameraMove,
+        ),
+        Positioned(
+          top: MediaQuery.paddingOf(context).top + 16,
+          right: 16,
+          child: _HeatmapToggleButton(
+            isEnabled: _mapController.isHeatmapEnabled,
+            onPressed: _mapController.toggleHeatmap,
           ),
-          Positioned(
-            top: MediaQuery.paddingOf(context).top + 16,
-            right: 16,
-            child: _HeatmapToggleButton(
-              isEnabled: _mapController.isHeatmapEnabled,
-              onPressed: _mapController.toggleHeatmap,
-            ),
-          ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 }

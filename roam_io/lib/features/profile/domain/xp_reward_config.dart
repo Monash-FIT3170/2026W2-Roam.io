@@ -1,15 +1,14 @@
 /*
  * Author: Sanjevan Rajasegar
- * Last Modified: 12/05/2026
+ * Last Modified: 18/05/2026
  * Description:
  *   Central numeric XP reward constants for Roam.io flat visit rewards and
- *   area-based tile unlock rewards.
+ *   area-based tile unlock rewards. Updated for ART-68 coverage enforcement by
+ *   keeping the configuration type static-only without a private constructor.
  */
 
 /// Central configuration for XP reward amounts used across features.
-class XpRewardConfig {
-  const XpRewardConfig._();
-
+abstract final class XpRewardConfig {
   /// Fixed XP awarded for each successfully persisted place visit.
   ///
   /// Not derived from polygon area, distance, or place metadata.
