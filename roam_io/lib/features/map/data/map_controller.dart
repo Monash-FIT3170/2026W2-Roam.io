@@ -374,8 +374,6 @@ class MapController extends ChangeNotifier {
       return VisitResult.error;
     }
 
-    await _awardVisitXpSafely();
-
     _visitedPlaceIds.add(place.id);
     _visitCountsByRegion.update(
       place.regionId,
@@ -391,6 +389,8 @@ class MapController extends ChangeNotifier {
 
     message = 'Visited ${place.name}!';
     notifyListeners();
+
+    unawaited(_awardVisitXpSafely());
 
     return VisitResult.success;
   }
