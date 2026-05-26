@@ -44,6 +44,7 @@ class _MapPageState extends State<MapPage> {
     _mapController.addListener(_onMapStateChanged);
     _mapController.onPlaceSelected = _showPlaceDetails;
     _mapController.onRegionUnlockRewarded = _showRegionUnlockReward;
+    _mapController.onRegionUnlockCelebrationRewarded = _showRegionUnlockReward;
 
     // Get user ID from auth provider and initialize
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -72,7 +73,7 @@ class _MapPageState extends State<MapPage> {
   void _showRegionUnlockReward(RegionPolygon region, int xpAwarded) {
     if (!mounted) return;
 
-    final message = 'Unlocked ${region.name} +$xpAwarded XP';
+    final message = 'Unlocked New Region +$xpAwarded XP';
     final auth = context.read<AuthProvider>();
 
     // When XP triggers a level-up, show the unlock toast inside the celebration
@@ -90,6 +91,7 @@ class _MapPageState extends State<MapPage> {
     // Detach listeners and release controller resources when leaving the page.
     _mapController.onPlaceSelected = null;
     _mapController.onRegionUnlockRewarded = null;
+    _mapController.onRegionUnlockCelebrationRewarded = null;
     _mapController.removeListener(_onMapStateChanged);
     _mapController.disposeController();
     super.dispose();

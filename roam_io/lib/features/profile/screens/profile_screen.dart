@@ -33,17 +33,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
   @override
   void initState() {
     super.initState();
-    _displayNameController.addListener(_handleDisplayNameChanged);
+
     // Refresh after the first frame so profile data is current when shown.
     WidgetsBinding.instance.addPostFrameCallback((_) {
       context.read<AuthProvider>().refreshCurrentUser();
     });
-  }
-
-  void _handleDisplayNameChanged() {
-    if (_isEditing) {
-      setState(() {});
-    }
   }
 
   void _startEditing(String displayName) {
@@ -150,9 +144,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   @override
   void dispose() {
-    _displayNameController
-      ..removeListener(_handleDisplayNameChanged)
-      ..dispose();
+    _displayNameController.dispose();
     super.dispose();
   }
 
@@ -180,9 +172,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
             final email = auth.currentUser?.email ?? '-';
             final username = profile?.username ?? '-';
             final displayName = profile?.displayName ?? '-';
-            final visibleDisplayName = _isEditing
-                ? _displayNameController.text.trim()
-                : displayName;
 
             return Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -305,15 +294,24 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
                                 const SizedBox(height: 8),
 
-                                Text(
-                                  visibleDisplayName.isEmpty
-                                      ? 'Display Name'
-                                      : visibleDisplayName,
-                                  style: TextStyle(
-                                    fontSize: 18,
-                                    fontWeight: FontWeight.w800,
-                                    color: colorScheme.onSurface,
-                                  ),
+                                ValueListenableBuilder<TextEditingValue>(
+                                  valueListenable: _displayNameController,
+                                  builder: (context, value, _) {
+                                    final liveDisplayName = _isEditing
+                                        ? value.text.trim()
+                                        : displayName;
+
+                                    return Text(
+                                      liveDisplayName.isEmpty
+                                          ? 'Display Name'
+                                          : liveDisplayName,
+                                      style: TextStyle(
+                                        fontSize: 18,
+                                        fontWeight: FontWeight.w800,
+                                        color: colorScheme.onSurface,
+                                      ),
+                                    );
+                                  },
                                 ),
 
                                 const SizedBox(height: 1),

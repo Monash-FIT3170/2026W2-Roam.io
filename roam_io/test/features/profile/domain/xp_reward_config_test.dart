@@ -14,44 +14,25 @@ void main() {
       expect(XpRewardConfig.tileUnlockXpForArea(tileAreaSquareMetres: 1), 50);
 
       expect(
-        XpRewardConfig.tileUnlockXpForArea(
-          tileAreaSquareMetres: 4000000,
-        ),
+        XpRewardConfig.tileUnlockXpForArea(tileAreaSquareMetres: 4000000),
         50,
       );
 
       expect(
-        XpRewardConfig.tileUnlockXpForArea(
-          tileAreaSquareMetres: 1000000000,
-        ),
+        XpRewardConfig.tileUnlockXpForArea(tileAreaSquareMetres: 1000000000),
         50,
       );
     });
 
     test('invalid or missing area still awards fixed XP', () {
-      expect(
-        XpRewardConfig.tileUnlockXpForArea(),
-        50,
-      );
+      expect(XpRewardConfig.tileUnlockXpForArea(), 50);
+
+      expect(XpRewardConfig.tileUnlockXpForArea(tileAreaSquareMetres: 0), 50);
+
+      expect(XpRewardConfig.tileUnlockXpForArea(tileAreaSquareMetres: -1), 50);
 
       expect(
-        XpRewardConfig.tileUnlockXpForArea(
-          tileAreaSquareMetres: 0,
-        ),
-        50,
-      );
-
-      expect(
-        XpRewardConfig.tileUnlockXpForArea(
-          tileAreaSquareMetres: -1,
-        ),
-        50,
-      );
-
-      expect(
-        XpRewardConfig.tileUnlockXpForArea(
-          tileAreaSquareMetres: double.nan,
-        ),
+        XpRewardConfig.tileUnlockXpForArea(tileAreaSquareMetres: double.nan),
         50,
       );
 
