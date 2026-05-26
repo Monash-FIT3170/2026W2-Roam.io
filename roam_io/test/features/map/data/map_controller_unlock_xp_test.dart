@@ -130,10 +130,7 @@ void main() {
 
         expect(awardedXp, <int>[50]);
 
-        expect(
-          feedbackEvents,
-          <String>['Region One:50'],
-        );
+        expect(feedbackEvents, <String>['Region One:50']);
 
         controller.disposeController();
       },
@@ -229,8 +226,8 @@ void main() {
 
         await controller.initialise(userId: 'user-1');
 
-      expect(awardedXp, <int>[50]);
-      expect(feedbackEvents, isEmpty);
+        expect(awardedXp, <int>[50]);
+        expect(feedbackEvents, <String>['Region One:50']);
 
         controller.disposeController();
       },
