@@ -173,4 +173,60 @@ class PolygonService {
       );
     }
   }
+
+  /// Increments an entry count for a polygon for the given profile.
+  ///
+  /// This is used to track how many times the user has entered a polygon
+  /// (tile) while the app was open. Returns the new count after increment.
+  Future<int> incrementPolygonEntryCount({
+    required String profileId,
+    required String polygonId,
+  }) async {
+    final document = await _resolveVisitedPolygonDocument(profileId);
+
+    return _firestore.runTransaction<int>((transaction) async {
+      final snapshot = await transaction.get(document);
+      final currentData = snapshot.data();
+      final currentEntryMap = (currentData?['entry_counts'] as Map<String, dynamic>?) ?? <String, dynamic>{};
+
+      final currentCountDynamic = currentEntryMap[polygonId];
+      final currentCount = currentCountDynamic is num ? currentCountDynamic.toInt() : int.tryParse('$currentCountDynamic') ?? 0;
+
+      final updatedEntryMap = Map<String, dynamic>.from(currentEntryMap)
+        ..[polygonId] = currentCount + 1;
+
+      transaction.set(document, <String, dynamic>{
+        _profileIdFieldName: profileId,
+        _userIdFieldName: profileId,
+        'entry_counts': updatedEntryMap,
+      }, SetOptions(merge: true));
+
+      return currentCount + 1;
+    });
+  }
+
+  /// Returns a map of polygon entry counts for the profile.
+  Future<Map<String, int>> getPolygonEntryCounts({
+    required String profileId,
+    Set<String>? validPolygonIds,
+  }) async {
+    final document = await _resolveVisitedPolygonDocument(profileId);
+    final currentData = (await document.get()).data();
+    final rawEntryMap = currentData?['entry_counts'];
+
+    final counts = <String, int>{};
+
+    if (rawEntryMap is Map<String, dynamic>) {
+      for (final entry in rawEntryMap.entries) {
+        if (entry.key.isEmpty) continue;
+        if (validPolygonIds != null && !validPolygonIds.contains(entry.key)) continue;
+
+        final value = entry.value;
+        final count = value is num ? value.toInt() : int.tryParse('$value') ?? 0;
+        if (count > 0) counts[entry.key] = count;
+      }
+    }
+
+    return counts;
+  }
 }

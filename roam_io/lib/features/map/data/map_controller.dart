@@ -30,6 +30,7 @@ import 'tile_unlock_xp_service.dart';
 import 'visit_service.dart';
 import 'visited_region_service.dart';
 import 'viewport_region_loader.dart';
+import '../../../services/polygon_service.dart';
 
 enum VisitResult { success, notLoggedIn, alreadyVisited, tooFar, error }
 
@@ -78,6 +79,7 @@ class MapController extends ChangeNotifier {
     ViewportRegionLoader? viewportRegionLoader,
     PlaceMarkerManager? placeMarkerManager,
     MapViewportPolicy? viewportPolicy,
+    PolygonService? polygonService,
   }) : _geoLocatorService = geoLocatorService ?? GeoLocatorService(),
        _regionService = regionService ?? RegionService(),
        _visitService = visitService ?? VisitService(),
@@ -86,7 +88,9 @@ class MapController extends ChangeNotifier {
        _tileUnlockXpService = tileUnlockXpService ?? TileUnlockXpService(),
        _viewportRegionLoader = viewportRegionLoader ?? ViewportRegionLoader(),
        _placeMarkerManager = placeMarkerManager ?? PlaceMarkerManager(),
-       _viewportPolicy = viewportPolicy ?? MapViewportPolicy();
+      _viewportPolicy = viewportPolicy ?? MapViewportPolicy(),
+      _polygonService = polygonService ?? PolygonService();
+       
 
   final GeoLocatorService _geoLocatorService;
   final RegionService _regionService;
@@ -97,6 +101,7 @@ class MapController extends ChangeNotifier {
   final ViewportRegionLoader _viewportRegionLoader;
   final PlaceMarkerManager _placeMarkerManager;
   final MapViewportPolicy _viewportPolicy;
+  final PolygonService _polygonService;
 
   GoogleMapController? _googleMapController;
   StreamSubscription<Position>? _locationUpdatesSubscription;
@@ -107,6 +112,7 @@ class MapController extends ChangeNotifier {
   Set<int> _visitedPlaceIds = {};
   Set<String> _visitedRegionIds = <String>{};
   Map<String, int> _visitCountsByRegion = <String, int>{};
+  Map<String, int> _entryCountsByRegion = <String, int>{};
 
   bool _isHeatmapEnabled = false;
   bool _isResolvingCurrentRegion = false;
@@ -188,7 +194,7 @@ class MapController extends ChangeNotifier {
     _isHeatmapEnabled = !_isHeatmapEnabled;
 
     if (_isHeatmapEnabled && _userId != null) {
-      await _loadVisitCountsByRegion();
+      await _loadEntryCountsByRegion();
       await loadViewportRegions(force: true);
     }
 
@@ -456,6 +462,8 @@ class MapController extends ChangeNotifier {
     message = effectiveRegion.name;
 
     await _markRegionAsVisited(effectiveRegion);
+    // Record an entry for heatmap counts (app opened / entered tile).
+    await _recordRegionEntry(effectiveRegion);
     _refreshCachedPolygonsStyles();
 
     await _loadPlacesForRegion(effectiveRegion.id);
@@ -605,7 +613,13 @@ class MapController extends ChangeNotifier {
 
     await _loadVisitedPlaces();
     await _loadVisitedRegionIds();
-    await _loadVisitCountsByRegion();
+    // Load entry counts when heatmap is enabled, otherwise fall back to
+    // historical place-visit counts used elsewhere in the UI.
+    if (_isHeatmapEnabled) {
+      await _loadEntryCountsByRegion();
+    } else {
+      await _loadVisitCountsByRegion();
+    }
   }
 
   Future<void> _loadVisitedPlaces() async {
@@ -650,6 +664,39 @@ class MapController extends ChangeNotifier {
       debugPrint(
         '[MapController] Error loading visit counts by region: $error',
       );
+    }
+  }
+
+  Future<void> _loadEntryCountsByRegion() async {
+    if (_userId == null) return;
+
+    try {
+      _entryCountsByRegion = await _polygonService.getPolygonEntryCounts(
+        profileId: _userId!,
+        validPolygonIds: _visitedRegionIds.isEmpty ? null : _visitedRegionIds,
+      );
+
+      debugPrint(
+        '[MapController] Loaded entry counts for ${_entryCountsByRegion.length} SA1 regions',
+      );
+    } catch (error) {
+      debugPrint('[MapController] Error loading entry counts by region: $error');
+    }
+  }
+
+  Future<void> _recordRegionEntry(RegionPolygon region) async {
+    if (_userId == null) return;
+
+    try {
+      // Optimistically update local cache so the heatmap updates immediately.
+      _entryCountsByRegion.update(region.id, (c) => c + 1, ifAbsent: () => 1);
+
+      unawaited(_polygonService.incrementPolygonEntryCount(
+        profileId: _userId!,
+        polygonId: region.id,
+      ));
+    } catch (error) {
+      debugPrint('[MapController] Error recording region entry: $error');
     }
   }
 
@@ -712,36 +759,47 @@ class MapController extends ChangeNotifier {
       return null;
     }
 
-    final maxVisitCount = _maxVisitCountAcrossVisitedRegions;
-
-    if (maxVisitCount <= 0) {
-      return 0.2;
-    }
-
-    final regionVisitCount = _visitCountsByRegion[regionId] ?? 1;
+    final regionCount = _entryCountsByRegion[regionId] ?? 0;
 
     debugPrint(
       '[Heatmap] region=$regionId '
       'enabled=$_isHeatmapEnabled '
       'visited=${_visitedRegionIds.contains(regionId)} '
-      'count=${_visitCountsByRegion[regionId]} '
-      'max=$_maxVisitCountAcrossVisitedRegions',
+      'count=$regionCount',
     );
 
-    return regionVisitCount / maxVisitCount;
+    return _heatmapIntensityForCount(regionCount);
+  }
+
+  double _heatmapIntensityForCount(int regionCount) {
+    if (regionCount <= 0) {
+      return 0.0;
+    }
+
+    if (regionCount <= 2) {
+      return 0.2;
+    }
+
+    if (regionCount <= 4) {
+      return 0.6;
+    }
+
+    return 1.0;
   }
 
   int get _maxVisitCountAcrossVisitedRegions {
-    var maxVisitCount = 0;
+    var maxCount = 0;
 
     for (final regionId in _visitedRegionIds) {
-      final regionVisitCount = _visitCountsByRegion[regionId] ?? 1;
+      final regionCount = _entryCountsByRegion[regionId] ?? 0;
 
-      if (regionVisitCount > maxVisitCount) {
-        maxVisitCount = regionVisitCount;
+      if (regionCount > maxCount) {
+        maxCount = regionCount;
       }
     }
 
-    return maxVisitCount;
+    return maxCount;
   }
+
+  int get _maxEntryCountAcrossVisitedRegions => _maxVisitCountAcrossVisitedRegions;
 }
