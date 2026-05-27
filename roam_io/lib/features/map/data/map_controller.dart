@@ -1,15 +1,13 @@
 /*
- * Author: Sanjevan Rajasegar 
- * Last Modified: 24/05/2026
+ * Author: Sanjevan Rajasegar
+ * Last Modified: 27/05/2026
  * Description:
- *   Coordinates the map feature
- *
- *   Current MVP behaviour:
- *   - SA1 tiles render normally when zoomed in.
- *   - When zoomed out far, unvisited SA1 fog tiles are hidden.
- *   - Visited/current tiles remain visible as progress markers.
- *   - SA3 polygon rendering is intentionally disabled for now because swapping
- *     large Google Maps polygon sets causes UI freezes.
+ *   Owns the map feature's state and business logic. This controller resolves
+ *   the user's current region, loads viewport polygons and places, caches map
+ *   data for redraws, persists visits, awards visit and region unlock XP, and
+ *   exposes heatmap styling state for visited tiles. MapPage keeps the widget
+ *   layer thin by delegating map lifecycle, location updates, marker updates,
+ *   region unlock callbacks, and visit validation to this file.
  */
 
 import 'dart:async';
@@ -89,7 +87,7 @@ class MapController extends ChangeNotifier {
        _viewportRegionLoader = viewportRegionLoader ?? ViewportRegionLoader(),
        _placeMarkerManager = placeMarkerManager ?? PlaceMarkerManager(),
        _viewportPolicy = viewportPolicy ?? MapViewportPolicy(),
-       _polygonService = polygonService ?? PolygonService();
+       _polygonService = polygonService;
 
   final GeoLocatorService _geoLocatorService;
   final RegionService _regionService;
@@ -100,7 +98,10 @@ class MapController extends ChangeNotifier {
   final ViewportRegionLoader _viewportRegionLoader;
   final PlaceMarkerManager _placeMarkerManager;
   final MapViewportPolicy _viewportPolicy;
-  final PolygonService _polygonService;
+  PolygonService? _polygonService;
+
+  PolygonService get _resolvedPolygonService =>
+      _polygonService ??= PolygonService();
 
   GoogleMapController? _googleMapController;
   StreamSubscription<Position>? _locationUpdatesSubscription;
@@ -670,7 +671,7 @@ class MapController extends ChangeNotifier {
     if (_userId == null) return;
 
     try {
-      _entryCountsByRegion = await _polygonService.getPolygonEntryCounts(
+      _entryCountsByRegion = await _resolvedPolygonService.getPolygonEntryCounts(
         profileId: _userId!,
         validPolygonIds: _visitedRegionIds.isEmpty ? null : _visitedRegionIds,
       );
@@ -693,7 +694,7 @@ class MapController extends ChangeNotifier {
       _entryCountsByRegion.update(region.id, (c) => c + 1, ifAbsent: () => 1);
 
       unawaited(
-        _polygonService.incrementPolygonEntryCount(
+        _resolvedPolygonService.incrementPolygonEntryCount(
           profileId: _userId!,
           polygonId: region.id,
         ),
@@ -789,21 +790,4 @@ class MapController extends ChangeNotifier {
 
     return 1.0;
   }
-
-  int get _maxVisitCountAcrossVisitedRegions {
-    var maxCount = 0;
-
-    for (final regionId in _visitedRegionIds) {
-      final regionCount = _entryCountsByRegion[regionId] ?? 0;
-
-      if (regionCount > maxCount) {
-        maxCount = regionCount;
-      }
-    }
-
-    return maxCount;
-  }
-
-  int get _maxEntryCountAcrossVisitedRegions =>
-      _maxVisitCountAcrossVisitedRegions;
 }

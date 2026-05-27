@@ -118,7 +118,7 @@ class _MapPageState extends State<MapPage> {
           Positioned(
             top: MediaQuery.paddingOf(context).top + 16,
             left: 16,
-            child: _HeatmapLegend(),
+            child: const _HeatmapLegend(),
           ),
         Positioned(
           top: MediaQuery.paddingOf(context).top + 16,
@@ -159,11 +159,11 @@ class _HeatmapLegend extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 8),
-            _LegendRow(color: const Color(0xFFFFF176), label: '1–2 entries'),
+            const _LegendRow(color: Color(0xFFFFF176), label: '1–2 entries'),
             const SizedBox(height: 6),
-            _LegendRow(color: const Color(0xFFFFC247), label: '3–4 entries'),
+            const _LegendRow(color: Color(0xFFFFC247), label: '3–4 entries'),
             const SizedBox(height: 6),
-            _LegendRow(color: const Color(0xFFE53935), label: '5+ entries'),
+            const _LegendRow(color: Color(0xFFE53935), label: '5+ entries'),
           ],
         ),
       ),

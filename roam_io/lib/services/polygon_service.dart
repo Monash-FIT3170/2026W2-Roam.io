@@ -223,8 +223,9 @@ class PolygonService {
     if (rawEntryMap is Map<String, dynamic>) {
       for (final entry in rawEntryMap.entries) {
         if (entry.key.isEmpty) continue;
-        if (validPolygonIds != null && !validPolygonIds.contains(entry.key))
+        if (validPolygonIds != null && !validPolygonIds.contains(entry.key)) {
           continue;
+        }
 
         final value = entry.value;
         final count = value is num
