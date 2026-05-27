@@ -305,6 +305,9 @@ MapController _buildController({
   controller.onRegionUnlockRewarded = (region, xpAwarded) {
     feedbackEvents?.add('${region.name}:$xpAwarded');
   };
+  controller.onRegionUnlockCelebrationRewarded = (region, xpAwarded) {
+    feedbackEvents?.add('${region.name}:$xpAwarded');
+  };
 
   return controller;
 }
