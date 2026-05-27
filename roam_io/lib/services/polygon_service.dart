@@ -1,6 +1,6 @@
 /*
  * Author: Sanjevan Rajasegar
- * Last Modified: 12/05/2026
+ * Last Modified: 27/05/2026
  * Description:
  *   Persists visited polygon records and reports whether an unlock is new.
  */
@@ -38,6 +38,21 @@ class PolygonService {
       profileId: profileId,
       rawPolygonMap: rawPolygonMap,
     ).toList();
+  }
+
+  /// Streams all polygons the profile has visited with their saved timestamps.
+  Stream<List<VisitedPolygonRecord>> watchVisitedPolygonRecords({
+    required String profileId,
+  }) {
+    return Stream.fromFuture(
+      _resolveVisitedPolygonDocument(profileId),
+    ).asyncExpand((document) => document.snapshots()).map((snapshot) {
+      final rawPolygonMap = snapshot.data()?[_visitedPolygonsMapField];
+      return _recordsFromVisitedPolygonMap(
+        profileId: profileId,
+        rawPolygonMap: rawPolygonMap,
+      ).toList();
+    });
   }
 
   /// Inserts a visited polygon for the profile.
