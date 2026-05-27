@@ -196,7 +196,12 @@ class _LegendRow extends StatelessWidget {
         ),
         const SizedBox(width: 8),
         Expanded(
-          child: Text(label, style: Theme.of(context).textTheme.bodySmall),
+          child: Text(
+            label,
+            style: Theme.of(
+              context,
+            ).textTheme.bodySmall?.copyWith(color: Colors.black),
+          ),
         ),
       ],
     );
