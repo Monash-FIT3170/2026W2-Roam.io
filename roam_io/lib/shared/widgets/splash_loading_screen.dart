@@ -14,7 +14,7 @@ class SplashLoadingScreen extends StatelessWidget {
       body: Center(
         child: Image.asset(
           'assets/logos/roam_io_logo_with_text.png',
-          width: 220,
+          width: 400,
           fit: BoxFit.contain,
         ),
       ),

@@ -115,14 +115,14 @@ flutter_launcher_icons:
   android: true
   ios: true
   image_path: "assets/logos/roam_io_logo.png"
-  adaptive_icon_background: "#F2EBDC"
+  adaptive_icon_background: "#FBF4E1"
   adaptive_icon_foreground: "assets/logos/roam_io_logo.png"
   remove_alpha_ios: true
 
 flutter_native_splash:
-  color: "#F2EBDC"
+  color: "#FBF4E1"
   image: assets/logos/roam_io_logo_with_text.png
 
   android_12:
-    color: "#F2EBDC"
+    color: "#FBF4E1"
     image: assets/logos/roam_io_logo_with_text.png
