@@ -159,20 +159,11 @@ class _HeatmapLegend extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 8),
-            _LegendRow(
-              color: const Color(0xFFFFF176),
-              label: '1–2 entries',
-            ),
+            _LegendRow(color: const Color(0xFFFFF176), label: '1–2 entries'),
             const SizedBox(height: 6),
-            _LegendRow(
-              color: const Color(0xFFFFC247),
-              label: '3–4 entries',
-            ),
+            _LegendRow(color: const Color(0xFFFFC247), label: '3–4 entries'),
             const SizedBox(height: 6),
-            _LegendRow(
-              color: const Color(0xFFE53935),
-              label: '5+ entries',
-            ),
+            _LegendRow(color: const Color(0xFFE53935), label: '5+ entries'),
           ],
         ),
       ),
@@ -181,10 +172,7 @@ class _HeatmapLegend extends StatelessWidget {
 }
 
 class _LegendRow extends StatelessWidget {
-  const _LegendRow({
-    required this.color,
-    required this.label,
-  });
+  const _LegendRow({required this.color, required this.label});
 
   final Color color;
   final String label;
@@ -200,15 +188,15 @@ class _LegendRow extends StatelessWidget {
           decoration: BoxDecoration(
             color: color,
             shape: BoxShape.circle,
-            border: Border.all(color: Colors.black.withValues(alpha: 0.14), width: 0.8),
+            border: Border.all(
+              color: Colors.black.withValues(alpha: 0.14),
+              width: 0.8,
+            ),
           ),
         ),
         const SizedBox(width: 8),
         Expanded(
-          child: Text(
-            label,
-            style: Theme.of(context).textTheme.bodySmall,
-          ),
+          child: Text(label, style: Theme.of(context).textTheme.bodySmall),
         ),
       ],
     );

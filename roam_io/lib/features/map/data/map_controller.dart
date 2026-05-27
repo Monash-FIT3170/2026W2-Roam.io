@@ -88,9 +88,8 @@ class MapController extends ChangeNotifier {
        _tileUnlockXpService = tileUnlockXpService ?? TileUnlockXpService(),
        _viewportRegionLoader = viewportRegionLoader ?? ViewportRegionLoader(),
        _placeMarkerManager = placeMarkerManager ?? PlaceMarkerManager(),
-      _viewportPolicy = viewportPolicy ?? MapViewportPolicy(),
-      _polygonService = polygonService ?? PolygonService();
-       
+       _viewportPolicy = viewportPolicy ?? MapViewportPolicy(),
+       _polygonService = polygonService ?? PolygonService();
 
   final GeoLocatorService _geoLocatorService;
   final RegionService _regionService;
@@ -680,7 +679,9 @@ class MapController extends ChangeNotifier {
         '[MapController] Loaded entry counts for ${_entryCountsByRegion.length} SA1 regions',
       );
     } catch (error) {
-      debugPrint('[MapController] Error loading entry counts by region: $error');
+      debugPrint(
+        '[MapController] Error loading entry counts by region: $error',
+      );
     }
   }
 
@@ -691,10 +692,12 @@ class MapController extends ChangeNotifier {
       // Optimistically update local cache so the heatmap updates immediately.
       _entryCountsByRegion.update(region.id, (c) => c + 1, ifAbsent: () => 1);
 
-      unawaited(_polygonService.incrementPolygonEntryCount(
-        profileId: _userId!,
-        polygonId: region.id,
-      ));
+      unawaited(
+        _polygonService.incrementPolygonEntryCount(
+          profileId: _userId!,
+          polygonId: region.id,
+        ),
+      );
     } catch (error) {
       debugPrint('[MapController] Error recording region entry: $error');
     }
@@ -801,5 +804,6 @@ class MapController extends ChangeNotifier {
     return maxCount;
   }
 
-  int get _maxEntryCountAcrossVisitedRegions => _maxVisitCountAcrossVisitedRegions;
+  int get _maxEntryCountAcrossVisitedRegions =>
+      _maxVisitCountAcrossVisitedRegions;
 }

@@ -187,10 +187,14 @@ class PolygonService {
     return _firestore.runTransaction<int>((transaction) async {
       final snapshot = await transaction.get(document);
       final currentData = snapshot.data();
-      final currentEntryMap = (currentData?['entry_counts'] as Map<String, dynamic>?) ?? <String, dynamic>{};
+      final currentEntryMap =
+          (currentData?['entry_counts'] as Map<String, dynamic>?) ??
+          <String, dynamic>{};
 
       final currentCountDynamic = currentEntryMap[polygonId];
-      final currentCount = currentCountDynamic is num ? currentCountDynamic.toInt() : int.tryParse('$currentCountDynamic') ?? 0;
+      final currentCount = currentCountDynamic is num
+          ? currentCountDynamic.toInt()
+          : int.tryParse('$currentCountDynamic') ?? 0;
 
       final updatedEntryMap = Map<String, dynamic>.from(currentEntryMap)
         ..[polygonId] = currentCount + 1;
@@ -219,10 +223,13 @@ class PolygonService {
     if (rawEntryMap is Map<String, dynamic>) {
       for (final entry in rawEntryMap.entries) {
         if (entry.key.isEmpty) continue;
-        if (validPolygonIds != null && !validPolygonIds.contains(entry.key)) continue;
+        if (validPolygonIds != null && !validPolygonIds.contains(entry.key))
+          continue;
 
         final value = entry.value;
-        final count = value is num ? value.toInt() : int.tryParse('$value') ?? 0;
+        final count = value is num
+            ? value.toInt()
+            : int.tryParse('$value') ?? 0;
         if (count > 0) counts[entry.key] = count;
       }
     }
