@@ -114,12 +114,100 @@ class _MapPageState extends State<MapPage> {
           onCameraIdle: _mapController.loadViewportRegions,
           onCameraMove: _mapController.onCameraMove,
         ),
+        if (_mapController.isHeatmapEnabled)
+          Positioned(
+            top: MediaQuery.paddingOf(context).top + 16,
+            left: 16,
+            child: _HeatmapLegend(),
+          ),
         Positioned(
           top: MediaQuery.paddingOf(context).top + 16,
           right: 16,
           child: _HeatmapToggleButton(
             isEnabled: _mapController.isHeatmapEnabled,
             onPressed: _mapController.toggleHeatmap,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _HeatmapLegend extends StatelessWidget {
+  const _HeatmapLegend();
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
+    return Material(
+      color: theme.colorScheme.surface.withValues(alpha: 0.94),
+      elevation: 6,
+      shadowColor: Colors.black.withValues(alpha: 0.18),
+      borderRadius: BorderRadius.circular(12),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+        constraints: const BoxConstraints(maxWidth: 200),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Heatmap legend',
+              style: theme.textTheme.labelLarge?.copyWith(
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+            const SizedBox(height: 8),
+            _LegendRow(
+              color: const Color(0xFFFFF176),
+              label: '1–2 entries',
+            ),
+            const SizedBox(height: 6),
+            _LegendRow(
+              color: const Color(0xFFFFC247),
+              label: '3–4 entries',
+            ),
+            const SizedBox(height: 6),
+            _LegendRow(
+              color: const Color(0xFFE53935),
+              label: '5+ entries',
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _LegendRow extends StatelessWidget {
+  const _LegendRow({
+    required this.color,
+    required this.label,
+  });
+
+  final Color color;
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Container(
+          width: 14,
+          height: 14,
+          decoration: BoxDecoration(
+            color: color,
+            shape: BoxShape.circle,
+            border: Border.all(color: Colors.black.withValues(alpha: 0.14), width: 0.8),
+          ),
+        ),
+        const SizedBox(width: 8),
+        Expanded(
+          child: Text(
+            label,
+            style: Theme.of(context).textTheme.bodySmall,
           ),
         ),
       ],
