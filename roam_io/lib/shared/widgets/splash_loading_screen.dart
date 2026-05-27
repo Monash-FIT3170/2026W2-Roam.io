@@ -5,7 +5,6 @@ class SplashLoadingScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-
     return Scaffold(
       backgroundColor: const Color(0xFFFBF4E1),
       body: Center(
