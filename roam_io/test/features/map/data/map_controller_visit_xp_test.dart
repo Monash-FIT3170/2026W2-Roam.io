@@ -6,6 +6,8 @@
  *   from failed saves, and scales linearly with distinct visits (not polygon area).
  */
 
+import 'dart:async';
+
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:fake_cloud_firestore/fake_cloud_firestore.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -48,6 +50,30 @@ void main() {
 
       expect(result, VisitResult.error);
       expect(awards, isEmpty);
+    });
+
+    test('successful save returns before delayed XP award completes', () async {
+      final awards = <int>[];
+      final awardCompleter = Completer<void>();
+      final controller = await _buildController(
+        visitService: VisitService(firestore: FakeFirebaseFirestore()),
+        onVisitXpAwarded: (xp) async {
+          await awardCompleter.future;
+          awards.add(xp);
+        },
+      );
+
+      final result = await controller.markPlaceAsVisited(
+        _place(id: 4, regionId: 'REG_C'),
+      );
+
+      expect(result, VisitResult.success);
+      expect(awards, isEmpty);
+
+      awardCompleter.complete();
+      await Future<void>.delayed(Duration.zero);
+
+      expect(awards, <int>[XpRewardConfig.visitXpReward]);
     });
 
     test('visit XP amount is flat 50 regardless of region id', () async {

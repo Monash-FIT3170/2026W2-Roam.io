@@ -15,6 +15,37 @@ import 'package:roam_io/features/profile/domain/profile_model.dart';
 import '../../../support/fake_firebase_user.dart';
 
 void main() {
+  group('AuthProvider profile updates', () {
+    test(
+      'updates display name locally without refreshing user/profile',
+      () async {
+        final now = DateTime(2026, 5, 1);
+        final profile = ProfileModel(
+          uid: 'u1',
+          username: 't',
+          displayName: 'Old Name',
+          email: 't@t.com',
+          createdAt: now,
+          updatedAt: now,
+        );
+        final user = FakeFirebaseUser(uid: 'u1', email: 't@t.com');
+        final repo = _XpTrackingRepository(user: user, initialProfile: profile);
+        final provider = AuthProvider(authRepository: repo);
+        await Future<void>.delayed(Duration.zero);
+        await provider.refreshCurrentUser();
+        repo.resetCounts();
+
+        await provider.updateDisplayName('New Name');
+
+        expect(repo.updatedDisplayName, 'New Name');
+        expect(repo.reloadCount, 0);
+        expect(repo.profileReadCount, 0);
+        expect(provider.currentProfile?.displayName, 'New Name');
+        provider.dispose();
+      },
+    );
+  });
+
   group('AuthProvider error messages', () {
     test('maps invalid-email to a friendly message', () async {
       final repo = _ThrowingAuthRepository(
@@ -78,11 +109,16 @@ void main() {
       final repo = _XpTrackingRepository(user: user, initialProfile: profile);
       final provider = AuthProvider(authRepository: repo);
       await Future<void>.delayed(Duration.zero);
+      await provider.refreshCurrentUser();
+      repo.resetCounts();
 
       await provider.addXp(100);
       expect(provider.pendingLevelUp, 2);
       expect(provider.currentProfile?.xp, 100);
       expect(provider.currentProfile?.level, greaterThanOrEqualTo(2));
+      expect(repo.updateXpCount, 1);
+      expect(repo.addXpCount, 0);
+      expect(repo.profileReadCount, 0);
 
       provider.clearPendingLevelUp();
       expect(provider.pendingLevelUp, isNull);
@@ -105,6 +141,7 @@ void main() {
       final repo = _XpTrackingRepository(user: user, initialProfile: profile);
       final provider = AuthProvider(authRepository: repo);
       await Future<void>.delayed(Duration.zero);
+      await provider.refreshCurrentUser();
 
       await provider.addXp(5);
       expect(provider.pendingLevelUp, isNull);
@@ -153,6 +190,11 @@ class _XpTrackingRepository implements AuthRepository {
 
   final firebase_auth.User user;
   ProfileModel _profile;
+  int reloadCount = 0;
+  int profileReadCount = 0;
+  int addXpCount = 0;
+  int updateXpCount = 0;
+  String? updatedDisplayName;
 
   @override
   Stream<firebase_auth.User?> authStateChanges() async* {
@@ -163,16 +205,42 @@ class _XpTrackingRepository implements AuthRepository {
   firebase_auth.User? get currentUser => user;
 
   @override
-  Future<void> reloadCurrentUser() async {}
+  Future<void> reloadCurrentUser() async {
+    reloadCount++;
+  }
 
   @override
-  Future<ProfileModel?> getCurrentUserProfile() async => _profile;
+  Future<ProfileModel?> getCurrentUserProfile() async {
+    profileReadCount++;
+    return _profile;
+  }
+
+  @override
+  Future<void> updateDisplayName(String displayName) async {
+    updatedDisplayName = displayName;
+  }
 
   @override
   Future<void> addXp(int xpToAdd) async {
+    addXpCount++;
     final nextXp = _profile.xp + xpToAdd;
     final nextLevel = ProfileModel.levelFromXp(nextXp);
     _profile = _profile.copyWith(xp: nextXp, level: nextLevel);
+  }
+
+  @override
+  Future<void> updateXp(int newXp) async {
+    updateXpCount++;
+    final nextLevel = ProfileModel.levelFromXp(newXp);
+    _profile = _profile.copyWith(xp: newXp, level: nextLevel);
+  }
+
+  void resetCounts() {
+    reloadCount = 0;
+    profileReadCount = 0;
+    addXpCount = 0;
+    updateXpCount = 0;
+    updatedDisplayName = null;
   }
 
   @override

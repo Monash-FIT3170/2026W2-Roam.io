@@ -81,6 +81,12 @@ class _MutableProfileAuthRepository implements AuthRepository {
   Future<void> addXp(int xpToAdd) async {
     final current = _read();
     final newXp = current.xp + xpToAdd;
+    await updateXp(newXp);
+  }
+
+  @override
+  Future<void> updateXp(int newXp) async {
+    final current = _read();
     final newLevel = ProfileModel.levelFromXp(newXp);
     _write(
       current.copyWith(

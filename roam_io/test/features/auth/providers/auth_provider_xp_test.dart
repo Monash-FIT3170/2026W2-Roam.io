@@ -20,7 +20,8 @@ void main() {
 
       await provider.addXp(50);
 
-      expect(repository.addedXp, <int>[50]);
+      expect(repository.addedXp, isEmpty);
+      expect(repository.updatedXp, <int>[50]);
       expect(provider.currentProfile?.xp, 50);
       expect(provider.currentProfile?.level, 1);
       expect(provider.pendingLevelUp, isNull);

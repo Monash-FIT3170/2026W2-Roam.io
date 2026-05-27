@@ -227,7 +227,7 @@ void main() {
         await controller.initialise(userId: 'user-1');
 
         expect(awardedXp, <int>[50]);
-        expect(feedbackEvents, isEmpty);
+        expect(feedbackEvents, <String>['Region One:50']);
 
         controller.disposeController();
       },
@@ -303,6 +303,9 @@ MapController _buildController({
   );
 
   controller.onRegionUnlockRewarded = (region, xpAwarded) {
+    feedbackEvents?.add('${region.name}:$xpAwarded');
+  };
+  controller.onRegionUnlockCelebrationRewarded = (region, xpAwarded) {
     feedbackEvents?.add('${region.name}:$xpAwarded');
   };
 
