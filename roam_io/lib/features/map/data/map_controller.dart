@@ -671,10 +671,13 @@ class MapController extends ChangeNotifier {
     if (_userId == null) return;
 
     try {
-      _entryCountsByRegion = await _resolvedPolygonService.getPolygonEntryCounts(
-        profileId: _userId!,
-        validPolygonIds: _visitedRegionIds.isEmpty ? null : _visitedRegionIds,
-      );
+      _entryCountsByRegion = await _resolvedPolygonService
+          .getPolygonEntryCounts(
+            profileId: _userId!,
+            validPolygonIds: _visitedRegionIds.isEmpty
+                ? null
+                : _visitedRegionIds,
+          );
 
       debugPrint(
         '[MapController] Loaded entry counts for ${_entryCountsByRegion.length} SA1 regions',
