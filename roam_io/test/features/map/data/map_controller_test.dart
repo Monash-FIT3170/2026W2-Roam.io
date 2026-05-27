@@ -5,10 +5,43 @@
  *   Unit tests for MapController proximity checks and visit marking outcomes.
  */
 
+import 'package:fake_cloud_firestore/fake_cloud_firestore.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:roam_io/features/map/data/map_controller.dart';
+import 'package:roam_io/services/polygon_service.dart';
 
 import '../../../support/map_test_doubles.dart';
+
+class _FakePolygonService extends PolygonService {
+  _FakePolygonService({required this.entryCounts})
+    : super(firestore: FakeFirebaseFirestore());
+
+  final Map<String, int> entryCounts;
+  int getPolygonEntryCountsCalls = 0;
+  String? lastProfileId;
+  Set<String>? lastValidPolygonIds;
+
+  @override
+  Future<Map<String, int>> getPolygonEntryCounts({
+    required String profileId,
+    Set<String>? validPolygonIds,
+  }) async {
+    getPolygonEntryCountsCalls++;
+    lastProfileId = profileId;
+    lastValidPolygonIds = validPolygonIds;
+    return Map<String, int>.from(entryCounts);
+  }
+}
+
+class _FakeVisitedRegionService extends FakeVisitedRegionService {
+  _FakeVisitedRegionService({required Set<String> regionIds})
+    : _regionIds = regionIds;
+
+  final Set<String> _regionIds;
+
+  @override
+  Future<Set<String>> loadVisitedRegionIds() async => _regionIds;
+}
 
 void main() {
   group('MapController.checkProximity', () {
@@ -176,6 +209,35 @@ void main() {
       );
 
       expect(controller.getPlaceById(99), isNull);
+      controller.disposeController();
+      controller.dispose();
+    });
+  });
+
+  group('MapController.toggleHeatmap', () {
+    test('loads entry counts and enables heatmap when signed in', () async {
+      final polygonService = _FakePolygonService(entryCounts: {'region-1': 3});
+      final visitedRegionService = _FakeVisitedRegionService(
+        regionIds: {'region-1'},
+      );
+
+      final controller = MapController(
+        visitService: RecordingVisitService(),
+        visitedRegionService: visitedRegionService,
+        polygonService: polygonService,
+      );
+
+      await controller.setUserId('user-1');
+
+      expect(controller.isHeatmapEnabled, isFalse);
+
+      await controller.toggleHeatmap();
+
+      expect(controller.isHeatmapEnabled, isTrue);
+      expect(polygonService.getPolygonEntryCountsCalls, 1);
+      expect(polygonService.lastProfileId, 'user-1');
+      expect(polygonService.lastValidPolygonIds, {'region-1'});
+
       controller.disposeController();
       controller.dispose();
     });

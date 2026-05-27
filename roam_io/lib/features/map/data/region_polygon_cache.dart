@@ -48,7 +48,9 @@ class RegionPolygonCache {
   static const Color _unvisitedFillColor = Color(0xCC000000);
   static const int _unvisitedStrokeWidth = 2;
 
-  static const Color _heatmapColdColor = Color(0xFF3D8BFF);
+  // Use a yellow->orange->red scale so low counts appear yellow, medium
+  // counts orange, and the most visited tiles are red.
+  static const Color _heatmapColdColor = Color(0xFFFFF176);
   static const Color _heatmapWarmColor = Color(0xFFFFC247);
   static const Color _heatmapHotColor = Color(0xFFE53935);
 
@@ -174,7 +176,7 @@ class RegionPolygonCache {
     }
 
     if (isVisited && heatmapIntensity != null) {
-      return _heatmapColor(heatmapIntensity).withValues(alpha: 0.9);
+      return _heatmapColor(heatmapIntensity).withValues(alpha: 0.95);
     }
 
     return isVisited ? _visitedStrokeColor : _unvisitedStrokeColor;
@@ -194,7 +196,7 @@ class RegionPolygonCache {
     }
 
     if (heatmapIntensity != null) {
-      return _heatmapColor(heatmapIntensity).withValues(alpha: 0.48);
+      return _heatmapColor(heatmapIntensity).withValues(alpha: 0.6);
     }
 
     return _visitedFillColor;
