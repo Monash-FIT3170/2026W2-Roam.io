@@ -106,6 +106,17 @@ class VisitService {
     return snapshot.docs.map((doc) => Visit.fromMap(doc.data())).toList();
   }
 
+  /// Watches all visits for a user with full details.
+  ///
+  /// Use this for analytics surfaces that need to update as visits are created
+  /// or edited.
+  Stream<List<Visit>> watchAllVisits(String userId) {
+    return _visitsCollection(userId).snapshots().map(
+      (snapshot) =>
+          snapshot.docs.map((doc) => Visit.fromMap(doc.data())).toList(),
+    );
+  }
+
   /// Gets visits for a specific region.
   ///
   /// Useful for showing visited places within a particular tile.

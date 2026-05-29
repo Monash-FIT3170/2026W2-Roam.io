@@ -41,10 +41,6 @@ class AnalyticsScreen extends StatefulWidget {
 class _AnalyticsScreenState extends State<AnalyticsScreen> {
   VisitService? _visitService;
   VisitedRegionService? _visitedRegionService;
-  String? _tilesVisitedUserId;
-  Future<int>? _tilesVisitedCountFuture;
-  String? _totalVisitsUserId;
-  Future<int>? _totalVisitsCountFuture;
 
   VisitService get _effectiveVisitService {
     return _visitService ??= widget.visitService ?? VisitService();
@@ -101,8 +97,13 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
                   builder: (context, auth, _) {
                     final xp = auth.currentProfile?.xp;
                     final uid = auth.currentUser?.uid;
-                    final tilesVisitedFuture = _tilesVisitedCountFutureFor(uid);
-                    final totalVisitsFuture = _totalVisitsCountFutureFor(uid);
+                    final visitedRegionsStream = uid == null
+                        ? Stream<Set<String>>.value(<String>{})
+                        : _effectiveVisitedRegionService
+                              .watchVisitedRegionIds();
+                    final allVisitsStream = uid == null
+                        ? Stream<List<Visit>>.value(<Visit>[])
+                        : _effectiveVisitService.watchAllVisits(uid);
 
                     return Row(
                       children: [
@@ -117,15 +118,16 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
                         ),
                         const SizedBox(width: 12),
                         Expanded(
-                          child: FutureBuilder<int>(
-                            future: tilesVisitedFuture,
+                          child: StreamBuilder<Set<String>>(
+                            stream: visitedRegionsStream,
                             builder: (context, snapshot) {
+                              final count = snapshot.data?.length;
                               return _buildStatCard(
                                 context,
                                 title: 'Tiles Visited',
-                                value: snapshot.hasData
-                                    ? _formatStatValue(snapshot.data!)
-                                    : '...',
+                                value: count == null
+                                    ? '...'
+                                    : _formatStatValue(count),
                                 icon: Icons.map_outlined,
                                 color: AppColors.clay,
                               );
@@ -134,15 +136,16 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
                         ),
                         const SizedBox(width: 12),
                         Expanded(
-                          child: FutureBuilder<int>(
-                            future: totalVisitsFuture,
+                          child: StreamBuilder<List<Visit>>(
+                            stream: allVisitsStream,
                             builder: (context, snapshot) {
+                              final count = snapshot.data?.length;
                               return _buildStatCard(
                                 context,
                                 title: 'Total Visits',
-                                value: snapshot.hasData
-                                    ? _formatStatValue(snapshot.data!)
-                                    : '...',
+                                value: count == null
+                                    ? '...'
+                                    : _formatStatValue(count),
                                 icon: Icons.repeat,
                                 color: AppColors.sage,
                               );
@@ -196,12 +199,12 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
     return Consumer<AuthProvider>(
       builder: (context, auth, _) {
         final uid = auth.currentUser?.uid;
-        final locationFuture = uid == null
-            ? Future<List<Visit>>.value(<Visit>[])
-            : _effectiveVisitService.getAllVisits(uid);
+        final visitsStream = uid == null
+            ? Stream<List<Visit>>.value(<Visit>[])
+            : _effectiveVisitService.watchAllVisits(uid);
 
-        return FutureBuilder<List<Visit>>(
-          future: locationFuture,
+        return StreamBuilder<List<Visit>>(
+          stream: visitsStream,
           builder: (context, snapshot) {
             if (!snapshot.hasData) {
               return _buildLocationBubble(
@@ -409,37 +412,5 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
     }
 
     return buffer.toString();
-  }
-
-  Future<int> _tilesVisitedCountFutureFor(String? uid) {
-    if (uid == null) {
-      _tilesVisitedUserId = null;
-      _tilesVisitedCountFuture = Future<int>.value(0);
-      return _tilesVisitedCountFuture!;
-    }
-
-    if (_tilesVisitedUserId != uid || _tilesVisitedCountFuture == null) {
-      _tilesVisitedUserId = uid;
-      _tilesVisitedCountFuture = _effectiveVisitedRegionService
-          .loadVisitedRegionIds()
-          .then((regionIds) => regionIds.length);
-    }
-
-    return _tilesVisitedCountFuture!;
-  }
-
-  Future<int> _totalVisitsCountFutureFor(String? uid) {
-    if (uid == null) {
-      _totalVisitsUserId = null;
-      _totalVisitsCountFuture = Future<int>.value(0);
-      return _totalVisitsCountFuture!;
-    }
-
-    if (_totalVisitsUserId != uid || _totalVisitsCountFuture == null) {
-      _totalVisitsUserId = uid;
-      _totalVisitsCountFuture = _effectiveVisitService.getVisitCount(uid);
-    }
-
-    return _totalVisitsCountFuture!;
   }
 }
