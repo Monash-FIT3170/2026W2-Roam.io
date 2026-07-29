@@ -14,6 +14,7 @@ import 'package:provider/provider.dart';
 import '../../auth/providers/auth_provider.dart';
 import '../../../shared/widgets/app_toast.dart';
 import '../widgets/map_render.dart';
+import '../widgets/mode_toggle_chip.dart';
 import 'map_controller.dart';
 import 'place_details_sheet.dart';
 import 'place_of_interest.dart';
@@ -113,6 +114,18 @@ class _MapPageState extends State<MapPage> {
           // Load or refresh visible regions after the user stops moving the map.
           onCameraIdle: _mapController.loadViewportRegions,
           onCameraMove: _mapController.onCameraMove,
+        ),
+        // Mode toggle chip at top-center
+        Positioned(
+          top: MediaQuery.paddingOf(context).top + 16,
+          left: 0,
+          right: 0,
+          child: Center(
+            child: ModeToggleChip(
+              currentMode: _mapController.currentMode,
+              onModeChanged: _mapController.setMode,
+            ),
+          ),
         ),
         if (_mapController.isHeatmapEnabled)
           Positioned(

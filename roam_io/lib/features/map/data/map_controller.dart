@@ -16,6 +16,7 @@ import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 
+import '../domain/exploration_mode.dart';
 import '../../profile/domain/xp_reward_config.dart';
 import 'geolocator_service.dart';
 import 'map_viewport_policy.dart';
@@ -118,6 +119,8 @@ class MapController extends ChangeNotifier {
   bool _isResolvingCurrentRegion = false;
   Position? _queuedRegionCheckPosition;
 
+  ExplorationMode _currentMode = ExplorationMode.exploration;
+
   double _currentZoom = defaultZoom;
   MapLayerMode _currentLayerMode = MapLayerMode.sa1Detail;
 
@@ -140,10 +143,19 @@ class MapController extends ChangeNotifier {
   String? get userId => _userId;
   String get mapStyle => _mapStyle;
   bool get isHeatmapEnabled => _isHeatmapEnabled;
+  ExplorationMode get currentMode => _currentMode;
   Set<int> get visitedPlaceIds => Set.unmodifiable(_visitedPlaceIds);
   Set<String> get visitedRegionIds => Set.unmodifiable(_visitedRegionIds);
   Map<String, int> get visitCountsByRegion =>
       Map<String, int>.unmodifiable(_visitCountsByRegion);
+
+  /// Sets the current exploration mode and notifies listeners.
+  void setMode(ExplorationMode mode) {
+    if (_currentMode != mode) {
+      _currentMode = mode;
+      notifyListeners();
+    }
+  }
 
   void bindVisitXpAwarding(
     Future<void> Function(int amount)? onVisitXpAwarded,
