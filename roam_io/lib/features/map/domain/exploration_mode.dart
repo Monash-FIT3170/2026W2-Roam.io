@@ -55,7 +55,7 @@ extension ExplorationModeExtension on ExplorationMode {
       case ExplorationMode.exploration:
         return false;
       case ExplorationMode.journey:
-        return true;
+        return false;
     }
   }
 }

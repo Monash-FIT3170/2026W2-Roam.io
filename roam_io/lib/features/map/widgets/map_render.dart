@@ -22,6 +22,7 @@ class MapRender extends StatelessWidget {
     required this.onMapCreated,
     this.mapStyle,
     this.markers = const {},
+    this.polylines = const {},
     this.myLocationEnabled = false,
     this.onCameraIdle,
     this.onCameraMove,
@@ -30,6 +31,7 @@ class MapRender extends StatelessWidget {
   final LatLng initialCenter;
   final Set<Polygon> polygons;
   final Set<Marker> markers;
+  final Set<Polyline> polylines;
   final Future<void> Function(GoogleMapController) onMapCreated;
   final String? mapStyle;
   final bool myLocationEnabled;
@@ -44,6 +46,7 @@ class MapRender extends StatelessWidget {
       onMapCreated: onMapCreated,
       polygons: polygons,
       markers: markers,
+      polylines: polylines,
       myLocationEnabled: myLocationEnabled,
       myLocationButtonEnabled: myLocationEnabled,
       mapToolbarEnabled: false,

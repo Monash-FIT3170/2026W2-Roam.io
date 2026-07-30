@@ -2,83 +2,57 @@
  * Author: GitHub Copilot
  * Last Modified: 30/07/2026
  * Description:
- *   A pill-shaped chip widget that displays the current exploration mode and
- *   allows the user to toggle between modes by tapping. Shows a "Coming Soon"
- *   toast when switching to placeholder modes like Journey.
+ *   A pill-shaped "Start Journey" button that opens the journey flow when tapped.
  */
 
 import 'package:flutter/material.dart';
 
-import '../domain/exploration_mode.dart';
-import '../../../shared/widgets/app_toast.dart';
+import '../../../theme/app_colours.dart';
 
-/// A tappable chip that shows the current exploration mode and cycles to
-/// the next mode when tapped.
-class ModeToggleChip extends StatelessWidget {
-  const ModeToggleChip({
+/// A tappable chip button to start a new journey.
+class StartJourneyChip extends StatelessWidget {
+  const StartJourneyChip({
     super.key,
-    required this.currentMode,
-    required this.onModeChanged,
+    required this.onPressed,
   });
 
-  /// The current exploration mode to display.
-  final ExplorationMode currentMode;
-
-  /// Callback invoked when the user taps to change the mode.
-  final void Function(ExplorationMode newMode) onModeChanged;
+  /// Callback invoked when the user taps to start a journey.
+  final VoidCallback onPressed;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final colorScheme = theme.colorScheme;
 
     return Material(
-      color: colorScheme.surface.withValues(alpha: 0.94),
+      color: AppColors.sage,
       elevation: 8,
       shadowColor: Colors.black.withValues(alpha: 0.24),
       borderRadius: BorderRadius.circular(24),
       child: InkWell(
-        onTap: () => _onTap(context),
+        onTap: onPressed,
         borderRadius: BorderRadius.circular(24),
         child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(
-                currentMode.icon,
+              const Icon(
+                Icons.play_arrow,
                 size: 20,
-                color: colorScheme.primary,
+                color: Colors.white,
               ),
               const SizedBox(width: 8),
               Text(
-                currentMode.label,
+                'Start Journey',
                 style: theme.textTheme.labelLarge?.copyWith(
                   fontWeight: FontWeight.w600,
-                  color: colorScheme.onSurface,
+                  color: Colors.white,
                 ),
-              ),
-              const SizedBox(width: 4),
-              Icon(
-                Icons.swap_horiz,
-                size: 16,
-                color: colorScheme.onSurface.withValues(alpha: 0.6),
               ),
             ],
           ),
         ),
       ),
     );
-  }
-
-  void _onTap(BuildContext context) {
-    final nextMode = currentMode.next;
-
-    // Show a "Coming Soon" toast when switching to a placeholder mode
-    if (nextMode.isPlaceholder) {
-      AppToast.show(context, '${nextMode.label} mode coming soon!');
-    }
-
-    onModeChanged(nextMode);
   }
 }

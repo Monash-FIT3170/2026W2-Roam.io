@@ -510,6 +510,111 @@ app.post('/places/regions', async (req, res) => {
   }
 });
 
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// NEARBY PLACES ENDPOINT (for Journey Mode)
+// ═══════════════════════════════════════════════════════════════════════════════
+
+/**
+ * Haversine formula to calculate distance between two points in meters.
+ */
+function haversineDistance(lat1, lng1, lat2, lng2) {
+  const R = 6371000; // Earth's radius in meters
+  const toRad = (deg) => (deg * Math.PI) / 180;
+
+  const dLat = toRad(lat2 - lat1);
+  const dLng = toRad(lng2 - lng1);
+
+  const a =
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos(toRad(lat1)) *
+      Math.cos(toRad(lat2)) *
+      Math.sin(dLng / 2) *
+      Math.sin(dLng / 2);
+
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  return R * c;
+}
+
+/**
+ * POST /places/nearby
+ *
+ * Returns up to 5 nearest places within the specified radius of a location.
+ * Used by Journey Mode for selecting start/end locations.
+ *
+ * Request body: { lat, lng, radiusMeters: 25 }
+ * Response: [{ placeId, name, address, location: {lat, lng}, distanceMeters }]
+ */
+app.post('/places/nearby', async (req, res) => {
+  try {
+    const { lat, lng, radiusMeters = 25 } = req.body;
+
+    if (lat == null || lng == null) {
+      return res.status(400).json({ error: 'lat and lng are required' });
+    }
+
+    console.log(
+      `[NearbyPlaces] Searching at (${lat}, ${lng}) with radius ${radiusMeters}m`
+    );
+
+    // Fetch places from Google Places API
+    let places = [];
+    try {
+      places = await fetchPlacesFromGoogle({
+        lat: Number(lat),
+        lng: Number(lng),
+        radiusMeters: Number(radiusMeters),
+        maxResults: 20,
+        apiKey: GOOGLE_PLACES_API_KEY.value(),
+      });
+    } catch (googleError) {
+      console.error('[NearbyPlaces] Google API error:', googleError.message);
+      return res.json([]);
+    }
+
+    if (!places || places.length === 0) {
+      console.log('[NearbyPlaces] No places found');
+      return res.json([]);
+    }
+
+    // Calculate distance for each place and filter to those within radius
+    const placesWithDistance = places
+      .filter((place) => place.location?.latitude && place.location?.longitude)
+      .map((place) => {
+        const distance = haversineDistance(
+          lat,
+          lng,
+          place.location.latitude,
+          place.location.longitude
+        );
+        return {
+          placeId: place.id,
+          name: place.displayName?.text || 'Unknown',
+          address: place.formattedAddress || '',
+          location: {
+            lat: place.location.latitude,
+            lng: place.location.longitude,
+          },
+          distanceMeters: Math.round(distance),
+        };
+      })
+      .filter((place) => place.distanceMeters <= radiusMeters);
+
+    // Sort by distance ascending, take top 5
+    placesWithDistance.sort((a, b) => a.distanceMeters - b.distanceMeters);
+    const top5 = placesWithDistance.slice(0, 5);
+
+    console.log(
+      `[NearbyPlaces] Found ${places.length} places, ${placesWithDistance.length} within ${radiusMeters}m, returning top ${top5.length}`
+    );
+
+    return res.json(top5);
+  } catch (error) {
+    console.error('[NearbyPlaces] Error:', error.message);
+    return res.status(500).json({ error: 'Failed to fetch nearby places' });
+  }
+});
+
 exports.api = onRequest(
   {
     region: 'australia-southeast1',

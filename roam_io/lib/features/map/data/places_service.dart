@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'place_of_interest.dart';
 import 'api_config.dart';
+import '../../journeys/domain/nearby_place.dart';
 
 class PlacesService {
   final http.Client _client;
@@ -80,5 +81,50 @@ class PlacesService {
     }
 
     return result;
+  }
+
+  /// Fetch nearby places within a radius of a location.
+  ///
+  /// Used by Journey Mode for selecting start/end locations.
+  /// Returns up to 5 nearest places, sorted by distance.
+  ///
+  /// On failure, returns an empty list (graceful degradation).
+  Future<List<NearbyPlace>> getNearbyPlaces({
+    required double lat,
+    required double lng,
+    int radiusMeters = 25,
+  }) async {
+    final url = '${ApiConfig.spatialApiBaseUrl}/places/nearby';
+    debugPrint('[PlacesService] POST $url (lat: $lat, lng: $lng, radius: ${radiusMeters}m)');
+
+    try {
+      final response = await _client.post(
+        Uri.parse(url),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({
+          'lat': lat,
+          'lng': lng,
+          'radiusMeters': radiusMeters,
+        }),
+      );
+
+      debugPrint('[PlacesService] Response status: ${response.statusCode}');
+
+      if (response.statusCode != 200) {
+        debugPrint('[PlacesService] Error: ${response.body}');
+        return [];
+      }
+
+      final decoded = jsonDecode(response.body) as List<dynamic>;
+      final places = decoded
+          .map((item) => NearbyPlace.fromJson(Map<String, dynamic>.from(item as Map)))
+          .toList();
+
+      debugPrint('[PlacesService] Found ${places.length} nearby places');
+      return places;
+    } catch (e) {
+      debugPrint('[PlacesService] Error fetching nearby places: $e');
+      return [];
+    }
   }
 }

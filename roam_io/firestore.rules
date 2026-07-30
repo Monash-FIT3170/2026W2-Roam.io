@@ -23,6 +23,14 @@ service cloud.firestore {
         // No deletes - visits are permanent
         allow delete: if false;
       }
+      
+      // Journeys subcollection - tracks user's journey history
+      match /journeys/{journeyId} {
+        // Only the signed-in owner can read/create/update their own journeys.
+        allow read, create, update: if request.auth != null && request.auth.uid == userId;
+        // Allow deleting journeys
+        allow delete: if request.auth != null && request.auth.uid == userId;
+      }
     }
 
     match /polygons_visited/{userId} {

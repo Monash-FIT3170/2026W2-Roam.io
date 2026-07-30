@@ -349,6 +349,12 @@ class MapController extends ChangeNotifier {
     return (isNear: distance <= visitProximityThreshold, distance: distance);
   }
 
+  /// Returns the user's current GPS position.
+  /// Throws if location access fails.
+  Future<Position> getCurrentPosition() async {
+    return _geoLocatorService.getCurrentLocation();
+  }
+
   Future<VisitResult> markPlaceAsVisited(
     PlaceOfInterest place, {
     String? customName,
