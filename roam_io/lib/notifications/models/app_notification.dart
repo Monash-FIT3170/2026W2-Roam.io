@@ -31,8 +31,15 @@ class AppNotification {
   /// device notification.
   final bool showOnDevice;
 
+  /// Length of time an in-app notification remains visible.
+  final Duration displayDuration;
+
   /// Optional buttons/actions associated with this notification.
   final List<NotificationAction> actions;
+
+  /// Optional information used to connect the notification to another feature.
+  /// e.g. which activity the notification relates to, or which user sent it.
+  final Map<String, String> data;
 
   const AppNotification({
     required this.id,
@@ -42,6 +49,8 @@ class AppNotification {
     required this.timestamp,
     this.showInApp = true,
     this.showOnDevice = true,
+    this.displayDuration = const Duration(seconds: 4),
     this.actions = const [],
+    this.data = const {},
   });
 }

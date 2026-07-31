@@ -13,25 +13,37 @@ import '../models/notification_type.dart';
 class NotificationTemplates {
   NotificationTemplates._();
 
-  static AppNotification friendRequest(String username) {
-    return AppNotification(
-      id: DateTime.now().millisecondsSinceEpoch.toString(),
-      type: NotificationType.friendRequest,
-      title: 'New Friend Request',
-      body: '$username sent you a friend request.',
-      timestamp: DateTime.now(),
-      actions: const [
-        NotificationAction(
-          type: NotificationActionType.accept,
-          label: 'Accept',
-        ),
-        NotificationAction(
-          type: NotificationActionType.decline,
-          label: 'Decline',
-        ),
-      ],
-    );
-  }
+  static AppNotification friendRequest(
+  String username, {
+  String? friendRequestId,
+  String? senderId,
+}) {
+  final now = DateTime.now();
+
+  return AppNotification(
+    id: now.microsecondsSinceEpoch.toString(),
+    type: NotificationType.friendRequest,
+    title: 'New Friend Request',
+    body: '$username sent you a friend request.',
+    timestamp: now,
+    displayDuration: const Duration(seconds: 7),
+    actions: const [
+      NotificationAction(
+        type: NotificationActionType.accept,
+        label: 'Accept',
+      ),
+      NotificationAction(
+        type: NotificationActionType.decline,
+        label: 'Decline',
+      ),
+    ],
+    data: {
+      if (friendRequestId != null)
+        'friendRequestId': friendRequestId,
+      if (senderId != null) 'senderId': senderId,
+    },
+  );
+}
 
   static AppNotification friendAccepted(String username) {
     return AppNotification(
@@ -44,14 +56,17 @@ class NotificationTemplates {
   }
 
   static AppNotification kudos(String username) {
-    return AppNotification(
-      id: DateTime.now().millisecondsSinceEpoch.toString(),
-      type: NotificationType.kudos,
-      title: 'Kudos Received',
-      body: '$username gave you Kudos.',
-      timestamp: DateTime.now(),
-    );
-  }
+  final now = DateTime.now();
+
+  return AppNotification(
+    id: now.microsecondsSinceEpoch.toString(),
+    type: NotificationType.kudos,
+    title: 'Kudos Received',
+    body: '$username gave you Kudos.',
+    timestamp: now,
+    displayDuration: const Duration(seconds: 3),
+  );
+}
 
   static AppNotification comment(String username) {
     return AppNotification(
@@ -64,15 +79,28 @@ class NotificationTemplates {
   }
 
   static AppNotification error(String message) {
-    return AppNotification(
-      id: DateTime.now().millisecondsSinceEpoch.toString(),
-      type: NotificationType.error,
-      title: 'Something went wrong',
-      body: message,
-      timestamp: DateTime.now(),
-      showOnDevice: false,
-    );
-  }
+  final now = DateTime.now();
+
+  return AppNotification(
+    id: now.microsecondsSinceEpoch.toString(),
+    type: NotificationType.error,
+    title: 'Something went wrong',
+    body: message,
+    timestamp: now,
+    showOnDevice: false,
+    displayDuration: const Duration(seconds: 6),
+    actions: const [
+      NotificationAction(
+        type: NotificationActionType.retry,
+        label: 'Retry',
+      ),
+      NotificationAction(
+        type: NotificationActionType.dismiss,
+        label: 'Dismiss',
+      ),
+    ],
+  );
+}
 
   static AppNotification activity({
     required String title,

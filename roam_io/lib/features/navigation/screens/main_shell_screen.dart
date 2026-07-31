@@ -6,15 +6,18 @@
  *   across the main feature tabs.
  */
 
-import 'package:flutter/material.dart';
 
-import '../../map/data/map_page.dart';
-import '../../../shared/widgets/app_bottom_nav_bar.dart';
-import '../../journeys/screens/journeys_screen.dart';
-import '../../quests/screens/quests_screen.dart';
-import '../../analytics/screens/analytics_screen.dart';
-import '../../profile/screens/profile_screen.dart';
+import 'dart:async';
+
+import 'package:flutter/material.dart';
 import 'package:roam_io/notifications/notification.dart';
+
+import '../../../shared/widgets/app_bottom_nav_bar.dart';
+import '../../analytics/screens/analytics_screen.dart';
+import '../../journeys/screens/journeys_screen.dart';
+import '../../map/data/map_page.dart';
+import '../../profile/screens/profile_screen.dart';
+import '../../quests/screens/quests_screen.dart';
 
 /// Stateful shell that keeps each main tab alive in an indexed stack.
 class MainShellScreen extends StatefulWidget {
@@ -27,7 +30,9 @@ class MainShellScreen extends StatefulWidget {
 class _MainShellScreenState extends State<MainShellScreen> {
   int selectedIndex = 2;
 
-  final pages = const [
+  StreamSubscription<NotificationActionEvent>? _actionSubscription;
+
+  final List<Widget> pages = const [
     JourneysScreen(),
     QuestsScreen(),
     MapPage(),
@@ -36,27 +41,68 @@ class _MainShellScreenState extends State<MainShellScreen> {
   ];
 
   @override
+  void initState() {
+    super.initState();
+
+    // Temporary listener used to confirm that notification actions work.
+    _actionSubscription =
+        NotificationService.instance.actionEvents.listen((event) {
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(context)
+        ..hideCurrentSnackBar()
+        ..showSnackBar(
+          SnackBar(
+            content: Text(
+              '${event.action.label} selected for '
+              '${event.notification.title}',
+            ),
+            duration: const Duration(seconds: 2),
+          ),
+        );
+    });
+  }
+
+  @override
+  void dispose() {
+    _actionSubscription?.cancel();
+    super.dispose();
+  }
+
+  void _showTestNotification() {
+    NotificationService.instance.show(
+      NotificationTemplates.friendRequest('Alex'),
+    );
+  }
+
+  void _selectPage(int index) {
+    if (index == selectedIndex) return;
+
+    setState(() {
+      selectedIndex = index;
+    });
+  }
+
+  @override
   Widget build(BuildContext context) {
     return Scaffold(
       extendBody: true,
-      body: IndexedStack(index: selectedIndex, children: pages),
 
-        // Temporary button to test notifications.
-        floatingActionButton: FloatingActionButton(
-          onPressed: () async {
-            await NotificationService.instance.show(
-              NotificationTemplates.friendRequest("Alex"),
-            );
-          },
-          child: const Icon(Icons.notifications),
-        ),
+      body: IndexedStack(
+        index: selectedIndex,
+        children: pages,
+      ),
+
+      // Temporary button used to test the notification system.
+      floatingActionButton: FloatingActionButton(
+        onPressed: _showTestNotification,
+        tooltip: 'Test notification',
+        child: const Icon(Icons.notifications),
+      ),
 
       bottomNavigationBar: AppBottomNavBar(
         currentIndex: selectedIndex,
-        onTap: (index) {
-          if (index == selectedIndex) return;
-          setState(() => selectedIndex = index);
-        },
+        onTap: _selectPage,
       ),
     );
   }
