@@ -13,6 +13,7 @@ import 'package:flutter/foundation.dart';
 import '../models/app_notification.dart';
 import '../models/notification_action.dart';
 import 'package:roam_io/notifications/services/android_notification_service.dart';
+import 'package:roam_io/notifications/services/app_lifecycle_service.dart';
 
 /// Contains the notification and the action selected by the user.
 class NotificationActionEvent {
@@ -52,13 +53,25 @@ class NotificationService {
       '${notification.title}',
     );
 
-    if (notification.showInApp) {
+    final isForeground =
+      AppLifecycleService.instance.isInForeground;
+
+    if (notification.showInApp && isForeground) {
       _notificationController.add(notification);
     }
 
-    if (notification.showOnDevice) {
+    if (notification.showOnDevice && !isForeground) {
       await AndroidNotificationService.instance.show(notification);
     }
+
+    // Old version, showing android notifications even when app is in foreground
+    // if (notification.showInApp) {
+    //   _notificationController.add(notification);
+    // }
+    // 
+    // if (notification.showOnDevice) {
+    //   await AndroidNotificationService.instance.show(notification);
+    // }
   }
 
   /// Reports that an action was selected from a notification.
