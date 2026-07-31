@@ -27,6 +27,7 @@ import '../../journeys/widgets/end_journey_sheet.dart';
 import '../../journeys/widgets/custom_location_details_sheet.dart';
 import '../../journeys/widgets/journey_summary_sheet.dart';
 import '../../journeys/widgets/journey_tracking_card.dart';
+import '../../journeys/widgets/past_journey_summary_sheet.dart';
 import '../../journeys/widgets/start_journey_sheet.dart';
 import '../../../shared/widgets/app_toast.dart';
 import '../../../theme/app_colours.dart';
@@ -193,6 +194,11 @@ class _MapPageState extends State<MapPage> {
             points: routePoints,
             color: AppColors.sage.withValues(alpha: 0.7),
             width: 4,
+            consumeTapEvents: true,
+            onTap: () => PastJourneySummarySheet.show(
+              context: context,
+              journey: journey,
+            ),
           ),
         );
 

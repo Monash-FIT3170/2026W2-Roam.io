@@ -15,6 +15,7 @@ import '../../../theme/app_surfaces.dart';
 import '../../auth/providers/auth_provider.dart';
 import '../data/journey_controller.dart';
 import '../domain/journey.dart';
+import '../widgets/past_journey_summary_sheet.dart';
 
 /// Displays the user's journey history and filter controls.
 class JourneysScreen extends StatelessWidget {
@@ -50,7 +51,8 @@ class JourneysScreen extends StatelessWidget {
                   : StreamBuilder<List<Journey>>(
                       stream: journeyController.getJourneysStream(userId),
                       builder: (context, snapshot) {
-                        if (snapshot.connectionState == ConnectionState.waiting) {
+                        if (snapshot.connectionState ==
+                            ConnectionState.waiting) {
                           return const Center(
                             child: CircularProgressIndicator(),
                           );
@@ -73,8 +75,9 @@ class JourneysScreen extends StatelessWidget {
                         }
 
                         return ListView.builder(
-                          padding: const EdgeInsets.symmetric(horizontal: 24)
-                              .copyWith(bottom: 110),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 24,
+                          ).copyWith(bottom: 110),
                           itemCount: journeys.length,
                           itemBuilder: (context, index) {
                             return _JourneyCard(journey: journeys[index]);
@@ -166,23 +169,50 @@ class _JourneyCard extends StatelessWidget {
     final difference = now.difference(date);
 
     if (difference.inDays == 0) {
-      final hour = date.hour > 12 ? date.hour - 12 : (date.hour == 0 ? 12 : date.hour);
+      final hour = date.hour > 12
+          ? date.hour - 12
+          : (date.hour == 0 ? 12 : date.hour);
       final period = date.hour >= 12 ? 'PM' : 'AM';
       final minute = date.minute.toString().padLeft(2, '0');
       return 'Today, $hour:$minute $period';
     } else if (difference.inDays == 1) {
-      final hour = date.hour > 12 ? date.hour - 12 : (date.hour == 0 ? 12 : date.hour);
+      final hour = date.hour > 12
+          ? date.hour - 12
+          : (date.hour == 0 ? 12 : date.hour);
       final period = date.hour >= 12 ? 'PM' : 'AM';
       final minute = date.minute.toString().padLeft(2, '0');
       return 'Yesterday, $hour:$minute $period';
     } else if (difference.inDays < 7) {
-      final weekdays = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
-      final hour = date.hour > 12 ? date.hour - 12 : (date.hour == 0 ? 12 : date.hour);
+      final weekdays = [
+        'Monday',
+        'Tuesday',
+        'Wednesday',
+        'Thursday',
+        'Friday',
+        'Saturday',
+        'Sunday',
+      ];
+      final hour = date.hour > 12
+          ? date.hour - 12
+          : (date.hour == 0 ? 12 : date.hour);
       final period = date.hour >= 12 ? 'PM' : 'AM';
       final minute = date.minute.toString().padLeft(2, '0');
       return '${weekdays[date.weekday - 1]}, $hour:$minute $period';
     } else {
-      final months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+      final months = [
+        'Jan',
+        'Feb',
+        'Mar',
+        'Apr',
+        'May',
+        'Jun',
+        'Jul',
+        'Aug',
+        'Sep',
+        'Oct',
+        'Nov',
+        'Dec',
+      ];
       return '${months[date.month - 1]} ${date.day}, ${date.year}';
     }
   }
@@ -192,107 +222,117 @@ class _JourneyCard extends StatelessWidget {
     final theme = Theme.of(context);
     final iconColor = AppColors.sage;
 
-    return Container(
-      margin: const EdgeInsets.only(bottom: 16),
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 16),
+      child: Material(
+        key: ValueKey('journey_card_${journey.id}'),
         color: AppSurfaces.card(context),
+        elevation: 2,
+        shadowColor: AppSurfaces.shadow(context),
         borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: AppSurfaces.border(context)),
-        boxShadow: [
-          BoxShadow(
-            color: AppSurfaces.shadow(context),
-            blurRadius: 12,
-            offset: const Offset(0, 5),
-          ),
-        ],
-      ),
-      child: Row(
-        children: [
-          Container(
-            width: 60,
-            height: 60,
+        child: InkWell(
+          onTap: () =>
+              PastJourneySummarySheet.show(context: context, journey: journey),
+          borderRadius: BorderRadius.circular(24),
+          child: Container(
+            padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
-              color: iconColor.withValues(alpha: 0.14),
-              borderRadius: BorderRadius.circular(16),
+              borderRadius: BorderRadius.circular(24),
+              border: Border.all(color: AppSurfaces.border(context)),
             ),
-            child: Icon(journey.transportMode.icon, color: iconColor, size: 28),
-          ),
-
-          const SizedBox(width: 16),
-
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+            child: Row(
               children: [
-                Text(
-                  journey.displayTitle,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: theme.textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.w800,
-                    color: AppSurfaces.textPrimary(context),
+                Container(
+                  width: 60,
+                  height: 60,
+                  decoration: BoxDecoration(
+                    color: iconColor.withValues(alpha: 0.14),
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                  child: Icon(
+                    journey.transportMode.icon,
+                    color: iconColor,
+                    size: 28,
                   ),
                 ),
 
-                const SizedBox(height: 4),
+                const SizedBox(width: 16),
 
-                Text(
-                  _formatDate(journey.startTime),
-                  style: theme.textTheme.bodySmall?.copyWith(
-                    color: AppSurfaces.textMuted(context),
-                  ),
-                ),
-
-                const SizedBox(height: 8),
-
-                Row(
-                  children: [
-                    Icon(
-                      journey.transportMode.icon,
-                      size: 14,
-                      color: AppSurfaces.textSubtle(context),
-                    ),
-                    const SizedBox(width: 4),
-                    Text(
-                      '${journey.formattedDistance} • ${journey.formattedDuration}',
-                      style: theme.textTheme.labelMedium?.copyWith(
-                        color: AppSurfaces.textMuted(context),
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                  ],
-                ),
-
-                if (journey.xpEarned != null) ...[
-                  const SizedBox(height: 8),
-                  Row(
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Icon(
-                        Icons.star_rate_rounded,
-                        size: 14,
-                        color: AppColors.sage,
-                      ),
-                      const SizedBox(width: 4),
                       Text(
-                        '${journey.xpEarned} XP earned',
-                        style: theme.textTheme.labelMedium?.copyWith(
-                          color: AppSurfaces.textMuted(context),
-                          fontWeight: FontWeight.w700,
+                        journey.displayTitle,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: theme.textTheme.titleMedium?.copyWith(
+                          fontWeight: FontWeight.w800,
+                          color: AppSurfaces.textPrimary(context),
                         ),
                       ),
+
+                      const SizedBox(height: 4),
+
+                      Text(
+                        _formatDate(journey.startTime),
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: AppSurfaces.textMuted(context),
+                        ),
+                      ),
+
+                      const SizedBox(height: 8),
+
+                      Row(
+                        children: [
+                          Icon(
+                            journey.transportMode.icon,
+                            size: 14,
+                            color: AppSurfaces.textSubtle(context),
+                          ),
+                          const SizedBox(width: 4),
+                          Text(
+                            '${journey.formattedDistance} • ${journey.formattedDuration}',
+                            style: theme.textTheme.labelMedium?.copyWith(
+                              color: AppSurfaces.textMuted(context),
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                        ],
+                      ),
+
+                      if (journey.xpEarned != null) ...[
+                        const SizedBox(height: 8),
+                        Row(
+                          children: [
+                            const Icon(
+                              Icons.star_rate_rounded,
+                              size: 14,
+                              color: AppColors.sage,
+                            ),
+                            const SizedBox(width: 4),
+                            Text(
+                              '${journey.xpEarned} XP earned',
+                              style: theme.textTheme.labelMedium?.copyWith(
+                                color: AppSurfaces.textMuted(context),
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
                     ],
                   ),
-                ],
+                ),
+
+                Icon(
+                  Icons.chevron_right,
+                  color: AppSurfaces.textSubtle(context),
+                ),
               ],
             ),
           ),
-
-          Icon(
-            Icons.chevron_right,
-            color: AppSurfaces.textSubtle(context),
-          ),
-        ],
+        ),
       ),
     );
   }
