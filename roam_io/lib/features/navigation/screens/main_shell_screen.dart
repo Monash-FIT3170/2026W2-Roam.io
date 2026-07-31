@@ -11,6 +11,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:roam_io/notifications/notification.dart';
+import 'package:roam_io/notifications/services/android_notification_service.dart';
 
 import '../../../shared/widgets/app_bottom_nav_bar.dart';
 import '../../analytics/screens/analytics_screen.dart';
@@ -43,6 +44,14 @@ class _MainShellScreenState extends State<MainShellScreen> {
   @override
   void initState() {
     super.initState();
+
+    //Initialise the Android notification service
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+    final granted =
+        await AndroidNotificationService.instance.requestPermission();
+
+    debugPrint('Notification permission granted: $granted');
+  });
 
     // Temporary listener used to confirm that notification actions work.
     _actionSubscription =

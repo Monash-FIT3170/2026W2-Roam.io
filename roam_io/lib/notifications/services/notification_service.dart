@@ -12,6 +12,7 @@ import 'package:flutter/foundation.dart';
 
 import '../models/app_notification.dart';
 import '../models/notification_action.dart';
+import 'package:roam_io/notifications/services/android_notification_service.dart';
 
 /// Contains the notification and the action selected by the user.
 class NotificationActionEvent {
@@ -55,9 +56,9 @@ class NotificationService {
       _notificationController.add(notification);
     }
 
-    // if (notification.showOnDevice) {
-    //   await _androidNotificationService.show(notification);
-    // }
+    if (notification.showOnDevice) {
+      await AndroidNotificationService.instance.show(notification);
+    }
   }
 
   /// Reports that an action was selected from a notification.
