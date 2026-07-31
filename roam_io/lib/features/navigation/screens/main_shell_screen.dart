@@ -14,6 +14,7 @@ import '../../journeys/screens/journeys_screen.dart';
 import '../../quests/screens/quests_screen.dart';
 import '../../analytics/screens/analytics_screen.dart';
 import '../../profile/screens/profile_screen.dart';
+import 'package:roam_io/notifications/notification.dart';
 
 /// Stateful shell that keeps each main tab alive in an indexed stack.
 class MainShellScreen extends StatefulWidget {
@@ -39,6 +40,17 @@ class _MainShellScreenState extends State<MainShellScreen> {
     return Scaffold(
       extendBody: true,
       body: IndexedStack(index: selectedIndex, children: pages),
+
+        // Temporary button to test notifications.
+        floatingActionButton: FloatingActionButton(
+          onPressed: () async {
+            await NotificationService.instance.show(
+              NotificationTemplates.friendRequest("Alex"),
+            );
+          },
+          child: const Icon(Icons.notifications),
+        ),
+
       bottomNavigationBar: AppBottomNavBar(
         currentIndex: selectedIndex,
         onTap: (index) {

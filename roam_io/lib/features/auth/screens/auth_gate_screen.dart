@@ -13,6 +13,7 @@ import '../../navigation/screens/main_shell_screen.dart';
 import '../providers/auth_provider.dart';
 import 'login_screen.dart';
 import 'verify_email_screen.dart';
+import 'package:roam_io/notifications/widgets/notification_overlay.dart';
 
 /// Chooses the correct top-level screen based on authentication state.
 class AuthGateScreen extends StatefulWidget {
@@ -50,7 +51,9 @@ class _AuthGateState extends State<AuthGateScreen> {
           return const VerifyEmailScreen();
         }
 
-        return const MainShellScreen();
+        return NotificationOverlay(
+          child: const MainShellScreen(),
+        );
       },
     );
   }
