@@ -1,6 +1,6 @@
 /*
  * Author: Sam Sutherland
- * Last Modified: 31/07/2026
+ * Last Modified: 01/08/2026
  * Description:
  *   Handles all notifications within the application. Every feature should communicate 
  * through this service rather than displaying notifications directly.
@@ -15,9 +15,12 @@ import '../models/notification_action.dart';
 import 'package:roam_io/notifications/services/android_notification_service.dart';
 import 'package:roam_io/notifications/services/app_lifecycle_service.dart';
 
-/// Contains the notification and the action selected by the user.
+/// Represents an action selected from an application notification.
 class NotificationActionEvent {
+  /// Notification from which the action originated.
   final AppNotification notification;
+
+  /// Action selected by the user.
   final NotificationAction action;
 
   const NotificationActionEvent({

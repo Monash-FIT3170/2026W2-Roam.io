@@ -1,6 +1,6 @@
 /*
  * Author: Sam Sutherland
- * Last Modified: 31/07/2026
+ * Last Modified: 01/08/2026
  * Description:
  *   Outlines the different notification templates used throughout the application. 
  *   Each template corresponds to a specific notification type and provides a consistent structure.
@@ -10,9 +10,11 @@ import '../models/app_notification.dart';
 import '../models/notification_action.dart';
 import '../models/notification_type.dart';
 
+/// Factory collection for the notification types currently supported by the application.
 class NotificationTemplates {
   NotificationTemplates._();
 
+  /// Creates a notification for a new friend request from [username].
   static AppNotification friendRequest(
   String username, {
   String? friendRequestId,
@@ -45,6 +47,7 @@ class NotificationTemplates {
   );
 }
 
+  /// Creates a notification for when a friend request is accepted by [username].
   static AppNotification friendAccepted(String username) {
     return AppNotification(
       id: DateTime.now().millisecondsSinceEpoch.toString(),
@@ -55,6 +58,7 @@ class NotificationTemplates {
     );
   }
 
+  /// Creates a brief notification indicating that [username] gave the user Kudos.
   static AppNotification kudos(String username) {
   final now = DateTime.now();
 
@@ -68,6 +72,7 @@ class NotificationTemplates {
   );
 }
 
+  /// Creates a notification indicating that [username] commented on an activity.
   static AppNotification comment(String username) {
     return AppNotification(
       id: DateTime.now().millisecondsSinceEpoch.toString(),
@@ -78,6 +83,7 @@ class NotificationTemplates {
     );
   }
 
+  /// Creates an in-app error notification containing [message].
   static AppNotification error(String message) {
   final now = DateTime.now();
 
@@ -102,6 +108,7 @@ class NotificationTemplates {
   );
 }
 
+  /// Creates a live activity notification using the supplied [title] and [body].
   static AppNotification activity({
     required String title,
     required String body,

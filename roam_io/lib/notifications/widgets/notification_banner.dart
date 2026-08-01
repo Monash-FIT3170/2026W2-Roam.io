@@ -1,8 +1,9 @@
 /*
  * Author: Sam Sutherland
- * Last Modified: 31/07/2026
+ * Last Modified: 01/08/2026
  * Description:
- *   
+ *   Displays a reusable in-app notification banner that supports
+ *   configurable icons, actions, dismissal and user interaction.
  */
 
 import 'package:flutter/material.dart';
@@ -11,7 +12,15 @@ import '../models/app_notification.dart';
 import '../models/notification_action.dart';
 import '../models/notification_type.dart';
 
+/// Displays a notification banner within the application.
+///
+/// The banner presents the notification icon, title, message,
+/// optional actions and a dismiss button.
+///
+/// It is displayed by [NotificationOverlay] whenever a new
+/// notification is received from [NotificationService].
 class NotificationBanner extends StatelessWidget {
+  /// Notification displayed by this banner.
   final AppNotification notification;
 
   /// Called when the main body of the notification is selected.
@@ -82,6 +91,7 @@ class NotificationBanner extends StatelessWidget {
   }
 }
 
+/// Displays the notification title, message and action buttons.
 class _NotificationContent extends StatelessWidget {
   final AppNotification notification;
   final ValueChanged<NotificationAction>? onActionSelected;
@@ -133,6 +143,7 @@ class _NotificationContent extends StatelessWidget {
   }
 }
 
+/// Displays a single notification action.
 class _NotificationActionButton extends StatelessWidget {
   final NotificationAction action;
   final VoidCallback? onPressed;
@@ -174,6 +185,7 @@ class _NotificationActionButton extends StatelessWidget {
   }
 }
 
+/// Displays the icon corresponding to a notification type.
 class _NotificationIcon extends StatelessWidget {
   final NotificationType type;
 
@@ -199,6 +211,7 @@ class _NotificationIcon extends StatelessWidget {
     );
   }
 
+  /// Returns the icon associated with each notification type.
   IconData _iconFor(NotificationType type) {
     return switch (type) {
       NotificationType.kudos => Icons.favorite_outline,

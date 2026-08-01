@@ -1,3 +1,10 @@
+/*
+ * Author: Sam Sutherland
+ * Last Modified: 01/08/2026
+ * Description:
+ *   Manages Android device notifications, including initialisation and permission requests.
+ */
+
 import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
@@ -7,6 +14,7 @@ import '../models/app_notification.dart';
 import '../models/notification_action.dart';
 import '../models/notification_type.dart';
 
+/// Provides Android-specific notification delivery
 class AndroidNotificationService {
   AndroidNotificationService._();
 
@@ -16,6 +24,7 @@ class AndroidNotificationService {
   final FlutterLocalNotificationsPlugin _plugin =
       FlutterLocalNotificationsPlugin();
 
+  /// Prevents the plugin from being initialised more than once.
   bool _isInitialised = false;
 
   /// Events produced when an Android notification or action is selected.
@@ -45,6 +54,9 @@ class AndroidNotificationService {
     _isInitialised = true;
   }
 
+  /// Requests permission to display notifications on Android devices
+  ///
+  /// Returns `true` when permission is granted.
   Future<bool> requestPermission() async {
     final androidPlugin = _plugin
         .resolvePlatformSpecificImplementation<
@@ -56,6 +68,10 @@ class AndroidNotificationService {
     return result ?? false;
   }
 
+  /// Displays the notification through the Android notification system.
+  ///
+  /// The appropriate channel and Android category are selected from the
+  /// notification type.
   Future<void> show(AppNotification notification) async {
     if (!_isInitialised) {
       await initialise();
@@ -99,10 +115,12 @@ class AndroidNotificationService {
     );
   }
 
+  /// Cancels the Android notification
   Future<void> cancelAll() async {
     await _plugin.cancelAll();
   }
 
+  /// Handles notification taps and action selections
   void _handleNotificationResponse(NotificationResponse response) {
     debugPrint(
       '[Android notification] '
@@ -112,6 +130,7 @@ class AndroidNotificationService {
     responseNotifier.value = response;
   }
 
+  
   AndroidNotificationAction _convertAction(
     NotificationAction action,
   ) {
@@ -195,6 +214,7 @@ void notificationTapBackground(NotificationResponse response) {
   );
 }
 
+/// Internal description of an Android notification channel.
 class _NotificationChannelConfiguration {
   final String id;
   final String name;

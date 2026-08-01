@@ -1,3 +1,11 @@
+/*
+ * Author: Sam Sutherland
+ * Last Modified: 01/08/2026
+ * Description:
+ *   Provides a single public import for the notification module's models,
+ *   services, templates, and widgets.
+ */
+
 export 'models/app_notification.dart';
 export 'models/notification_action.dart';
 export 'models/notification_type.dart';

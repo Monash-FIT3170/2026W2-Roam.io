@@ -1,13 +1,15 @@
 /*
  * Author: Sam Sutherland
- * Last Modified: 31/07/2026
+ * Last Modified: 01/08/2026
  * Description:
- *   Represents a notification within the application.
+ *   Represents a platform-independent notification within the application.
  */
 
 import 'notification_action.dart';
 import 'notification_type.dart';
 
+/// Represents a notification that can be displayed within the application or
+/// delivered through the device notification system.
 class AppNotification {
   /// Unique identifier.
   final String id;

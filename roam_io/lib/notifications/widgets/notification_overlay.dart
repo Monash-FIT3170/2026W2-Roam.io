@@ -1,3 +1,11 @@
+/*
+ * Author: Sam Sutherland
+ * Last Modified: 01/08/2026
+ * Description:
+ *   Displays animated in-app notification banners above application 
+ *   content and forwards selected actions to the notification service.
+ */
+
 import 'dart:async';
 
 import 'package:flutter/material.dart';
@@ -7,7 +15,13 @@ import '../models/notification_action.dart';
 import '../services/notification_service.dart';
 import 'notification_banner.dart';
 
+/// Places animated in-app notification banners
+///
+/// The overlay listens to [NotificationService.notifications], displays the
+/// most recent notification, and dismisses it automatically after its
+/// configured display duration.
 class NotificationOverlay extends StatefulWidget {
+  /// Application content displayed beneath the notification banner.
   final Widget child;
 
   const NotificationOverlay({
@@ -35,6 +49,7 @@ class _NotificationOverlayState extends State<NotificationOverlay> {
     );
   }
 
+  /// Displays the notification and restarts the automatic dismissal timer.
   void _showNotification(AppNotification notification) {
     _dismissTimer?.cancel();
 
@@ -50,6 +65,7 @@ class _NotificationOverlayState extends State<NotificationOverlay> {
     );
   }
 
+  /// Dismisses the current notification.
   void _dismissNotification([String? expectedId]) {
     if (!mounted) return;
 
@@ -67,6 +83,8 @@ class _NotificationOverlayState extends State<NotificationOverlay> {
     });
   }
 
+  /// Publishes the selected action through the notification service 
+  /// and dismisses the originating banner.
   void _handleAction(
     AppNotification notification,
     NotificationAction action,
@@ -79,17 +97,11 @@ class _NotificationOverlayState extends State<NotificationOverlay> {
     _dismissNotification(notification.id);
   }
 
+  /// Handles selection of the notification body.
   void _handleNotificationTap(AppNotification notification) {
     debugPrint(
       '[Notification selected] ${notification.id}',
     );
-
-    // Future behaviour:
-    // Navigate using notification.data.
-    //
-    // Example:
-    // final senderId = notification.data['senderId'];
-    // context.push('/profile/$senderId');
 
     _dismissNotification(notification.id);
   }
