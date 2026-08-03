@@ -211,7 +211,7 @@ class _MapPageState extends State<MapPage> {
               position: journey.startLocation.latLng,
               icon: customIcon,
               anchor: const Offset(0.5, 0.5),
-              infoWindow: InfoWindow(title: journey.startLocation.name),
+              infoWindow: InfoWindow.noText,
               onTap: () => _showCustomLocation(
                 journey: journey,
                 location: journey.startLocation,
@@ -229,7 +229,7 @@ class _MapPageState extends State<MapPage> {
               position: journey.endLocation.latLng,
               icon: customIcon,
               anchor: const Offset(0.5, 0.5),
-              infoWindow: InfoWindow(title: journey.endLocation.name),
+              infoWindow: InfoWindow.noText,
               onTap: () => _showCustomLocation(
                 journey: journey,
                 location: journey.endLocation,
