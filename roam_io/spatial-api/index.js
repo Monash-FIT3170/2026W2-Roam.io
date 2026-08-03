@@ -463,6 +463,7 @@ app.post('/places/nearby', async (req, res) => {
           lng: Number(lng),
           radiusMeters: Number(radiusMeters),
           maxResults: 20,
+          rankPreference: 'DISTANCE',
         }),
         fetchPlacesFromGoogle({
           lat: Number(lat),

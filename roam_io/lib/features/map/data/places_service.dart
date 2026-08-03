@@ -95,7 +95,9 @@ class PlacesService {
     int radiusMeters = 25,
   }) async {
     final url = '${ApiConfig.spatialApiBaseUrl}/places/nearby';
-    debugPrint('[PlacesService] POST $url (lat: $lat, lng: $lng, radius: ${radiusMeters}m)');
+    debugPrint(
+      '[PlacesService] POST $url (lat: $lat, lng: $lng, radius: ${radiusMeters}m)',
+    );
 
     try {
       final response = await _client.post(
@@ -116,9 +118,23 @@ class PlacesService {
       }
 
       final decoded = jsonDecode(response.body) as List<dynamic>;
-      final places = decoded
-          .map((item) => NearbyPlace.fromJson(Map<String, dynamic>.from(item as Map)))
-          .toList();
+      final places =
+          decoded
+              .map(
+                (item) => NearbyPlace.fromJson(
+                  Map<String, dynamic>.from(item as Map),
+                ),
+              )
+              .toList()
+            ..sort((a, b) {
+              // Missing distances must never displace a place whose distance was
+              // calculated by the API.
+              final aDistance = a.distanceMeters;
+              final bDistance = b.distanceMeters;
+              if (aDistance == null) return bDistance == null ? 0 : 1;
+              if (bDistance == null) return -1;
+              return aDistance.compareTo(bDistance);
+            });
 
       debugPrint('[PlacesService] Found ${places.length} nearby places');
       return places;

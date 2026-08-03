@@ -405,10 +405,6 @@ class _MapPageState extends State<MapPage> {
     journeyController.setStartLocation(result.startLocation);
     journeyController.setTransportMode(result.transportMode);
     await journeyController.startTracking();
-
-    if (mounted) {
-      AppToast.success(context, 'Journey started! Safe travels.');
-    }
   }
 
   Future<void> _endJourneyFlow() async {

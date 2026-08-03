@@ -613,6 +613,7 @@ app.post('/places/nearby', async (req, res) => {
           radiusMeters: Number(radiusMeters),
           maxResults: 20,
           apiKey: GOOGLE_PLACES_API_KEY.value(),
+          rankPreference: 'DISTANCE',
         }),
         fetchPlacesFromGoogle({
           lat: Number(lat),
