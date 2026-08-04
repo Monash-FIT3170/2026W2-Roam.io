@@ -51,7 +51,7 @@ class _AuthGateState extends State<AuthGateScreen> {
           return const VerifyEmailScreen();
         }
 
-        return NotificationOverlay(child: const MainShellScreen());
+        return const NotificationOverlay(child: const MainShellScreen());
       },
     );
   }

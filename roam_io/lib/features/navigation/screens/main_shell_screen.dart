@@ -10,7 +10,6 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:roam_io/notifications/notification.dart';
-import 'package:roam_io/notifications/services/android_notification_service.dart';
 
 import '../../../shared/widgets/app_bottom_nav_bar.dart';
 import '../../analytics/screens/analytics_screen.dart';
