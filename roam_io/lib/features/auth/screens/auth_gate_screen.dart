@@ -17,7 +17,11 @@ import 'package:roam_io/notifications/widgets/notification_overlay.dart';
 
 /// Chooses the correct top-level screen based on authentication state.
 class AuthGateScreen extends StatefulWidget {
-  const AuthGateScreen({super.key});
+  /// Whether the authenticated shell should request Android notification
+  /// permission. This is disabled in widget tests.
+  final bool requestNotificationPermission;
+
+  const AuthGateScreen({super.key, this.requestNotificationPermission = true});
 
   @override
   State<AuthGateScreen> createState() => _AuthGateState();
@@ -51,7 +55,11 @@ class _AuthGateState extends State<AuthGateScreen> {
           return const VerifyEmailScreen();
         }
 
-        return const NotificationOverlay(child: MainShellScreen());
+        return NotificationOverlay(
+          child: MainShellScreen(
+            requestNotificationPermission: widget.requestNotificationPermission,
+          ),
+        );
       },
     );
   }

@@ -62,7 +62,7 @@ void main() {
         MaterialApp(
           home: ChangeNotifierProvider(
             create: (_) => AuthProvider(authRepository: repo),
-            child: const AuthGateScreen(),
+            child: const AuthGateScreen(requestNotificationPermission: false),
           ),
         ),
       );
@@ -92,7 +92,7 @@ void main() {
         MaterialApp(
           home: ChangeNotifierProvider(
             create: (_) => AuthProvider(authRepository: repo),
-            child: const AuthGateScreen(),
+            child: const AuthGateScreen(requestNotificationPermission: false),
           ),
         ),
       );
