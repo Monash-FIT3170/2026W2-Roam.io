@@ -24,14 +24,10 @@ class NotificationOverlay extends StatefulWidget {
   /// Application content displayed beneath the notification banner.
   final Widget child;
 
-  const NotificationOverlay({
-    super.key,
-    required this.child,
-  });
+  const NotificationOverlay({super.key, required this.child});
 
   @override
-  State<NotificationOverlay> createState() =>
-      _NotificationOverlayState();
+  State<NotificationOverlay> createState() => _NotificationOverlayState();
 }
 
 class _NotificationOverlayState extends State<NotificationOverlay> {
@@ -43,10 +39,8 @@ class _NotificationOverlayState extends State<NotificationOverlay> {
   void initState() {
     super.initState();
 
-    _notificationSubscription =
-        NotificationService.instance.notifications.listen(
-      _showNotification,
-    );
+    _notificationSubscription = NotificationService.instance.notifications
+        .listen(_showNotification);
   }
 
   /// Displays the notification and restarts the automatic dismissal timer.
@@ -70,8 +64,7 @@ class _NotificationOverlayState extends State<NotificationOverlay> {
     if (!mounted) return;
 
     // Prevent an old timer from dismissing a newer notification.
-    if (expectedId != null &&
-        _currentNotification?.id != expectedId) {
+    if (expectedId != null && _currentNotification?.id != expectedId) {
       return;
     }
 
@@ -83,12 +76,9 @@ class _NotificationOverlayState extends State<NotificationOverlay> {
     });
   }
 
-  /// Publishes the selected action through the notification service 
+  /// Publishes the selected action through the notification service
   /// and dismisses the originating banner.
-  void _handleAction(
-    AppNotification notification,
-    NotificationAction action,
-  ) {
+  void _handleAction(AppNotification notification, NotificationAction action) {
     NotificationService.instance.handleAction(
       notification: notification,
       action: action,
@@ -99,9 +89,7 @@ class _NotificationOverlayState extends State<NotificationOverlay> {
 
   /// Handles selection of the notification body.
   void _handleNotificationTap(AppNotification notification) {
-    debugPrint(
-      '[Notification selected] ${notification.id}',
-    );
+    debugPrint('[Notification selected] ${notification.id}');
 
     _dismissNotification(notification.id);
   }
@@ -133,8 +121,7 @@ class _NotificationOverlayState extends State<NotificationOverlay> {
                   alignment: Alignment.topCenter,
                   child: AnimatedSwitcher(
                     duration: const Duration(milliseconds: 280),
-                    reverseDuration:
-                        const Duration(milliseconds: 220),
+                    reverseDuration: const Duration(milliseconds: 220),
                     switchInCurve: Curves.easeOutCubic,
                     switchOutCurve: Curves.easeInCubic,
                     transitionBuilder: (child, animation) {
@@ -156,19 +143,13 @@ class _NotificationOverlayState extends State<NotificationOverlay> {
                             key: ValueKey('empty-notification'),
                           )
                         : NotificationBanner(
-                            key: ValueKey(
-                              _currentNotification!.id,
-                            ),
+                            key: ValueKey(_currentNotification!.id),
                             notification: _currentNotification!,
-                            onTap: () => _handleNotificationTap(
-                              _currentNotification!,
-                            ),
+                            onTap: () =>
+                                _handleNotificationTap(_currentNotification!),
                             onDismiss: _dismissNotification,
                             onActionSelected: (action) {
-                              _handleAction(
-                                _currentNotification!,
-                                action,
-                              );
+                              _handleAction(_currentNotification!, action);
                             },
                           ),
                   ),

@@ -42,12 +42,10 @@ class NotificationService {
       StreamController<NotificationActionEvent>.broadcast();
 
   /// Notifications consumed by the in-app overlay.
-  Stream<AppNotification> get notifications =>
-      _notificationController.stream;
+  Stream<AppNotification> get notifications => _notificationController.stream;
 
   /// Actions selected from notification banners.
-  Stream<NotificationActionEvent> get actionEvents =>
-      _actionController.stream;
+  Stream<NotificationActionEvent> get actionEvents => _actionController.stream;
 
   /// Sends a notification to the appropriate presentation layers.
   Future<void> show(AppNotification notification) async {
@@ -56,8 +54,7 @@ class NotificationService {
       '${notification.title}',
     );
 
-    final isForeground =
-      AppLifecycleService.instance.isInForeground;
+    final isForeground = AppLifecycleService.instance.isInForeground;
 
     if (notification.showInApp && isForeground) {
       _notificationController.add(notification);
@@ -71,7 +68,7 @@ class NotificationService {
     // if (notification.showInApp) {
     //   _notificationController.add(notification);
     // }
-    // 
+
     // if (notification.showOnDevice) {
     //   await AndroidNotificationService.instance.show(notification);
     // }
@@ -88,10 +85,7 @@ class NotificationService {
     );
 
     _actionController.add(
-      NotificationActionEvent(
-        notification: notification,
-        action: action,
-      ),
+      NotificationActionEvent(notification: notification, action: action),
     );
   }
 

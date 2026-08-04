@@ -32,8 +32,7 @@ void main() {
 
       // Begin listening before emitting the event so it is not missed by
       // the broadcast stream.
-      final eventFuture =
-          NotificationService.instance.actionEvents.first;
+      final eventFuture = NotificationService.instance.actionEvents.first;
 
       // Act: report that the action was selected.
       NotificationService.instance.handleAction(
@@ -46,10 +45,7 @@ void main() {
       // Assert: the emitted event should contain the original objects.
       expect(event.notification, same(notification));
       expect(event.action, same(action));
-      expect(
-        event.action.type,
-        NotificationActionType.accept,
-      );
+      expect(event.action.type, NotificationActionType.accept);
     });
 
     test('handleAction supports different action types', () async {
@@ -66,8 +62,7 @@ void main() {
         label: 'Pause',
       );
 
-      final eventFuture =
-          NotificationService.instance.actionEvents.first;
+      final eventFuture = NotificationService.instance.actionEvents.first;
 
       NotificationService.instance.handleAction(
         notification: notification,
@@ -76,14 +71,8 @@ void main() {
 
       final event = await eventFuture;
 
-      expect(
-        event.notification.id,
-        'activity-notification',
-      );
-      expect(
-        event.action.type,
-        NotificationActionType.pause,
-      );
+      expect(event.notification.id, 'activity-notification');
+      expect(event.action.type, NotificationActionType.pause);
       expect(event.action.label, 'Pause');
     });
   });

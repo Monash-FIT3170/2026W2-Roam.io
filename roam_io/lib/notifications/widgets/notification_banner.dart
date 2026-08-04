@@ -61,9 +61,7 @@ class NotificationBanner extends StatelessWidget {
             padding: const EdgeInsets.fromLTRB(16, 14, 8, 12),
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(16),
-              border: Border.all(
-                color: colourScheme.outlineVariant,
-              ),
+              border: Border.all(color: colourScheme.outlineVariant),
             ),
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -158,8 +156,7 @@ class _NotificationActionButton extends StatelessWidget {
     final isPrimary = switch (action.type) {
       NotificationActionType.accept ||
       NotificationActionType.resume ||
-      NotificationActionType.retry =>
-        true,
+      NotificationActionType.retry => true,
       _ => false,
     };
 
@@ -189,9 +186,7 @@ class _NotificationActionButton extends StatelessWidget {
 class _NotificationIcon extends StatelessWidget {
   final NotificationType type;
 
-  const _NotificationIcon({
-    required this.type,
-  });
+  const _NotificationIcon({required this.type});
 
   @override
   Widget build(BuildContext context) {
@@ -204,10 +199,7 @@ class _NotificationIcon extends StatelessWidget {
         shape: BoxShape.circle,
         color: colourScheme.secondaryContainer,
       ),
-      child: Icon(
-        _iconFor(type),
-        color: colourScheme.onSecondaryContainer,
-      ),
+      child: Icon(_iconFor(type), color: colourScheme.onSecondaryContainer),
     );
   }
 

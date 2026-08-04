@@ -22,56 +22,33 @@ void main() {
       // Assert: verify the notification content and presentation settings.
       expect(notification.type, NotificationType.friendRequest);
       expect(notification.title, 'New Friend Request');
-      expect(
-        notification.body,
-        'Alex sent you a friend request.',
-      );
-      expect(
-        notification.displayDuration,
-        const Duration(seconds: 7),
-      );
+      expect(notification.body, 'Alex sent you a friend request.');
+      expect(notification.displayDuration, const Duration(seconds: 7));
 
       // Friend requests should provide Accept and Decline actions.
       expect(notification.actions, hasLength(2));
-      expect(
-        notification.actions[0].type,
-        NotificationActionType.accept,
-      );
-      expect(
-        notification.actions[1].type,
-        NotificationActionType.decline,
-      );
+      expect(notification.actions[0].type, NotificationActionType.accept);
+      expect(notification.actions[1].type, NotificationActionType.decline);
 
       // Metadata should identify the related request and sender.
-      expect(
-        notification.data['friendRequestId'],
-        'request-123',
-      );
+      expect(notification.data['friendRequestId'], 'request-123');
       expect(notification.data['senderId'], 'user-456');
     });
 
     test('friendRequest omits optional metadata when not supplied', () {
       // Act: create a friend request without feature-specific identifiers.
-      final notification =
-          NotificationTemplates.friendRequest('Alex');
+      final notification = NotificationTemplates.friendRequest('Alex');
 
       // Assert: no empty or null metadata entries should be added.
       expect(notification.data, isEmpty);
     });
 
     test('friendAccepted creates the expected notification', () {
-      final notification =
-          NotificationTemplates.friendAccepted('Alex');
+      final notification = NotificationTemplates.friendAccepted('Alex');
 
-      expect(
-        notification.type,
-        NotificationType.friendAccepted,
-      );
+      expect(notification.type, NotificationType.friendAccepted);
       expect(notification.title, 'Friend Request Accepted');
-      expect(
-        notification.body,
-        'Alex accepted your friend request.',
-      );
+      expect(notification.body, 'Alex accepted your friend request.');
       expect(notification.actions, isEmpty);
     });
 
@@ -81,10 +58,7 @@ void main() {
       expect(notification.type, NotificationType.kudos);
       expect(notification.title, 'Kudos Received');
       expect(notification.body, 'Alex gave you Kudos.');
-      expect(
-        notification.displayDuration,
-        const Duration(seconds: 3),
-      );
+      expect(notification.displayDuration, const Duration(seconds: 3));
     });
 
     test('comment creates the expected notification', () {
@@ -92,10 +66,7 @@ void main() {
 
       expect(notification.type, NotificationType.comment);
       expect(notification.title, 'New Comment');
-      expect(
-        notification.body,
-        'Alex commented on your activity.',
-      );
+      expect(notification.body, 'Alex commented on your activity.');
     });
 
     test('error creates retry and dismiss actions', () {
@@ -105,27 +76,15 @@ void main() {
 
       expect(notification.type, NotificationType.error);
       expect(notification.title, 'Something went wrong');
-      expect(
-        notification.body,
-        'Unable to upload activity.',
-      );
+      expect(notification.body, 'Unable to upload activity.');
 
       // Application errors are currently restricted to in-app display.
       expect(notification.showOnDevice, isFalse);
-      expect(
-        notification.displayDuration,
-        const Duration(seconds: 6),
-      );
+      expect(notification.displayDuration, const Duration(seconds: 6));
 
       expect(notification.actions, hasLength(2));
-      expect(
-        notification.actions[0].type,
-        NotificationActionType.retry,
-      );
-      expect(
-        notification.actions[1].type,
-        NotificationActionType.dismiss,
-      );
+      expect(notification.actions[0].type, NotificationActionType.retry);
+      expect(notification.actions[1].type, NotificationActionType.dismiss);
     });
 
     test('activity creates pause and stop actions', () {
@@ -136,20 +95,11 @@ void main() {
 
       expect(notification.type, NotificationType.activity);
       expect(notification.title, 'Morning Walk');
-      expect(
-        notification.body,
-        'Activity is currently running.',
-      );
+      expect(notification.body, 'Activity is currently running.');
 
       expect(notification.actions, hasLength(2));
-      expect(
-        notification.actions[0].type,
-        NotificationActionType.pause,
-      );
-      expect(
-        notification.actions[1].type,
-        NotificationActionType.stop,
-      );
+      expect(notification.actions[0].type, NotificationActionType.pause);
+      expect(notification.actions[1].type, NotificationActionType.stop);
     });
 
     test('generated notification IDs are not empty', () {

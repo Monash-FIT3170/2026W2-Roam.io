@@ -13,8 +13,7 @@ import 'package:flutter/widgets.dart';
 class AppLifecycleService with WidgetsBindingObserver {
   AppLifecycleService._();
 
-  static final AppLifecycleService instance =
-      AppLifecycleService._();
+  static final AppLifecycleService instance = AppLifecycleService._();
 
   AppLifecycleState _state = AppLifecycleState.resumed;
 
@@ -22,8 +21,7 @@ class AppLifecycleService with WidgetsBindingObserver {
   AppLifecycleState get state => _state;
 
   /// Returns true if the application is currently running in the foreground, otherwise false.
-  bool get isInForeground =>
-      _state == AppLifecycleState.resumed;
+  bool get isInForeground => _state == AppLifecycleState.resumed;
 
   /// Begins observing lifecycle changes.
   void initialise() {

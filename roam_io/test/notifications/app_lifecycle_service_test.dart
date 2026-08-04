@@ -18,9 +18,7 @@ void main() {
 
     test('reports resumed state as foreground', () {
       // Act: simulate the application becoming active and visible.
-      service.didChangeAppLifecycleState(
-        AppLifecycleState.resumed,
-      );
+      service.didChangeAppLifecycleState(AppLifecycleState.resumed);
 
       // Assert: resumed is the only state treated as foreground.
       expect(service.state, AppLifecycleState.resumed);
@@ -29,9 +27,7 @@ void main() {
 
     test('reports paused state as background', () {
       // Act: simulate the application moving into the background.
-      service.didChangeAppLifecycleState(
-        AppLifecycleState.paused,
-      );
+      service.didChangeAppLifecycleState(AppLifecycleState.paused);
 
       expect(service.state, AppLifecycleState.paused);
       expect(service.isInForeground, isFalse);
@@ -40,9 +36,7 @@ void main() {
     test('reports inactive state as not foreground', () {
       // Inactive represents a temporary interruption, such as a system
       // dialog or application transition.
-      service.didChangeAppLifecycleState(
-        AppLifecycleState.inactive,
-      );
+      service.didChangeAppLifecycleState(AppLifecycleState.inactive);
 
       expect(service.state, AppLifecycleState.inactive);
       expect(service.isInForeground, isFalse);
@@ -50,9 +44,7 @@ void main() {
 
     test('reports detached state as not foreground', () {
       // Detached indicates that Flutter is no longer attached to a host view.
-      service.didChangeAppLifecycleState(
-        AppLifecycleState.detached,
-      );
+      service.didChangeAppLifecycleState(AppLifecycleState.detached);
 
       expect(service.state, AppLifecycleState.detached);
       expect(service.isInForeground, isFalse);

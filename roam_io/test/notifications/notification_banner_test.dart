@@ -55,32 +55,22 @@ void main() {
   testWidgets('displays title and body', (tester) async {
     // Arrange and render.
     await tester.pumpWidget(
-      buildTestWidget(
-        notification: createFriendRequest(),
-      ),
+      buildTestWidget(notification: createFriendRequest()),
     );
 
     // Assert: the notification content should be visible.
     expect(find.text('New Friend Request'), findsOneWidget);
-    expect(
-      find.text('Alex sent you a friend request.'),
-      findsOneWidget,
-    );
+    expect(find.text('Alex sent you a friend request.'), findsOneWidget);
   });
 
-  testWidgets(
-    'displays configured notification actions',
-    (tester) async {
-      await tester.pumpWidget(
-        buildTestWidget(
-          notification: createFriendRequest(),
-        ),
-      );
+  testWidgets('displays configured notification actions', (tester) async {
+    await tester.pumpWidget(
+      buildTestWidget(notification: createFriendRequest()),
+    );
 
-      expect(find.text('Accept'), findsOneWidget);
-      expect(find.text('Decline'), findsOneWidget);
-    },
-  );
+    expect(find.text('Accept'), findsOneWidget);
+    expect(find.text('Decline'), findsOneWidget);
+  });
 
   testWidgets('invokes dismiss callback', (tester) async {
     var dismissed = false;
@@ -95,9 +85,7 @@ void main() {
     );
 
     // Act: tap the close button using its accessibility tooltip.
-    await tester.tap(
-      find.byTooltip('Dismiss notification'),
-    );
+    await tester.tap(find.byTooltip('Dismiss notification'));
     await tester.pump();
 
     expect(dismissed, isTrue);
@@ -120,65 +108,51 @@ void main() {
     await tester.pump();
 
     expect(selectedAction, isNotNull);
-    expect(
-      selectedAction!.type,
-      NotificationActionType.accept,
-    );
+    expect(selectedAction!.type, NotificationActionType.accept);
     expect(selectedAction!.label, 'Accept');
   });
 
-  testWidgets(
-    'invokes notification tap callback',
-    (tester) async {
-      var tapped = false;
+  testWidgets('invokes notification tap callback', (tester) async {
+    var tapped = false;
 
-      await tester.pumpWidget(
-        buildTestWidget(
-          notification: createFriendRequest(),
-          onTap: () {
-            tapped = true;
-          },
-        ),
-      );
-
-      // Tapping the title also taps the banner's InkWell.
-      await tester.tap(find.text('New Friend Request'));
-      await tester.pump();
-
-      expect(tapped, isTrue);
-    },
-  );
-
-  testWidgets('uses friend request icon', (tester) async {
     await tester.pumpWidget(
       buildTestWidget(
         notification: createFriendRequest(),
+        onTap: () {
+          tapped = true;
+        },
       ),
     );
 
-    expect(
-      find.byIcon(Icons.person_add_alt_1),
-      findsOneWidget,
-    );
+    // Tapping the title also taps the banner's InkWell.
+    await tester.tap(find.text('New Friend Request'));
+    await tester.pump();
+
+    expect(tapped, isTrue);
   });
 
-  testWidgets(
-    'does not show action buttons when list is empty',
-    (tester) async {
-      final notification = AppNotification(
-        id: 'kudos-1',
-        type: NotificationType.kudos,
-        title: 'Kudos Received',
-        body: 'Alex gave you Kudos.',
-        timestamp: DateTime(2026, 8, 1),
-      );
+  testWidgets('uses friend request icon', (tester) async {
+    await tester.pumpWidget(
+      buildTestWidget(notification: createFriendRequest()),
+    );
 
-      await tester.pumpWidget(
-        buildTestWidget(notification: notification),
-      );
+    expect(find.byIcon(Icons.person_add_alt_1), findsOneWidget);
+  });
 
-      expect(find.byType(FilledButton), findsNothing);
-      expect(find.byType(TextButton), findsNothing);
-    },
-  );
+  testWidgets('does not show action buttons when list is empty', (
+    tester,
+  ) async {
+    final notification = AppNotification(
+      id: 'kudos-1',
+      type: NotificationType.kudos,
+      title: 'Kudos Received',
+      body: 'Alex gave you Kudos.',
+      timestamp: DateTime(2026, 8, 1),
+    );
+
+    await tester.pumpWidget(buildTestWidget(notification: notification));
+
+    expect(find.byType(FilledButton), findsNothing);
+    expect(find.byType(TextButton), findsNothing);
+  });
 }

@@ -42,8 +42,5 @@ class NotificationAction {
   /// Text shown to the user.
   final String label;
 
-  const NotificationAction({
-    required this.type,
-    required this.label,
-  });
+  const NotificationAction({required this.type, required this.label});
 }

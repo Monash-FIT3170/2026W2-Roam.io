@@ -31,10 +31,7 @@ void main() {
       // Assert: optional fields should use the model's default values.
       expect(notification.showInApp, isTrue);
       expect(notification.showOnDevice, isTrue);
-      expect(
-        notification.displayDuration,
-        const Duration(seconds: 4),
-      );
+      expect(notification.displayDuration, const Duration(seconds: 4));
       expect(notification.actions, isEmpty);
       expect(notification.data, isEmpty);
     });
@@ -58,30 +55,18 @@ void main() {
         showOnDevice: true,
         displayDuration: const Duration(seconds: 7),
         actions: const [action],
-        data: const {
-          'friendRequestId': 'request-123',
-          'senderId': 'user-456',
-        },
+        data: const {'friendRequestId': 'request-123', 'senderId': 'user-456'},
       );
 
       // Assert: custom configuration should be stored unchanged.
       expect(notification.showInApp, isFalse);
       expect(notification.showOnDevice, isTrue);
-      expect(
-        notification.displayDuration,
-        const Duration(seconds: 7),
-      );
+      expect(notification.displayDuration, const Duration(seconds: 7));
 
       expect(notification.actions, hasLength(1));
-      expect(
-        notification.actions.first.type,
-        NotificationActionType.accept,
-      );
+      expect(notification.actions.first.type, NotificationActionType.accept);
 
-      expect(
-        notification.data['friendRequestId'],
-        'request-123',
-      );
+      expect(notification.data['friendRequestId'], 'request-123');
       expect(notification.data['senderId'], 'user-456');
     });
   });

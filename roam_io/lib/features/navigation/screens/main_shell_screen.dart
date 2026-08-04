@@ -6,7 +6,6 @@
  *   across the main feature tabs.
  */
 
-
 import 'dart:async';
 
 import 'package:flutter/material.dart';
@@ -47,15 +46,16 @@ class _MainShellScreenState extends State<MainShellScreen> {
 
     //Initialise the Android notification service
     WidgetsBinding.instance.addPostFrameCallback((_) async {
-    final granted =
-        await AndroidNotificationService.instance.requestPermission();
+      final granted = await AndroidNotificationService.instance
+          .requestPermission();
 
-    debugPrint('Notification permission granted: $granted');
-  });
+      debugPrint('Notification permission granted: $granted');
+    });
 
     // Temporary listener used to confirm that notification actions work.
-    _actionSubscription =
-        NotificationService.instance.actionEvents.listen((event) {
+    _actionSubscription = NotificationService.instance.actionEvents.listen((
+      event,
+    ) {
       if (!mounted) return;
 
       ScaffoldMessenger.of(context)
@@ -97,10 +97,7 @@ class _MainShellScreenState extends State<MainShellScreen> {
     return Scaffold(
       extendBody: true,
 
-      body: IndexedStack(
-        index: selectedIndex,
-        children: pages,
-      ),
+      body: IndexedStack(index: selectedIndex, children: pages),
 
       // Temporary button used to test the notification system.
       floatingActionButton: FloatingActionButton(

@@ -45,8 +45,7 @@ class AndroidNotificationService {
     await _plugin.initialize(
       settings: initialisationSettings,
       onDidReceiveNotificationResponse: _handleNotificationResponse,
-      onDidReceiveBackgroundNotificationResponse:
-          notificationTapBackground,
+      onDidReceiveBackgroundNotificationResponse: notificationTapBackground,
     );
 
     await _createChannels();
@@ -60,10 +59,10 @@ class AndroidNotificationService {
   Future<bool> requestPermission() async {
     final androidPlugin = _plugin
         .resolvePlatformSpecificImplementation<
-            AndroidFlutterLocalNotificationsPlugin>();
+          AndroidFlutterLocalNotificationsPlugin
+        >();
 
-    final result =
-        await androidPlugin?.requestNotificationsPermission();
+    final result = await androidPlugin?.requestNotificationsPermission();
 
     return result ?? false;
   }
@@ -87,9 +86,7 @@ class AndroidNotificationService {
       priority: channel.priority,
       icon: '@drawable/ic_notification',
       category: _categoryFor(notification.type),
-      actions: notification.actions
-          .map(_convertAction)
-          .toList(growable: false),
+      actions: notification.actions.map(_convertAction).toList(growable: false),
     );
 
     final payload = jsonEncode({
@@ -102,17 +99,13 @@ class AndroidNotificationService {
       id: _createAndroidId(notification.id),
       title: notification.title,
       body: notification.body,
-      notificationDetails: NotificationDetails(
-        android: androidDetails,
-      ),
+      notificationDetails: NotificationDetails(android: androidDetails),
       payload: payload,
     );
   }
 
   Future<void> cancel(AppNotification notification) async {
-    await _plugin.cancel(
-      id: _createAndroidId(notification.id),
-    );
+    await _plugin.cancel(id: _createAndroidId(notification.id));
   }
 
   /// Cancels the Android notification
@@ -130,10 +123,7 @@ class AndroidNotificationService {
     responseNotifier.value = response;
   }
 
-  
-  AndroidNotificationAction _convertAction(
-    NotificationAction action,
-  ) {
+  AndroidNotificationAction _convertAction(NotificationAction action) {
     return AndroidNotificationAction(
       action.type.name,
       action.label,
@@ -145,7 +135,8 @@ class AndroidNotificationService {
   Future<void> _createChannels() async {
     final androidPlugin = _plugin
         .resolvePlatformSpecificImplementation<
-            AndroidFlutterLocalNotificationsPlugin>();
+          AndroidFlutterLocalNotificationsPlugin
+        >();
 
     if (androidPlugin == null) return;
 
@@ -161,9 +152,7 @@ class AndroidNotificationService {
     }
   }
 
-  _NotificationChannelConfiguration _channelFor(
-    NotificationType type,
-  ) {
+  _NotificationChannelConfiguration _channelFor(NotificationType type) {
     switch (type) {
       case NotificationType.error:
         return _importantChannel;
@@ -179,9 +168,7 @@ class AndroidNotificationService {
     }
   }
 
-  AndroidNotificationCategory? _categoryFor(
-    NotificationType type,
-  ) {
+  AndroidNotificationCategory? _categoryFor(NotificationType type) {
     switch (type) {
       case NotificationType.comment:
         return AndroidNotificationCategory.message;
@@ -255,8 +242,4 @@ const _importantChannel = _NotificationChannelConfiguration(
   priority: Priority.high,
 );
 
-const _channels = [
-  _socialChannel,
-  _activityChannel,
-  _importantChannel,
-];
+const _channels = [_socialChannel, _activityChannel, _importantChannel];
