@@ -1,6 +1,6 @@
 /*
  * Author: Sanjevan Rajasegar
- * Last Modified: 17/05/2026
+ * Last Modified: 04/08/2026
  * Description:
  *   Widget tests for main shell tab switching and journeys screen content.
  */
@@ -29,30 +29,49 @@ void main() {
     }
   });
 
-  testWidgets('starts on map tab and switches to journeys when tapped', (
-    tester,
-  ) async {
-    final repo = _MainShellAuthRepository();
-    await tester.pumpWidget(
-      MaterialApp(
-        home: ChangeNotifierProvider(
-          create: (_) => AuthProvider(authRepository: repo),
-          child: const MainShellScreen(),
+  testWidgets(
+    'starts on map tab and switches to journeys when tapped',
+    (tester) async {
+      // Arrange: provide an authenticated user and profile.
+      final repository = _MainShellAuthRepository();
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: ChangeNotifierProvider<AuthProvider>(
+            create: (_) => AuthProvider(
+              authRepository: repository,
+            ),
+            child: const MainShellScreen(
+              // Android platform permissions are not available in widget tests.
+              requestNotificationPermission: false,
+            ),
+          ),
         ),
-      ),
-    );
-    await tester.pump();
-    await tester.pump(const Duration(seconds: 1));
+      );
 
-    // IndexedStack keeps offstage tabs in the tree; include them in finders.
-    expect(find.byType(JourneysScreen, skipOffstage: false), findsOneWidget);
+      // Allow the shell and Firebase-backed tab widgets to initialise.
+      await tester.pump();
+      await tester.pump(const Duration(seconds: 1));
 
-    await tester.tap(find.text('JOURNEYS'));
-    await tester.pumpAndSettle();
+      // IndexedStack keeps inactive tabs mounted but offstage.
+      expect(
+        find.byType(
+          JourneysScreen,
+          skipOffstage: false,
+        ),
+        findsOneWidget,
+      );
 
-    expect(find.text('32 XP earned'), findsOneWidget);
-  });
+      // Act: switch from the default Map tab to Journeys.
+      await tester.tap(find.text('JOURNEYS'));
+      await tester.pumpAndSettle();
+
+      // Assert: Journeys content is now visible.
+      expect(find.text('32 XP earned'), findsOneWidget);
+    },
+  );
 }
+
 
 /// Signed-in user with profile so the shell can render authenticated tabs.
 class _MainShellAuthRepository implements AuthRepository {

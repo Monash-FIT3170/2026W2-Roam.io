@@ -20,7 +20,12 @@ import '../../quests/screens/quests_screen.dart';
 
 /// Stateful shell that keeps each main tab alive in an indexed stack.
 class MainShellScreen extends StatefulWidget {
-  const MainShellScreen({super.key});
+  final bool requestNotificationPermission;
+
+  const MainShellScreen({
+    super.key,
+    this.requestNotificationPermission = true,
+  });
 
   @override
   State<MainShellScreen> createState() => _MainShellScreenState();
@@ -44,12 +49,14 @@ class _MainShellScreenState extends State<MainShellScreen> {
     super.initState();
 
     //Initialise the Android notification service
-    WidgetsBinding.instance.addPostFrameCallback((_) async {
-      final granted = await AndroidNotificationService.instance
-          .requestPermission();
+    if (widget.requestNotificationPermission) {
+      WidgetsBinding.instance.addPostFrameCallback((_) async {
+        final granted =
+            await AndroidNotificationService.instance.requestPermission();
 
-      debugPrint('Notification permission granted: $granted');
-    });
+        debugPrint('Notification permission granted: $granted');
+      });
+    }
 
     // Temporary listener used to confirm that notification actions work.
     _actionSubscription = NotificationService.instance.actionEvents.listen((
