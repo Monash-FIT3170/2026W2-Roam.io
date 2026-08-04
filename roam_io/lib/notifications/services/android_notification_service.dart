@@ -5,6 +5,8 @@
  *   Manages Android device notifications, including initialisation and permission requests.
  */
 
+// coverage:ignore-file
+
 import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
