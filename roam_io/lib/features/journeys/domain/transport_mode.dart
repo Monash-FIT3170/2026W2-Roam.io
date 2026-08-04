@@ -11,10 +11,25 @@ import 'package:flutter/material.dart';
 /// Available transport modes for journey tracking.
 enum TransportMode {
   walk,
+  drive,
+  bus,
+  train,
+  tram,
+
+  // Retained so journeys saved by older app versions still deserialize and
+  // display correctly. These modes are not offered for new journeys.
   run,
   cycle,
-  drive,
   transit;
+
+  /// Modes offered when starting a new journey.
+  static const List<TransportMode> journeyOptions = [
+    walk,
+    drive,
+    bus,
+    train,
+    tram,
+  ];
 
   /// Returns the display name for this transport mode.
   String get displayName {
@@ -27,6 +42,12 @@ enum TransportMode {
         return 'Cycle';
       case TransportMode.drive:
         return 'Drive';
+      case TransportMode.bus:
+        return 'Bus';
+      case TransportMode.train:
+        return 'Train';
+      case TransportMode.tram:
+        return 'Tram';
       case TransportMode.transit:
         return 'Transit';
     }
@@ -43,6 +64,12 @@ enum TransportMode {
         return Icons.directions_bike;
       case TransportMode.drive:
         return Icons.directions_car;
+      case TransportMode.bus:
+        return Icons.directions_bus;
+      case TransportMode.train:
+        return Icons.train;
+      case TransportMode.tram:
+        return Icons.tram;
       case TransportMode.transit:
         return Icons.directions_transit;
     }
@@ -60,6 +87,9 @@ enum TransportMode {
         return 0.8;
       case TransportMode.drive:
         return 0.3;
+      case TransportMode.bus:
+      case TransportMode.train:
+      case TransportMode.tram:
       case TransportMode.transit:
         return 0.5;
     }

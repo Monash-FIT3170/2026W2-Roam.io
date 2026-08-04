@@ -81,7 +81,9 @@ class _StartJourneySheetState extends State<StartJourneySheet> {
 
   void _selectCurrentLocation() {
     setState(() {
-      _selectedLocation = JourneyLocation.currentLocation(widget.currentPosition);
+      _selectedLocation = JourneyLocation.currentLocation(
+        widget.currentPosition,
+      );
       _useCurrentLocation = true;
     });
   }
@@ -89,10 +91,12 @@ class _StartJourneySheetState extends State<StartJourneySheet> {
   void _startJourney() {
     if (_selectedLocation == null) return;
 
-    Navigator.of(context).pop(StartJourneyResult(
-      startLocation: _selectedLocation!,
-      transportMode: _selectedMode,
-    ));
+    Navigator.of(context).pop(
+      StartJourneyResult(
+        startLocation: _selectedLocation!,
+        transportMode: _selectedMode,
+      ),
+    );
   }
 
   @override
@@ -168,29 +172,30 @@ class _StartJourneySheetState extends State<StartJourneySheet> {
                 ),
                 const SizedBox(height: 8),
                 ...widget.nearbyPlaces.take(3).map((place) {
-                  final isSelected = !_useCurrentLocation &&
+                  final isSelected =
+                      !_useCurrentLocation &&
                       _selectedLocation?.placeId == place.placeId &&
                       _selectedLocation?.latLng == place.latLng;
                   return Padding(
                     padding: const EdgeInsets.only(bottom: 8),
                     child: _buildLocationOption(
                       context,
-                      icon: place.isCustomLocation 
-                          ? Icons.circle 
+                      icon: place.isCustomLocation
+                          ? Icons.circle
                           : Icons.place_outlined,
-                      iconColor: place.isCustomLocation 
-                          ? Colors.black 
-                          : null,
+                      iconColor: place.isCustomLocation ? Colors.black : null,
                       title: place.name,
-                      subtitle: place.isCustomLocation 
-                          ? 'Saved Location' 
+                      subtitle: place.isCustomLocation
+                          ? 'Saved Location'
                           : place.address,
                       isSelected: isSelected,
-                      onTap: () => _selectLocation(JourneyLocation(
-                        latLng: place.latLng,
-                        placeId: place.placeId,
-                        displayName: place.name,
-                      )),
+                      onTap: () => _selectLocation(
+                        JourneyLocation(
+                          latLng: place.latLng,
+                          placeId: place.placeId,
+                          displayName: place.name,
+                        ),
+                      ),
                     ),
                   );
                 }),
@@ -213,7 +218,7 @@ class _StartJourneySheetState extends State<StartJourneySheet> {
               Wrap(
                 spacing: 8,
                 runSpacing: 8,
-                children: TransportMode.values.map((mode) {
+                children: TransportMode.journeyOptions.map((mode) {
                   final isSelected = _selectedMode == mode;
                   return _buildModeChip(context, mode, isSelected);
                 }).toList(),
@@ -283,7 +288,11 @@ class _StartJourneySheetState extends State<StartJourneySheet> {
               ),
               child: Icon(
                 icon,
-                color: iconColor ?? (isSelected ? AppColors.sage : AppSurfaces.textMuted(context)),
+                color:
+                    iconColor ??
+                    (isSelected
+                        ? AppColors.sage
+                        : AppSurfaces.textMuted(context)),
                 size: 20,
               ),
             ),
@@ -312,11 +321,7 @@ class _StartJourneySheetState extends State<StartJourneySheet> {
               ),
             ),
             if (isSelected)
-              Icon(
-                Icons.check_circle,
-                color: AppColors.sage,
-                size: 24,
-              ),
+              const Icon(Icons.check_circle, color: AppColors.sage, size: 24),
           ],
         ),
       ),
@@ -333,9 +338,7 @@ class _StartJourneySheetState extends State<StartJourneySheet> {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
         decoration: BoxDecoration(
-          color: isSelected
-              ? AppColors.sage
-              : AppSurfaces.softCard(context),
+          color: isSelected ? AppColors.sage : AppSurfaces.softCard(context),
           borderRadius: BorderRadius.circular(20),
           border: Border.all(
             color: isSelected ? AppColors.sage : AppSurfaces.border(context),
@@ -347,9 +350,7 @@ class _StartJourneySheetState extends State<StartJourneySheet> {
             Icon(
               mode.icon,
               size: 18,
-              color: isSelected
-                  ? Colors.white
-                  : AppSurfaces.textMuted(context),
+              color: isSelected ? Colors.white : AppSurfaces.textMuted(context),
             ),
             const SizedBox(width: 6),
             Text(
