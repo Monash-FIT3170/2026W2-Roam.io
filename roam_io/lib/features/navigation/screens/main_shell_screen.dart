@@ -22,10 +22,7 @@ import '../../quests/screens/quests_screen.dart';
 class MainShellScreen extends StatefulWidget {
   final bool requestNotificationPermission;
 
-  const MainShellScreen({
-    super.key,
-    this.requestNotificationPermission = true,
-  });
+  const MainShellScreen({super.key, this.requestNotificationPermission = true});
 
   @override
   State<MainShellScreen> createState() => _MainShellScreenState();
@@ -51,8 +48,8 @@ class _MainShellScreenState extends State<MainShellScreen> {
     //Initialise the Android notification service
     if (widget.requestNotificationPermission) {
       WidgetsBinding.instance.addPostFrameCallback((_) async {
-        final granted =
-            await AndroidNotificationService.instance.requestPermission();
+        final granted = await AndroidNotificationService.instance
+            .requestPermission();
 
         debugPrint('Notification permission granted: $granted');
       });
