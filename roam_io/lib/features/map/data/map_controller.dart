@@ -114,6 +114,7 @@ class MapController extends ChangeNotifier {
   Set<String> _visitedRegionIds = <String>{};
   Map<String, int> _visitCountsByRegion = <String, int>{};
   Map<String, int> _entryCountsByRegion = <String, int>{};
+  Set<String> _visibleViewportRegionIds = <String>{};
 
   bool _isHeatmapEnabled = false;
   bool _isResolvingCurrentRegion = false;
@@ -301,6 +302,9 @@ class MapController extends ChangeNotifier {
 
     if (targetMode == MapLayerMode.sa3Overview) {
       _currentLayerMode = MapLayerMode.sa3Overview;
+      _visibleViewportRegionIds = <String>{};
+      _placeMarkerManager.setVisibleRegionIds(const <String>{});
+      markers = _placeMarkerManager.markers;
       _syncPolygonsForCurrentMode();
       notifyListeners();
       return;
@@ -342,6 +346,12 @@ class MapController extends ChangeNotifier {
       }
 
       _syncPolygonsForCurrentMode();
+      final visibleBounds = await controller.getVisibleRegion();
+      _visibleViewportRegionIds = _regionPolygonCache.regions
+          .where((region) => region.intersectsBounds(visibleBounds))
+          .map((region) => region.id)
+          .toSet();
+      await _syncVisibleUnlockedPlaces();
     } catch (error) {
       message = 'Could not load nearby regions: $error';
       debugPrint('[MapController] Viewport loading error: $error');
@@ -524,29 +534,46 @@ class MapController extends ChangeNotifier {
     currentRegion = effectiveRegion;
     message = effectiveRegion.name;
 
-    await _markRegionAsVisited(effectiveRegion);
+    final wasNewlyUnlocked = await _markRegionAsVisited(effectiveRegion);
     // Record an entry for heatmap counts (app opened / entered tile).
     await _recordRegionEntry(effectiveRegion);
     _refreshCachedPolygonsStyles();
-
-    await _loadPlacesForRegion(effectiveRegion.id);
+    _visibleViewportRegionIds.add(effectiveRegion.id);
+    if (wasNewlyUnlocked) {
+      _placeMarkerManager.setVisibleRegionIds(
+        _visibleViewportRegionIds.intersection(_visitedRegionIds),
+      );
+      await _placeMarkerManager.loadPlacesForRegion(
+        regionId: effectiveRegion.id,
+        onPlaceTapped: onPlaceTapped,
+      );
+      markers = _placeMarkerManager.markers;
+    }
+    await _syncVisibleUnlockedPlaces();
   }
 
-  Future<void> _loadPlacesForRegion(String regionId) async {
+  Future<void> _syncVisibleUnlockedPlaces() async {
+    final visibleUnlockedRegionIds = _visibleViewportRegionIds.intersection(
+      _visitedRegionIds,
+    );
+    _placeMarkerManager.setVisibleRegionIds(visibleUnlockedRegionIds);
+    markers = _placeMarkerManager.markers;
+
+    if (visibleUnlockedRegionIds.isEmpty) return;
+
     isLoadingPlaces = true;
     notifyListeners();
 
     try {
-      final places = await _placeMarkerManager.loadPlacesForRegion(
-        regionId: regionId,
+      await _placeMarkerManager.loadPlacesForRegions(
+        regionIds: visibleUnlockedRegionIds,
         onPlaceTapped: onPlaceTapped,
       );
 
       markers = _placeMarkerManager.markers;
-      message = 'Loaded ${places.length} places in this region';
     } catch (error) {
-      message = 'Could not load places: $error';
-      debugPrint('[MapController] Places loading error: $error');
+      message = 'Could not load visible places: $error';
+      debugPrint('[MapController] Visible places loading error: $error');
     } finally {
       isLoadingPlaces = false;
       notifyListeners();

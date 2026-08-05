@@ -6,6 +6,7 @@
  */
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:roam_io/features/map/data/region_polygon.dart';
 
 void main() {
@@ -70,6 +71,33 @@ void main() {
       expect(missingArea.areaSquareMetres, isNull);
       expect(invalidArea.areaSquareMetres, isNull);
     });
+  });
+
+  test('detects whether a region intersects visible map bounds', () {
+    final polygon = RegionPolygon.fromJson(<String, dynamic>{
+      'id': 'region-1',
+      'name': 'Region One',
+      'geometry': _polygonGeometry,
+    });
+
+    expect(
+      polygon.intersectsBounds(
+        LatLngBounds(
+          southwest: const LatLng(-37.5, 144.5),
+          northeast: const LatLng(-36.5, 145.5),
+        ),
+      ),
+      isTrue,
+    );
+    expect(
+      polygon.intersectsBounds(
+        LatLngBounds(
+          southwest: const LatLng(-40, 150),
+          northeast: const LatLng(-39, 151),
+        ),
+      ),
+      isFalse,
+    );
   });
 }
 
