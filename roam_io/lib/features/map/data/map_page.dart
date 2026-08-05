@@ -23,6 +23,7 @@ import '../../journeys/domain/journey.dart';
 import '../../journeys/domain/journey_location.dart';
 import '../../journeys/domain/journey_phase.dart';
 import '../../journeys/domain/nearby_place.dart';
+import '../../journeys/domain/transport_mode.dart';
 import '../../journeys/widgets/end_journey_sheet.dart';
 import '../../journeys/widgets/custom_location_details_sheet.dart';
 import '../../journeys/widgets/journey_summary_sheet.dart';
@@ -376,11 +377,32 @@ class _MapPageState extends State<MapPage> {
 
     // Fetch nearby places from Google Places API
     final placesService = PlacesService();
-    final googlePlaces = await placesService.getNearbyPlaces(
-      lat: currentPosition.latitude,
-      lng: currentPosition.longitude,
-      radiusMeters: 10,
-    );
+    final nearbyResults = await Future.wait([
+      placesService.getNearbyPlaces(
+        lat: currentPosition.latitude,
+        lng: currentPosition.longitude,
+        radiusMeters: 10,
+      ),
+      placesService.getNearbyPlaces(
+        lat: currentPosition.latitude,
+        lng: currentPosition.longitude,
+        radiusMeters: PlacesService.transportEligibilityRadiusMeters,
+        transportOnly: true,
+      ),
+    ]);
+    final googlePlaces = nearbyResults[0];
+    final nearbyTransportPlaces = nearbyResults[1];
+    final availableTransportModes = <TransportMode>{
+      TransportMode.walk,
+      TransportMode.drive,
+      for (final place in nearbyTransportPlaces.where(
+        (place) =>
+            place.distanceMeters != null &&
+            place.distanceMeters! <=
+                PlacesService.transportEligibilityRadiusMeters,
+      ))
+        ...place.supportedTransportModes,
+    };
 
     // Get custom saved locations within radius
     final customLocations = await _getNearbySavedLocations(
@@ -401,6 +423,7 @@ class _MapPageState extends State<MapPage> {
       context: context,
       currentPosition: currentPosition,
       nearbyPlaces: allNearbyPlaces,
+      availableTransportModes: availableTransportModes,
     );
 
     if (result == null) {

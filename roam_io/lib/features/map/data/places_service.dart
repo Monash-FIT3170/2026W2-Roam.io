@@ -7,6 +7,8 @@ import 'api_config.dart';
 import '../../journeys/domain/nearby_place.dart';
 
 class PlacesService {
+  static const int transportEligibilityRadiusMeters = 10;
+
   final http.Client _client;
 
   PlacesService({http.Client? client}) : _client = client ?? http.Client();
@@ -93,6 +95,7 @@ class PlacesService {
     required double lat,
     required double lng,
     int radiusMeters = 25,
+    bool transportOnly = false,
   }) async {
     final url = '${ApiConfig.spatialApiBaseUrl}/places/nearby';
     debugPrint(
@@ -107,6 +110,7 @@ class PlacesService {
           'lat': lat,
           'lng': lng,
           'radiusMeters': radiusMeters,
+          'transportOnly': transportOnly,
         }),
       );
 

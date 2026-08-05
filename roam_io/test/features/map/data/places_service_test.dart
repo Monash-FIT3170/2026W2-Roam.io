@@ -6,6 +6,22 @@ import 'package:http/testing.dart';
 import 'package:roam_io/features/map/data/places_service.dart';
 
 void main() {
+  test('transport-only lookup sends the 10m eligibility request', () async {
+    final client = MockClient((request) async {
+      final body = jsonDecode(request.body) as Map<String, dynamic>;
+      expect(body['radiusMeters'], 10);
+      expect(body['transportOnly'], isTrue);
+      return http.Response('[]', 200);
+    });
+
+    await PlacesService(client: client).getNearbyPlaces(
+      lat: -37.81,
+      lng: 144.96,
+      radiusMeters: PlacesService.transportEligibilityRadiusMeters,
+      transportOnly: true,
+    );
+  });
+
   test('getNearbyPlaces returns nearest places first', () async {
     final client = MockClient((request) async {
       return http.Response(

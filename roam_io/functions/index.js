@@ -593,7 +593,7 @@ function haversineDistance(lat1, lng1, lat2, lng2) {
  */
 app.post('/places/nearby', async (req, res) => {
   try {
-    const { lat, lng, radiusMeters = 25 } = req.body;
+    const { lat, lng, radiusMeters = 25, transportOnly = false } = req.body;
 
     if (lat == null || lng == null) {
       return res.status(400).json({ error: 'lat and lng are required' });
@@ -606,16 +606,24 @@ app.post('/places/nearby', async (req, res) => {
     // Fetch places from Google Places API
     let places = [];
     try {
-      const [venues, transportStops] = await Promise.all([
-        fetchPlacesFromGoogle({
+      const requests = transportOnly
+        ? [fetchPlacesFromGoogle({
+            lat: Number(lat),
+            lng: Number(lng),
+            radiusMeters: Number(radiusMeters),
+            maxResults: 20,
+            apiKey: GOOGLE_PLACES_API_KEY.value(),
+            includedTypes: TRANSPORT_TYPES,
+            rankPreference: 'DISTANCE',
+          })]
+        : [fetchPlacesFromGoogle({
           lat: Number(lat),
           lng: Number(lng),
           radiusMeters: Number(radiusMeters),
           maxResults: 20,
           apiKey: GOOGLE_PLACES_API_KEY.value(),
           rankPreference: 'DISTANCE',
-        }),
-        fetchPlacesFromGoogle({
+        }), fetchPlacesFromGoogle({
           lat: Number(lat),
           lng: Number(lng),
           radiusMeters: Number(radiusMeters),
@@ -623,11 +631,11 @@ app.post('/places/nearby', async (req, res) => {
           apiKey: GOOGLE_PLACES_API_KEY.value(),
           includedTypes: TRANSPORT_TYPES,
           rankPreference: 'DISTANCE',
-        }),
-      ]);
+        })];
+      const resultSets = await Promise.all(requests);
       places = Array.from(
         new Map(
-          [...venues, ...transportStops].map((place) => [place.id, place])
+          resultSets.flat().map((place) => [place.id, place])
         ).values()
       );
     } catch (googleError) {
@@ -659,19 +667,21 @@ app.post('/places/nearby', async (req, res) => {
             lng: place.location.longitude,
           },
           distanceMeters: Math.round(distance),
+          types: place.types || [],
         };
       })
       .filter((place) => place.distanceMeters <= radiusMeters);
 
     // Sort by distance ascending, take top 5
     placesWithDistance.sort((a, b) => a.distanceMeters - b.distanceMeters);
-    const top5 = placesWithDistance.slice(0, 5);
+    const resultLimit = transportOnly ? 20 : 5;
+    const results = placesWithDistance.slice(0, resultLimit);
 
     console.log(
-      `[NearbyPlaces] Found ${places.length} places, ${placesWithDistance.length} within ${radiusMeters}m, returning top ${top5.length}`
+      `[NearbyPlaces] Found ${places.length} places, ${placesWithDistance.length} within ${radiusMeters}m, returning ${results.length}`
     );
 
-    return res.json(top5);
+    return res.json(results);
   } catch (error) {
     console.error('[NearbyPlaces] Error:', error.message);
     return res.status(500).json({ error: 'Failed to fetch nearby places' });

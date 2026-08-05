@@ -8,6 +8,8 @@
 
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 
+import 'transport_mode.dart';
+
 /// A nearby place for journey location selection.
 class NearbyPlace {
   const NearbyPlace({
@@ -17,6 +19,7 @@ class NearbyPlace {
     required this.latLng,
     this.distanceMeters,
     this.isCustomLocation = false,
+    this.types = const [],
   });
 
   /// The Google Places ID. Null for custom saved locations.
@@ -37,6 +40,21 @@ class NearbyPlace {
   /// Whether this is a custom saved location (black dot) vs Google Place.
   final bool isCustomLocation;
 
+  /// Google Place types used to determine nearby transport availability.
+  final List<String> types;
+
+  Set<TransportMode> get supportedTransportModes {
+    final modes = <TransportMode>{};
+    if (types.contains('bus_stop') || types.contains('bus_station')) {
+      modes.add(TransportMode.bus);
+    }
+    if (types.contains('train_station')) modes.add(TransportMode.train);
+    if (types.contains('tram_stop') || types.contains('light_rail_station')) {
+      modes.add(TransportMode.tram);
+    }
+    return modes;
+  }
+
   /// Creates a NearbyPlace from a JSON map (API response).
   factory NearbyPlace.fromJson(Map<String, dynamic> json) {
     final location = json['location'] as Map<String, dynamic>;
@@ -50,6 +68,7 @@ class NearbyPlace {
       ),
       distanceMeters: json['distanceMeters'] as int?,
       isCustomLocation: json['isCustomLocation'] as bool? ?? false,
+      types: (json['types'] as List<dynamic>?)?.cast<String>() ?? const [],
     );
   }
 

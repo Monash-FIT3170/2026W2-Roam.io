@@ -32,6 +32,13 @@ class StartJourneySheet extends StatefulWidget {
     super.key,
     required this.currentPosition,
     this.nearbyPlaces = const [],
+    this.availableTransportModes = const {
+      TransportMode.walk,
+      TransportMode.drive,
+      TransportMode.bus,
+      TransportMode.train,
+      TransportMode.tram,
+    },
   });
 
   /// The user's current GPS position.
@@ -40,11 +47,21 @@ class StartJourneySheet extends StatefulWidget {
   /// Optional list of nearby places to select from.
   final List<NearbyPlace> nearbyPlaces;
 
+  /// Transport modes permitted at the current GPS position.
+  final Set<TransportMode> availableTransportModes;
+
   /// Shows the start journey sheet as a modal bottom sheet.
   static Future<StartJourneyResult?> show({
     required BuildContext context,
     required LatLng currentPosition,
     List<NearbyPlace> nearbyPlaces = const [],
+    Set<TransportMode> availableTransportModes = const {
+      TransportMode.walk,
+      TransportMode.drive,
+      TransportMode.bus,
+      TransportMode.train,
+      TransportMode.tram,
+    },
   }) {
     return showModalBottomSheet<StartJourneyResult>(
       context: context,
@@ -53,6 +70,7 @@ class StartJourneySheet extends StatefulWidget {
       builder: (context) => StartJourneySheet(
         currentPosition: currentPosition,
         nearbyPlaces: nearbyPlaces,
+        availableTransportModes: availableTransportModes,
       ),
     );
   }
@@ -89,7 +107,10 @@ class _StartJourneySheetState extends State<StartJourneySheet> {
   }
 
   void _startJourney() {
-    if (_selectedLocation == null) return;
+    if (_selectedLocation == null ||
+        !widget.availableTransportModes.contains(_selectedMode)) {
+      return;
+    }
 
     Navigator.of(context).pop(
       StartJourneyResult(
@@ -218,10 +239,13 @@ class _StartJourneySheetState extends State<StartJourneySheet> {
               Wrap(
                 spacing: 8,
                 runSpacing: 8,
-                children: TransportMode.journeyOptions.map((mode) {
-                  final isSelected = _selectedMode == mode;
-                  return _buildModeChip(context, mode, isSelected);
-                }).toList(),
+                children: TransportMode.journeyOptions
+                    .where(widget.availableTransportModes.contains)
+                    .map((mode) {
+                      final isSelected = _selectedMode == mode;
+                      return _buildModeChip(context, mode, isSelected);
+                    })
+                    .toList(),
               ),
 
               const SizedBox(height: 32),
