@@ -81,25 +81,9 @@ class Journey {
     return '$minutes min${minutes != 1 ? 's' : ''}';
   }
 
-  /// Returns a display title for the journey.
-  /// Uses custom names if set, otherwise generates from location names.
-  String get displayTitle {
-    final start = startLocation.name;
-    final end = endLocation.name;
-
-    // If both are "Current Location", generate a generic title
-    if (start == 'Current Location' && end == 'Current Location') {
-      return '${transportMode.displayName} Journey';
-    }
-
-    // If start has a custom name, use it
-    if (startLocation.customName != null) {
-      return startLocation.customName!;
-    }
-
-    // Otherwise, show "A to B" format
-    return '$start to $end';
-  }
+  /// Returns the journey title in "Start Location to End Location" format.
+  /// Each location's custom name takes precedence over its default name.
+  String get displayTitle => '${startLocation.name} to ${endLocation.name}';
 
   /// Creates a copy with optional field overrides.
   Journey copyWith({

@@ -48,7 +48,8 @@ void main() {
     await tester.tap(find.text('Open journey'));
     await tester.pumpAndSettle();
 
-    expect(find.text('Journey Overview'), findsOneWidget);
+    expect(find.text('Creek entrance to Park lookout'), findsOneWidget);
+    expect(find.text('Journey Overview'), findsNothing);
     expect(find.text('3.2 km'), findsOneWidget);
     expect(find.text('30 mins'), findsOneWidget);
     expect(find.text('Walk'), findsOneWidget);

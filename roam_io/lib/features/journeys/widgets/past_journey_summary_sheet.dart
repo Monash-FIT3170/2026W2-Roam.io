@@ -83,7 +83,7 @@ class PastJourneySummarySheet extends StatelessWidget {
                 children: [
                   Expanded(
                     child: Text(
-                      'Journey Overview',
+                      journey.displayTitle,
                       style: theme.textTheme.headlineSmall?.copyWith(
                         fontWeight: FontWeight.w800,
                         color: AppSurfaces.textPrimary(context),
