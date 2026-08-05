@@ -3,7 +3,7 @@
  * Last Updated: 5 August 2026
  * Description:
  *   Provides the authenticated app shell with persistent bottom navigation
- *   across the main feature tabs and app-styled notification action feedback.
+ *   across the main feature tabs and production notification action feedback.
  */
 
 import 'dart:async';
@@ -74,12 +74,6 @@ class _MainShellScreenState extends State<MainShellScreen> {
     super.dispose();
   }
 
-  void _showTestNotification() {
-    NotificationService.instance.show(
-      NotificationTemplates.friendRequest('Alex'),
-    );
-  }
-
   String _messageForNotificationAction(NotificationActionEvent event) {
     return switch (event.action.type) {
       NotificationActionType.accept => 'Friend request accepted.',
@@ -102,13 +96,6 @@ class _MainShellScreenState extends State<MainShellScreen> {
       extendBody: true,
 
       body: IndexedStack(index: selectedIndex, children: pages),
-
-      // Temporary button used to test the notification system.
-      floatingActionButton: FloatingActionButton(
-        onPressed: _showTestNotification,
-        tooltip: 'Test notification',
-        child: const Icon(Icons.notifications),
-      ),
 
       bottomNavigationBar: AppBottomNavBar(
         currentIndex: selectedIndex,

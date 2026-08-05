@@ -23,6 +23,12 @@ service cloud.firestore {
         // No deletes - visits are permanent
         allow delete: if false;
       }
+
+      // Timestamped XP gain events for weekly XP Gained analytics.
+      match /xp_events/{eventId} {
+        allow read, create: if isProfileOwner(userId);
+        allow update, delete: if false;
+      }
     }
 
     match /polygons_visited/{userId} {

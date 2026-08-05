@@ -55,6 +55,8 @@ void main() {
     await tester.pump(const Duration(seconds: 1));
 
     expect(find.byType(MapPage), findsOneWidget);
+    expect(find.byTooltip('Test notification'), findsNothing);
+    expect(find.byType(FloatingActionButton), findsNothing);
 
     await tester.tap(find.text('HOME'));
     await tester.pumpAndSettle();

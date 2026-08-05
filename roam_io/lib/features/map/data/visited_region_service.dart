@@ -1,13 +1,14 @@
 /*
  * Author: Sanjevan Rajasegar
- * Last Modified: 12/05/2026
+ * Last Updated: 5 August 2026
  * Description:
- *   Loads and persists visited region IDs while preserving first-time unlock
- *   results for duplicate XP prevention.
+ *   Loads and persists visited region IDs and timestamped unlock records while
+ *   preserving first-time unlock results for duplicate XP prevention.
  */
 
 import 'package:firebase_auth/firebase_auth.dart';
 import '../../../services/polygon_service.dart';
+import '../../profile/domain/visited_polygon_record.dart';
 
 /// Persists region visits and reports whether each visit is a new unlock.
 class VisitedRegionService {
@@ -45,6 +46,19 @@ class VisitedRegionService {
     return _polygonService
         .watchVisitedPolygonRecords(profileId: user.uid)
         .map((records) => records.map((record) => record.polygonId).toSet());
+  }
+
+  /// Streams timestamped tile unlock records for profile analytics.
+  Stream<List<VisitedPolygonRecord>> watchVisitedPolygonRecords() {
+    final user = _auth.currentUser;
+
+    if (user == null) {
+      return Stream<List<VisitedPolygonRecord>>.value(
+        const <VisitedPolygonRecord>[],
+      );
+    }
+
+    return _polygonService.watchVisitedPolygonRecords(profileId: user.uid);
   }
 
   // Marks a region as visited for the current user. Returns true only when the

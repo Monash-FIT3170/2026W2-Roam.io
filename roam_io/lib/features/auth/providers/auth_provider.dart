@@ -1,9 +1,9 @@
 /*
  * Author: Sanjevan Rajasegar
- * Last Modified: 12/05/2026
+ * Last Updated: 5 August 2026
  * Description:
- *   Manages authentication, profile XP, level-up state, and account actions
- *   exposed to the widget tree.
+ *   Manages authentication, profile XP, level-up state, and Settings account
+ *   edit actions exposed to the widget tree.
  */
 
 import 'dart:async';
@@ -14,6 +14,7 @@ import 'package:image_picker/image_picker.dart';
 
 import '../data/auth_repository.dart';
 import '../../profile/domain/profile_model.dart';
+import '../../profile/domain/xp_event.dart';
 
 /// High-level authentication state used by auth gates and account screens.
 enum AuthViewState { loading, authenticated, unauthenticated }
@@ -152,6 +153,30 @@ class AuthProvider extends ChangeNotifier {
     });
   }
 
+  /// Updates the username and refreshes local profile state.
+  Future<void> updateUsername(String username) async {
+    await _runAuthAction(() async {
+      await _authRepository.updateUsername(username);
+      _currentProfile = _currentProfile?.copyWith(
+        username: username,
+        updatedAt: DateTime.now(),
+      );
+    });
+  }
+
+  /// Requests a verified account email change through Firebase Auth.
+  Future<void> requestEmailChange({
+    required String currentPassword,
+    required String newEmail,
+  }) async {
+    await _runAuthAction(
+      () => _authRepository.requestEmailChange(
+        currentPassword: currentPassword,
+        newEmail: newEmail,
+      ),
+    );
+  }
+
   /// Persists the user's dark mode preference and updates local profile state.
   Future<void> updateDarkModePreference(bool enabled) async {
     await _runAuthAction(() async {
@@ -193,8 +218,12 @@ class AuthProvider extends ChangeNotifier {
     return didLevelUp;
   }
 
-  /// Adds XP and updates local profile/level-up state after the write succeeds.
-  Future<bool> addXp(int xpToAdd) async {
+  /// Adds XP (with history event) and updates local level state after write.
+  Future<bool> addXp(
+    int xpToAdd, {
+    XpEventSource source = XpEventSource.unknown,
+    String? sourceId,
+  }) async {
     var didLevelUp = false;
     await _runAuthAction(() async {
       final currentProfile = _currentProfile;
@@ -204,11 +233,7 @@ class AuthProvider extends ChangeNotifier {
       final newXp = currentXp + xpToAdd;
       final newLevel = ProfileModel.levelFromXp(newXp);
 
-      if (currentProfile == null) {
-        await _authRepository.addXp(xpToAdd);
-      } else {
-        await _authRepository.updateXp(newXp);
-      }
+      await _authRepository.addXp(xpToAdd, source: source, sourceId: sourceId);
 
       _currentProfile = currentProfile == null
           ? await _authRepository.getCurrentUserProfile()
@@ -286,7 +311,7 @@ class AuthProvider extends ChangeNotifier {
       case 'network-request-failed':
         return 'Network error. Check your internet connection and try again.';
       case 'requires-recent-login':
-        return 'For security, please log in again before changing your password.';
+        return 'For security, please log in again before changing account details.';
       default:
         return 'Authentication failed. Please try again.';
     }

@@ -39,6 +39,7 @@ lib/
       screens/
     settings/
       screens/
+      widgets/
     social/
       screens/
     you/
@@ -68,6 +69,43 @@ The authenticated shell uses five bottom-navigation destinations:
 Journey, Quest, Analytics, and Profile terms should remain where they describe
 domain concepts or transitional compatibility wrappers, but they should not be
 introduced as new top-level navigation destinations.
+
+### Settings Account Editing
+
+`Settings` uses grouped rows for account and preference actions. The primary
+Settings screen shows profile picture, display name, and username in the account
+header, then routes edits to dedicated screens for display name, username, email,
+and password. Account rows should show action labels only; current values belong
+inside the dedicated edit screens. Email remains an account setting and uses
+Firebase's verified email change flow rather than a direct profile overwrite.
+Successful display-name and username saves keep the user on the edit screen so
+the updated value can be reviewed before manually navigating back.
+
+### You Dashboard
+
+`You` owns personal profile context and personal activity surfaces. It uses
+internal `Profile` and `Activities` tabs rather than adding more bottom-nav
+destinations. `Profile` keeps a compact identity block (avatar, name, username,
+level/XP bar) above the five-stat row, then a metric-selectable interactive line
+graph. Locations Visited and Tiles Unlocked use existing visit/polygon
+timestamps. XP Gained uses timestamped `profiles/{uid}/xp_events` written
+atomically with aggregate XP awards (visits and tile unlocks). History
+accumulates from the point event tracking was introduced — existing aggregate XP
+is not reverse-engineered into fabricated past weeks. Weekly buckets use
+Monday-start local calendar weeks. Tapping a graph point selects it and shows
+that week's exact value; changing metric resets selection. Journey and sidequest
+graph modes remain empty until those domain sources exist. Bottom scroll padding
+uses `AppBottomNavBar.clearanceFromScreenBottom` with `SafeArea(bottom: false)`
+so content is not double-inset under the floating nav. `Activities` shows a
+static placeholder via reusable `ActivityFeedCard` for the upcoming feed work;
+kudos/comment/share are UI-only.
+
+### Notifications
+
+The authenticated shell listens for production notification actions and displays
+shared app toasts. User-facing manual Test Notification controls should not be
+added to app chrome; notification templates, overlays, and services remain under
+`lib/notifications/`.
 
 ### `features/<feature>/screens`
 

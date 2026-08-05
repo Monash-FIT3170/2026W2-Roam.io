@@ -2,8 +2,8 @@
  * Author: Sanjevan Rajasegar
  * Last Updated: 5 August 2026
  * Description:
- *   Regression tests for settings screen dark mode toggling preserving profile
- *   data.
+ *   Regression tests for row-based Settings dark mode toggling and profile
+ *   data preservation.
  */
 
 import 'package:firebase_auth/firebase_auth.dart' as firebase_auth;
@@ -28,7 +28,7 @@ void main() {
 
     final before = provider.currentProfile!;
 
-    final darkModeSwitch = find.byType(SwitchListTile);
+    final darkModeSwitch = find.byType(Switch);
     await tester.ensureVisible(darkModeSwitch);
     await tester.tap(darkModeSwitch);
     await tester.pump();
@@ -56,7 +56,7 @@ void main() {
 
       final before = provider.currentProfile!;
 
-      final darkModeSwitch = find.byType(SwitchListTile);
+      final darkModeSwitch = find.byType(Switch);
       await tester.ensureVisible(darkModeSwitch);
       await tester.tap(darkModeSwitch);
       await tester.pump();
@@ -89,7 +89,7 @@ Future<void> _pumpSettingsScreen(
   await tester.pump();
 
   expect(provider.currentProfile, isNotNull);
-  expect(find.byType(SwitchListTile), findsOneWidget);
+  expect(find.byType(Switch), findsOneWidget);
 }
 
 ProfileModel _buildProfile({required bool darkModeEnabled}) {

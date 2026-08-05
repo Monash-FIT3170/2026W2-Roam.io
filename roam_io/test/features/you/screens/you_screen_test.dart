@@ -2,8 +2,8 @@
  * Author: Sanjevan Rajasegar
  * Last Updated: 5 August 2026
  * Description:
- *   Regression tests for You screen profile-driven stat values, visited
- *   tile totals, total completed visits, and most visited location states.
+ *   Regression tests for You screen tabs, profile identity XP progress,
+ *   social/exploration stats, metric line graphs, and location states.
  */
 
 import 'dart:async';
@@ -19,6 +19,8 @@ import 'package:roam_io/features/map/data/visit.dart';
 import 'package:roam_io/features/map/data/visit_service.dart';
 import 'package:roam_io/features/map/data/visited_region_service.dart';
 import 'package:roam_io/features/profile/domain/profile_model.dart';
+import 'package:roam_io/features/profile/domain/visited_polygon_record.dart';
+import 'package:roam_io/features/profile/domain/xp_event.dart';
 
 void main() {
   testWidgets('shows current profile XP instead of placeholder XP', (
@@ -44,8 +46,19 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    expect(find.text('XP Count'), findsOneWidget);
-    expect(find.text('12,345'), findsOneWidget);
+    expect(find.text('You'), findsNothing);
+    expect(find.text('Summary'), findsNothing);
+    expect(find.text('Profile'), findsOneWidget);
+    expect(find.text('Activities'), findsOneWidget);
+    expect(find.text('XP Count'), findsNothing);
+    expect(
+      find.text('Level ${ProfileModel.levelFromXp(12345)}'),
+      findsOneWidget,
+    );
+    expect(find.text('Locations Visited'), findsOneWidget);
+    expect(find.text('Tiles Unlocked'), findsOneWidget);
+    expect(find.text('Visit volume by week'), findsNothing);
+    expect(find.text('Total Visits'), findsNothing);
     expect(find.text('2,450'), findsNothing);
 
     provider.dispose();
@@ -81,16 +94,20 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    expect(find.text('Tiles Visited'), findsOneWidget);
-    expect(find.text('6'), findsOneWidget);
+    expect(find.text('Traveller'), findsOneWidget);
+    expect(find.text('@traveller'), findsOneWidget);
+    expect(find.text('Tiles'), findsOneWidget);
+    expect(find.text('Following'), findsOneWidget);
+    expect(find.text('Followers'), findsOneWidget);
+    expect(find.text('Journeys'), findsOneWidget);
+    expect(find.text('Sidequests'), findsOneWidget);
+    expect(find.text('6'), findsWidgets);
     expect(find.text('48'), findsNothing);
 
     provider.dispose();
   });
 
-  testWidgets('shows total completed visits separately from visited tiles', (
-    tester,
-  ) async {
+  testWidgets('removes old visit and XP dashboard cards', (tester) async {
     final provider = AuthProvider(
       authRepository: _FakeAuthRepository(_buildProfile(xp: 50)),
     );
@@ -115,10 +132,12 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    expect(find.text('Tiles Visited'), findsOneWidget);
-    expect(find.text('Total Visits'), findsOneWidget);
-    expect(find.text('3'), findsOneWidget);
-    expect(find.text('14'), findsOneWidget);
+    expect(find.text('Tiles Visited'), findsNothing);
+    expect(find.text('Total Visits'), findsNothing);
+    expect(find.text('XP Count'), findsNothing);
+    expect(find.text('Visits'), findsNothing);
+    expect(find.text('This Week'), findsNothing);
+    expect(find.text('3'), findsWidgets);
     expect(find.text('156'), findsNothing);
 
     provider.dispose();
@@ -215,6 +234,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('No locations yet'), findsOneWidget);
+    expect(find.text('No locations to chart yet'), findsOneWidget);
     expect(
       find.text(
         'Visit places on the map to see your most visited location here.',
@@ -291,6 +311,272 @@ void main() {
       provider.dispose();
     },
   );
+
+  testWidgets('opens Activities tab and shows placeholder activity card', (
+    tester,
+  ) async {
+    final provider = AuthProvider(
+      authRepository: _FakeAuthRepository(_buildProfile(xp: 75)),
+    );
+    await provider.refreshCurrentUser();
+
+    await tester.pumpWidget(
+      ChangeNotifierProvider<AuthProvider>.value(
+        value: provider,
+        child: MaterialApp(
+          home: Scaffold(
+            body: YouScreen(
+              visitService: _FakeVisitService(totalVisitCount: 0),
+              visitedRegionService: _FakeVisitedRegionService(<String>{}),
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Activities'));
+    await tester.pumpAndSettle();
+    expect(find.text('No activities yet'), findsNothing);
+    expect(find.text('Morning Weight Training'), findsOneWidget);
+    expect(find.text('August 3, 2026 at 10:07 AM'), findsOneWidget);
+    expect(find.text('47m 51s'), findsOneWidget);
+    expect(find.text('108 bpm'), findsOneWidget);
+    expect(find.text('Traveller'), findsOneWidget);
+    expect(find.text('Kudos'), findsOneWidget);
+    expect(find.text('Comment'), findsOneWidget);
+    expect(find.text('Share'), findsOneWidget);
+
+    await tester.tap(find.text('Profile'));
+    await tester.pumpAndSettle();
+    expect(find.text('Traveller'), findsOneWidget);
+
+    provider.dispose();
+  });
+
+  testWidgets(
+    'switches metric pills and shows empty XP state when history is empty',
+    (tester) async {
+      final provider = AuthProvider(
+        authRepository: _FakeAuthRepository(_buildProfile(xp: 75)),
+      );
+      await provider.refreshCurrentUser();
+
+      await tester.pumpWidget(
+        ChangeNotifierProvider<AuthProvider>.value(
+          value: provider,
+          child: MaterialApp(
+            home: Scaffold(
+              body: YouScreen(
+                visitService: _FakeVisitService(totalVisitCount: 3),
+                visitedRegionService: _FakeVisitedRegionService(<String>{
+                  'tile-a',
+                  'tile-b',
+                }),
+                xpEventsStream: Stream<List<XpEvent>>.value(const <XpEvent>[]),
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.byType(CustomPaint), findsWidgets);
+
+      await tester.ensureVisible(find.text('XP Gained'));
+      await tester.tap(find.text('XP Gained'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('No XP gained yet this period'), findsOneWidget);
+
+      provider.dispose();
+    },
+  );
+
+  testWidgets('XP Gained graph updates when new XP events arrive', (
+    tester,
+  ) async {
+    final provider = AuthProvider(
+      authRepository: _FakeAuthRepository(_buildProfile(xp: 75)),
+    );
+    await provider.refreshCurrentUser();
+
+    final xpController = StreamController<List<XpEvent>>.broadcast();
+    final weekStart = _mondayOnOrBefore(DateTime(2026, 8, 5));
+
+    await tester.pumpWidget(
+      ChangeNotifierProvider<AuthProvider>.value(
+        value: provider,
+        child: MaterialApp(
+          home: Scaffold(
+            body: YouScreen(
+              visitService: _FakeVisitService(totalVisitCount: 0),
+              visitedRegionService: _FakeVisitedRegionService(<String>{}),
+              xpEventsStream: xpController.stream,
+            ),
+          ),
+        ),
+      ),
+    );
+    xpController.add(const <XpEvent>[]);
+    await tester.pumpAndSettle();
+
+    await tester.ensureVisible(find.text('XP Gained'));
+    await tester.tap(find.text('XP Gained'));
+    await tester.pumpAndSettle();
+    expect(find.text('No XP gained yet this period'), findsOneWidget);
+
+    xpController.add(<XpEvent>[
+      XpEvent(
+        id: 'e1',
+        amount: 50,
+        earnedAt: weekStart.add(const Duration(days: 1)),
+        source: XpEventSource.visit,
+      ),
+      XpEvent(
+        id: 'e2',
+        amount: 50,
+        earnedAt: weekStart.add(const Duration(days: 2)),
+        source: XpEventSource.tileUnlock,
+      ),
+      XpEvent(
+        id: 'e3',
+        amount: 50,
+        earnedAt: weekStart.subtract(const Duration(days: 7)),
+        source: XpEventSource.visit,
+      ),
+    ]);
+    await tester.pumpAndSettle();
+
+    expect(find.text('No XP gained yet this period'), findsNothing);
+    expect(find.byType(CustomPaint), findsWidgets);
+
+    await xpController.close();
+    provider.dispose();
+  });
+
+  testWidgets('tapping a graph point shows the selected week value', (
+    tester,
+  ) async {
+    final provider = AuthProvider(
+      authRepository: _FakeAuthRepository(_buildProfile(xp: 75)),
+    );
+    await provider.refreshCurrentUser();
+
+    final weekStart = _mondayOnOrBefore(DateTime(2026, 8, 5));
+    final visits = <Visit>[
+      Visit(
+        placeId: 1,
+        googlePlaceId: 'g1',
+        placeName: 'Cafe A',
+        regionId: 'r1',
+        category: 'cafe',
+        visitedAt: weekStart.add(const Duration(days: 1)),
+      ),
+      Visit(
+        placeId: 2,
+        googlePlaceId: 'g2',
+        placeName: 'Cafe B',
+        regionId: 'r1',
+        category: 'cafe',
+        visitedAt: weekStart.add(const Duration(days: 2)),
+      ),
+      Visit(
+        placeId: 3,
+        googlePlaceId: 'g3',
+        placeName: 'Cafe C',
+        regionId: 'r1',
+        category: 'cafe',
+        visitedAt: weekStart.add(const Duration(days: 3)),
+      ),
+    ];
+
+    await tester.pumpWidget(
+      ChangeNotifierProvider<AuthProvider>.value(
+        value: provider,
+        child: MaterialApp(
+          home: Scaffold(
+            body: YouScreen(
+              visitService: _FakeVisitService(
+                totalVisitCount: visits.length,
+                allVisits: visits,
+              ),
+              visitedRegionService: _FakeVisitedRegionService(<String>{}),
+              xpEventsStream: Stream<List<XpEvent>>.value(const <XpEvent>[]),
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final lastPoint = find.byKey(const ValueKey<String>('graph-point-5'));
+    expect(lastPoint, findsOneWidget);
+
+    await tester.tap(lastPoint);
+    await tester.pumpAndSettle();
+
+    expect(find.textContaining('3 Locations Visited'), findsOneWidget);
+
+    provider.dispose();
+  });
+
+  testWidgets('changing metric resets selected graph point', (tester) async {
+    final provider = AuthProvider(
+      authRepository: _FakeAuthRepository(_buildProfile(xp: 75)),
+    );
+    await provider.refreshCurrentUser();
+
+    final weekStart = _mondayOnOrBefore(DateTime(2026, 8, 5));
+    final visits = <Visit>[
+      Visit(
+        placeId: 1,
+        googlePlaceId: 'g1',
+        placeName: 'Cafe A',
+        regionId: 'r1',
+        category: 'cafe',
+        visitedAt: weekStart.add(const Duration(days: 1)),
+      ),
+    ];
+
+    await tester.pumpWidget(
+      ChangeNotifierProvider<AuthProvider>.value(
+        value: provider,
+        child: MaterialApp(
+          home: Scaffold(
+            body: YouScreen(
+              visitService: _FakeVisitService(
+                totalVisitCount: visits.length,
+                allVisits: visits,
+              ),
+              visitedRegionService: _FakeVisitedRegionService(<String>{
+                'tile-a',
+              }),
+              xpEventsStream: Stream<List<XpEvent>>.value(const <XpEvent>[]),
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byKey(const ValueKey<String>('graph-point-5')));
+    await tester.pumpAndSettle();
+    expect(find.textContaining('1 Locations Visited'), findsOneWidget);
+
+    await tester.ensureVisible(find.text('Tiles Unlocked'));
+    await tester.tap(find.text('Tiles Unlocked'));
+    await tester.pumpAndSettle();
+
+    expect(find.textContaining('1 Locations Visited'), findsNothing);
+
+    provider.dispose();
+  });
+}
+
+DateTime _mondayOnOrBefore(DateTime date) {
+  final day = DateTime(date.year, date.month, date.day);
+  return day.subtract(Duration(days: day.weekday - DateTime.monday));
 }
 
 ProfileModel _buildProfile({required int xp}) {
@@ -398,11 +684,16 @@ class _FakeVisitService implements VisitService {
 
 class _FakeVisitedRegionService implements VisitedRegionService {
   _FakeVisitedRegionService(Set<String> visitedRegionIds)
-    : _visitedRegionIds = visitedRegionIds;
+    : _visitedRegionIds = visitedRegionIds,
+      _visitedPolygonRecords = _recordsFromIds(visitedRegionIds);
 
   Set<String> _visitedRegionIds;
+  List<VisitedPolygonRecord> _visitedPolygonRecords;
   final StreamController<Set<String>> _visitedRegionIdsController =
       StreamController<Set<String>>.broadcast();
+  final StreamController<List<VisitedPolygonRecord>>
+  _visitedPolygonRecordsController =
+      StreamController<List<VisitedPolygonRecord>>.broadcast();
 
   @override
   Future<Set<String>> loadVisitedRegionIds() async {
@@ -422,17 +713,44 @@ class _FakeVisitedRegionService implements VisitedRegionService {
     });
   }
 
-  void emitVisitedRegionIds(Set<String> visitedRegionIds) {
-    _visitedRegionIds = visitedRegionIds;
-    _visitedRegionIdsController.add(visitedRegionIds);
+  @override
+  Stream<List<VisitedPolygonRecord>> watchVisitedPolygonRecords() {
+    return Stream<List<VisitedPolygonRecord>>.multi((controller) {
+      controller.add(_visitedPolygonRecords);
+      final subscription = _visitedPolygonRecordsController.stream.listen(
+        controller.add,
+        onError: controller.addError,
+        onDone: controller.close,
+      );
+      controller.onCancel = subscription.cancel;
+    });
   }
 
-  Future<void> dispose() {
-    return _visitedRegionIdsController.close();
+  void emitVisitedRegionIds(Set<String> visitedRegionIds) {
+    _visitedRegionIds = visitedRegionIds;
+    _visitedPolygonRecords = _recordsFromIds(visitedRegionIds);
+    _visitedRegionIdsController.add(visitedRegionIds);
+    _visitedPolygonRecordsController.add(_visitedPolygonRecords);
+  }
+
+  Future<void> dispose() async {
+    await _visitedRegionIdsController.close();
+    await _visitedPolygonRecordsController.close();
   }
 
   @override
   dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+
+  static List<VisitedPolygonRecord> _recordsFromIds(Set<String> ids) {
+    final sortedIds = ids.toList()..sort();
+    return List<VisitedPolygonRecord>.generate(sortedIds.length, (index) {
+      return VisitedPolygonRecord(
+        profileId: 'user-1',
+        polygonId: sortedIds[index],
+        visitedAt: DateTime(2026, 5, 1).add(Duration(days: index)),
+      );
+    });
+  }
 }
 
 class _FakeUser implements firebase_auth.User {

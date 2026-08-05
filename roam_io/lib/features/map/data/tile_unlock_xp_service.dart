@@ -8,6 +8,7 @@
 import 'package:flutter/foundation.dart';
 
 import '../../auth/data/auth_repository.dart';
+import '../../profile/domain/xp_event.dart';
 import '../../profile/domain/xp_reward_config.dart';
 import 'region_polygon.dart';
 
@@ -53,7 +54,7 @@ class TileUnlockXpService {
   }
 
   static Future<bool> _defaultAddXp(int xpToAdd) async {
-    await AuthRepository().addXp(xpToAdd);
+    await AuthRepository().addXp(xpToAdd, source: XpEventSource.tileUnlock);
     return false;
   }
 }

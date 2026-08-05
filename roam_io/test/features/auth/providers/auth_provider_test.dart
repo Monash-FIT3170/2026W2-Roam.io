@@ -1,8 +1,9 @@
 /*
  * Author: Sanjevan Rajasegar
- * Last Modified: 17/05/2026
+ * Last Updated: 5 August 2026
  * Description:
- *   Unit tests for AuthProvider error mapping and XP level-up notifications.
+ *   Unit tests for AuthProvider account updates, error mapping, and XP level-up
+ *   notifications.
  */
 
 import 'package:firebase_auth/firebase_auth.dart' as firebase_auth;
@@ -11,6 +12,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:roam_io/features/auth/data/auth_repository.dart';
 import 'package:roam_io/features/auth/providers/auth_provider.dart';
 import 'package:roam_io/features/profile/domain/profile_model.dart';
+import 'package:roam_io/features/profile/domain/xp_event.dart';
 
 import '../../../support/fake_firebase_user.dart';
 
@@ -44,6 +46,57 @@ void main() {
         provider.dispose();
       },
     );
+
+    test('updates username locally without refreshing user/profile', () async {
+      final now = DateTime(2026, 5, 1);
+      final profile = ProfileModel(
+        uid: 'u1',
+        username: 'oldname',
+        displayName: 'Traveller',
+        email: 't@t.com',
+        createdAt: now,
+        updatedAt: now,
+      );
+      final user = FakeFirebaseUser(uid: 'u1', email: 't@t.com');
+      final repo = _XpTrackingRepository(user: user, initialProfile: profile);
+      final provider = AuthProvider(authRepository: repo);
+      await Future<void>.delayed(Duration.zero);
+      await provider.refreshCurrentUser();
+      repo.resetCounts();
+
+      await provider.updateUsername('newname');
+
+      expect(repo.updatedUsername, 'newname');
+      expect(repo.reloadCount, 0);
+      expect(repo.profileReadCount, 0);
+      expect(provider.currentProfile?.username, 'newname');
+      provider.dispose();
+    });
+
+    test('requests email change through repository', () async {
+      final now = DateTime(2026, 5, 1);
+      final profile = ProfileModel(
+        uid: 'u1',
+        username: 'traveller',
+        displayName: 'Traveller',
+        email: 't@t.com',
+        createdAt: now,
+        updatedAt: now,
+      );
+      final user = FakeFirebaseUser(uid: 'u1', email: 't@t.com');
+      final repo = _XpTrackingRepository(user: user, initialProfile: profile);
+      final provider = AuthProvider(authRepository: repo);
+      await Future<void>.delayed(Duration.zero);
+
+      await provider.requestEmailChange(
+        currentPassword: 'current-password',
+        newEmail: 'new@example.com',
+      );
+
+      expect(repo.emailChangePassword, 'current-password');
+      expect(repo.emailChangeNewEmail, 'new@example.com');
+      provider.dispose();
+    });
   });
 
   group('AuthProvider error messages', () {
@@ -116,8 +169,8 @@ void main() {
       expect(provider.pendingLevelUp, 2);
       expect(provider.currentProfile?.xp, 100);
       expect(provider.currentProfile?.level, greaterThanOrEqualTo(2));
-      expect(repo.updateXpCount, 1);
-      expect(repo.addXpCount, 0);
+      expect(repo.addXpCount, 1);
+      expect(repo.updateXpCount, 0);
       expect(repo.profileReadCount, 0);
 
       provider.clearPendingLevelUp();
@@ -195,6 +248,9 @@ class _XpTrackingRepository implements AuthRepository {
   int addXpCount = 0;
   int updateXpCount = 0;
   String? updatedDisplayName;
+  String? updatedUsername;
+  String? emailChangePassword;
+  String? emailChangeNewEmail;
 
   @override
   Stream<firebase_auth.User?> authStateChanges() async* {
@@ -221,7 +277,25 @@ class _XpTrackingRepository implements AuthRepository {
   }
 
   @override
-  Future<void> addXp(int xpToAdd) async {
+  Future<void> updateUsername(String username) async {
+    updatedUsername = username;
+  }
+
+  @override
+  Future<void> requestEmailChange({
+    required String currentPassword,
+    required String newEmail,
+  }) async {
+    emailChangePassword = currentPassword;
+    emailChangeNewEmail = newEmail;
+  }
+
+  @override
+  Future<void> addXp(
+    int xpToAdd, {
+    XpEventSource source = XpEventSource.unknown,
+    String? sourceId,
+  }) async {
     addXpCount++;
     final nextXp = _profile.xp + xpToAdd;
     final nextLevel = ProfileModel.levelFromXp(nextXp);
@@ -241,6 +315,9 @@ class _XpTrackingRepository implements AuthRepository {
     addXpCount = 0;
     updateXpCount = 0;
     updatedDisplayName = null;
+    updatedUsername = null;
+    emailChangePassword = null;
+    emailChangeNewEmail = null;
   }
 
   @override

@@ -10,6 +10,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:roam_io/features/auth/data/auth_repository.dart';
 import 'package:roam_io/features/auth/providers/auth_provider.dart';
 import 'package:roam_io/features/profile/domain/profile_model.dart';
+import 'package:roam_io/features/profile/domain/xp_event.dart';
 
 void main() {
   group('AuthProvider XP updates', () {
@@ -20,8 +21,8 @@ void main() {
 
       await provider.addXp(50);
 
-      expect(repository.addedXp, isEmpty);
-      expect(repository.updatedXp, <int>[50]);
+      expect(repository.addedXp, <int>[50]);
+      expect(repository.updatedXp, isEmpty);
       expect(provider.currentProfile?.xp, 50);
       expect(provider.currentProfile?.level, 1);
       expect(provider.pendingLevelUp, isNull);
@@ -102,7 +103,11 @@ class _FakeAuthRepository implements AuthRepository {
   Future<void> reloadCurrentUser() async {}
 
   @override
-  Future<void> addXp(int xpToAdd) async {
+  Future<void> addXp(
+    int xpToAdd, {
+    XpEventSource source = XpEventSource.unknown,
+    String? sourceId,
+  }) async {
     addedXp.add(xpToAdd);
     final nextXp = _profile.xp + xpToAdd;
     _profile = _profile.copyWith(

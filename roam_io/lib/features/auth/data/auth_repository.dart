@@ -1,9 +1,9 @@
 /*
- * Author: Alvin Liong
- * Last Modified: 4/05/2026
+ * Author: Sanjevan Rajasegar
+ * Last Updated: 5 August 2026
  * Description:
  *   Coordinates authentication, profile, and storage services for user account
- *   workflows.
+ *   workflows, including Settings account edit flows.
  */
 
 import 'package:firebase_auth/firebase_auth.dart';
@@ -11,6 +11,7 @@ import 'package:crypto/crypto.dart';
 import 'package:image_picker/image_picker.dart';
 
 import '../../profile/domain/profile_model.dart';
+import '../../profile/domain/xp_event.dart';
 import '../../../services/auth_service.dart';
 import '../../../services/profile_service.dart';
 import '../../../services/storage_service.dart';
@@ -116,6 +117,30 @@ class AuthRepository {
     ]);
   }
 
+  /// Updates the signed-in user's username in Firestore.
+  Future<void> updateUsername(String username) async {
+    final user = currentUser;
+    if (user == null) {
+      throw FirebaseAuthException(
+        code: 'user-not-found',
+        message: 'No logged in user found.',
+      );
+    }
+
+    await _profileService.updateUsername(user.uid, username);
+  }
+
+  /// Requests a Firebase-verified email change for the signed-in user.
+  Future<void> requestEmailChange({
+    required String currentPassword,
+    required String newEmail,
+  }) {
+    return _authService.requestEmailChange(
+      currentPassword: currentPassword,
+      newEmail: newEmail,
+    );
+  }
+
   /// Loads the signed-in user's profile from Firestore.
   Future<ProfileModel?> getCurrentUserProfile() async {
     final user = currentUser;
@@ -213,8 +238,12 @@ class AuthRepository {
     await _profileService.updateXp(user.uid, newXp);
   }
 
-  /// Adds XP to the signed-in user's current XP.
-  Future<void> addXp(int xpToAdd) async {
+  /// Adds XP and records a timestamped gain event for the signed-in user.
+  Future<void> addXp(
+    int xpToAdd, {
+    XpEventSource source = XpEventSource.unknown,
+    String? sourceId,
+  }) async {
     final user = currentUser;
     if (user == null) {
       throw FirebaseAuthException(
@@ -223,7 +252,12 @@ class AuthRepository {
       );
     }
 
-    await _profileService.addXp(user.uid, xpToAdd);
+    await _profileService.addXp(
+      user.uid,
+      xpToAdd,
+      source: source,
+      sourceId: sourceId,
+    );
   }
 
   /// Signs out from Firebase.
