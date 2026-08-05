@@ -1,18 +1,18 @@
 /*
  * Author: Sanjevan Rajasegar
- * Last Modified: 17/05/2026
+ * Last Updated: 5 August 2026
  * Description:
- *   Regression tests for analytics screen profile-driven stat values, visited
+ *   Regression tests for You screen profile-driven stat values, visited
  *   tile totals, total completed visits, and most visited location states.
  */
 
-import 'package:firebase_auth/firebase_auth.dart' as firebase_auth;
 import 'dart:async';
 
+import 'package:firebase_auth/firebase_auth.dart' as firebase_auth;
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:provider/provider.dart';
-import 'package:roam_io/features/analytics/screens/analytics_screen.dart';
+import 'package:roam_io/features/you/screens/you_screen.dart';
 import 'package:roam_io/features/auth/data/auth_repository.dart';
 import 'package:roam_io/features/auth/providers/auth_provider.dart';
 import 'package:roam_io/features/map/data/visit.dart';
@@ -34,7 +34,7 @@ void main() {
         value: provider,
         child: MaterialApp(
           home: Scaffold(
-            body: AnalyticsScreen(
+            body: YouScreen(
               visitService: _FakeVisitService(totalVisitCount: 0),
               visitedRegionService: _FakeVisitedRegionService(<String>{}),
             ),
@@ -64,7 +64,7 @@ void main() {
         value: provider,
         child: MaterialApp(
           home: Scaffold(
-            body: AnalyticsScreen(
+            body: YouScreen(
               visitService: _FakeVisitService(totalVisitCount: 9),
               visitedRegionService: _FakeVisitedRegionService(<String>{
                 'region-1',
@@ -101,7 +101,7 @@ void main() {
         value: provider,
         child: MaterialApp(
           home: Scaffold(
-            body: AnalyticsScreen(
+            body: YouScreen(
               visitService: _FakeVisitService(totalVisitCount: 14),
               visitedRegionService: _FakeVisitedRegionService(<String>{
                 'tile-a',
@@ -164,7 +164,7 @@ void main() {
         value: provider,
         child: MaterialApp(
           home: Scaffold(
-            body: AnalyticsScreen(
+            body: YouScreen(
               visitService: _FakeVisitService(
                 totalVisitCount: 3,
                 allVisits: visits,
@@ -201,7 +201,7 @@ void main() {
         value: provider,
         child: MaterialApp(
           home: Scaffold(
-            body: AnalyticsScreen(
+            body: YouScreen(
               visitService: _FakeVisitService(
                 totalVisitCount: 0,
                 allVisits: const <Visit>[],
@@ -226,67 +226,71 @@ void main() {
     provider.dispose();
   });
 
-  testWidgets('updates analytics automatically when streamed data changes', (
-    tester,
-  ) async {
-    final provider = AuthProvider(
-      authRepository: _FakeAuthRepository(_buildProfile(xp: 75)),
-    );
-    await provider.refreshCurrentUser();
+  testWidgets(
+    'updates You screen data automatically when streamed data changes',
+    (tester) async {
+      final provider = AuthProvider(
+        authRepository: _FakeAuthRepository(_buildProfile(xp: 75)),
+      );
+      await provider.refreshCurrentUser();
 
-    final visitService = _FakeVisitService(
-      totalVisitCount: 0,
-      allVisits: const <Visit>[],
-    );
-    final visitedRegionService = _FakeVisitedRegionService(<String>{});
+      final visitService = _FakeVisitService(
+        totalVisitCount: 0,
+        allVisits: const <Visit>[],
+      );
+      final visitedRegionService = _FakeVisitedRegionService(<String>{});
 
-    await tester.pumpWidget(
-      ChangeNotifierProvider<AuthProvider>.value(
-        value: provider,
-        child: MaterialApp(
-          home: Scaffold(
-            body: AnalyticsScreen(
-              visitService: visitService,
-              visitedRegionService: visitedRegionService,
+      await tester.pumpWidget(
+        ChangeNotifierProvider<AuthProvider>.value(
+          value: provider,
+          child: MaterialApp(
+            home: Scaffold(
+              body: YouScreen(
+                visitService: visitService,
+                visitedRegionService: visitedRegionService,
+              ),
             ),
           ),
         ),
-      ),
-    );
-    await tester.pumpAndSettle();
+      );
+      await tester.pumpAndSettle();
 
-    expect(find.text('No locations yet'), findsOneWidget);
-    expect(find.text('0'), findsWidgets);
+      expect(find.text('No locations yet'), findsOneWidget);
+      expect(find.text('0'), findsWidgets);
 
-    visitService.emitAllVisits(<Visit>[
-      Visit(
-        placeId: 1,
-        googlePlaceId: 'g-1',
-        placeName: 'Lakeside Cafe',
-        regionId: 'region-a',
-        category: 'food_drink',
-        visitedAt: DateTime(2026, 5, 10, 10),
-      ),
-      Visit(
-        placeId: 1,
-        googlePlaceId: 'g-1',
-        placeName: 'Lakeside Cafe',
-        regionId: 'region-a',
-        category: 'food_drink',
-        visitedAt: DateTime(2026, 5, 11, 10),
-      ),
-    ]);
-    visitedRegionService.emitVisitedRegionIds(<String>{'region-a', 'region-b'});
-    await tester.pumpAndSettle();
+      visitService.emitAllVisits(<Visit>[
+        Visit(
+          placeId: 1,
+          googlePlaceId: 'g-1',
+          placeName: 'Lakeside Cafe',
+          regionId: 'region-a',
+          category: 'food_drink',
+          visitedAt: DateTime(2026, 5, 10, 10),
+        ),
+        Visit(
+          placeId: 1,
+          googlePlaceId: 'g-1',
+          placeName: 'Lakeside Cafe',
+          regionId: 'region-a',
+          category: 'food_drink',
+          visitedAt: DateTime(2026, 5, 11, 10),
+        ),
+      ]);
+      visitedRegionService.emitVisitedRegionIds(<String>{
+        'region-a',
+        'region-b',
+      });
+      await tester.pumpAndSettle();
 
-    expect(find.text('Your top location'), findsOneWidget);
-    expect(find.text('Lakeside Cafe'), findsOneWidget);
-    expect(find.text('2'), findsWidgets);
+      expect(find.text('Your top location'), findsOneWidget);
+      expect(find.text('Lakeside Cafe'), findsOneWidget);
+      expect(find.text('2'), findsWidgets);
 
-    await visitService.dispose();
-    await visitedRegionService.dispose();
-    provider.dispose();
-  });
+      await visitService.dispose();
+      await visitedRegionService.dispose();
+      provider.dispose();
+    },
+  );
 }
 
 ProfileModel _buildProfile({required int xp}) {

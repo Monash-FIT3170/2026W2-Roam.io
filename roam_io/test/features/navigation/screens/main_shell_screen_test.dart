@@ -1,8 +1,8 @@
 /*
  * Author: Sanjevan Rajasegar
- * Last Modified: 05/08/2026
+ * Last Updated: 5 August 2026
  * Description:
- *   Widget tests for main shell tab switching, journeys screen content, and
+ *   Widget tests for main shell tab switching, Home consolidation, and
  *   notification action toast feedback.
  */
 
@@ -14,7 +14,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:provider/provider.dart';
 import 'package:roam_io/features/auth/data/auth_repository.dart';
 import 'package:roam_io/features/auth/providers/auth_provider.dart';
-import 'package:roam_io/features/journeys/screens/journeys_screen.dart';
+import 'package:roam_io/features/map/data/map_page.dart';
 import 'package:roam_io/features/navigation/screens/main_shell_screen.dart';
 import 'package:roam_io/features/profile/domain/profile_model.dart';
 import 'package:roam_io/notifications/notification.dart';
@@ -32,7 +32,7 @@ void main() {
     }
   });
 
-  testWidgets('starts on map tab and switches to journeys when tapped', (
+  testWidgets('starts on map tab and opens the new top-level destinations', (
     tester,
   ) async {
     // Arrange: provide an authenticated user and profile.
@@ -54,15 +54,30 @@ void main() {
     await tester.pump();
     await tester.pump(const Duration(seconds: 1));
 
-    // IndexedStack keeps inactive tabs mounted but offstage.
-    expect(find.byType(JourneysScreen, skipOffstage: false), findsOneWidget);
+    expect(find.byType(MapPage), findsOneWidget);
 
-    // Act: switch from the default Map tab to Journeys.
-    await tester.tap(find.text('JOURNEYS'));
+    await tester.tap(find.text('HOME'));
     await tester.pumpAndSettle();
-
-    // Assert: Journeys content is now visible.
+    expect(find.text('Home'), findsOneWidget);
     expect(find.text('32 XP earned'), findsOneWidget);
+
+    await tester.tap(find.text('Quests'));
+    await tester.pumpAndSettle();
+    expect(find.text('Quest content goes here'), findsOneWidget);
+
+    await tester.tap(find.text('SOCIAL'));
+    await tester.pumpAndSettle();
+    expect(find.text('Social hub'), findsOneWidget);
+
+    await tester.tap(find.text('YOU'));
+    await tester.pumpAndSettle();
+    expect(find.text('Most Visited Location'), findsOneWidget);
+
+    await tester.tap(find.text('SETTINGS'));
+    await tester.pumpAndSettle();
+    expect(find.text('Settings'), findsOneWidget);
+    expect(find.text('Account'), findsOneWidget);
+    expect(find.text('Preferences'), findsOneWidget);
   });
 
   for (final scenario in [

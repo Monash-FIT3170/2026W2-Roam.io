@@ -1,13 +1,13 @@
 /*
  * Author: Sanjevan Rajasegar
- * Last Modified: 12/05/2026
+ * Last Updated: 5 August 2026
  * Description:
  *   Widget tests for RecentVisitedLocationsCard list, empty state, and XP label.
  */
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:roam_io/features/analytics/widgets/recent_visited_locations_card.dart';
+import 'package:roam_io/features/you/widgets/recent_visited_locations_card.dart';
 import 'package:roam_io/features/map/data/visit.dart';
 import 'package:roam_io/features/profile/domain/xp_reward_config.dart';
 

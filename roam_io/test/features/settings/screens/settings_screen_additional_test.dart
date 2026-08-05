@@ -1,8 +1,8 @@
 /*
  * Author: Sanjevan Rajasegar
- * Last Modified: 17/05/2026
+ * Last Updated: 5 August 2026
  * Description:
- *   Widget tests for profile navigation, sign-out, and display-name validation.
+ *   Widget tests for settings navigation, sign-out, and display-name validation.
  */
 
 import 'package:firebase_auth/firebase_auth.dart' as firebase_auth;
@@ -15,12 +15,12 @@ import 'package:roam_io/features/auth/data/auth_repository.dart';
 import 'package:roam_io/features/auth/providers/auth_provider.dart';
 import 'package:roam_io/features/auth/screens/change_password_screen.dart';
 import 'package:roam_io/features/profile/domain/profile_model.dart';
-import 'package:roam_io/features/profile/screens/profile_screen.dart';
+import 'package:roam_io/features/settings/screens/settings_screen.dart';
 
 import '../../../support/fake_firebase_user.dart';
 
 void main() {
-  // ProfileScreen reads Firebase-backed auth state on first build.
+  // SettingsScreen reads Firebase-backed auth state on first build.
   setUpAll(() async {
     TestWidgetsFlutterBinding.ensureInitialized();
     setupFirebaseCoreMocks();
@@ -30,19 +30,19 @@ void main() {
   });
 
   testWidgets('navigates to change password screen', (tester) async {
-    final repo = _ProfileActionsRepository();
+    final repo = _SettingsActionsRepository();
     final provider = AuthProvider(authRepository: repo);
 
     await tester.pumpWidget(
       ChangeNotifierProvider<AuthProvider>.value(
         value: provider,
-        child: const MaterialApp(home: Scaffold(body: ProfileScreen())),
+        child: const MaterialApp(home: Scaffold(body: SettingsScreen())),
       ),
     );
     await tester.pump();
     await tester.pump();
 
-    // Profile actions sit below the fold in a scrollable column.
+    // Settings actions sit below the fold in a scrollable column.
     final changePassword = find.text('Change Password');
     await tester.ensureVisible(changePassword);
     await tester.tap(changePassword);
@@ -53,14 +53,14 @@ void main() {
   });
 
   testWidgets('sign out invokes repository signOut', (tester) async {
-    final repo = _ProfileActionsRepository();
+    final repo = _SettingsActionsRepository();
     final provider = AuthProvider(authRepository: repo);
 
     // Provider must wrap MaterialApp so pushed routes can read AuthProvider.
     await tester.pumpWidget(
       ChangeNotifierProvider<AuthProvider>.value(
         value: provider,
-        child: const MaterialApp(home: Scaffold(body: ProfileScreen())),
+        child: const MaterialApp(home: Scaffold(body: SettingsScreen())),
       ),
     );
     await tester.pump();
@@ -76,7 +76,7 @@ void main() {
   });
 
   testWidgets('shows snackbar when saving empty display name', (tester) async {
-    final repo = _ProfileActionsRepository(
+    final repo = _SettingsActionsRepository(
       profile: _buildProfile(displayName: '-'),
     );
     final provider = AuthProvider(authRepository: repo);
@@ -84,7 +84,7 @@ void main() {
     await tester.pumpWidget(
       ChangeNotifierProvider<AuthProvider>.value(
         value: provider,
-        child: const MaterialApp(home: Scaffold(body: ProfileScreen())),
+        child: const MaterialApp(home: Scaffold(body: SettingsScreen())),
       ),
     );
     await tester.pump();
@@ -114,8 +114,8 @@ ProfileModel _buildProfile({required String displayName}) {
   );
 }
 
-class _ProfileActionsRepository implements AuthRepository {
-  _ProfileActionsRepository({ProfileModel? profile})
+class _SettingsActionsRepository implements AuthRepository {
+  _SettingsActionsRepository({ProfileModel? profile})
     : _profile = profile ?? _buildProfile(displayName: 'Traveller'),
       _user = FakeFirebaseUser(
         uid: 'user-1',

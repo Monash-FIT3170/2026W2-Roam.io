@@ -1,6 +1,6 @@
 /*
  * Author: Sanjevan Rajasegar
- * Last Modified: 05/08/2026
+ * Last Updated: 5 August 2026
  * Description:
  *   Provides the authenticated app shell with persistent bottom navigation
  *   across the main feature tabs and app-styled notification action feedback.
@@ -14,11 +14,11 @@ import 'package:roam_io/notifications/notification.dart';
 
 import '../../../shared/widgets/app_bottom_nav_bar.dart';
 import '../../../shared/widgets/app_toast.dart';
-import '../../analytics/screens/analytics_screen.dart';
-import '../../journeys/screens/journeys_screen.dart';
+import '../../home/screens/home_screen.dart';
 import '../../map/data/map_page.dart';
-import '../../profile/screens/profile_screen.dart';
-import '../../quests/screens/quests_screen.dart';
+import '../../settings/screens/settings_screen.dart';
+import '../../social/screens/social_screen.dart';
+import '../../you/screens/you_screen.dart';
 
 /// Stateful shell that keeps each main tab alive in an indexed stack.
 class MainShellScreen extends StatefulWidget {
@@ -36,11 +36,11 @@ class _MainShellScreenState extends State<MainShellScreen> {
   StreamSubscription<NotificationActionEvent>? _actionSubscription;
 
   final List<Widget> pages = const [
-    JourneysScreen(),
-    QuestsScreen(),
+    HomeScreen(),
+    SocialScreen(),
     MapPage(),
-    AnalyticsScreen(),
-    ProfileScreen(),
+    YouScreen(),
+    SettingsScreen(),
   ];
 
   @override

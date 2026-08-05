@@ -15,10 +15,13 @@ This document defines the Flutter codebase structure and the conventions the tea
 lib/
   features/
     analytics/
-      screens/
+      screens/      # transitional compatibility aliases for You
+      widgets/      # transitional compatibility exports for You widgets
     auth/
       data/
       providers/
+      screens/
+    home/
       screens/
     journeys/
       screens/
@@ -31,9 +34,16 @@ lib/
       screens/
     profile/
       domain/
-      screens/
+      screens/      # transitional compatibility aliases for Settings
     quests/
       screens/
+    settings/
+      screens/
+    social/
+      screens/
+    you/
+      screens/
+      widgets/
 
   services/
   shared/
@@ -44,6 +54,20 @@ lib/
 ```
 
 ## What Goes Where
+
+### Top-Level Authenticated Navigation
+
+The authenticated shell uses five bottom-navigation destinations:
+
+1. `Home` — activity-oriented surface that currently consolidates Journeys and Quests.
+2. `Social` — foundation for future friend and community tools.
+3. `Map` — existing map experience.
+4. `You` — personal activity dashboard, migrated from the old Analytics tab.
+5. `Settings` — account and app preferences, migrated from the old Profile tab.
+
+Journey, Quest, Analytics, and Profile terms should remain where they describe
+domain concepts or transitional compatibility wrappers, but they should not be
+introduced as new top-level navigation destinations.
 
 ### `features/<feature>/screens`
 
