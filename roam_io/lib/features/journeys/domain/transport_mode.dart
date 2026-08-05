@@ -75,6 +75,25 @@ enum TransportMode {
     }
   }
 
+  /// Colour used to draw this transport mode's journey route on the map.
+  Color get routeColor {
+    switch (this) {
+      case TransportMode.walk:
+      case TransportMode.run:
+        return Colors.purple;
+      case TransportMode.drive:
+        return Colors.pink;
+      case TransportMode.bus:
+        return Colors.orange;
+      case TransportMode.train:
+      case TransportMode.transit:
+        return Colors.blue;
+      case TransportMode.tram:
+      case TransportMode.cycle:
+        return Colors.green;
+    }
+  }
+
   /// Returns the XP multiplier for this transport mode.
   /// Walking and running earn more XP than driving.
   double get xpMultiplier {

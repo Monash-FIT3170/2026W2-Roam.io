@@ -5,6 +5,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 
+import '../../../theme/app_colours.dart';
+
 enum PlaceCategory {
   foodDrink,
   nature,
@@ -62,32 +64,9 @@ enum PlaceCategory {
     }
   }
 
-  Color get markerColor {
-    switch (this) {
-      case PlaceCategory.foodDrink:
-        return const Color(0xFFFF9800); // Orange
-      case PlaceCategory.nature:
-        return const Color(0xFF4CAF50); // Green
-      case PlaceCategory.culture:
-        return const Color(0xFF9C27B0); // Purple
-      case PlaceCategory.shopping:
-        return const Color(0xFF2196F3); // Blue
-      case PlaceCategory.entertainment:
-        return const Color(0xFFE91E63); // Pink
-      case PlaceCategory.healthFitness:
-        return const Color(0xFFF44336); // Red
-      case PlaceCategory.attraction:
-        return const Color(0xFFFFEB3B); // Yellow
-      case PlaceCategory.publicTransport:
-        return const Color(0xFF1565C0); // Transit blue
-      case PlaceCategory.other:
-        return const Color(0xFF9E9E9E); // Grey
-    }
-  }
+  Color get markerColor => AppColors.sage;
 
-  double get markerHue {
-    return BitmapDescriptor.hueOrange;
-  }
+  double get markerHue => HSLColor.fromColor(AppColors.sage).hue;
 }
 
 /// Marker size levels based on zoom

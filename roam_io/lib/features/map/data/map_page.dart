@@ -30,7 +30,6 @@ import '../../journeys/widgets/journey_tracking_card.dart';
 import '../../journeys/widgets/past_journey_summary_sheet.dart';
 import '../../journeys/widgets/start_journey_sheet.dart';
 import '../../../shared/widgets/app_toast.dart';
-import '../../../theme/app_colours.dart';
 import '../widgets/map_render.dart';
 import '../widgets/mode_toggle_chip.dart';
 import 'map_controller.dart';
@@ -192,8 +191,11 @@ class _MapPageState extends State<MapPage> {
           Polyline(
             polylineId: PolylineId('journey_${journey.id}'),
             points: routePoints,
-            color: AppColors.sage.withValues(alpha: 0.7),
-            width: 4,
+            color: journey.transportMode.routeColor,
+            width: 8,
+            startCap: Cap.roundCap,
+            endCap: Cap.roundCap,
+            jointType: JointType.round,
             consumeTapEvents: true,
             onTap: () => PastJourneySummarySheet.show(
               context: context,
@@ -296,8 +298,11 @@ class _MapPageState extends State<MapPage> {
         Polyline(
           polylineId: const PolylineId('active_journey'),
           points: journeyController.routePoints,
-          color: AppColors.sage,
-          width: 5,
+          color: journeyController.transportMode.routeColor,
+          width: 8,
+          startCap: Cap.roundCap,
+          endCap: Cap.roundCap,
+          jointType: JointType.round,
         ),
       };
     } else {

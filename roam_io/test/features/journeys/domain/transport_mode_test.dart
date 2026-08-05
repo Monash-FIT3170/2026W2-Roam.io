@@ -1,3 +1,4 @@
+import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:roam_io/features/journeys/domain/transport_mode.dart';
 
@@ -16,6 +17,14 @@ void main() {
     expect(TransportMode.bus.xpMultiplier, 0.5);
     expect(TransportMode.train.xpMultiplier, 0.5);
     expect(TransportMode.tram.xpMultiplier, 0.5);
+  });
+
+  test('journey route colours correspond to transport mode', () {
+    expect(TransportMode.walk.routeColor, Colors.purple);
+    expect(TransportMode.drive.routeColor, Colors.pink);
+    expect(TransportMode.bus.routeColor, Colors.orange);
+    expect(TransportMode.train.routeColor, Colors.blue);
+    expect(TransportMode.tram.routeColor, Colors.green);
   });
 
   test('legacy journey modes still deserialize', () {
