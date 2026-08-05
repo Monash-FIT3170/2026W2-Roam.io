@@ -10,6 +10,7 @@ import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 
 import '../domain/map_styles.dart';
+import '../data/map_viewport_policy.dart';
 
 /// Stateless Google Map wrapper used by the map page.
 class MapRender extends StatelessWidget {
@@ -44,6 +45,10 @@ class MapRender extends StatelessWidget {
   Widget build(BuildContext context) {
     return GoogleMap(
       initialCameraPosition: CameraPosition(target: initialCenter, zoom: 16.0),
+      minMaxZoomPreference: const MinMaxZoomPreference(
+        MapViewportPolicy.minimumZoom,
+        null,
+      ),
       style: MapStyles.forBrightness(Theme.of(context).brightness),
       onMapCreated: onMapCreated,
       polygons: polygons,
