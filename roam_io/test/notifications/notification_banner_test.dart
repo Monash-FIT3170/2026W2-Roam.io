@@ -1,14 +1,16 @@
 /*
- * Author: Sam Sutherland
- * Last Modified: 01/08/2026
+ * Author: Sanjevan Rajasegar
+ * Last Modified: 05/08/2026
  * Description:
  *   Widget tests for the reusable in-app notification banner, including
- *   notification content, actions, icons, dismissal and tap callbacks.
+ *   green app styling, content, actions, icons, dismissal and tap callbacks.
  */
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:roam_io/notifications/notification.dart';
+import 'package:roam_io/theme/app_colours.dart';
+import 'package:roam_io/theme/app_theme.dart';
 
 void main() {
   /// Creates a standard friend-request notification used across tests.
@@ -41,6 +43,7 @@ void main() {
     ValueChanged<NotificationAction>? onActionSelected,
   }) {
     return MaterialApp(
+      theme: AppTheme.lightTheme,
       home: Scaffold(
         body: NotificationBanner(
           notification: notification,
@@ -137,6 +140,40 @@ void main() {
     );
 
     expect(find.byIcon(Icons.person_add_alt_1), findsOneWidget);
+  });
+
+  testWidgets('uses app green treatment for icon and primary action', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      buildTestWidget(notification: createFriendRequest()),
+    );
+
+    final iconContainer = tester.widget<Container>(
+      find
+          .ancestor(
+            of: find.byIcon(Icons.person_add_alt_1),
+            matching: find.byType(Container),
+          )
+          .first,
+    );
+    final iconDecoration = iconContainer.decoration! as BoxDecoration;
+
+    expect(iconDecoration.color, AppColors.sage);
+
+    final acceptButton = tester.widget<FilledButton>(
+      find.widgetWithText(FilledButton, 'Accept'),
+    );
+    final buttonStates = <WidgetState>{};
+
+    expect(
+      acceptButton.style?.backgroundColor?.resolve(buttonStates),
+      AppColors.sage,
+    );
+    expect(
+      acceptButton.style?.foregroundColor?.resolve(buttonStates),
+      Colors.white,
+    );
   });
 
   testWidgets('does not show action buttons when list is empty', (

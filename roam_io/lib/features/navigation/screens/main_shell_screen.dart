@@ -1,9 +1,9 @@
 /*
  * Author: Sanjevan Rajasegar
- * Last Modified: 24/04/2026
+ * Last Modified: 05/08/2026
  * Description:
  *   Provides the authenticated app shell with persistent bottom navigation
- *   across the main feature tabs.
+ *   across the main feature tabs and app-styled notification action feedback.
  */
 
 import 'dart:async';
@@ -13,6 +13,7 @@ import 'package:flutter/material.dart';
 import 'package:roam_io/notifications/notification.dart';
 
 import '../../../shared/widgets/app_bottom_nav_bar.dart';
+import '../../../shared/widgets/app_toast.dart';
 import '../../analytics/screens/analytics_screen.dart';
 import '../../journeys/screens/journeys_screen.dart';
 import '../../map/data/map_page.dart';
@@ -57,23 +58,13 @@ class _MainShellScreenState extends State<MainShellScreen> {
       });
     }
 
-    // Temporary listener used to confirm that notification actions work.
+    // Displays app-styled feedback for notification actions.
     _actionSubscription = NotificationService.instance.actionEvents.listen((
       event,
     ) {
       if (!mounted) return;
 
-      ScaffoldMessenger.of(context)
-        ..hideCurrentSnackBar()
-        ..showSnackBar(
-          SnackBar(
-            content: Text(
-              '${event.action.label} selected for '
-              '${event.notification.title}',
-            ),
-            duration: const Duration(seconds: 2),
-          ),
-        );
+      AppToast.success(context, _messageForNotificationAction(event));
     });
   }
 
@@ -87,6 +78,14 @@ class _MainShellScreenState extends State<MainShellScreen> {
     NotificationService.instance.show(
       NotificationTemplates.friendRequest('Alex'),
     );
+  }
+
+  String _messageForNotificationAction(NotificationActionEvent event) {
+    return switch (event.action.type) {
+      NotificationActionType.accept => 'Friend request accepted.',
+      NotificationActionType.decline => 'Friend request declined.',
+      _ => '${event.action.label} selected for ${event.notification.title}.',
+    };
   }
 
   void _selectPage(int index) {

@@ -1,9 +1,9 @@
 /*
- * Author: Sam Sutherland
- * Last Modified: 01/08/2026
+ * Author: Sanjevan Rajasegar
+ * Last Modified: 05/08/2026
  * Description:
- *   Displays a reusable in-app notification banner that supports
- *   configurable icons, actions, dismissal and user interaction.
+ *   Displays app-styled green in-app notification banners with configurable
+ *   icons, actions, dismissal and user interaction.
  */
 
 import 'package:flutter/material.dart';
@@ -164,6 +164,8 @@ class _NotificationActionButton extends StatelessWidget {
       return FilledButton.tonal(
         onPressed: onPressed,
         style: FilledButton.styleFrom(
+          backgroundColor: Theme.of(context).colorScheme.primary,
+          foregroundColor: Theme.of(context).colorScheme.onPrimary,
           visualDensity: VisualDensity.compact,
           tapTargetSize: MaterialTapTargetSize.shrinkWrap,
         ),
@@ -174,6 +176,7 @@ class _NotificationActionButton extends StatelessWidget {
     return TextButton(
       onPressed: onPressed,
       style: TextButton.styleFrom(
+        foregroundColor: Theme.of(context).colorScheme.primary,
         visualDensity: VisualDensity.compact,
         tapTargetSize: MaterialTapTargetSize.shrinkWrap,
       ),
@@ -197,9 +200,9 @@ class _NotificationIcon extends StatelessWidget {
       height: 42,
       decoration: BoxDecoration(
         shape: BoxShape.circle,
-        color: colourScheme.secondaryContainer,
+        color: colourScheme.primary,
       ),
-      child: Icon(_iconFor(type), color: colourScheme.onSecondaryContainer),
+      child: Icon(_iconFor(type), color: colourScheme.onPrimary),
     );
   }
 
