@@ -26,6 +26,7 @@ class MapRender extends StatelessWidget {
     this.myLocationEnabled = false,
     this.onCameraIdle,
     this.onCameraMove,
+    this.onCameraMoveStarted,
   });
 
   final LatLng initialCenter;
@@ -37,6 +38,7 @@ class MapRender extends StatelessWidget {
   final bool myLocationEnabled;
   final VoidCallback? onCameraIdle;
   final void Function(CameraPosition)? onCameraMove;
+  final VoidCallback? onCameraMoveStarted;
 
   @override
   Widget build(BuildContext context) {
@@ -48,11 +50,12 @@ class MapRender extends StatelessWidget {
       markers: markers,
       polylines: polylines,
       myLocationEnabled: myLocationEnabled,
-      myLocationButtonEnabled: myLocationEnabled,
+      myLocationButtonEnabled: false,
       mapToolbarEnabled: false,
       zoomControlsEnabled: false,
       onCameraIdle: onCameraIdle,
       onCameraMove: onCameraMove,
+      onCameraMoveStarted: onCameraMoveStarted,
     );
   }
 }

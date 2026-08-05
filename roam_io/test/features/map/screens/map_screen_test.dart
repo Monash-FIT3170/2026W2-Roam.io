@@ -21,8 +21,10 @@ void main() {
     expect(map.style, MapStyles.dark);
     expect(map.mapToolbarEnabled, isFalse);
     expect(map.zoomControlsEnabled, isFalse);
+    expect(map.myLocationButtonEnabled, isFalse);
     expect(map.onMapCreated, isNotNull);
     expect(map.onCameraIdle, isNotNull);
+    expect(map.onCameraMoveStarted, isNotNull);
   });
 
   testWidgets('light theme applies light Google Map style', (tester) async {
@@ -53,6 +55,7 @@ Future<void> _pumpMapRender(
           polygons: const <Polygon>{},
           onMapCreated: (_) async {},
           onCameraIdle: () {},
+          onCameraMoveStarted: () {},
         ),
       ),
     ),

@@ -118,6 +118,9 @@ class MapController extends ChangeNotifier {
   bool _isHeatmapEnabled = false;
   bool _isResolvingCurrentRegion = false;
   Position? _queuedRegionCheckPosition;
+  Position? _latestPosition;
+  bool _isFollowingUser = true;
+  bool _isProgrammaticCameraMove = false;
 
   ExplorationMode _currentMode = ExplorationMode.exploration;
 
@@ -143,6 +146,7 @@ class MapController extends ChangeNotifier {
   String? get userId => _userId;
   String get mapStyle => _mapStyle;
   bool get isHeatmapEnabled => _isHeatmapEnabled;
+  bool get isFollowingUser => _isFollowingUser;
   ExplorationMode get currentMode => _currentMode;
   Set<int> get visitedPlaceIds => Set.unmodifiable(_visitedPlaceIds);
   Set<String> get visitedRegionIds => Set.unmodifiable(_visitedRegionIds);
@@ -223,9 +227,15 @@ class MapController extends ChangeNotifier {
   Future<void> onMapCreated(GoogleMapController controller) async {
     _googleMapController = controller;
 
-    await _googleMapController?.animateCamera(
-      CameraUpdate.newLatLngZoom(center, defaultZoom),
-    );
+    _isProgrammaticCameraMove = true;
+    try {
+      await _googleMapController?.animateCamera(
+        CameraUpdate.newLatLngZoom(center, defaultZoom),
+      );
+    } catch (_) {
+      _isProgrammaticCameraMove = false;
+      rethrow;
+    }
 
     // Initial viewport loading happens after the real user location is resolved.
   }
@@ -241,6 +251,42 @@ class MapController extends ChangeNotifier {
       _placeMarkerManager.rebuildMarkers(onPlaceTapped: onPlaceTapped);
       markers = _placeMarkerManager.markers;
       notifyListeners();
+    }
+  }
+
+  /// Stops automatic location following when the user moves the map.
+  void onCameraMoveStarted() {
+    if (!_isProgrammaticCameraMove) {
+      _isFollowingUser = false;
+    }
+  }
+
+  Future<void> onCameraIdle() async {
+    _isProgrammaticCameraMove = false;
+    await loadViewportRegions();
+  }
+
+  /// Re-centres the map and resumes following future location updates.
+  Future<void> recenterOnUser() async {
+    _isFollowingUser = true;
+    final position =
+        _latestPosition ?? await _geoLocatorService.getCurrentLocation();
+    _latestPosition = position;
+    await _moveCameraTo(position);
+  }
+
+  Future<void> _moveCameraTo(Position position) async {
+    final controller = _googleMapController;
+    if (controller == null) return;
+
+    _isProgrammaticCameraMove = true;
+    try {
+      await controller.animateCamera(
+        CameraUpdate.newLatLng(LatLng(position.latitude, position.longitude)),
+      );
+    } catch (_) {
+      _isProgrammaticCameraMove = false;
+      rethrow;
     }
   }
 
@@ -324,6 +370,7 @@ class MapController extends ChangeNotifier {
   Future<double?> getDistanceToPlace(PlaceOfInterest place) async {
     try {
       final position = await _geoLocatorService.getCurrentLocation();
+      _latestPosition = position;
 
       return Geolocator.distanceBetween(
         position.latitude,
@@ -451,9 +498,7 @@ class MapController extends ChangeNotifier {
       _syncPolygonsForCurrentMode();
       notifyListeners();
 
-      await _googleMapController?.animateCamera(
-        CameraUpdate.newLatLngZoom(userCenter, defaultZoom),
-      );
+      await _moveCameraTo(position);
 
       await Future.delayed(const Duration(milliseconds: 350));
       await loadViewportRegions(force: true);
@@ -515,13 +560,21 @@ class MapController extends ChangeNotifier {
       final locationUpdates = await _geoLocatorService.getLocationUpdates();
 
       _locationUpdatesSubscription = locationUpdates.listen(
-        _queueRegionCheck,
+        _handleLocationUpdate,
         onError: (Object error) {
           debugPrint('[MapController] Location updates error: $error');
         },
       );
     } catch (error) {
       debugPrint('[MapController] Could not start location updates: $error');
+    }
+  }
+
+  void _handleLocationUpdate(Position position) {
+    _latestPosition = position;
+    _queueRegionCheck(position);
+    if (_isFollowingUser) {
+      unawaited(_moveCameraTo(position));
     }
   }
 

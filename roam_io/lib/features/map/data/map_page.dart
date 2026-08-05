@@ -30,6 +30,7 @@ import '../../journeys/widgets/journey_tracking_card.dart';
 import '../../journeys/widgets/past_journey_summary_sheet.dart';
 import '../../journeys/widgets/start_journey_sheet.dart';
 import '../../../shared/widgets/app_toast.dart';
+import '../../../theme/app_surfaces.dart';
 import '../widgets/map_render.dart';
 import '../widgets/mode_toggle_chip.dart';
 import 'map_controller.dart';
@@ -624,9 +625,23 @@ class _MapPageState extends State<MapPage> {
           myLocationEnabled: _mapController.myLocationEnabled,
           onMapCreated: _mapController.onMapCreated,
           // Load or refresh visible regions after the user stops moving the map.
-          onCameraIdle: _mapController.loadViewportRegions,
+          onCameraIdle: _mapController.onCameraIdle,
           onCameraMove: _mapController.onCameraMove,
+          onCameraMoveStarted: _mapController.onCameraMoveStarted,
         ),
+        if (_mapController.myLocationEnabled)
+          Positioned(
+            right: 16,
+            bottom: isTracking ? 220 : 100,
+            child: FloatingActionButton.small(
+              heroTag: 'recenter_map',
+              tooltip: 'Centre on my location',
+              onPressed: _mapController.recenterOnUser,
+              backgroundColor: AppSurfaces.card(context),
+              foregroundColor: AppSurfaces.textPrimary(context),
+              child: const Icon(Icons.my_location),
+            ),
+          ),
         // Start Journey button at top-center (hidden during tracking)
         if (!isTracking)
           Positioned(
