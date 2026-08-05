@@ -168,11 +168,7 @@ class _StatColumn extends StatelessWidget {
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        Icon(
-          icon,
-          size: 18,
-          color: AppColors.sage,
-        ),
+        Icon(icon, size: 18, color: AppColors.sage),
         const SizedBox(height: 4),
         Text(
           value,

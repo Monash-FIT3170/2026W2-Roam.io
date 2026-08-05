@@ -23,7 +23,7 @@ class EndJourneyResult {
   });
 
   final JourneyLocation endLocation;
-  
+
   /// Whether the user chose to continue tracking instead of finishing.
   final bool continueTracking;
 }
@@ -121,7 +121,9 @@ class _EndJourneySheetState extends State<EndJourneySheet> {
 
   void _selectCurrentLocation() {
     setState(() {
-      _selectedLocation = JourneyLocation.currentLocation(widget.currentPosition);
+      _selectedLocation = JourneyLocation.currentLocation(
+        widget.currentPosition,
+      );
       _useCurrentLocation = true;
     });
   }
@@ -129,16 +131,18 @@ class _EndJourneySheetState extends State<EndJourneySheet> {
   void _finishJourney() {
     if (_selectedLocation == null) return;
 
-    Navigator.of(context).pop(EndJourneyResult(
-      endLocation: _selectedLocation!,
-    ));
+    Navigator.of(
+      context,
+    ).pop(EndJourneyResult(endLocation: _selectedLocation!));
   }
 
   void _continueTracking() {
-    Navigator.of(context).pop(EndJourneyResult(
-      endLocation: JourneyLocation.currentLocation(widget.currentPosition),
-      continueTracking: true,
-    ));
+    Navigator.of(context).pop(
+      EndJourneyResult(
+        endLocation: JourneyLocation.currentLocation(widget.currentPosition),
+        continueTracking: true,
+      ),
+    );
   }
 
   @override
@@ -259,29 +263,30 @@ class _EndJourneySheetState extends State<EndJourneySheet> {
                 ),
                 const SizedBox(height: 8),
                 ...widget.nearbyPlaces.take(3).map((place) {
-                  final isSelected = !_useCurrentLocation &&
+                  final isSelected =
+                      !_useCurrentLocation &&
                       _selectedLocation?.placeId == place.placeId &&
                       _selectedLocation?.latLng == place.latLng;
                   return Padding(
                     padding: const EdgeInsets.only(bottom: 8),
                     child: _buildLocationOption(
                       context,
-                      icon: place.isCustomLocation 
-                          ? Icons.circle 
+                      icon: place.isCustomLocation
+                          ? Icons.circle
                           : Icons.place_outlined,
-                      iconColor: place.isCustomLocation 
-                          ? Colors.black 
-                          : null,
+                      iconColor: place.isCustomLocation ? Colors.black : null,
                       title: place.name,
-                      subtitle: place.isCustomLocation 
-                          ? 'Saved Location' 
+                      subtitle: place.isCustomLocation
+                          ? 'Saved Location'
                           : place.address,
                       isSelected: isSelected,
-                      onTap: () => _selectLocation(JourneyLocation(
-                        latLng: place.latLng,
-                        placeId: place.placeId,
-                        displayName: place.name,
-                      )),
+                      onTap: () => _selectLocation(
+                        JourneyLocation(
+                          latLng: place.latLng,
+                          placeId: place.placeId,
+                          displayName: place.name,
+                        ),
+                      ),
                     ),
                   );
                 }),
@@ -301,7 +306,7 @@ class _EndJourneySheetState extends State<EndJourneySheet> {
                       style: OutlinedButton.styleFrom(
                         padding: const EdgeInsets.symmetric(vertical: 16),
                         foregroundColor: AppColors.sage,
-                        side: BorderSide(color: AppColors.sage),
+                        side: const BorderSide(color: AppColors.sage),
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(16),
                         ),
@@ -312,7 +317,9 @@ class _EndJourneySheetState extends State<EndJourneySheet> {
                   // Finish Button
                   Expanded(
                     child: FilledButton.icon(
-                      onPressed: _selectedLocation != null ? _finishJourney : null,
+                      onPressed: _selectedLocation != null
+                          ? _finishJourney
+                          : null,
                       icon: const Icon(Icons.check),
                       label: const Text('Finish'),
                       style: FilledButton.styleFrom(
@@ -345,11 +352,7 @@ class _EndJourneySheetState extends State<EndJourneySheet> {
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        Icon(
-          icon,
-          size: 20,
-          color: AppColors.sage,
-        ),
+        Icon(icon, size: 20, color: AppColors.sage),
         const SizedBox(height: 4),
         Text(
           value,
@@ -406,7 +409,11 @@ class _EndJourneySheetState extends State<EndJourneySheet> {
               ),
               child: Icon(
                 icon,
-                color: iconColor ?? (isSelected ? AppColors.sage : AppSurfaces.textMuted(context)),
+                color:
+                    iconColor ??
+                    (isSelected
+                        ? AppColors.sage
+                        : AppSurfaces.textMuted(context)),
                 size: 20,
               ),
             ),
@@ -435,11 +442,7 @@ class _EndJourneySheetState extends State<EndJourneySheet> {
               ),
             ),
             if (isSelected)
-              Icon(
-                Icons.check_circle,
-                color: AppColors.sage,
-                size: 24,
-              ),
+              const Icon(Icons.check_circle, color: AppColors.sage, size: 24),
           ],
         ),
       ),

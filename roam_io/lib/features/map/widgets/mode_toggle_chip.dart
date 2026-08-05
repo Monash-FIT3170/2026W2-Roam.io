@@ -11,10 +11,7 @@ import '../../../theme/app_colours.dart';
 
 /// A tappable chip button to start a new journey.
 class StartJourneyChip extends StatelessWidget {
-  const StartJourneyChip({
-    super.key,
-    required this.onPressed,
-  });
+  const StartJourneyChip({super.key, required this.onPressed});
 
   /// Callback invoked when the user taps to start a journey.
   final VoidCallback onPressed;
@@ -36,11 +33,7 @@ class StartJourneyChip extends StatelessWidget {
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Icon(
-                Icons.play_arrow,
-                size: 20,
-                color: Colors.white,
-              ),
+              const Icon(Icons.play_arrow, size: 20, color: Colors.white),
               const SizedBox(width: 8),
               Text(
                 'Start Journey',

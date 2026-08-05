@@ -114,6 +114,7 @@ class MapPage extends StatefulWidget {
 
 class _MapPageState extends State<MapPage> {
   late final MapController _mapController;
+  late final JourneyController _journeyController;
   Set<Polyline> _activeJourneyPolyline = {};
   Set<Polyline> _savedJourneyPolylines = {};
   Set<Marker> _journeyMarkers = {};
@@ -135,11 +136,12 @@ class _MapPageState extends State<MapPage> {
     _mapController.onRegionUnlockCelebrationRewarded = _showRegionUnlockReward;
 
     // Listen to journey controller for route updates
-    final journeyController = context.read<JourneyController>();
-    journeyController.addListener(_onJourneyStateChanged);
+    _journeyController = context.read<JourneyController>();
+    _journeyController.addListener(_onJourneyStateChanged);
 
     // Get user ID from auth provider and initialize
     WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
       final authProvider = context.read<AuthProvider>();
       _mapController.initialise(
         userId: authProvider.currentUser?.uid,
@@ -351,8 +353,7 @@ class _MapPageState extends State<MapPage> {
     _mapController.disposeController();
 
     // Remove journey controller listener
-    final journeyController = context.read<JourneyController>();
-    journeyController.removeListener(_onJourneyStateChanged);
+    _journeyController.removeListener(_onJourneyStateChanged);
 
     // Cancel journeys subscription
     _journeysSubscription?.cancel();
@@ -411,6 +412,7 @@ class _MapPageState extends State<MapPage> {
       userId: userId,
       journeyController: journeyController,
     );
+    if (!mounted) return;
 
     // Combine and sort by distance
     final allNearbyPlaces = [...googlePlaces, ...customLocations];
@@ -470,6 +472,7 @@ class _MapPageState extends State<MapPage> {
       userId: userId,
       journeyController: journeyController,
     );
+    if (!mounted) return;
 
     // Combine and sort by distance
     final allNearbyPlaces = [...googlePlaces, ...customLocations];
@@ -486,6 +489,7 @@ class _MapPageState extends State<MapPage> {
       transportMode: journeyController.transportMode,
       nearbyPlaces: allNearbyPlaces,
     );
+    if (!mounted) return;
 
     if (endResult == null) {
       // User cancelled - discard journey
@@ -528,6 +532,7 @@ class _MapPageState extends State<MapPage> {
       onUpdateStartLocation: journeyController.updateStartLocation,
       onUpdateEndLocation: journeyController.updateEndLocation,
     );
+    if (!mounted) return;
 
     if (summaryResult == JourneySummaryResult.save) {
       // Save the journey
@@ -542,6 +547,7 @@ class _MapPageState extends State<MapPage> {
           await authProvider.addXp(
             savedJourney.journeyXpEarned ?? savedJourney.xpEarned ?? 0,
           );
+          if (!mounted) return;
           AppToast.success(
             context,
             'Journey saved! +${savedJourney.xpEarned} XP',
