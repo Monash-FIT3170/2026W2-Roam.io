@@ -194,246 +194,255 @@ class _JourneySummarySheetState extends State<JourneySummarySheet> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final keyboardInset = MediaQuery.viewInsetsOf(context).bottom;
 
-    return Container(
-      constraints: BoxConstraints(
-        maxHeight: MediaQuery.of(context).size.height * 0.85,
-      ),
-      decoration: BoxDecoration(
-        color: AppSurfaces.card(context),
-        borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
-      ),
-      child: SafeArea(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.all(24),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // Drag handle
-              Center(
-                child: Container(
-                  width: 40,
-                  height: 4,
-                  decoration: BoxDecoration(
-                    color: AppSurfaces.textSubtle(context),
-                    borderRadius: BorderRadius.circular(2),
-                  ),
-                ),
-              ),
-
-              const SizedBox(height: 20),
-
-              // Title with XP badge
-              Row(
-                children: [
-                  Expanded(
-                    child: Text(
-                      'Journey Complete!',
-                      style: theme.textTheme.headlineSmall?.copyWith(
-                        fontWeight: FontWeight.w800,
-                        color: AppSurfaces.textPrimary(context),
-                      ),
+    return AnimatedPadding(
+      key: const ValueKey('journey_summary_keyboard_padding'),
+      duration: const Duration(milliseconds: 200),
+      curve: Curves.easeOut,
+      padding: EdgeInsets.only(bottom: keyboardInset),
+      child: Container(
+        constraints: BoxConstraints(
+          maxHeight: MediaQuery.sizeOf(context).height * 0.85,
+        ),
+        decoration: BoxDecoration(
+          color: AppSurfaces.card(context),
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+        ),
+        child: SafeArea(
+          top: false,
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.all(24),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Drag handle
+                Center(
+                  child: Container(
+                    width: 40,
+                    height: 4,
+                    decoration: BoxDecoration(
+                      color: AppSurfaces.textSubtle(context),
+                      borderRadius: BorderRadius.circular(2),
                     ),
                   ),
-                  if (widget.xpEarned != null)
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 12,
-                        vertical: 6,
-                      ),
-                      decoration: BoxDecoration(
-                        color: AppColors.sage.withValues(alpha: 0.15),
-                        borderRadius: BorderRadius.circular(20),
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          const Icon(
-                            Icons.star,
-                            size: 16,
-                            color: AppColors.sage,
-                          ),
-                          const SizedBox(width: 4),
-                          Text(
-                            '+${widget.xpEarned} XP total',
-                            style: const TextStyle(
-                              fontWeight: FontWeight.w700,
-                              color: AppColors.sage,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                ],
-              ),
-
-              const SizedBox(height: 20),
-
-              // Stats Row
-              Container(
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: AppSurfaces.softCard(context),
-                  borderRadius: BorderRadius.circular(16),
-                  border: Border.all(color: AppSurfaces.border(context)),
                 ),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceAround,
+
+                const SizedBox(height: 20),
+
+                // Title with XP badge
+                Row(
                   children: [
                     Expanded(
-                      child: _buildStatItem(
-                        context,
-                        icon: Icons.straighten,
-                        value: _formattedDistance,
-                        label: 'Distance',
+                      child: Text(
+                        'Journey Complete!',
+                        style: theme.textTheme.headlineSmall?.copyWith(
+                          fontWeight: FontWeight.w800,
+                          color: AppSurfaces.textPrimary(context),
+                        ),
                       ),
                     ),
-                    Container(
-                      width: 1,
-                      height: 40,
-                      color: AppSurfaces.border(context),
+                    if (widget.xpEarned != null)
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 6,
+                        ),
+                        decoration: BoxDecoration(
+                          color: AppColors.sage.withValues(alpha: 0.15),
+                          borderRadius: BorderRadius.circular(20),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const Icon(
+                              Icons.star,
+                              size: 16,
+                              color: AppColors.sage,
+                            ),
+                            const SizedBox(width: 4),
+                            Text(
+                              '+${widget.xpEarned} XP total',
+                              style: const TextStyle(
+                                fontWeight: FontWeight.w700,
+                                color: AppColors.sage,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                  ],
+                ),
+
+                const SizedBox(height: 20),
+
+                // Stats Row
+                Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: AppSurfaces.softCard(context),
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(color: AppSurfaces.border(context)),
+                  ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceAround,
+                    children: [
+                      Expanded(
+                        child: _buildStatItem(
+                          context,
+                          icon: Icons.straighten,
+                          value: _formattedDistance,
+                          label: 'Distance',
+                        ),
+                      ),
+                      Container(
+                        width: 1,
+                        height: 40,
+                        color: AppSurfaces.border(context),
+                      ),
+                      Expanded(
+                        child: _buildStatItem(
+                          context,
+                          icon: Icons.timer_outlined,
+                          value: _formattedDuration,
+                          label: 'Duration',
+                        ),
+                      ),
+                      Container(
+                        width: 1,
+                        height: 40,
+                        color: AppSurfaces.border(context),
+                      ),
+                      Expanded(
+                        child: _buildStatItem(
+                          context,
+                          icon: widget.transportMode.icon,
+                          value: widget.transportMode.displayName,
+                          label: 'Mode',
+                        ),
+                      ),
+                      Container(
+                        width: 1,
+                        height: 40,
+                        color: AppSurfaces.border(context),
+                      ),
+                      Expanded(
+                        child: _buildStatItem(
+                          context,
+                          icon: Icons.grid_view_rounded,
+                          value: '${widget.tilesUnlocked}',
+                          label: 'Tiles',
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+
+                const SizedBox(height: 24),
+
+                // Editable Location Names
+                Text(
+                  'Journey Details',
+                  style: theme.textTheme.titleSmall?.copyWith(
+                    fontWeight: FontWeight.w700,
+                    color: AppSurfaces.textMuted(context),
+                  ),
+                ),
+
+                const SizedBox(height: 12),
+
+                // Start Location (Editable)
+                _buildEditableLocationField(
+                  context,
+                  label: 'From',
+                  controller: _startNameController,
+                  isEditing: _isEditingStart,
+                  onEditTap: () => setState(() => _isEditingStart = true),
+                  onSaveTap: _saveStartName,
+                  icon: Icons.trip_origin,
+                ),
+                if (_startLocation.placeId == null && widget.userId != null)
+                  Align(
+                    alignment: Alignment.centerRight,
+                    child: TextButton.icon(
+                      onPressed: () => _editCustomLocation(true),
+                      icon: const Icon(Icons.notes_outlined, size: 18),
+                      label: const Text('Add description & media'),
                     ),
+                  ),
+
+                const SizedBox(height: 12),
+
+                // End Location (Editable)
+                _buildEditableLocationField(
+                  context,
+                  label: 'To',
+                  controller: _endNameController,
+                  isEditing: _isEditingEnd,
+                  onEditTap: () => setState(() => _isEditingEnd = true),
+                  onSaveTap: _saveEndName,
+                  icon: Icons.location_on,
+                ),
+                if (_endLocation.placeId == null && widget.userId != null)
+                  Align(
+                    alignment: Alignment.centerRight,
+                    child: TextButton.icon(
+                      onPressed: () => _editCustomLocation(false),
+                      icon: const Icon(Icons.notes_outlined, size: 18),
+                      label: const Text('Add description & media'),
+                    ),
+                  ),
+
+                const SizedBox(height: 32),
+
+                // Action Buttons
+                Row(
+                  children: [
                     Expanded(
-                      child: _buildStatItem(
-                        context,
-                        icon: Icons.timer_outlined,
-                        value: _formattedDuration,
-                        label: 'Duration',
+                      child: OutlinedButton(
+                        onPressed: () => Navigator.of(
+                          context,
+                        ).pop(JourneySummaryResult.discard),
+                        style: OutlinedButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(vertical: 16),
+                          side: BorderSide(color: AppSurfaces.border(context)),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(16),
+                          ),
+                        ),
+                        child: Text(
+                          'Discard',
+                          style: TextStyle(
+                            color: AppSurfaces.textMuted(context),
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
                       ),
                     ),
-                    Container(
-                      width: 1,
-                      height: 40,
-                      color: AppSurfaces.border(context),
-                    ),
+                    const SizedBox(width: 12),
                     Expanded(
-                      child: _buildStatItem(
-                        context,
-                        icon: widget.transportMode.icon,
-                        value: widget.transportMode.displayName,
-                        label: 'Mode',
-                      ),
-                    ),
-                    Container(
-                      width: 1,
-                      height: 40,
-                      color: AppSurfaces.border(context),
-                    ),
-                    Expanded(
-                      child: _buildStatItem(
-                        context,
-                        icon: Icons.grid_view_rounded,
-                        value: '${widget.tilesUnlocked}',
-                        label: 'Tiles',
+                      flex: 2,
+                      child: FilledButton.icon(
+                        onPressed: () => Navigator.of(
+                          context,
+                        ).pop(JourneySummaryResult.save),
+                        icon: const Icon(Icons.save_outlined),
+                        label: const Text('Save Journey'),
+                        style: FilledButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(vertical: 16),
+                          backgroundColor: AppColors.sage,
+                          foregroundColor: Colors.white,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(16),
+                          ),
+                        ),
                       ),
                     ),
                   ],
                 ),
-              ),
-
-              const SizedBox(height: 24),
-
-              // Editable Location Names
-              Text(
-                'Journey Details',
-                style: theme.textTheme.titleSmall?.copyWith(
-                  fontWeight: FontWeight.w700,
-                  color: AppSurfaces.textMuted(context),
-                ),
-              ),
-
-              const SizedBox(height: 12),
-
-              // Start Location (Editable)
-              _buildEditableLocationField(
-                context,
-                label: 'From',
-                controller: _startNameController,
-                isEditing: _isEditingStart,
-                onEditTap: () => setState(() => _isEditingStart = true),
-                onSaveTap: _saveStartName,
-                icon: Icons.trip_origin,
-              ),
-              if (_startLocation.placeId == null && widget.userId != null)
-                Align(
-                  alignment: Alignment.centerRight,
-                  child: TextButton.icon(
-                    onPressed: () => _editCustomLocation(true),
-                    icon: const Icon(Icons.notes_outlined, size: 18),
-                    label: const Text('Add description & media'),
-                  ),
-                ),
-
-              const SizedBox(height: 12),
-
-              // End Location (Editable)
-              _buildEditableLocationField(
-                context,
-                label: 'To',
-                controller: _endNameController,
-                isEditing: _isEditingEnd,
-                onEditTap: () => setState(() => _isEditingEnd = true),
-                onSaveTap: _saveEndName,
-                icon: Icons.location_on,
-              ),
-              if (_endLocation.placeId == null && widget.userId != null)
-                Align(
-                  alignment: Alignment.centerRight,
-                  child: TextButton.icon(
-                    onPressed: () => _editCustomLocation(false),
-                    icon: const Icon(Icons.notes_outlined, size: 18),
-                    label: const Text('Add description & media'),
-                  ),
-                ),
-
-              const SizedBox(height: 32),
-
-              // Action Buttons
-              Row(
-                children: [
-                  Expanded(
-                    child: OutlinedButton(
-                      onPressed: () => Navigator.of(
-                        context,
-                      ).pop(JourneySummaryResult.discard),
-                      style: OutlinedButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(vertical: 16),
-                        side: BorderSide(color: AppSurfaces.border(context)),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(16),
-                        ),
-                      ),
-                      child: Text(
-                        'Discard',
-                        style: TextStyle(
-                          color: AppSurfaces.textMuted(context),
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    flex: 2,
-                    child: FilledButton.icon(
-                      onPressed: () =>
-                          Navigator.of(context).pop(JourneySummaryResult.save),
-                      icon: const Icon(Icons.save_outlined),
-                      label: const Text('Save Journey'),
-                      style: FilledButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(vertical: 16),
-                        backgroundColor: AppColors.sage,
-                        foregroundColor: Colors.white,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(16),
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       ),

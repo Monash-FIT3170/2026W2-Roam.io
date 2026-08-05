@@ -141,158 +141,168 @@ class _CustomLocationFormSheetState extends State<CustomLocationFormSheet> {
   @override
   Widget build(BuildContext context) {
     final bottom = MediaQuery.viewInsetsOf(context).bottom;
-    return Container(
-      constraints: BoxConstraints(
-        maxHeight: MediaQuery.sizeOf(context).height * .9,
-      ),
-      decoration: BoxDecoration(
-        color: AppSurfaces.card(context),
-        borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
-      ),
-      child: SafeArea(
-        top: false,
-        child: SingleChildScrollView(
-          padding: EdgeInsets.fromLTRB(24, 16, 24, 24 + bottom),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Center(
-                child: Container(
-                  width: 40,
-                  height: 4,
-                  decoration: BoxDecoration(
-                    color: Colors.grey[400],
-                    borderRadius: BorderRadius.circular(2),
+    return AnimatedPadding(
+      key: const ValueKey('custom_location_keyboard_padding'),
+      duration: const Duration(milliseconds: 200),
+      curve: Curves.easeOut,
+      padding: EdgeInsets.only(bottom: bottom),
+      child: Container(
+        constraints: BoxConstraints(
+          maxHeight: MediaQuery.sizeOf(context).height * .9,
+        ),
+        decoration: BoxDecoration(
+          color: AppSurfaces.card(context),
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+        ),
+        child: SafeArea(
+          top: false,
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.fromLTRB(24, 16, 24, 24),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Center(
+                  child: Container(
+                    width: 40,
+                    height: 4,
+                    decoration: BoxDecoration(
+                      color: Colors.grey[400],
+                      borderRadius: BorderRadius.circular(2),
+                    ),
                   ),
                 ),
-              ),
-              const SizedBox(height: 20),
-              Text(
-                'Custom location',
-                style: Theme.of(context).textTheme.headlineSmall,
-              ),
-              const SizedBox(height: 20),
-              TextField(
-                controller: _nameController,
-                decoration: const InputDecoration(
-                  labelText: 'Location name',
-                  prefixIcon: Icon(Icons.circle, color: Colors.black, size: 16),
+                const SizedBox(height: 20),
+                Text(
+                  'Custom location',
+                  style: Theme.of(context).textTheme.headlineSmall,
                 ),
-              ),
-              const SizedBox(height: 16),
-              TextField(
-                controller: _descriptionController,
-                minLines: 3,
-                maxLines: 6,
-                decoration: const InputDecoration(
-                  labelText: 'Description',
-                  hintText: 'Add notes about this location',
-                  alignLabelWithHint: true,
+                const SizedBox(height: 20),
+                TextField(
+                  controller: _nameController,
+                  decoration: const InputDecoration(
+                    labelText: 'Location name',
+                    prefixIcon: Icon(
+                      Icons.circle,
+                      color: Colors.black,
+                      size: 16,
+                    ),
+                  ),
                 ),
-              ),
-              const SizedBox(height: 20),
-              Text('Media', style: Theme.of(context).textTheme.titleSmall),
-              if (_media.isNotEmpty) ...[
-                const SizedBox(height: 10),
-                SizedBox(
-                  height: 88,
-                  child: ListView.builder(
-                    scrollDirection: Axis.horizontal,
-                    itemCount: _media.length,
-                    itemBuilder: (_, index) {
-                      final item = _media[index];
-                      return Padding(
-                        padding: const EdgeInsets.only(right: 8),
-                        child: Stack(
-                          children: [
-                            ClipRRect(
-                              borderRadius: BorderRadius.circular(10),
-                              child: SizedBox(
-                                width: 88,
-                                height: 88,
-                                child: item.file != null
-                                    ? Image.file(
-                                        File(item.file!.path),
-                                        fit: BoxFit.cover,
-                                        errorBuilder: (_, _, _) =>
-                                            const Icon(Icons.videocam),
-                                      )
-                                    : Image.network(
-                                        item.url!,
-                                        fit: BoxFit.cover,
-                                        errorBuilder: (_, _, _) =>
-                                            const Icon(Icons.videocam),
-                                      ),
+                const SizedBox(height: 16),
+                TextField(
+                  controller: _descriptionController,
+                  minLines: 3,
+                  maxLines: 6,
+                  decoration: const InputDecoration(
+                    labelText: 'Description',
+                    hintText: 'Add notes about this location',
+                    alignLabelWithHint: true,
+                  ),
+                ),
+                const SizedBox(height: 20),
+                Text('Media', style: Theme.of(context).textTheme.titleSmall),
+                if (_media.isNotEmpty) ...[
+                  const SizedBox(height: 10),
+                  SizedBox(
+                    height: 88,
+                    child: ListView.builder(
+                      scrollDirection: Axis.horizontal,
+                      itemCount: _media.length,
+                      itemBuilder: (_, index) {
+                        final item = _media[index];
+                        return Padding(
+                          padding: const EdgeInsets.only(right: 8),
+                          child: Stack(
+                            children: [
+                              ClipRRect(
+                                borderRadius: BorderRadius.circular(10),
+                                child: SizedBox(
+                                  width: 88,
+                                  height: 88,
+                                  child: item.file != null
+                                      ? Image.file(
+                                          File(item.file!.path),
+                                          fit: BoxFit.cover,
+                                          errorBuilder: (_, _, _) =>
+                                              const Icon(Icons.videocam),
+                                        )
+                                      : Image.network(
+                                          item.url!,
+                                          fit: BoxFit.cover,
+                                          errorBuilder: (_, _, _) =>
+                                              const Icon(Icons.videocam),
+                                        ),
+                                ),
                               ),
-                            ),
-                            Positioned(
-                              right: 2,
-                              top: 2,
-                              child: InkWell(
-                                onTap: _saving
-                                    ? null
-                                    : () => setState(
-                                        () => _media.removeAt(index),
-                                      ),
-                                child: const CircleAvatar(
-                                  radius: 11,
-                                  backgroundColor: Colors.black54,
-                                  child: Icon(
-                                    Icons.close,
-                                    size: 14,
-                                    color: Colors.white,
+                              Positioned(
+                                right: 2,
+                                top: 2,
+                                child: InkWell(
+                                  onTap: _saving
+                                      ? null
+                                      : () => setState(
+                                          () => _media.removeAt(index),
+                                        ),
+                                  child: const CircleAvatar(
+                                    radius: 11,
+                                    backgroundColor: Colors.black54,
+                                    child: Icon(
+                                      Icons.close,
+                                      size: 14,
+                                      color: Colors.white,
+                                    ),
                                   ),
                                 ),
                               ),
-                            ),
-                          ],
-                        ),
-                      );
-                    },
-                  ),
-                ),
-              ],
-              const SizedBox(height: 12),
-              Row(
-                children: [
-                  Expanded(
-                    child: OutlinedButton.icon(
-                      onPressed: _saving ? null : _addFromGallery,
-                      icon: const Icon(Icons.photo_library_outlined),
-                      label: const Text('Gallery'),
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: OutlinedButton.icon(
-                      onPressed: _saving ? null : _takePhoto,
-                      icon: const Icon(Icons.camera_alt_outlined),
-                      label: const Text('Camera'),
+                            ],
+                          ),
+                        );
+                      },
                     ),
                   ),
                 ],
-              ),
-              if (_error != null) ...[
                 const SizedBox(height: 12),
-                Text(_error!, style: const TextStyle(color: AppColors.clay)),
-              ],
-              const SizedBox(height: 24),
-              SizedBox(
-                width: double.infinity,
-                child: FilledButton.icon(
-                  onPressed: _saving ? null : _save,
-                  icon: _saving
-                      ? const SizedBox(
-                          width: 18,
-                          height: 18,
-                          child: CircularProgressIndicator(strokeWidth: 2),
-                        )
-                      : const Icon(Icons.save_outlined),
-                  label: Text(_saving ? 'Saving…' : 'Save location'),
+                Row(
+                  children: [
+                    Expanded(
+                      child: OutlinedButton.icon(
+                        onPressed: _saving ? null : _addFromGallery,
+                        icon: const Icon(Icons.photo_library_outlined),
+                        label: const Text('Gallery'),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: OutlinedButton.icon(
+                        onPressed: _saving ? null : _takePhoto,
+                        icon: const Icon(Icons.camera_alt_outlined),
+                        label: const Text('Camera'),
+                      ),
+                    ),
+                  ],
                 ),
-              ),
-            ],
+                if (_error != null) ...[
+                  const SizedBox(height: 12),
+                  Text(_error!, style: const TextStyle(color: AppColors.clay)),
+                ],
+                const SizedBox(height: 24),
+                SizedBox(
+                  width: double.infinity,
+                  child: FilledButton.icon(
+                    onPressed: _saving ? null : _save,
+                    icon: _saving
+                        ? const SizedBox(
+                            width: 18,
+                            height: 18,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : const Icon(Icons.save_outlined),
+                    label: Text(_saving ? 'Saving…' : 'Save location'),
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
       ),
