@@ -324,6 +324,8 @@ class _MapPageState extends State<MapPage> {
   void _showRegionUnlockReward(RegionPolygon region, int xpAwarded) {
     if (!mounted) return;
 
+    context.read<JourneyController>().recordTileUnlocked(xpAwarded);
+
     final message = 'Unlocked New Region +$xpAwarded XP';
     final auth = context.read<AuthProvider>();
 
@@ -483,9 +485,7 @@ class _MapPageState extends State<MapPage> {
     journeyController.proceedToReview();
 
     // Calculate XP preview
-    final baseXp = (journeyController.distanceMeters / 100).round();
-    final xpEarned = (baseXp * journeyController.transportMode.xpMultiplier)
-        .round();
+    final xpEarned = journeyController.totalXpEarned;
 
     // Show summary sheet
     final summaryResult = await JourneySummarySheet.show(
@@ -497,6 +497,7 @@ class _MapPageState extends State<MapPage> {
       duration: journeyController.elapsedDuration,
       routePoints: journeyController.routePoints,
       xpEarned: xpEarned,
+      tilesUnlocked: journeyController.tilesUnlocked,
       onUpdateStartName: journeyController.updateStartLocationName,
       onUpdateEndName: journeyController.updateEndLocationName,
       userId: userId,
@@ -514,7 +515,9 @@ class _MapPageState extends State<MapPage> {
 
         if (savedJourney != null && mounted) {
           // Award XP
-          await authProvider.addXp(savedJourney.xpEarned ?? 0);
+          await authProvider.addXp(
+            savedJourney.journeyXpEarned ?? savedJourney.xpEarned ?? 0,
+          );
           AppToast.success(
             context,
             'Journey saved! +${savedJourney.xpEarned} XP',

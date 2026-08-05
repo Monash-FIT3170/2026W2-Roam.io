@@ -134,6 +134,13 @@ class PastJourneySummarySheet extends StatelessWidget {
                         label: 'Mode',
                       ),
                     ),
+                    Expanded(
+                      child: _Stat(
+                        icon: Icons.grid_view_rounded,
+                        value: '${journey.tilesUnlocked}',
+                        label: 'Tiles',
+                      ),
+                    ),
                   ],
                 ),
               ),
@@ -149,7 +156,7 @@ class PastJourneySummarySheet extends StatelessWidget {
                     borderRadius: BorderRadius.circular(20),
                   ),
                   child: Text(
-                    '${journey.xpEarned} XP earned',
+                    '${journey.xpEarned} total XP earned',
                     style: const TextStyle(
                       color: AppColors.sage,
                       fontWeight: FontWeight.w700,

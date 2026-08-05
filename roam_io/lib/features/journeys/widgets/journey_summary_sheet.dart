@@ -35,6 +35,7 @@ class JourneySummarySheet extends StatefulWidget {
     required this.duration,
     required this.routePoints,
     this.xpEarned,
+    this.tilesUnlocked = 0,
     required this.onUpdateStartName,
     required this.onUpdateEndName,
     this.userId,
@@ -49,6 +50,7 @@ class JourneySummarySheet extends StatefulWidget {
   final Duration duration;
   final List<LatLng> routePoints;
   final int? xpEarned;
+  final int tilesUnlocked;
   final ValueChanged<String> onUpdateStartName;
   final ValueChanged<String> onUpdateEndName;
   final String? userId;
@@ -65,6 +67,7 @@ class JourneySummarySheet extends StatefulWidget {
     required Duration duration,
     required List<LatLng> routePoints,
     int? xpEarned,
+    int tilesUnlocked = 0,
     required ValueChanged<String> onUpdateStartName,
     required ValueChanged<String> onUpdateEndName,
     String? userId,
@@ -85,6 +88,7 @@ class JourneySummarySheet extends StatefulWidget {
         duration: duration,
         routePoints: routePoints,
         xpEarned: xpEarned,
+        tilesUnlocked: tilesUnlocked,
         onUpdateStartName: onUpdateStartName,
         onUpdateEndName: onUpdateEndName,
         userId: userId,
@@ -140,7 +144,7 @@ class _JourneySummarySheetState extends State<JourneySummarySheet> {
     if (hours > 0) {
       return '${hours}h ${minutes}m';
     }
-    return '${minutes} min${minutes != 1 ? 's' : ''}';
+    return '$minutes min${minutes != 1 ? 's' : ''}';
   }
 
   void _saveStartName() {
@@ -245,11 +249,15 @@ class _JourneySummarySheetState extends State<JourneySummarySheet> {
                       child: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          Icon(Icons.star, size: 16, color: AppColors.sage),
+                          const Icon(
+                            Icons.star,
+                            size: 16,
+                            color: AppColors.sage,
+                          ),
                           const SizedBox(width: 4),
                           Text(
-                            '+${widget.xpEarned} XP',
-                            style: TextStyle(
+                            '+${widget.xpEarned} XP total',
+                            style: const TextStyle(
                               fontWeight: FontWeight.w700,
                               color: AppColors.sage,
                             ),
@@ -273,33 +281,52 @@ class _JourneySummarySheetState extends State<JourneySummarySheet> {
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceAround,
                   children: [
-                    _buildStatItem(
-                      context,
-                      icon: Icons.straighten,
-                      value: _formattedDistance,
-                      label: 'Distance',
+                    Expanded(
+                      child: _buildStatItem(
+                        context,
+                        icon: Icons.straighten,
+                        value: _formattedDistance,
+                        label: 'Distance',
+                      ),
                     ),
                     Container(
                       width: 1,
                       height: 40,
                       color: AppSurfaces.border(context),
                     ),
-                    _buildStatItem(
-                      context,
-                      icon: Icons.timer_outlined,
-                      value: _formattedDuration,
-                      label: 'Duration',
+                    Expanded(
+                      child: _buildStatItem(
+                        context,
+                        icon: Icons.timer_outlined,
+                        value: _formattedDuration,
+                        label: 'Duration',
+                      ),
                     ),
                     Container(
                       width: 1,
                       height: 40,
                       color: AppSurfaces.border(context),
                     ),
-                    _buildStatItem(
-                      context,
-                      icon: widget.transportMode.icon,
-                      value: widget.transportMode.displayName,
-                      label: 'Mode',
+                    Expanded(
+                      child: _buildStatItem(
+                        context,
+                        icon: widget.transportMode.icon,
+                        value: widget.transportMode.displayName,
+                        label: 'Mode',
+                      ),
+                    ),
+                    Container(
+                      width: 1,
+                      height: 40,
+                      color: AppSurfaces.border(context),
+                    ),
+                    Expanded(
+                      child: _buildStatItem(
+                        context,
+                        icon: Icons.grid_view_rounded,
+                        value: '${widget.tilesUnlocked}',
+                        label: 'Tiles',
+                      ),
                     ),
                   ],
                 ),

@@ -36,6 +36,30 @@ void main() {
 
     expect(journey.displayTitle, 'Home to Tennis');
   });
+
+  test('serializes the journey and tile XP breakdown', () {
+    final journey =
+        _journey(
+          startLocation: const JourneyLocation(
+            latLng: LatLng(-37.81, 144.96),
+            displayName: 'Home',
+          ),
+          endLocation: const JourneyLocation(
+            latLng: LatLng(-37.82, 144.97),
+            displayName: 'Work',
+          ),
+        ).copyWith(
+          journeyXpEarned: 117,
+          tilesUnlocked: 70,
+          tileXpEarned: 3500,
+          xpEarned: 3617,
+        );
+
+    expect(journey.toMap(), containsPair('journeyXpEarned', 117));
+    expect(journey.toMap(), containsPair('tilesUnlocked', 70));
+    expect(journey.toMap(), containsPair('tileXpEarned', 3500));
+    expect(journey.toMap(), containsPair('xpEarned', 3617));
+  });
 }
 
 Journey _journey({

@@ -13,6 +13,44 @@ import 'package:roam_io/features/map/data/geolocator_service.dart';
 
 void main() {
   test(
+    'tile unlock XP is counted only while journey tracking is active',
+    () async {
+      final geo = _StreamingGeoLocatorService();
+      final controller = JourneyController(
+        journeyService: JourneyService(firestore: FakeFirebaseFirestore()),
+        trackingService: JourneyTrackingService(geoLocatorService: geo),
+      );
+
+      controller.recordTileUnlocked(50);
+      expect(controller.tilesUnlocked, 0);
+
+      controller.beginJourneySetup();
+      controller.setStartLocation(
+        const JourneyLocation(
+          latLng: LatLng(-37.8136, 144.9631),
+          displayName: 'Start',
+        ),
+      );
+      await controller.startTracking();
+
+      controller.recordTileUnlocked(50);
+      controller.recordTileUnlocked(50);
+
+      expect(controller.tilesUnlocked, 2);
+      expect(controller.tileXpEarned, 100);
+      expect(controller.totalXpEarned, controller.journeyXpEarned + 100);
+
+      await controller.stopTracking();
+      controller.recordTileUnlocked(50);
+      expect(controller.tilesUnlocked, 2);
+
+      await controller.cancelJourney();
+      controller.dispose();
+      await geo.dispose();
+    },
+  );
+
+  test(
     'continuing an ended journey resumes and preserves its progress',
     () async {
       final geo = _StreamingGeoLocatorService();

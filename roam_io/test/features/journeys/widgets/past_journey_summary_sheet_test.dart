@@ -26,7 +26,10 @@ void main() {
       encodedRoute: '',
       distanceMeters: 3200,
       durationSeconds: 1800,
-      xpEarned: 32,
+      xpEarned: 182,
+      journeyXpEarned: 32,
+      tilesUnlocked: 3,
+      tileXpEarned: 150,
     );
 
     await tester.pumpWidget(
@@ -53,7 +56,9 @@ void main() {
     expect(find.text('3.2 km'), findsOneWidget);
     expect(find.text('30 mins'), findsOneWidget);
     expect(find.text('Walk'), findsOneWidget);
-    expect(find.text('32 XP earned'), findsOneWidget);
+    expect(find.text('3'), findsOneWidget);
+    expect(find.text('Tiles'), findsOneWidget);
+    expect(find.text('182 total XP earned'), findsOneWidget);
     expect(find.text('Creek entrance'), findsOneWidget);
     expect(find.text('Park lookout'), findsAtLeastNWidgets(1));
     expect(find.text('A good view over the creek.'), findsNothing);

@@ -26,6 +26,9 @@ class Journey {
     required this.distanceMeters,
     required this.durationSeconds,
     this.xpEarned,
+    this.journeyXpEarned,
+    this.tilesUnlocked = 0,
+    this.tileXpEarned = 0,
   });
 
   /// Unique identifier for this journey.
@@ -59,8 +62,17 @@ class Journey {
   /// Total duration in seconds.
   final int durationSeconds;
 
-  /// XP earned for completing this journey (calculated on save).
+  /// Total XP earned during this journey, including unlocked-tile XP.
   final int? xpEarned;
+
+  /// Distance and transport-mode XP awarded when the journey is saved.
+  final int? journeyXpEarned;
+
+  /// Number of new map tiles unlocked while tracking this journey.
+  final int tilesUnlocked;
+
+  /// XP already awarded as those tiles were unlocked.
+  final int tileXpEarned;
 
   /// Returns the distance formatted as a string (e.g., "3.2 km").
   String get formattedDistance {
@@ -98,6 +110,9 @@ class Journey {
     double? distanceMeters,
     int? durationSeconds,
     int? xpEarned,
+    int? journeyXpEarned,
+    int? tilesUnlocked,
+    int? tileXpEarned,
   }) {
     return Journey(
       id: id ?? this.id,
@@ -111,6 +126,9 @@ class Journey {
       distanceMeters: distanceMeters ?? this.distanceMeters,
       durationSeconds: durationSeconds ?? this.durationSeconds,
       xpEarned: xpEarned ?? this.xpEarned,
+      journeyXpEarned: journeyXpEarned ?? this.journeyXpEarned,
+      tilesUnlocked: tilesUnlocked ?? this.tilesUnlocked,
+      tileXpEarned: tileXpEarned ?? this.tileXpEarned,
     );
   }
 
@@ -133,6 +151,11 @@ class Journey {
       distanceMeters: (data['distanceMeters'] as num).toDouble(),
       durationSeconds: data['durationSeconds'] as int,
       xpEarned: data['xpEarned'] as int?,
+      journeyXpEarned:
+          (data['journeyXpEarned'] as num?)?.toInt() ??
+          (data['xpEarned'] as num?)?.toInt(),
+      tilesUnlocked: (data['tilesUnlocked'] as num?)?.toInt() ?? 0,
+      tileXpEarned: (data['tileXpEarned'] as num?)?.toInt() ?? 0,
     );
   }
 
@@ -149,6 +172,9 @@ class Journey {
       'distanceMeters': distanceMeters,
       'durationSeconds': durationSeconds,
       'xpEarned': xpEarned,
+      'journeyXpEarned': journeyXpEarned,
+      'tilesUnlocked': tilesUnlocked,
+      'tileXpEarned': tileXpEarned,
     };
   }
 

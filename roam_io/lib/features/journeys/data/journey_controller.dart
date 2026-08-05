@@ -43,6 +43,8 @@ class JourneyController extends ChangeNotifier {
   DateTime? _endTime;
   List<LatLng> _routePoints = [];
   double _distanceMeters = 0.0;
+  int _tilesUnlocked = 0;
+  int _tileXpEarned = 0;
   String? _errorMessage;
 
   StreamSubscription<List<LatLng>>? _routeSubscription;
@@ -60,6 +62,11 @@ class JourneyController extends ChangeNotifier {
   DateTime? get endTime => _endTime;
   List<LatLng> get routePoints => List.unmodifiable(_routePoints);
   double get distanceMeters => _distanceMeters;
+  int get tilesUnlocked => _tilesUnlocked;
+  int get tileXpEarned => _tileXpEarned;
+  int get journeyXpEarned =>
+      ((_distanceMeters / 100).round() * _transportMode.xpMultiplier).round();
+  int get totalXpEarned => journeyXpEarned + _tileXpEarned;
   String? get errorMessage => _errorMessage;
 
   bool get isTracking => _currentPhase == JourneyPhase.tracking;
@@ -152,6 +159,8 @@ class JourneyController extends ChangeNotifier {
       _currentPhase = JourneyPhase.tracking;
       _routePoints = [];
       _distanceMeters = 0.0;
+      _tilesUnlocked = 0;
+      _tileXpEarned = 0;
 
       _subscribeToTrackingUpdates();
 
@@ -168,6 +177,14 @@ class JourneyController extends ChangeNotifier {
       notifyListeners();
       debugPrint('[JourneyController] Failed to start tracking: $e');
     }
+  }
+
+  /// Records XP from a tile first unlocked while this journey is tracking.
+  void recordTileUnlocked(int xpAwarded) {
+    if (!isTracking || xpAwarded <= 0) return;
+    _tilesUnlocked += 1;
+    _tileXpEarned += xpAwarded;
+    notifyListeners();
   }
 
   /// Resumes the current journey after the user backs out of ending it.
@@ -387,8 +404,8 @@ class JourneyController extends ChangeNotifier {
 
     try {
       // Calculate XP based on distance and transport mode
-      final baseXp = (_distanceMeters / 100).round(); // 1 XP per 100m
-      final xpEarned = (baseXp * _transportMode.xpMultiplier).round();
+      final distanceXp = journeyXpEarned;
+      final totalXp = totalXpEarned;
 
       // Encode the route for efficient storage
       final encodedRoute = PolylineCodec.encode(_routePoints);
@@ -404,7 +421,10 @@ class JourneyController extends ChangeNotifier {
         encodedRoute: encodedRoute,
         distanceMeters: _distanceMeters,
         durationSeconds: elapsedDuration.inSeconds,
-        xpEarned: xpEarned,
+        xpEarned: totalXp,
+        journeyXpEarned: distanceXp,
+        tilesUnlocked: _tilesUnlocked,
+        tileXpEarned: _tileXpEarned,
       );
 
       final savedJourney = await _journeyService.saveJourney(journey);
@@ -449,6 +469,8 @@ class JourneyController extends ChangeNotifier {
     _endTime = null;
     _routePoints = [];
     _distanceMeters = 0.0;
+    _tilesUnlocked = 0;
+    _tileXpEarned = 0;
     _errorMessage = null;
     _routeSubscription = null;
     _distanceSubscription = null;
