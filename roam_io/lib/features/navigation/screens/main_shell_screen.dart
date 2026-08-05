@@ -8,6 +8,7 @@
 
 import 'dart:async';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:roam_io/notifications/notification.dart';
 
@@ -46,7 +47,8 @@ class _MainShellScreenState extends State<MainShellScreen> {
     super.initState();
 
     //Initialise the Android notification service
-    if (widget.requestNotificationPermission) {
+    if (widget.requestNotificationPermission &&
+        defaultTargetPlatform == TargetPlatform.android) {
       WidgetsBinding.instance.addPostFrameCallback((_) async {
         final granted = await AndroidNotificationService.instance
             .requestPermission();

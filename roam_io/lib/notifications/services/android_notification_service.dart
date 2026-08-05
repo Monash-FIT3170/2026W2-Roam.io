@@ -29,11 +29,15 @@ class AndroidNotificationService {
   /// Prevents the plugin from being initialised more than once.
   bool _isInitialised = false;
 
+  bool get _isSupportedPlatform =>
+      defaultTargetPlatform == TargetPlatform.android;
+
   /// Events produced when an Android notification or action is selected.
   final ValueNotifier<NotificationResponse?> responseNotifier =
       ValueNotifier<NotificationResponse?>(null);
 
   Future<void> initialise() async {
+    if (!_isSupportedPlatform) return;
     if (_isInitialised) return;
 
     const androidSettings = AndroidInitializationSettings(
@@ -59,6 +63,8 @@ class AndroidNotificationService {
   ///
   /// Returns `true` when permission is granted.
   Future<bool> requestPermission() async {
+    if (!_isSupportedPlatform) return false;
+
     final androidPlugin = _plugin
         .resolvePlatformSpecificImplementation<
           AndroidFlutterLocalNotificationsPlugin
@@ -74,6 +80,8 @@ class AndroidNotificationService {
   /// The appropriate channel and Android category are selected from the
   /// notification type.
   Future<void> show(AppNotification notification) async {
+    if (!_isSupportedPlatform) return;
+
     if (!_isInitialised) {
       await initialise();
     }
@@ -107,11 +115,15 @@ class AndroidNotificationService {
   }
 
   Future<void> cancel(AppNotification notification) async {
+    if (!_isSupportedPlatform) return;
+
     await _plugin.cancel(id: _createAndroidId(notification.id));
   }
 
   /// Cancels the Android notification
   Future<void> cancelAll() async {
+    if (!_isSupportedPlatform) return;
+
     await _plugin.cancelAll();
   }
 
