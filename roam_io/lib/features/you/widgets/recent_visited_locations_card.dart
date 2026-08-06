@@ -1,9 +1,11 @@
 /*
  * Author: Sanjevan Rajasegar
- * Last Updated: 5 August 2026
+ * Last Updated: 6 August 2026
  * Description:
- *   You screen card for recent visits using a non-scrollable ListView inside
- *   a parent scroll view, plus flat visit XP hint and states.
+ *   You screen card for up to five recent visits. Uses a shrink-wrapping
+ *   Column (not ListView) so Scaffold(extendBody: true) MediaQuery bottom
+ *   padding cannot inflate empty beige space inside the card; the parent
+ *   Profile scroll view already handles nav clearance.
  */
 
 import 'package:flutter/material.dart';
@@ -12,6 +14,9 @@ import '../../map/data/visit.dart';
 import '../../profile/domain/xp_reward_config.dart';
 import '../../../theme/app_colours.dart';
 import '../../../theme/app_surfaces.dart';
+
+/// Maximum visit rows shown in the Recent Visited Locations card.
+const int kRecentVisitedLocationsLimit = 5;
 
 /// Card shell matching personal progress containers on the You screen.
 class RecentVisitedLocationsCard extends StatelessWidget {
@@ -22,7 +27,7 @@ class RecentVisitedLocationsCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(vertical: 10),
+      padding: const EdgeInsets.symmetric(vertical: 8),
       decoration: BoxDecoration(
         color: AppSurfaces.card(context),
         borderRadius: BorderRadius.circular(24),
@@ -65,7 +70,9 @@ class RecentVisitedLocationsCard extends StatelessWidget {
             );
           }
 
-          final visits = snapshot.data ?? const <Visit>[];
+          final visits = (snapshot.data ?? const <Visit>[])
+              .take(kRecentVisitedLocationsLimit)
+              .toList();
 
           if (visits.isEmpty) {
             return Padding(
@@ -81,15 +88,21 @@ class RecentVisitedLocationsCard extends StatelessWidget {
             );
           }
 
-          return ListView.separated(
-            shrinkWrap: true,
-            physics: const NeverScrollableScrollPhysics(),
-            itemCount: visits.length,
-            separatorBuilder: (context, index) => Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 24),
-              child: Divider(color: AppSurfaces.border(context), height: 1),
-            ),
-            itemBuilder: (context, index) => _VisitRow(visit: visits[index]),
+          return Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              for (var index = 0; index < visits.length; index++) ...[
+                if (index > 0)
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 24),
+                    child: Divider(
+                      color: AppSurfaces.border(context),
+                      height: 1,
+                    ),
+                  ),
+                _VisitRow(visit: visits[index]),
+              ],
+            ],
           );
         },
       ),
@@ -129,6 +142,7 @@ class _VisitRow extends StatelessWidget {
           const SizedBox(width: 16),
           Expanded(
             child: Column(
+              mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(

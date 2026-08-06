@@ -1,9 +1,10 @@
 /*
  * Author: Sanjevan Rajasegar
- * Last Updated: 5 August 2026
+ * Last Updated: 6 August 2026
  * Description:
- *   Displays profile XP and level progression for the You profile identity
- *   section and any standalone progress placements.
+ *   Displays profile XP and level progression. Compact mode is densified for
+ *   the avatar-adjacent You header column so the right column does not dwarf
+ *   the 64px avatar.
  */
 
 import 'package:flutter/material.dart';
@@ -44,33 +45,36 @@ class XpProgressSection extends StatelessWidget {
       return SizedBox(
         width: double.infinity,
         child: Column(
+          mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
               'Level $level',
-              style: theme.textTheme.labelLarge?.copyWith(
+              style: theme.textTheme.labelMedium?.copyWith(
                 color: AppSurfaces.textPrimary(context),
                 fontWeight: FontWeight.w900,
+                height: 1.0,
               ),
             ),
-            const SizedBox(height: 5),
+            const SizedBox(height: 2),
             ClipRRect(
               borderRadius: BorderRadius.circular(999),
               child: LinearProgressIndicator(
                 value: progress.clamp(0.0, 1.0),
-                minHeight: 7,
+                minHeight: 4,
                 backgroundColor: colorScheme.primary.withValues(alpha: 0.14),
                 color: colorScheme.primary,
               ),
             ),
-            const SizedBox(height: 4),
+            const SizedBox(height: 2),
             Text(
               level >= ProfileModel.maxLevel
                   ? 'Maximum level reached'
                   : '$currentLevelXp / $nextLevelXp XP',
-              style: theme.textTheme.bodySmall?.copyWith(
+              style: theme.textTheme.labelSmall?.copyWith(
                 color: AppSurfaces.textMuted(context),
                 fontWeight: FontWeight.w700,
+                height: 1.0,
               ),
             ),
           ],

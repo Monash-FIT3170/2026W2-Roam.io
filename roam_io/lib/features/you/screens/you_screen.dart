@@ -1,11 +1,13 @@
 /*
  * Author: Sanjevan Rajasegar
- * Last Updated: 5 August 2026
+ * Last Updated: 6 August 2026
  * Description:
- *   Provides the You destination with Profile and Activities tabs, compact
- *   profile XP progress, social/exploration stats, interactive metric line
- *   graphs (including reactive XP history), most visited location, recent
- *   visits, and a reusable Activities feed placeholder card.
+ *   Provides the You destination with Profile and Activities tabs. Profile uses
+ *   a densified Strava-style header (64px avatar + compact identity/XP/stats
+ *   column). Metric pills sit in an AppSurfaces.card (sand) rounded tray.
+ *   Bottom scroll padding uses a single nav clearance plus a small visual gap;
+ *   Recent Visited Locations shrink-wraps via Column so Scaffold extendBody
+ *   MediaQuery padding cannot inflate the card.
  */
 
 import 'package:flutter/material.dart';
@@ -262,19 +264,17 @@ class _ProfileTab extends StatelessWidget {
                 final xpEvents = xpSnapshot.data ?? const <XpEvent>[];
 
                 return SingleChildScrollView(
-                  padding: EdgeInsets.only(bottom: bottomClearance),
+                  padding: EdgeInsets.only(bottom: bottomClearance + 12),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       const SizedBox(height: 14),
                       Padding(
                         padding: const EdgeInsets.symmetric(horizontal: 24),
-                        child: _ProfileHeader(profile: profile),
-                      ),
-                      const SizedBox(height: 14),
-                      Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 24),
-                        child: _ProfileStatsRow(tileCount: tileRecords.length),
+                        child: _ProfileHeader(
+                          profile: profile,
+                          tileCount: tileRecords.length,
+                        ),
                       ),
                       const SizedBox(height: 18),
                       Padding(
@@ -343,10 +343,14 @@ class _ActivitiesTab extends StatelessWidget {
   }
 }
 
+/// Densified Strava-style identity header: 64px avatar with name, username,
+/// XP, and five stats in a compact adjacent column (no large dead zone under
+/// the avatar).
 class _ProfileHeader extends StatelessWidget {
-  const _ProfileHeader({required this.profile});
+  const _ProfileHeader({required this.profile, required this.tileCount});
 
   final ProfileModel? profile;
+  final int tileCount;
 
   @override
   Widget build(BuildContext context) {
@@ -378,18 +382,21 @@ class _ProfileHeader extends StatelessWidget {
                 : Icon(Icons.person_rounded, color: colorScheme.primary),
           ),
         ),
-        const SizedBox(width: 14),
+        const SizedBox(width: 12),
         Expanded(
           child: Column(
+            mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
                 displayName,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
-                style: theme.textTheme.titleLarge?.copyWith(
+                style: theme.textTheme.titleMedium?.copyWith(
                   color: AppSurfaces.textPrimary(context),
                   fontWeight: FontWeight.w900,
+                  fontSize: 20,
+                  height: 1.0,
                 ),
               ),
               const SizedBox(height: 2),
@@ -397,15 +404,18 @@ class _ProfileHeader extends StatelessWidget {
                 '@$username',
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
-                style: theme.textTheme.bodyMedium?.copyWith(
+                style: theme.textTheme.labelMedium?.copyWith(
                   color: AppSurfaces.textMuted(context),
                   fontWeight: FontWeight.w700,
+                  height: 1.0,
                 ),
               ),
               if (profile != null) ...[
-                const SizedBox(height: 8),
+                const SizedBox(height: 4),
                 XpProgressSection(profile: profile!, compact: true),
               ],
+              const SizedBox(height: 12),
+              _ProfileStatsRow(tileCount: tileCount),
             ],
           ),
         ),
@@ -422,6 +432,7 @@ class _ProfileStatsRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         const _ProfileStat(label: 'Following', value: '0'),
         const _ProfileStat(label: 'Followers', value: '0'),
@@ -445,6 +456,7 @@ class _ProfileStat extends StatelessWidget {
 
     return Expanded(
       child: Column(
+        mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
           FittedBox(
@@ -455,20 +467,23 @@ class _ProfileStat extends StatelessWidget {
               textAlign: TextAlign.center,
               style: theme.textTheme.labelSmall?.copyWith(
                 color: AppSurfaces.textMuted(context),
-                fontWeight: FontWeight.w700,
+                fontWeight: FontWeight.w600,
+                fontSize: 9,
+                height: 1.0,
               ),
             ),
           ),
-          const SizedBox(height: 3),
+          const SizedBox(height: 1),
           FittedBox(
             fit: BoxFit.scaleDown,
             child: Text(
               value,
               maxLines: 1,
               textAlign: TextAlign.center,
-              style: theme.textTheme.titleMedium?.copyWith(
+              style: theme.textTheme.titleSmall?.copyWith(
                 color: AppSurfaces.textPrimary(context),
                 fontWeight: FontWeight.w900,
+                height: 1.0,
               ),
             ),
           ),
@@ -531,19 +546,28 @@ class _MetricLineGraphSectionState extends State<_MetricLineGraphSection> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        SingleChildScrollView(
-          scrollDirection: Axis.horizontal,
-          child: Row(
-            children: _GraphMetric.values.map((metric) {
-              return Padding(
-                padding: const EdgeInsets.only(right: 10),
-                child: _MetricPill(
-                  label: metric.label,
-                  selected: widget.selectedMetric == metric,
-                  onTap: () => widget.onMetricSelected(metric),
-                ),
-              );
-            }).toList(),
+        Container(
+          width: double.infinity,
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+          decoration: BoxDecoration(
+            color: AppSurfaces.card(context),
+            borderRadius: BorderRadius.circular(18),
+            border: Border.all(color: AppSurfaces.border(context)),
+          ),
+          child: SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: Row(
+              children: _GraphMetric.values.map((metric) {
+                return Padding(
+                  padding: const EdgeInsets.only(right: 10),
+                  child: _MetricPill(
+                    label: metric.label,
+                    selected: widget.selectedMetric == metric,
+                    onTap: () => widget.onMetricSelected(metric),
+                  ),
+                );
+              }).toList(),
+            ),
           ),
         ),
         const SizedBox(height: 14),

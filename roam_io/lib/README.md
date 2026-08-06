@@ -85,8 +85,10 @@ the updated value can be reviewed before manually navigating back.
 
 `You` owns personal profile context and personal activity surfaces. It uses
 internal `Profile` and `Activities` tabs rather than adding more bottom-nav
-destinations. `Profile` keeps a compact identity block (avatar, name, username,
-level/XP bar) above the five-stat row, then a metric-selectable interactive line
+destinations. `Profile` keeps a compact Strava-style identity row: the avatar
+sits beside a single column with display name, username, level/XP progress, and
+the five-stat row (Following/Followers/Tiles/Journeys/Sidequests), then a
+metric-selectable interactive line
 graph. Locations Visited and Tiles Unlocked use existing visit/polygon
 timestamps. XP Gained uses timestamped `profiles/{uid}/xp_events` recorded
 **after** the canonical `profiles/{uid}` XP/level update succeeds. History is

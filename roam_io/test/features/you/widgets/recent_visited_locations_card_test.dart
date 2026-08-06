@@ -1,8 +1,10 @@
 /*
  * Author: Sanjevan Rajasegar
- * Last Updated: 5 August 2026
+ * Last Updated: 6 August 2026
  * Description:
- *   Widget tests for RecentVisitedLocationsCard list, empty state, and XP label.
+ *   Widget tests for RecentVisitedLocationsCard: shrink-wrap height, max five
+ *   rows, empty state, and visit XP labels. Guards against Scaffold extendBody
+ *   MediaQuery padding inflating ListView-backed cards.
  */
 
 import 'package:flutter/material.dart';
@@ -10,6 +12,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:roam_io/features/you/widgets/recent_visited_locations_card.dart';
 import 'package:roam_io/features/map/data/visit.dart';
 import 'package:roam_io/features/profile/domain/xp_reward_config.dart';
+import 'package:roam_io/shared/widgets/app_bottom_nav_bar.dart';
 
 void main() {
   testWidgets('shows visit rows with flat visit XP label', (tester) async {
@@ -52,4 +55,81 @@ void main() {
 
     expect(find.textContaining('No visits yet'), findsOneWidget);
   });
+
+  testWidgets('caps displayed visits to five', (tester) async {
+    final visits = List<Visit>.generate(
+      7,
+      (index) => Visit(
+        placeId: index,
+        googlePlaceId: 'g$index',
+        placeName: 'Place $index',
+        regionId: 'r$index',
+        category: 'nature',
+        visitedAt: DateTime(2026, 8, 6, 10, index),
+      ),
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: RecentVisitedLocationsCard(
+            visitsStream: Stream<List<Visit>>.value(visits),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Place 0'), findsOneWidget);
+    expect(find.text('Place 4'), findsOneWidget);
+    expect(find.text('Place 5'), findsNothing);
+    expect(find.text('Place 6'), findsNothing);
+  });
+
+  testWidgets(
+    'shrink-wraps five visit rows without extendBody MediaQuery pad',
+    (tester) async {
+      final visits = List<Visit>.generate(
+        5,
+        (index) => Visit(
+          placeId: index,
+          googlePlaceId: 'g$index',
+          placeName: 'Visit $index',
+          regionId: 'r$index',
+          category: 'nature',
+          visitedAt: DateTime(2026, 8, 6, 12, index),
+        ),
+      );
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            extendBody: true,
+            body: Align(
+              alignment: Alignment.topCenter,
+              child: RecentVisitedLocationsCard(
+                key: const Key('recent-visits-card'),
+                visitsStream: Stream<List<Visit>>.value(visits),
+              ),
+            ),
+            bottomNavigationBar: const SizedBox(
+              height: AppBottomNavBar.barHeight,
+              child: ColoredBox(color: Colors.black12),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      final cardSize = tester.getSize(
+        find.byKey(const Key('recent-visits-card')),
+      );
+
+      // Five padded rows (~62px) + separators + card chrome must stay well
+      // below content-plus-nav-bar-height (would indicate MediaQuery pad leak).
+      expect(cardSize.height, lessThan(420));
+      expect(cardSize.height, lessThan(AppBottomNavBar.barHeight + 280));
+      expect(cardSize.height, greaterThan(200));
+    },
+  );
 }
