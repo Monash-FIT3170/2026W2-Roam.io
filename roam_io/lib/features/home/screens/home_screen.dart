@@ -1,80 +1,79 @@
 /*
  * Author: Sanjevan Rajasegar
- * Last Updated: 5 August 2026
+ * Last Updated: 6 August 2026
  * Description:
- *   Provides the Home destination that consolidates existing journey and quest
- *   experiences ahead of the future social feed expansion.
+ *   Home destination showing a stub friend activity feed. Friend cards expose
+ *   Kudos + Comment only (Share omitted for privacy). Comment opens the
+ *   Comments page; stubs are temporary and not a production feed backend.
  */
 
 import 'package:flutter/material.dart';
 
+import '../../../shared/widgets/app_bottom_nav_bar.dart';
 import '../../../shared/widgets/app_page_header.dart';
 import '../../../theme/app_surfaces.dart';
-import '../../journeys/screens/journeys_screen.dart';
-import '../../quests/screens/quests_screen.dart';
+import '../../activity_feed/data/comment_service.dart';
+import '../../activity_feed/data/stub_activity_feed_data.dart';
+import '../../activity_feed/screens/activity_detail_screen.dart';
+import '../../activity_feed/screens/comments_screen.dart';
+import '../../activity_feed/widgets/activity_feed_card.dart';
 
-/// Top-level Home tab for activity-oriented content.
+/// Top-level Home tab for the friend activity feed foundation.
 class HomeScreen extends StatelessWidget {
-  const HomeScreen({super.key});
+  const HomeScreen({super.key, this.commentService});
+
+  /// Injected for tests; production uses the default [CommentService].
+  final CommentService? commentService;
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
+    final bottomClearance =
+        AppBottomNavBar.clearanceFromScreenBottom(context) + 12;
+    final activities = StubActivityFeedData.friendActivities;
 
-    return DefaultTabController(
-      length: 2,
-      child: Container(
-        color: AppSurfaces.pageBackground(context),
-        child: SafeArea(
-          bottom: false,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const AppPageHeader(
-                title: 'Home',
-                subtitle: 'Your journeys, quests, and activity foundations',
+    return Container(
+      color: AppSurfaces.pageBackground(context),
+      child: SafeArea(
+        bottom: false,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const AppPageHeader(title: 'Home'),
+            Expanded(
+              child: ListView.separated(
+                padding: EdgeInsets.fromLTRB(20, 4, 20, bottomClearance),
+                itemCount: activities.length,
+                separatorBuilder: (context, index) =>
+                    const SizedBox(height: 14),
+                itemBuilder: (context, index) {
+                  final activity = activities[index];
+                  return ActivityFeedCard.fromItem(
+                    activity,
+                    showShare: false,
+                    onOverflowTap: () {
+                      Navigator.of(context).push(
+                        MaterialPageRoute<void>(
+                          builder: (_) =>
+                              ActivityDetailScreen(activity: activity),
+                        ),
+                      );
+                    },
+                    onKudosTap: () {},
+                    onCommentTap: () {
+                      Navigator.of(context).push(
+                        MaterialPageRoute<void>(
+                          builder: (_) => CommentsScreen(
+                            activityId: activity.id,
+                            commentService: commentService,
+                          ),
+                        ),
+                      );
+                    },
+                  );
+                },
               ),
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 20),
-                child: Container(
-                  decoration: BoxDecoration(
-                    color: AppSurfaces.softCard(context),
-                    borderRadius: BorderRadius.circular(16),
-                    border: Border.all(color: AppSurfaces.border(context)),
-                  ),
-                  child: TabBar(
-                    indicator: BoxDecoration(
-                      color: theme.colorScheme.primary,
-                      borderRadius: BorderRadius.circular(14),
-                    ),
-                    indicatorSize: TabBarIndicatorSize.tab,
-                    dividerColor: Colors.transparent,
-                    labelColor: theme.colorScheme.onPrimary,
-                    unselectedLabelColor: AppSurfaces.textMuted(context),
-                    labelStyle: theme.textTheme.labelLarge?.copyWith(
-                      fontWeight: FontWeight.w800,
-                    ),
-                    unselectedLabelStyle: theme.textTheme.labelLarge?.copyWith(
-                      fontWeight: FontWeight.w700,
-                    ),
-                    tabs: const [
-                      Tab(text: 'Journeys'),
-                      Tab(text: 'Quests'),
-                    ],
-                  ),
-                ),
-              ),
-              const SizedBox(height: 10),
-              const Expanded(
-                child: TabBarView(
-                  children: [
-                    JourneysScreen(showHeader: false),
-                    QuestsScreen(showHeader: false),
-                  ],
-                ),
-              ),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );

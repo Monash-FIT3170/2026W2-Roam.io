@@ -2,8 +2,8 @@
  * Author: Sanjevan Rajasegar
  * Last Updated: 6 August 2026
  * Description:
- *   Widget tests for the Home stub friend activity feed — privacy actions and
- *   Comment navigation to CommentsScreen.
+ *   Widget tests for CommentsScreen composer validation and CommentService
+ *   persistence behaviour (success clears input; failure does not fake-add).
  */
 
 import 'dart:async';
@@ -14,104 +14,110 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:provider/provider.dart';
 import 'package:roam_io/features/activity_feed/data/comment_service.dart';
 import 'package:roam_io/features/activity_feed/models/activity_comment.dart';
-import 'package:roam_io/features/activity_feed/screens/activity_detail_screen.dart';
 import 'package:roam_io/features/activity_feed/screens/comments_screen.dart';
 import 'package:roam_io/features/auth/data/auth_repository.dart';
 import 'package:roam_io/features/auth/providers/auth_provider.dart';
-import 'package:roam_io/features/home/screens/home_screen.dart';
 import 'package:roam_io/features/profile/domain/profile_model.dart';
 
 void main() {
-  testWidgets('shows friend stub cards without Journeys/Quests tabs', (
-    tester,
-  ) async {
-    await tester.binding.setSurfaceSize(const Size(400, 1400));
-    addTearDown(() => tester.binding.setSurfaceSize(null));
-
-    await tester.pumpWidget(
-      const MaterialApp(home: Scaffold(body: HomeScreen())),
-    );
-
-    expect(find.text('Home'), findsOneWidget);
-    expect(find.text('Journeys'), findsNothing);
-    expect(find.text('Quests'), findsNothing);
-    expect(
-      find.text('Your journeys, quests, and activity foundations'),
-      findsNothing,
-    );
-
-    expect(find.text('Amar'), findsOneWidget);
-    expect(find.text('Sidequest with Mates'), findsOneWidget);
-    expect(find.text('Sidequest Progress'), findsNothing);
-    expect(find.text('Share'), findsNothing);
-    expect(find.text('Kudos'), findsWidgets);
-    expect(find.text('Comment'), findsWidgets);
-
-    await tester.scrollUntilVisible(
-      find.text('Nathan'),
-      200,
-      scrollable: find.byType(Scrollable).first,
-    );
-    expect(find.text('Nathan'), findsOneWidget);
-    expect(find.text('Journey to Monash'), findsOneWidget);
-
-    await tester.scrollUntilVisible(
-      find.text('Sonia'),
-      200,
-      scrollable: find.byType(Scrollable).first,
-    );
-    expect(find.text('Sonia'), findsOneWidget);
-    expect(find.text('Exploring Melbourne CBD'), findsOneWidget);
-    expect(find.text('Map preview'), findsWidgets);
-  });
-
-  testWidgets('overflow opens activity detail without engagement controls', (
-    tester,
-  ) async {
-    await tester.binding.setSurfaceSize(const Size(400, 1400));
-    addTearDown(() => tester.binding.setSurfaceSize(null));
-
-    await tester.pumpWidget(
-      const MaterialApp(home: Scaffold(body: HomeScreen())),
-    );
-
-    await tester.tap(find.byIcon(Icons.more_horiz_rounded).first);
-    await tester.pumpAndSettle();
-
-    expect(find.byType(ActivityDetailScreen), findsOneWidget);
-    expect(find.text('Sidequest with Mates'), findsOneWidget);
-    expect(find.text('Journey route map'), findsOneWidget);
-    expect(find.text('Kudos'), findsNothing);
-    expect(find.text('Comment'), findsNothing);
-    expect(find.text('Share'), findsNothing);
-  });
-
-  testWidgets('Comment opens Comments page for friend activity', (
-    tester,
-  ) async {
-    await tester.binding.setSurfaceSize(const Size(400, 1400));
-    addTearDown(() => tester.binding.setSurfaceSize(null));
-
+  testWidgets('empty and whitespace comments cannot submit', (tester) async {
+    final comments = _FakeCommentService();
     final auth = AuthProvider(authRepository: _FakeAuthRepository());
     await auth.refreshCurrentUser();
-    final comments = _FakeCommentService();
 
     await tester.pumpWidget(
       ChangeNotifierProvider<AuthProvider>.value(
         value: auth,
         child: MaterialApp(
-          home: Scaffold(body: HomeScreen(commentService: comments)),
+          home: CommentsScreen(
+            activityId: 'stub-amar-sidequest',
+            commentService: comments,
+          ),
         ),
       ),
     );
     await tester.pumpAndSettle();
 
-    await tester.tap(find.text('Comment').first);
+    expect(find.widgetWithText(TextButton, 'Send'), findsOneWidget);
+    final sendFinder = find.widgetWithText(TextButton, 'Send');
+    expect(tester.widget<TextButton>(sendFinder).onPressed, isNull);
+
+    await tester.enterText(find.byType(TextField), '   ');
+    await tester.pump();
+    expect(tester.widget<TextButton>(sendFinder).onPressed, isNull);
+    expect(comments.addCalls, 0);
+
+    auth.dispose();
+    await comments.dispose();
+  });
+
+  testWidgets('valid comment persists, appears, and clears input', (
+    tester,
+  ) async {
+    final comments = _FakeCommentService();
+    final auth = AuthProvider(authRepository: _FakeAuthRepository());
+    await auth.refreshCurrentUser();
+
+    await tester.pumpWidget(
+      ChangeNotifierProvider<AuthProvider>.value(
+        value: auth,
+        child: MaterialApp(
+          home: CommentsScreen(
+            activityId: 'stub-amar-sidequest',
+            commentService: comments,
+          ),
+        ),
+      ),
+    );
     await tester.pumpAndSettle();
 
-    expect(find.byType(CommentsScreen), findsOneWidget);
-    expect(find.text('Comments'), findsOneWidget);
-    expect(find.text('Write a comment...'), findsOneWidget);
+    expect(find.textContaining('No comments yet'), findsOneWidget);
+
+    await tester.enterText(find.byType(TextField), 'Great roam!');
+    await tester.pump();
+    await tester.tap(find.widgetWithText(TextButton, 'Send'));
+    await tester.pumpAndSettle();
+
+    expect(comments.addCalls, 1);
+    expect(find.text('Great roam!'), findsOneWidget);
+    expect(find.textContaining('No comments yet'), findsNothing);
+    expect(
+      tester.widget<TextField>(find.byType(TextField)).controller?.text,
+      '',
+    );
+
+    auth.dispose();
+    await comments.dispose();
+  });
+
+  testWidgets('persistence failure does not add comment or clear input', (
+    tester,
+  ) async {
+    final comments = _FakeCommentService(failNextAdd: true);
+    final auth = AuthProvider(authRepository: _FakeAuthRepository());
+    await auth.refreshCurrentUser();
+
+    await tester.pumpWidget(
+      ChangeNotifierProvider<AuthProvider>.value(
+        value: auth,
+        child: MaterialApp(
+          home: CommentsScreen(
+            activityId: 'stub-amar-sidequest',
+            commentService: comments,
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.enterText(find.byType(TextField), 'Should fail');
+    await tester.pump();
+    await tester.tap(find.widgetWithText(TextButton, 'Send'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Should fail'), findsOneWidget);
+    expect(find.text('Could not post comment. Try again.'), findsOneWidget);
+    expect(find.textContaining('No comments yet'), findsOneWidget);
 
     auth.dispose();
     await comments.dispose();
@@ -119,6 +125,10 @@ void main() {
 }
 
 class _FakeCommentService implements CommentService {
+  _FakeCommentService({this.failNextAdd = false});
+
+  final bool failNextAdd;
+  int addCalls = 0;
   final List<ActivityComment> _comments = <ActivityComment>[];
   final StreamController<List<ActivityComment>> _controller =
       StreamController<List<ActivityComment>>.broadcast();
@@ -145,13 +155,19 @@ class _FakeCommentService implements CommentService {
     String? authorUsername,
     String? authorPhotoUrl,
   }) async {
+    addCalls += 1;
+    if (failNextAdd) {
+      throw Exception('persist failed');
+    }
     final comment = ActivityComment(
-      id: 'c1',
+      id: 'c-$addCalls',
       activityId: activityId,
       authorId: authorId,
       authorDisplayName: authorDisplayName,
+      authorUsername: authorUsername,
+      authorPhotoUrl: authorPhotoUrl,
       text: text.trim(),
-      createdAt: DateTime(2026, 8, 6),
+      createdAt: DateTime(2026, 8, 6, 12),
     );
     _comments.insert(0, comment);
     _controller.add(List<ActivityComment>.from(_comments));

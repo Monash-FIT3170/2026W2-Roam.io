@@ -2,12 +2,13 @@
  * Author: Sanjevan Rajasegar
  * Last Updated: 6 August 2026
  * Description:
- *   Provides the You destination with Profile and Activities tabs. Profile uses
- *   a densified Strava-style header (64px avatar + compact identity/XP/stats
- *   column). Metric pills sit in an AppSurfaces.card (sand) rounded tray.
- *   Bottom scroll padding uses a single nav clearance plus a small visual gap;
- *   Recent Visited Locations shrink-wraps via Column so Scaffold extendBody
- *   MediaQuery padding cannot inflate the card.
+ *   Provides the You destination with Profile and Activities tabs. Profile
+ *   analytics are owned by YouAnalyticsProvider (latest lists + live watches)
+ *   so XP graph, visits, and tiles survive Activities ↔ Profile remounts and
+ *   Activity Detail navigation. Profile uses a densified header (64px avatar +
+ *   identity/XP) above a full-width stats row. Activities shows a personal stub
+ *   via shared activity_feed cards (temporary; not persisted). Personal detail
+ *   has no engagement controls.
  */
 
 import 'package:flutter/material.dart';
@@ -17,6 +18,9 @@ import '../../../services/profile_service.dart';
 import '../../../shared/widgets/app_bottom_nav_bar.dart';
 import '../../../theme/app_colours.dart';
 import '../../../theme/app_surfaces.dart';
+import '../../activity_feed/data/stub_activity_feed_data.dart';
+import '../../activity_feed/screens/activity_detail_screen.dart';
+import '../../activity_feed/widgets/activity_feed_card.dart';
 import '../../auth/providers/auth_provider.dart';
 import '../../map/data/visit.dart';
 import '../../map/data/visit_service.dart';
@@ -24,7 +28,7 @@ import '../../map/data/visited_region_service.dart';
 import '../../profile/domain/profile_model.dart';
 import '../../profile/domain/visited_polygon_record.dart';
 import '../../profile/domain/xp_event.dart';
-import '../widgets/activity_feed_card.dart';
+import '../providers/you_analytics_provider.dart';
 import '../widgets/recent_visited_locations_card.dart';
 import '../widgets/xp_progress_section.dart';
 
@@ -57,38 +61,29 @@ class YouScreen extends StatefulWidget {
 class _YouScreenState extends State<YouScreen>
     with SingleTickerProviderStateMixin {
   late final TabController _tabController;
-  VisitService? _visitService;
-  VisitedRegionService? _visitedRegionService;
-  ProfileService? _profileService;
+  late final YouAnalyticsProvider _analytics;
   _GraphMetric _selectedGraphMetric = _GraphMetric.locationsVisited;
-  String? _streamsUid;
-  Stream<List<Visit>>? _visitsBroadcast;
-  Stream<List<VisitedPolygonRecord>>? _tileRecordsBroadcast;
-  Stream<List<Visit>>? _recentVisitsBroadcast;
-  Stream<List<XpEvent>>? _xpEventsBroadcast;
-
-  VisitService get _effectiveVisitService {
-    return _visitService ??= widget.visitService ?? VisitService();
-  }
-
-  VisitedRegionService get _effectiveVisitedRegionService {
-    return _visitedRegionService ??=
-        widget.visitedRegionService ?? VisitedRegionService();
-  }
-
-  ProfileService get _effectiveProfileService {
-    return _profileService ??= widget.profileService ?? ProfileService();
-  }
 
   @override
   void initState() {
     super.initState();
     _tabController = TabController(length: 2, vsync: this);
+    // When tests inject VisitService without ProfileService, skip Firebase XP.
+    final profileService =
+        widget.profileService ??
+        (widget.visitService != null ? null : ProfileService());
+    _analytics = YouAnalyticsProvider(
+      visitService: widget.visitService,
+      visitedRegionService: widget.visitedRegionService,
+      profileService: profileService,
+      xpEventsStream: widget.xpEventsStream,
+    );
   }
 
   @override
   void dispose() {
     _tabController.dispose();
+    _analytics.dispose();
     super.dispose();
   }
 
@@ -99,87 +94,46 @@ class _YouScreenState extends State<YouScreen>
     });
   }
 
-  Stream<List<XpEvent>> _rawXpEventsForUid(String? uid) {
-    if (widget.xpEventsStream != null) {
-      return widget.xpEventsStream!;
-    }
-    if (uid == null) {
-      return Stream<List<XpEvent>>.value(const <XpEvent>[]);
-    }
-    // Widget tests inject VisitService without Firebase. Avoid constructing
-    // ProfileService unless a profileService was provided or this is production.
-    if (widget.profileService == null && widget.visitService != null) {
-      return Stream<List<XpEvent>>.value(const <XpEvent>[]);
-    }
-    return _effectiveProfileService.watchXpEvents(uid);
-  }
-
-  void _ensureStreams(String? uid) {
-    if (_streamsUid == uid &&
-        _visitsBroadcast != null &&
-        _tileRecordsBroadcast != null &&
-        _recentVisitsBroadcast != null &&
-        _xpEventsBroadcast != null) {
-      return;
-    }
-
-    _streamsUid = uid;
-    _visitsBroadcast =
-        (uid == null
-                ? Stream<List<Visit>>.value(const <Visit>[])
-                : _effectiveVisitService.watchAllVisits(uid))
-            .asBroadcastStream();
-    _tileRecordsBroadcast =
-        (uid == null
-                ? Stream<List<VisitedPolygonRecord>>.value(
-                    const <VisitedPolygonRecord>[],
-                  )
-                : _effectiveVisitedRegionService.watchVisitedPolygonRecords())
-            .asBroadcastStream();
-    _recentVisitsBroadcast =
-        (uid == null
-                ? Stream<List<Visit>>.value(const <Visit>[])
-                : _effectiveVisitService.watchRecentVisits(uid))
-            .asBroadcastStream();
-    _xpEventsBroadcast = _rawXpEventsForUid(uid).asBroadcastStream();
-  }
-
   @override
   Widget build(BuildContext context) {
-    return Container(
-      color: AppSurfaces.pageBackground(context),
-      child: SafeArea(
-        bottom: false,
-        child: Consumer<AuthProvider>(
-          builder: (context, auth, _) {
-            final profile = auth.currentProfile;
-            final uid = auth.currentUser?.uid;
-            _ensureStreams(uid);
+    return ChangeNotifierProvider<YouAnalyticsProvider>.value(
+      value: _analytics,
+      child: Container(
+        color: AppSurfaces.pageBackground(context),
+        child: SafeArea(
+          bottom: false,
+          child: Consumer2<AuthProvider, YouAnalyticsProvider>(
+            builder: (context, auth, analytics, _) {
+              final profile = auth.currentProfile;
+              final uid = auth.currentUser?.uid;
+              if (analytics.boundUid != uid) {
+                WidgetsBinding.instance.addPostFrameCallback((_) {
+                  if (!mounted) return;
+                  _analytics.bindUid(uid);
+                });
+              }
 
-            return Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                _YouTabBar(controller: _tabController),
-                Expanded(
-                  child: TabBarView(
-                    controller: _tabController,
-                    children: [
-                      _ProfileTab(
-                        profile: profile,
-                        visitsStream: _visitsBroadcast!,
-                        tileRecordsStream: _tileRecordsBroadcast!,
-                        recentVisitsStream: _recentVisitsBroadcast!,
-                        xpEventsStream: _xpEventsBroadcast!,
-                        selectedGraphMetric: _selectedGraphMetric,
-                        onGraphMetricSelected: _selectGraphMetric,
-                      ),
-                      _ActivitiesTab(profile: profile),
-                    ],
+              return Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _YouTabBar(controller: _tabController),
+                  Expanded(
+                    child: TabBarView(
+                      controller: _tabController,
+                      children: [
+                        _ProfileTab(
+                          profile: profile,
+                          selectedGraphMetric: _selectedGraphMetric,
+                          onGraphMetricSelected: _selectGraphMetric,
+                        ),
+                        _ActivitiesTab(profile: profile),
+                      ],
+                    ),
                   ),
-                ),
-              ],
-            );
-          },
+                ],
+              );
+            },
+          ),
         ),
       ),
     );
@@ -227,90 +181,66 @@ class _YouTabBar extends StatelessWidget {
 class _ProfileTab extends StatelessWidget {
   const _ProfileTab({
     required this.profile,
-    required this.visitsStream,
-    required this.tileRecordsStream,
-    required this.recentVisitsStream,
-    required this.xpEventsStream,
     required this.selectedGraphMetric,
     required this.onGraphMetricSelected,
   });
 
   final ProfileModel? profile;
-  final Stream<List<Visit>> visitsStream;
-  final Stream<List<VisitedPolygonRecord>> tileRecordsStream;
-  final Stream<List<Visit>> recentVisitsStream;
-  final Stream<List<XpEvent>> xpEventsStream;
   final _GraphMetric selectedGraphMetric;
   final ValueChanged<_GraphMetric> onGraphMetricSelected;
 
   @override
   Widget build(BuildContext context) {
     final bottomClearance = AppBottomNavBar.clearanceFromScreenBottom(context);
+    final analytics = context.watch<YouAnalyticsProvider>();
+    final visits = analytics.visits;
+    final tileRecords = analytics.tileRecords;
+    final xpEvents = analytics.xpEvents;
 
-    return StreamBuilder<List<Visit>>(
-      stream: visitsStream,
-      builder: (context, visitsSnapshot) {
-        final visits = visitsSnapshot.data ?? const <Visit>[];
-
-        return StreamBuilder<List<VisitedPolygonRecord>>(
-          stream: tileRecordsStream,
-          builder: (context, tileSnapshot) {
-            final tileRecords =
-                tileSnapshot.data ?? const <VisitedPolygonRecord>[];
-
-            return StreamBuilder<List<XpEvent>>(
-              stream: xpEventsStream,
-              builder: (context, xpSnapshot) {
-                final xpEvents = xpSnapshot.data ?? const <XpEvent>[];
-
-                return SingleChildScrollView(
-                  padding: EdgeInsets.only(bottom: bottomClearance + 12),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const SizedBox(height: 14),
-                      Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 24),
-                        child: _ProfileHeader(
-                          profile: profile,
-                          tileCount: tileRecords.length,
-                        ),
-                      ),
-                      const SizedBox(height: 18),
-                      Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 24),
-                        child: _MetricLineGraphSection(
-                          visits: visits,
-                          tileRecords: tileRecords,
-                          xpEvents: xpEvents,
-                          selectedMetric: selectedGraphMetric,
-                          onMetricSelected: onGraphMetricSelected,
-                        ),
-                      ),
-                      const SizedBox(height: 22),
-                      const _SectionTitle(title: 'Most Visited Location'),
-                      const SizedBox(height: 10),
-                      Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 24),
-                        child: _MostVisitedLocationBubble(visits: visits),
-                      ),
-                      const SizedBox(height: 18),
-                      const _SectionTitle(title: 'Recent Visited Locations'),
-                      const SizedBox(height: 10),
-                      Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 24),
-                        child: RecentVisitedLocationsCard(
-                          visitsStream: recentVisitsStream,
-                        ),
-                      ),
-                    ],
-                  ),
-                );
-              },
-            );
-          },
-        );
-      },
+    return SingleChildScrollView(
+      padding: EdgeInsets.only(bottom: bottomClearance + 12),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const SizedBox(height: 14),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 24),
+            child: _ProfileHeader(
+              profile: profile,
+              tileCount: tileRecords.length,
+            ),
+          ),
+          const SizedBox(height: 18),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 24),
+            child: _MetricLineGraphSection(
+              visits: visits,
+              tileRecords: tileRecords,
+              xpEvents: xpEvents,
+              selectedMetric: selectedGraphMetric,
+              onMetricSelected: onGraphMetricSelected,
+            ),
+          ),
+          const SizedBox(height: 22),
+          const _SectionTitle(title: 'Most Visited Location'),
+          const SizedBox(height: 10),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 24),
+            child: _MostVisitedLocationBubble(visits: visits),
+          ),
+          const SizedBox(height: 18),
+          const _SectionTitle(title: 'Recent Visited Locations'),
+          const SizedBox(height: 10),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 24),
+            child: RecentVisitedLocationsCard(
+              visits: analytics.recentVisits,
+              isLoading: !analytics.recentVisitsReady,
+              error: analytics.recentVisitsError,
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
@@ -322,30 +252,35 @@ class _ActivitiesTab extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final bottomClearance = AppBottomNavBar.clearanceFromScreenBottom(context);
-    final displayName = profile?.displayName ?? 'Traveller';
+    final bottomClearance =
+        AppBottomNavBar.clearanceFromScreenBottom(context) + 12;
+    final activity = StubActivityFeedData.personalJourney.copyWith(
+      displayName: profile?.displayName ?? 'Traveller',
+      username: profile?.username,
+      photoUrl: profile?.photoUrl,
+    );
 
     return SingleChildScrollView(
       padding: EdgeInsets.fromLTRB(24, 20, 24, bottomClearance),
-      child: ActivityFeedCard(
-        displayName: displayName,
-        username: profile?.username,
-        photoUrl: profile?.photoUrl,
-        timestampLabel: 'August 3, 2026 at 10:07 AM',
-        title: 'Morning Weight Training',
-        metrics: const [
-          ActivityFeedMetric(label: 'Time', value: '47m 51s'),
-          ActivityFeedMetric(label: 'Avg HR', value: '108 bpm'),
-          ActivityFeedMetric(label: 'Sets', value: '1'),
-        ],
+      child: ActivityFeedCard.fromItem(
+        activity,
+        onOverflowTap: () {
+          Navigator.of(context).push(
+            MaterialPageRoute<void>(
+              builder: (_) => ActivityDetailScreen(activity: activity),
+            ),
+          );
+        },
+        onKudosTap: () {},
+        onCommentTap: () {},
+        onShareTap: () {},
       ),
     );
   }
 }
 
-/// Densified Strava-style identity header: 64px avatar with name, username,
-/// XP, and five stats in a compact adjacent column (no large dead zone under
-/// the avatar).
+/// Densified identity header: 64px avatar with name/username/XP, then a
+/// full-width five-stat row beneath.
 class _ProfileHeader extends StatelessWidget {
   const _ProfileHeader({required this.profile, required this.tileCount});
 
@@ -360,65 +295,73 @@ class _ProfileHeader extends StatelessWidget {
     final username = profile?.username ?? '-';
     final photoUrl = profile?.photoUrl;
 
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Container(
-          width: 64,
-          height: 64,
-          decoration: BoxDecoration(
-            color: AppSurfaces.softCard(context),
-            shape: BoxShape.circle,
-            border: Border.all(color: colorScheme.primary, width: 2),
-          ),
-          child: ClipOval(
-            child: photoUrl != null && photoUrl.isNotEmpty
-                ? Image.network(
-                    photoUrl,
-                    fit: BoxFit.cover,
-                    errorBuilder: (context, error, stackTrace) =>
-                        Icon(Icons.person_rounded, color: colorScheme.primary),
-                  )
-                : Icon(Icons.person_rounded, color: colorScheme.primary),
-          ),
-        ),
-        const SizedBox(width: 12),
-        Expanded(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                displayName,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: theme.textTheme.titleMedium?.copyWith(
-                  color: AppSurfaces.textPrimary(context),
-                  fontWeight: FontWeight.w900,
-                  fontSize: 20,
-                  height: 1.0,
-                ),
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Container(
+              width: 64,
+              height: 64,
+              decoration: BoxDecoration(
+                color: AppSurfaces.softCard(context),
+                shape: BoxShape.circle,
+                border: Border.all(color: colorScheme.primary, width: 2),
               ),
-              const SizedBox(height: 2),
-              Text(
-                '@$username',
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: theme.textTheme.labelMedium?.copyWith(
-                  color: AppSurfaces.textMuted(context),
-                  fontWeight: FontWeight.w700,
-                  height: 1.0,
-                ),
+              child: ClipOval(
+                child: photoUrl != null && photoUrl.isNotEmpty
+                    ? Image.network(
+                        photoUrl,
+                        fit: BoxFit.cover,
+                        errorBuilder: (context, error, stackTrace) => Icon(
+                          Icons.person_rounded,
+                          color: colorScheme.primary,
+                        ),
+                      )
+                    : Icon(Icons.person_rounded, color: colorScheme.primary),
               ),
-              if (profile != null) ...[
-                const SizedBox(height: 4),
-                XpProgressSection(profile: profile!, compact: true),
-              ],
-              const SizedBox(height: 12),
-              _ProfileStatsRow(tileCount: tileCount),
-            ],
-          ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    displayName,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: theme.textTheme.titleMedium?.copyWith(
+                      color: AppSurfaces.textPrimary(context),
+                      fontWeight: FontWeight.w900,
+                      fontSize: 20,
+                      height: 1.0,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    '@$username',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: theme.textTheme.labelMedium?.copyWith(
+                      color: AppSurfaces.textMuted(context),
+                      fontWeight: FontWeight.w700,
+                      height: 1.0,
+                    ),
+                  ),
+                  if (profile != null) ...[
+                    const SizedBox(height: 4),
+                    XpProgressSection(profile: profile!, compact: true),
+                  ],
+                ],
+              ),
+            ),
+          ],
         ),
+        const SizedBox(height: 12),
+        _ProfileStatsRow(tileCount: tileCount),
       ],
     );
   }

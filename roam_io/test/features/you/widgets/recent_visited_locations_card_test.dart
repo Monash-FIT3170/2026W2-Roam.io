@@ -28,9 +28,7 @@ void main() {
     await tester.pumpWidget(
       MaterialApp(
         home: Scaffold(
-          body: RecentVisitedLocationsCard(
-            visitsStream: Stream<List<Visit>>.value(<Visit>[visit]),
-          ),
+          body: RecentVisitedLocationsCard(visits: <Visit>[visit]),
         ),
       ),
     );
@@ -43,12 +41,8 @@ void main() {
 
   testWidgets('shows friendly empty state when no visits', (tester) async {
     await tester.pumpWidget(
-      MaterialApp(
-        home: Scaffold(
-          body: RecentVisitedLocationsCard(
-            visitsStream: Stream<List<Visit>>.value(<Visit>[]),
-          ),
-        ),
+      const MaterialApp(
+        home: Scaffold(body: RecentVisitedLocationsCard(visits: <Visit>[])),
       ),
     );
     await tester.pumpAndSettle();
@@ -71,11 +65,7 @@ void main() {
 
     await tester.pumpWidget(
       MaterialApp(
-        home: Scaffold(
-          body: RecentVisitedLocationsCard(
-            visitsStream: Stream<List<Visit>>.value(visits),
-          ),
-        ),
+        home: Scaffold(body: RecentVisitedLocationsCard(visits: visits)),
       ),
     );
     await tester.pumpAndSettle();
@@ -109,7 +99,7 @@ void main() {
               alignment: Alignment.topCenter,
               child: RecentVisitedLocationsCard(
                 key: const Key('recent-visits-card'),
-                visitsStream: Stream<List<Visit>>.value(visits),
+                visits: visits,
               ),
             ),
             bottomNavigationBar: const SizedBox(

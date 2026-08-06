@@ -60,7 +60,7 @@ lib/
 
 The authenticated shell uses five bottom-navigation destinations:
 
-1. `Home` — activity-oriented surface that currently consolidates Journeys and Quests.
+1. `Home` — friend activity feed surface (temporary stubs until the social feed lands).
 2. `Social` — foundation for future friend and community tools.
 3. `Map` — existing map experience.
 4. `You` — personal activity dashboard, migrated from the old Analytics tab.
@@ -85,24 +85,32 @@ the updated value can be reviewed before manually navigating back.
 
 `You` owns personal profile context and personal activity surfaces. It uses
 internal `Profile` and `Activities` tabs rather than adding more bottom-nav
-destinations. `Profile` keeps a compact Strava-style identity row: the avatar
-sits beside a single column with display name, username, level/XP progress, and
-the five-stat row (Following/Followers/Tiles/Journeys/Sidequests), then a
-metric-selectable interactive line
-graph. Locations Visited and Tiles Unlocked use existing visit/polygon
-timestamps. XP Gained uses timestamped `profiles/{uid}/xp_events` recorded
-**after** the canonical `profiles/{uid}` XP/level update succeeds. History is
-secondary analytics: a failure to write an XP event must never roll back or
-block progression. History accumulates from the point event tracking was
-introduced — existing aggregate XP is not reverse-engineered into fabricated
-past weeks. Weekly buckets use
-Monday-start local calendar weeks. Tapping a graph point selects it and shows
-that week's exact value; changing metric resets selection. Journey and sidequest
-graph modes remain empty until those domain sources exist. Bottom scroll padding
-uses `AppBottomNavBar.clearanceFromScreenBottom` with `SafeArea(bottom: false)`
-so content is not double-inset under the floating nav. `Activities` shows a
-static placeholder via reusable `ActivityFeedCard` for the upcoming feed work;
-kudos/comment/share are UI-only.
+destinations. `Profile` keeps a compact identity row (64px avatar beside
+display name, username, and level/XP) with the five-stat row
+(Following/Followers/Tiles/Journeys/Sidequests) full-width beneath, then a
+metric-selectable interactive line graph. Analytics subscriptions live in
+`YouAnalyticsProvider`, which holds the latest visits / tiles / XP events so
+Profile data survives Activities tab remounts and Activity Detail push/pop
+(do not cache Firestore watches with `.asBroadcastStream()` on the screen).
+Locations Visited and Tiles Unlocked use existing visit/polygon timestamps.
+XP Gained uses timestamped `profiles/{uid}/xp_events` recorded **after** the
+canonical `profiles/{uid}` XP/level update succeeds. History is secondary
+analytics: a failure to write an XP event must never roll back or block
+progression. History accumulates from the point event tracking was introduced —
+existing aggregate XP is not reverse-engineered into fabricated past weeks.
+Weekly buckets use Monday-start local calendar weeks. Tapping a graph point
+selects it and shows that week's exact value; changing metric resets selection.
+Journey and sidequest graph modes remain empty until those domain sources
+exist. Bottom scroll padding uses `AppBottomNavBar.clearanceFromScreenBottom`
+with `SafeArea(bottom: false)` so content is not double-inset under the
+floating nav. `Activities` shows a personal stub via shared `activity_feed`
+cards; overflow opens a journey detail screen with **no** engagement controls.
+Personal cards keep Kudos / Comment / Share as UI placeholders only. `Home`
+uses a distinct friend stub dataset with **Kudos + Comment** only (Share
+omitted for privacy). Comment opens `CommentsScreen` backed by
+`activities/{activityId}/comments` via `CommentService`. Notifications for
+comments are deferred. Sidequest stubs use Time / Locations Visited / XP Gained
+(same shape as journeys). Map preview remains a replaceable placeholder.
 
 ### Notifications
 

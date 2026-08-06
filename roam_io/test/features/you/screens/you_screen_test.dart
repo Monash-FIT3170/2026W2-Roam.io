@@ -1,9 +1,10 @@
 /*
  * Author: Sanjevan Rajasegar
- * Last Updated: 5 August 2026
+ * Last Updated: 6 August 2026
  * Description:
  *   Regression tests for You screen tabs, profile identity XP progress,
- *   social/exploration stats, metric line graphs, and location states.
+ *   full-width social/exploration stats, metric line graphs, activities stub,
+ *   and location states.
  */
 
 import 'dart:async';
@@ -201,8 +202,9 @@ void main() {
 
     expect(find.text('Most Visited Location'), findsOneWidget);
     expect(find.text('Your top location'), findsOneWidget);
-    expect(find.text('Lakeside Cafe'), findsOneWidget);
-    expect(find.text('City Park'), findsNothing);
+    expect(find.text('Lakeside Cafe'), findsWidgets);
+    // City Park appears in Recent Visited Locations (not most-visited).
+    expect(find.text('City Park'), findsOneWidget);
 
     provider.dispose();
   });
@@ -303,7 +305,7 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.text('Your top location'), findsOneWidget);
-      expect(find.text('Lakeside Cafe'), findsOneWidget);
+      expect(find.text('Lakeside Cafe'), findsWidgets);
       expect(find.text('2'), findsWidgets);
 
       await visitService.dispose();
@@ -338,11 +340,30 @@ void main() {
     await tester.tap(find.text('Activities'));
     await tester.pumpAndSettle();
     expect(find.text('No activities yet'), findsNothing);
-    expect(find.text('Morning Weight Training'), findsOneWidget);
+    expect(find.text('Journey to Coles'), findsOneWidget);
     expect(find.text('August 3, 2026 at 10:07 AM'), findsOneWidget);
     expect(find.text('47m 51s'), findsOneWidget);
-    expect(find.text('108 bpm'), findsOneWidget);
+    expect(find.text('Locations Visited'), findsOneWidget);
+    expect(find.text('4'), findsOneWidget);
+    expect(find.text('+200 XP'), findsOneWidget);
+    expect(find.text('Map preview'), findsOneWidget);
+    expect(find.text('Morning Weight Training'), findsNothing);
     expect(find.text('Traveller'), findsOneWidget);
+    expect(find.text('Kudos'), findsOneWidget);
+    expect(find.text('Comment'), findsOneWidget);
+    expect(find.text('Share'), findsOneWidget);
+
+    await tester.tap(find.byIcon(Icons.more_horiz_rounded));
+    await tester.pumpAndSettle();
+    expect(find.text('Journey to Coles'), findsOneWidget);
+    expect(find.text('Journey route map'), findsOneWidget);
+    expect(find.text('Kudos'), findsNothing);
+    expect(find.text('Comment'), findsNothing);
+    expect(find.text('Share'), findsNothing);
+    await tester.pageBack();
+    await tester.pumpAndSettle();
+
+    // Personal card still shows engagement placeholders after detail pop.
     expect(find.text('Kudos'), findsOneWidget);
     expect(find.text('Comment'), findsOneWidget);
     expect(find.text('Share'), findsOneWidget);
@@ -572,6 +593,107 @@ void main() {
 
     provider.dispose();
   });
+
+  testWidgets(
+    'profile analytics survive Activities detail navigation and stay reactive',
+    (tester) async {
+      await tester.binding.setSurfaceSize(const Size(400, 1400));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+
+      final weekStart = _mondayOnOrBefore(DateTime.now());
+      final visits = <Visit>[
+        Visit(
+          placeId: 1,
+          googlePlaceId: 'park-1',
+          placeName: 'Persistent Park',
+          regionId: 'region-a',
+          category: 'nature',
+          visitedAt: weekStart.add(const Duration(hours: 3)),
+        ),
+      ];
+      final visitService = _FakeVisitService(
+        totalVisitCount: 1,
+        allVisits: visits,
+      );
+      final regionService = _FakeVisitedRegionService(<String>{
+        'region-a',
+        'region-b',
+      });
+      final xpController = StreamController<List<XpEvent>>.broadcast();
+      final provider = AuthProvider(
+        authRepository: _FakeAuthRepository(_buildProfile(xp: 250)),
+      );
+      await provider.refreshCurrentUser();
+
+      await tester.pumpWidget(
+        ChangeNotifierProvider<AuthProvider>.value(
+          value: provider,
+          child: MaterialApp(
+            home: Scaffold(
+              body: YouScreen(
+                visitService: visitService,
+                visitedRegionService: regionService,
+                xpEventsStream: xpController.stream,
+              ),
+            ),
+          ),
+        ),
+      );
+      xpController.add(<XpEvent>[
+        XpEvent(
+          id: 'xp-1',
+          amount: 40,
+          earnedAt: weekStart.add(const Duration(hours: 2)),
+          source: XpEventSource.visit,
+        ),
+      ]);
+      await tester.pumpAndSettle();
+
+      expect(find.text('Persistent Park'), findsWidgets);
+      expect(find.text('Tiles'), findsOneWidget);
+      expect(find.text('2'), findsWidgets);
+
+      await tester.ensureVisible(find.text('XP Gained'));
+      await tester.tap(find.text('XP Gained'));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('Activities'));
+      await tester.pumpAndSettle();
+      expect(find.text('Journey to Coles'), findsOneWidget);
+
+      await tester.tap(find.byIcon(Icons.more_horiz_rounded));
+      await tester.pumpAndSettle();
+      expect(find.text('Journey route map'), findsOneWidget);
+      expect(find.text('Kudos'), findsNothing);
+
+      await tester.pageBack();
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Profile'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Persistent Park'), findsWidgets);
+      expect(find.text('2'), findsWidgets);
+
+      visitService.emitAllVisits(<Visit>[
+        ...visits,
+        Visit(
+          placeId: 2,
+          googlePlaceId: 'cafe-1',
+          placeName: 'Reactive Cafe',
+          regionId: 'region-a',
+          category: 'food',
+          visitedAt: weekStart.add(const Duration(hours: 5)),
+        ),
+      ]);
+      await tester.pumpAndSettle();
+      expect(find.text('Reactive Cafe'), findsWidgets);
+
+      provider.dispose();
+      await visitService.dispose();
+      await regionService.dispose();
+      await xpController.close();
+    },
+  );
 }
 
 DateTime _mondayOnOrBefore(DateTime date) {
@@ -652,7 +774,15 @@ class _FakeVisitService implements VisitService {
 
   @override
   Stream<List<Visit>> watchRecentVisits(String userId, {int limit = 5}) {
-    return Stream<List<Visit>>.value(const <Visit>[]);
+    return Stream<List<Visit>>.multi((controller) {
+      controller.add(_allVisits.take(limit).toList());
+      final subscription = _allVisitsController.stream.listen(
+        (visits) => controller.add(visits.take(limit).toList()),
+        onError: controller.addError,
+        onDone: controller.close,
+      );
+      controller.onCancel = subscription.cancel;
+    });
   }
 
   void emitAllVisits(List<Visit> visits) {

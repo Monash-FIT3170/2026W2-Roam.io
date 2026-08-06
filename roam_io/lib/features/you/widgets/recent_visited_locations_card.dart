@@ -2,10 +2,11 @@
  * Author: Sanjevan Rajasegar
  * Last Updated: 6 August 2026
  * Description:
- *   You screen card for up to five recent visits. Uses a shrink-wrapping
- *   Column (not ListView) so Scaffold(extendBody: true) MediaQuery bottom
- *   padding cannot inflate empty beige space inside the card; the parent
- *   Profile scroll view already handles nav clearance.
+ *   You screen card for up to five recent visits. Accepts the latest visit
+ *   list from YouAnalyticsProvider so data survives Profile tab remounts.
+ *   Shrink-wrapping Column avoids Scaffold(extendBody: true) MediaQuery bottom
+ *   padding inflating empty beige space; parent Profile scroll handles nav
+ *   clearance.
  */
 
 import 'package:flutter/material.dart';
@@ -20,9 +21,16 @@ const int kRecentVisitedLocationsLimit = 5;
 
 /// Card shell matching personal progress containers on the You screen.
 class RecentVisitedLocationsCard extends StatelessWidget {
-  const RecentVisitedLocationsCard({super.key, required this.visitsStream});
+  const RecentVisitedLocationsCard({
+    super.key,
+    required this.visits,
+    this.isLoading = false,
+    this.error,
+  });
 
-  final Stream<List<Visit>> visitsStream;
+  final List<Visit> visits;
+  final bool isLoading;
+  final Object? error;
 
   @override
   Widget build(BuildContext context) {
@@ -40,72 +48,65 @@ class RecentVisitedLocationsCard extends StatelessWidget {
           ),
         ],
       ),
-      child: StreamBuilder(
-        stream: visitsStream,
-        builder: (context, AsyncSnapshot<List<Visit>> snapshot) {
-          if (snapshot.hasError) {
-            return Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
-              child: Text(
-                'Could not load recent visits. Try again later.',
-                textAlign: TextAlign.center,
-                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                  color: AppSurfaces.textMuted(context),
-                ),
-              ),
-            );
-          }
+      child: _buildBody(context),
+    );
+  }
 
-          if (snapshot.connectionState == ConnectionState.waiting &&
-              !snapshot.hasData) {
-            return const Padding(
-              padding: EdgeInsets.symmetric(vertical: 28),
-              child: Center(
-                child: SizedBox(
-                  width: 28,
-                  height: 28,
-                  child: CircularProgressIndicator(strokeWidth: 2),
-                ),
-              ),
-            );
-          }
+  Widget _buildBody(BuildContext context) {
+    if (error != null) {
+      return Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
+        child: Text(
+          'Could not load recent visits. Try again later.',
+          textAlign: TextAlign.center,
+          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+            color: AppSurfaces.textMuted(context),
+          ),
+        ),
+      );
+    }
 
-          final visits = (snapshot.data ?? const <Visit>[])
-              .take(kRecentVisitedLocationsLimit)
-              .toList();
+    if (isLoading) {
+      return const Padding(
+        padding: EdgeInsets.symmetric(vertical: 28),
+        child: Center(
+          child: SizedBox(
+            width: 28,
+            height: 28,
+            child: CircularProgressIndicator(strokeWidth: 2),
+          ),
+        ),
+      );
+    }
 
-          if (visits.isEmpty) {
-            return Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 22),
-              child: Text(
-                'No visits yet. Mark places on the map to see them here.',
-                textAlign: TextAlign.center,
-                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                  color: AppSurfaces.textMuted(context),
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-            );
-          }
+    final limited = visits.take(kRecentVisitedLocationsLimit).toList();
 
-          return Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              for (var index = 0; index < visits.length; index++) ...[
-                if (index > 0)
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 24),
-                    child: Divider(
-                      color: AppSurfaces.border(context),
-                      height: 1,
-                    ),
-                  ),
-                _VisitRow(visit: visits[index]),
-              ],
-            ],
-          );
-        },
-      ),
+    if (limited.isEmpty) {
+      return Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 22),
+        child: Text(
+          'No visits yet. Mark places on the map to see them here.',
+          textAlign: TextAlign.center,
+          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+            color: AppSurfaces.textMuted(context),
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+      );
+    }
+
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        for (var index = 0; index < limited.length; index++) ...[
+          if (index > 0)
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 24),
+              child: Divider(color: AppSurfaces.border(context), height: 1),
+            ),
+          _VisitRow(visit: limited[index]),
+        ],
+      ],
     );
   }
 }

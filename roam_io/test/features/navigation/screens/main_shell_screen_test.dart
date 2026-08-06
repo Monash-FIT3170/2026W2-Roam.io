@@ -1,8 +1,8 @@
 /*
  * Author: Sanjevan Rajasegar
- * Last Updated: 5 August 2026
+ * Last Updated: 6 August 2026
  * Description:
- *   Widget tests for main shell tab switching, Home consolidation, and
+ *   Widget tests for main shell tab switching, Home friend feed stubs, and
  *   notification action toast feedback.
  */
 
@@ -61,11 +61,10 @@ void main() {
     await tester.tap(find.text('HOME'));
     await tester.pumpAndSettle();
     expect(find.text('Home'), findsOneWidget);
-    expect(find.text('32 XP earned'), findsOneWidget);
-
-    await tester.tap(find.text('Quests'));
-    await tester.pumpAndSettle();
-    expect(find.text('Quest content goes here'), findsOneWidget);
+    expect(find.text('Amar'), findsOneWidget);
+    expect(find.text('Sidequest with Mates'), findsOneWidget);
+    expect(find.text('Journeys'), findsNothing);
+    expect(find.text('Quests'), findsNothing);
 
     await tester.tap(find.text('SOCIAL'));
     await tester.pumpAndSettle();
