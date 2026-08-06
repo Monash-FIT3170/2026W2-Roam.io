@@ -1,14 +1,18 @@
 /*
  * Author: Sanjevan Rajasegar
- * Last Updated: 5 August 2026
+ * Last Updated: 6 August 2026
  * Description:
  *   Provides Firestore profile document operations for account details,
  *   preferences, profile photo metadata, and timestamped XP gain events.
+ *   Canonical XP/level on profiles/{uid} is authoritative; xp_events history
+ *   is secondary analytics and must never block progression.
  */
 
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flutter/foundation.dart';
 
 import '../features/profile/domain/profile_model.dart';
+import '../features/profile/domain/xp_award_result.dart';
 import '../features/profile/domain/xp_event.dart';
 
 /// Owns reads and writes for Firestore documents in the `profiles` collection.
@@ -16,10 +20,18 @@ class ProfileService {
   static const String _profilesCollectionName = 'profiles';
   static const String _xpEventsCollectionName = 'xp_events';
 
-  ProfileService({FirebaseFirestore? firestore})
-    : _firestore = firestore ?? FirebaseFirestore.instance;
+  ProfileService({
+    FirebaseFirestore? firestore,
+    Future<void> Function(String uid, XpEvent event)? recordXpEvent,
+  }) : _firestore = firestore ?? FirebaseFirestore.instance,
+       _recordXpEventOverride = recordXpEvent;
 
   final FirebaseFirestore _firestore;
+
+  /// Optional seam for tests to force XP history write failures without
+  /// affecting the canonical progression transaction.
+  final Future<void> Function(String uid, XpEvent event)?
+  _recordXpEventOverride;
 
   CollectionReference<Map<String, dynamic>> get _profiles =>
       _firestore.collection(_profilesCollectionName);
@@ -131,8 +143,8 @@ class ProfileService {
 
   /// Updates the user's XP and recalculates level if necessary.
   ///
-  /// Does not create an XP history event. Prefer [addXp] for awards so the
-  /// aggregate total and a timestamped event stay in sync.
+  /// Does not create an XP history event. Prefer [addXp] for awards so a
+  /// best-effort timestamped event can be recorded after progression.
   Future<void> updateXp(String uid, int newXp) async {
     final expectedLevel = ProfileModel.levelFromXp(newXp);
     await _profiles.doc(uid).update(<String, dynamic>{
@@ -142,48 +154,113 @@ class ProfileService {
     });
   }
 
-  /// Adds XP and records a timestamped gain event in one Firestore transaction.
+  /// Awards XP on the canonical profile document, then best-effort records
+  /// a timestamped xp_events entry for analytics.
   ///
-  /// History begins when this path is used; existing aggregate XP is never
+  /// Canonical XP/level is written in a Firestore transaction that does **not**
+  /// include history. A failure to write `xp_events` never rolls back or
+  /// fails the award — [XpAwardResult.historyRecorded] is false in that case.
+  /// History begins when events are recorded; existing aggregate XP is never
   /// reverse-engineered into fabricated past events.
-  Future<void> addXp(
+  Future<XpAwardResult> addXp(
     String uid,
     int xpToAdd, {
     XpEventSource source = XpEventSource.unknown,
     String? sourceId,
   }) async {
-    if (xpToAdd <= 0) return;
+    if (xpToAdd <= 0) {
+      return XpAwardResult.failed(amount: xpToAdd);
+    }
 
     final profileRef = _profiles.doc(uid);
-    final eventRef = _xpEvents(uid).doc();
     final earnedAt = DateTime.now();
 
-    await _firestore.runTransaction((transaction) async {
-      final snapshot = await transaction.get(profileRef);
-      final data = snapshot.data();
-      if (data == null) return;
+    var previousXp = 0;
+    var newXp = 0;
+    var previousLevel = 1;
+    var newLevel = 1;
+    var profileFound = false;
 
-      final currentXp = (data['xp'] as num?)?.toInt() ?? 0;
-      final newXp = currentXp + xpToAdd;
-      final newLevel = ProfileModel.levelFromXp(newXp);
+    try {
+      await _firestore.runTransaction((transaction) async {
+        final snapshot = await transaction.get(profileRef);
+        final data = snapshot.data();
+        if (data == null) {
+          profileFound = false;
+          return;
+        }
 
-      transaction.update(profileRef, <String, dynamic>{
-        'xp': newXp,
-        'level': newLevel,
-        'updatedAt': earnedAt.toIso8601String(),
+        profileFound = true;
+        previousXp = (data['xp'] as num?)?.toInt() ?? 0;
+        previousLevel = ProfileModel.levelFromXp(previousXp);
+        newXp = previousXp + xpToAdd;
+        newLevel = ProfileModel.levelFromXp(newXp);
+
+        transaction.update(profileRef, <String, dynamic>{
+          'xp': newXp,
+          'level': newLevel,
+          'updatedAt': earnedAt.toIso8601String(),
+        });
       });
-
-      transaction.set(
-        eventRef,
-        XpEvent(
-          id: eventRef.id,
-          amount: xpToAdd,
-          earnedAt: earnedAt,
-          source: source,
-          sourceId: sourceId,
-        ).toMap(),
+    } catch (error, stackTrace) {
+      debugPrint(
+        '[ProfileService.addXp] Canonical XP update failed '
+        'uid=$uid amount=$xpToAdd source=${source.wireValue} '
+        'sourceId=$sourceId error=$error\n$stackTrace',
       );
-    });
+      return XpAwardResult.failed(amount: xpToAdd);
+    }
+
+    if (!profileFound) {
+      debugPrint(
+        '[ProfileService.addXp] Profile missing; XP not awarded '
+        'uid=$uid amount=$xpToAdd source=${source.wireValue}',
+      );
+      return XpAwardResult.failed(amount: xpToAdd);
+    }
+
+    final historyRecorded = await _tryRecordXpEvent(
+      uid: uid,
+      event: XpEvent(
+        id: _xpEvents(uid).doc().id,
+        amount: xpToAdd,
+        earnedAt: earnedAt,
+        source: source,
+        sourceId: sourceId,
+      ),
+    );
+
+    return XpAwardResult.success(
+      amount: xpToAdd,
+      previousXp: previousXp,
+      newXp: newXp,
+      previousLevel: previousLevel,
+      newLevel: newLevel,
+      historyRecorded: historyRecorded,
+    );
+  }
+
+  Future<bool> _tryRecordXpEvent({
+    required String uid,
+    required XpEvent event,
+  }) async {
+    try {
+      final override = _recordXpEventOverride;
+      if (override != null) {
+        await override(uid, event);
+      } else {
+        await _xpEvents(uid).doc(event.id).set(event.toMap());
+      }
+      return true;
+    } catch (error, stackTrace) {
+      final code = error is FirebaseException ? error.code : 'unknown';
+      debugPrint(
+        '[ProfileService.addXp] XP history write failed (progression kept) '
+        'uid=$uid amount=${event.amount} source=${event.source.wireValue} '
+        'sourceId=${event.sourceId} code=$code error=$error\n$stackTrace',
+      );
+      return false;
+    }
   }
 
   /// Streams XP gain events newest-first for reactive weekly XP Gained graphs.

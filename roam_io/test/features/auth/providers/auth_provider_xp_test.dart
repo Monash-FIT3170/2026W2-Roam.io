@@ -1,6 +1,6 @@
 /*
  * Author: Sanjevan Rajasegar
- * Last Modified: 12/05/2026
+ * Last Updated: 6 August 2026
  * Description:
  *   Tests immediate profile XP and level state updates in the auth provider.
  */
@@ -10,6 +10,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:roam_io/features/auth/data/auth_repository.dart';
 import 'package:roam_io/features/auth/providers/auth_provider.dart';
 import 'package:roam_io/features/profile/domain/profile_model.dart';
+import 'package:roam_io/features/profile/domain/xp_award_result.dart';
 import 'package:roam_io/features/profile/domain/xp_event.dart';
 
 void main() {
@@ -19,8 +20,10 @@ void main() {
       final provider = AuthProvider(authRepository: repository);
       await provider.refreshCurrentUser();
 
-      await provider.addXp(50);
+      final result = await provider.addXp(50);
 
+      expect(result.succeeded, isTrue);
+      expect(result.amount, 50);
       expect(repository.addedXp, <int>[50]);
       expect(repository.updatedXp, isEmpty);
       expect(provider.currentProfile?.xp, 50);
@@ -37,8 +40,10 @@ void main() {
         final provider = AuthProvider(authRepository: repository);
         await provider.refreshCurrentUser();
 
-        await provider.addXp(20);
+        final result = await provider.addXp(20);
 
+        expect(result.succeeded, isTrue);
+        expect(result.didLevelUp, isTrue);
         expect(provider.currentProfile?.xp, 110);
         expect(provider.currentProfile?.level, 2);
         expect(provider.pendingLevelUp, 2);
@@ -46,6 +51,25 @@ void main() {
         provider.dispose();
       },
     );
+
+    test('addXp does not update local profile when award fails', () async {
+      final repository = _FakeAuthRepository(
+        _profile(xp: 40, level: 1),
+        failAddXp: true,
+      );
+      final provider = AuthProvider(authRepository: repository);
+      await provider.refreshCurrentUser();
+
+      final result = await provider.addXp(50);
+
+      expect(result.succeeded, isFalse);
+      expect(provider.currentProfile?.xp, 40);
+      expect(provider.currentProfile?.level, 1);
+      expect(provider.pendingLevelUp, isNull);
+      expect(provider.errorMessage, isNotNull);
+
+      provider.dispose();
+    });
 
     test('updateXp updates local profile XP and level immediately', () async {
       final repository = _FakeAuthRepository(_profile(xp: 0, level: 1));
@@ -78,9 +102,10 @@ ProfileModel _profile({required int xp, required int level}) {
 }
 
 class _FakeAuthRepository implements AuthRepository {
-  _FakeAuthRepository(this._profile);
+  _FakeAuthRepository(this._profile, {this.failAddXp = false});
 
   ProfileModel _profile;
+  final bool failAddXp;
   final _FakeUser _user = _FakeUser(
     uid: 'user-1',
     email: 'traveller@example.com',
@@ -103,16 +128,27 @@ class _FakeAuthRepository implements AuthRepository {
   Future<void> reloadCurrentUser() async {}
 
   @override
-  Future<void> addXp(
+  Future<XpAwardResult> addXp(
     int xpToAdd, {
     XpEventSource source = XpEventSource.unknown,
     String? sourceId,
   }) async {
     addedXp.add(xpToAdd);
-    final nextXp = _profile.xp + xpToAdd;
-    _profile = _profile.copyWith(
-      xp: nextXp,
-      level: ProfileModel.levelFromXp(nextXp),
+    if (failAddXp) {
+      return XpAwardResult.failed(amount: xpToAdd);
+    }
+    final previousXp = _profile.xp;
+    final previousLevel = _profile.level;
+    final nextXp = previousXp + xpToAdd;
+    final nextLevel = ProfileModel.levelFromXp(nextXp);
+    _profile = _profile.copyWith(xp: nextXp, level: nextLevel);
+    return XpAwardResult.success(
+      amount: xpToAdd,
+      previousXp: previousXp,
+      newXp: nextXp,
+      previousLevel: previousLevel,
+      newLevel: nextLevel,
+      historyRecorded: true,
     );
   }
 

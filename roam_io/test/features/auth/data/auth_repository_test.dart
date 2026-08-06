@@ -16,6 +16,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:roam_io/features/auth/data/auth_repository.dart';
 import 'package:roam_io/features/profile/domain/profile_model.dart';
+import 'package:roam_io/features/profile/domain/xp_award_result.dart';
 import 'package:roam_io/features/profile/domain/xp_event.dart';
 import 'package:roam_io/services/auth_service.dart';
 import 'package:roam_io/services/profile_service.dart';
@@ -496,7 +497,7 @@ class _FakeProfileService implements ProfileService {
   }
 
   @override
-  Future<void> addXp(
+  Future<XpAwardResult> addXp(
     String uid,
     int xpToAdd, {
     XpEventSource source = XpEventSource.unknown,
@@ -504,6 +505,21 @@ class _FakeProfileService implements ProfileService {
   }) async {
     addedXpUid = uid;
     addedXp = xpToAdd;
+    final previousXp = profile?.xp ?? 0;
+    final previousLevel = profile?.level ?? 1;
+    final nextXp = previousXp + xpToAdd;
+    final nextLevel = ProfileModel.levelFromXp(nextXp);
+    if (profile != null) {
+      profile = profile!.copyWith(xp: nextXp, level: nextLevel);
+    }
+    return XpAwardResult.success(
+      amount: xpToAdd,
+      previousXp: previousXp,
+      newXp: nextXp,
+      previousLevel: previousLevel,
+      newLevel: nextLevel,
+      historyRecorded: true,
+    );
   }
 
   @override

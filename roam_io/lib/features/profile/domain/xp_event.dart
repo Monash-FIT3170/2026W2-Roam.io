@@ -1,14 +1,15 @@
 /*
  * Author: Sanjevan Rajasegar
- * Last Updated: 5 August 2026
+ * Last Updated: 6 August 2026
  * Description:
  *   Timestamped XP gain events stored under profiles/{uid}/xp_events for
- *   reactive weekly XP Gained analytics. Events accumulate only from the
- *   point tracking was introduced; aggregate profile XP is never reverse-
- *   engineered into fabricated history.
+ *   reactive weekly XP Gained analytics. Events are secondary to canonical
+ *   profiles/{uid} XP/level and accumulate only from the point tracking was
+ *   introduced; aggregate profile XP is never reverse-engineered into
+ *   fabricated history.
  */
 
-/// Origin of an XP award written alongside the user's aggregate XP update.
+/// Origin of an XP award recorded after the user's aggregate XP update.
 enum XpEventSource {
   visit,
   tileUnlock,

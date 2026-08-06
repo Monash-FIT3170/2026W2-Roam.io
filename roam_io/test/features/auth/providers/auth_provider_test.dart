@@ -12,6 +12,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:roam_io/features/auth/data/auth_repository.dart';
 import 'package:roam_io/features/auth/providers/auth_provider.dart';
 import 'package:roam_io/features/profile/domain/profile_model.dart';
+import 'package:roam_io/features/profile/domain/xp_award_result.dart';
 import 'package:roam_io/features/profile/domain/xp_event.dart';
 
 import '../../../support/fake_firebase_user.dart';
@@ -291,15 +292,25 @@ class _XpTrackingRepository implements AuthRepository {
   }
 
   @override
-  Future<void> addXp(
+  Future<XpAwardResult> addXp(
     int xpToAdd, {
     XpEventSource source = XpEventSource.unknown,
     String? sourceId,
   }) async {
     addXpCount++;
-    final nextXp = _profile.xp + xpToAdd;
+    final previousXp = _profile.xp;
+    final previousLevel = _profile.level;
+    final nextXp = previousXp + xpToAdd;
     final nextLevel = ProfileModel.levelFromXp(nextXp);
     _profile = _profile.copyWith(xp: nextXp, level: nextLevel);
+    return XpAwardResult.success(
+      amount: xpToAdd,
+      previousXp: previousXp,
+      newXp: nextXp,
+      previousLevel: previousLevel,
+      newLevel: nextLevel,
+      historyRecorded: true,
+    );
   }
 
   @override

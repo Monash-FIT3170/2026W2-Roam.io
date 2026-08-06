@@ -88,10 +88,12 @@ internal `Profile` and `Activities` tabs rather than adding more bottom-nav
 destinations. `Profile` keeps a compact identity block (avatar, name, username,
 level/XP bar) above the five-stat row, then a metric-selectable interactive line
 graph. Locations Visited and Tiles Unlocked use existing visit/polygon
-timestamps. XP Gained uses timestamped `profiles/{uid}/xp_events` written
-atomically with aggregate XP awards (visits and tile unlocks). History
-accumulates from the point event tracking was introduced — existing aggregate XP
-is not reverse-engineered into fabricated past weeks. Weekly buckets use
+timestamps. XP Gained uses timestamped `profiles/{uid}/xp_events` recorded
+**after** the canonical `profiles/{uid}` XP/level update succeeds. History is
+secondary analytics: a failure to write an XP event must never roll back or
+block progression. History accumulates from the point event tracking was
+introduced — existing aggregate XP is not reverse-engineered into fabricated
+past weeks. Weekly buckets use
 Monday-start local calendar weeks. Tapping a graph point selects it and shows
 that week's exact value; changing metric resets selection. Journey and sidequest
 graph modes remain empty until those domain sources exist. Bottom scroll padding

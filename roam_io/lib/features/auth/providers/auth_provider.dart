@@ -1,9 +1,10 @@
 /*
  * Author: Sanjevan Rajasegar
- * Last Updated: 5 August 2026
+ * Last Updated: 6 August 2026
  * Description:
  *   Manages authentication, profile XP, level-up state, and Settings account
- *   edit actions exposed to the widget tree.
+ *   edit actions exposed to the widget tree. XP awards return an explicit
+ *   XpAwardResult so callers never treat a failed write as success.
  */
 
 import 'dart:async';
@@ -14,6 +15,7 @@ import 'package:image_picker/image_picker.dart';
 
 import '../data/auth_repository.dart';
 import '../../profile/domain/profile_model.dart';
+import '../../profile/domain/xp_award_result.dart';
 import '../../profile/domain/xp_event.dart';
 
 /// High-level authentication state used by auth gates and account screens.
@@ -218,33 +220,54 @@ class AuthProvider extends ChangeNotifier {
     return didLevelUp;
   }
 
-  /// Adds XP (with history event) and updates local level state after write.
-  Future<bool> addXp(
+  /// Awards XP and updates local profile/level state only when the canonical
+  /// Firestore write succeeds. Does not use [_runAuthAction] so callers receive
+  /// an explicit [XpAwardResult] instead of a swallowed false-success.
+  Future<XpAwardResult> addXp(
     int xpToAdd, {
     XpEventSource source = XpEventSource.unknown,
     String? sourceId,
   }) async {
-    var didLevelUp = false;
-    await _runAuthAction(() async {
+    _isBusy = true;
+    _errorMessage = null;
+    notifyListeners();
+
+    try {
+      final result = await _authRepository.addXp(
+        xpToAdd,
+        source: source,
+        sourceId: sourceId,
+      );
+
+      if (!result.succeeded) {
+        _errorMessage =
+            'We could not save your XP right now. Please try again.';
+        return result;
+      }
+
       final currentProfile = _currentProfile;
-      final currentXp = currentProfile?.xp ?? 0;
-      final oldLevel =
-          currentProfile?.level ?? ProfileModel.levelFromXp(currentXp);
-      final newXp = currentXp + xpToAdd;
-      final newLevel = ProfileModel.levelFromXp(newXp);
-
-      await _authRepository.addXp(xpToAdd, source: source, sourceId: sourceId);
-
       _currentProfile = currentProfile == null
           ? await _authRepository.getCurrentUserProfile()
-          : currentProfile.copyWith(xp: newXp, level: newLevel);
+          : currentProfile.copyWith(xp: result.newXp, level: result.newLevel);
 
-      if (newLevel > oldLevel) {
-        _pendingLevelUp = newLevel;
-        didLevelUp = true;
+      if (result.didLevelUp) {
+        _pendingLevelUp = result.newLevel;
       }
-    });
-    return didLevelUp;
+
+      return result;
+    } on FirebaseAuthException catch (e) {
+      _errorMessage = _friendlyAuthMessage(e);
+      return XpAwardResult.failed(amount: xpToAdd);
+    } on FirebaseException catch (e) {
+      _errorMessage = _friendlyFirestoreMessage(e);
+      return XpAwardResult.failed(amount: xpToAdd);
+    } catch (e) {
+      _errorMessage = e.toString();
+      return XpAwardResult.failed(amount: xpToAdd);
+    } finally {
+      _isBusy = false;
+      notifyListeners();
+    }
   }
 
   /// Signs out and clears local authentication/profile state.

@@ -1,6 +1,6 @@
 /*
  * Author: Sanjevan Rajasegar
- * Last Modified: 17/05/2026
+ * Last Updated: 6 August 2026
  * Description:
  *   Hosts the map screen and wires widget lifecycle to the map controller. This
  *   file keeps UI thin while controller setup, visit XP wiring, heatmap
@@ -54,8 +54,9 @@ class _MapPageState extends State<MapPage> {
       final authProvider = context.read<AuthProvider>();
       _mapController.initialise(
         userId: authProvider.currentUser?.uid,
-        onVisitXpAwarded: (xp) =>
-            authProvider.addXp(xp, source: XpEventSource.visit),
+        onVisitXpAwarded: (xp) async {
+          await authProvider.addXp(xp, source: XpEventSource.visit);
+        },
       );
     });
   }

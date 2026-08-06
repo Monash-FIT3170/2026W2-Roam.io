@@ -1,9 +1,9 @@
 /*
  * Author: Sanjevan Rajasegar
- * Last Updated: 5 August 2026
+ * Last Updated: 6 August 2026
  * Description:
  *   Coordinates authentication, profile, and storage services for user account
- *   workflows, including Settings account edit flows.
+ *   workflows, including Settings account edit flows and XP awards.
  */
 
 import 'package:firebase_auth/firebase_auth.dart';
@@ -11,6 +11,7 @@ import 'package:crypto/crypto.dart';
 import 'package:image_picker/image_picker.dart';
 
 import '../../profile/domain/profile_model.dart';
+import '../../profile/domain/xp_award_result.dart';
 import '../../profile/domain/xp_event.dart';
 import '../../../services/auth_service.dart';
 import '../../../services/profile_service.dart';
@@ -238,8 +239,11 @@ class AuthRepository {
     await _profileService.updateXp(user.uid, newXp);
   }
 
-  /// Adds XP and records a timestamped gain event for the signed-in user.
-  Future<void> addXp(
+  /// Adds XP for the signed-in user and best-effort records XP history.
+  ///
+  /// Returns an [XpAwardResult] describing whether canonical progression
+  /// succeeded. History recording failure does not fail the award.
+  Future<XpAwardResult> addXp(
     int xpToAdd, {
     XpEventSource source = XpEventSource.unknown,
     String? sourceId,
@@ -252,7 +256,7 @@ class AuthRepository {
       );
     }
 
-    await _profileService.addXp(
+    return _profileService.addXp(
       user.uid,
       xpToAdd,
       source: source,
