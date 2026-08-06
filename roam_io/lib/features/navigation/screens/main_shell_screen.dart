@@ -1,9 +1,10 @@
 /*
  * Author: Sanjevan Rajasegar
- * Last Updated: 5 August 2026
+ * Last Updated: 6 August 2026
  * Description:
  *   Provides the authenticated app shell with persistent bottom navigation
  *   across the main feature tabs and production notification action feedback.
+ *   Shares one CommentService across Home and You for live comment counts.
  */
 
 import 'dart:async';
@@ -14,6 +15,7 @@ import 'package:roam_io/notifications/notification.dart';
 
 import '../../../shared/widgets/app_bottom_nav_bar.dart';
 import '../../../shared/widgets/app_toast.dart';
+import '../../activity_feed/data/comment_service.dart';
 import '../../home/screens/home_screen.dart';
 import '../../map/data/map_page.dart';
 import '../../settings/screens/settings_screen.dart';
@@ -24,7 +26,14 @@ import '../../you/screens/you_screen.dart';
 class MainShellScreen extends StatefulWidget {
   final bool requestNotificationPermission;
 
-  const MainShellScreen({super.key, this.requestNotificationPermission = true});
+  /// Injected for tests; production uses the default [CommentService].
+  final CommentService? commentService;
+
+  const MainShellScreen({
+    super.key,
+    this.requestNotificationPermission = true,
+    this.commentService,
+  });
 
   @override
   State<MainShellScreen> createState() => _MainShellScreenState();
@@ -34,18 +43,21 @@ class _MainShellScreenState extends State<MainShellScreen> {
   int selectedIndex = 2;
 
   StreamSubscription<NotificationActionEvent>? _actionSubscription;
-
-  final List<Widget> pages = const [
-    HomeScreen(),
-    SocialScreen(),
-    MapPage(),
-    YouScreen(),
-    SettingsScreen(),
-  ];
+  late final CommentService _commentService;
+  late final List<Widget> pages;
 
   @override
   void initState() {
     super.initState();
+
+    _commentService = widget.commentService ?? CommentService();
+    pages = [
+      HomeScreen(commentService: _commentService),
+      const SocialScreen(),
+      const MapPage(),
+      YouScreen(commentService: _commentService),
+      const SettingsScreen(),
+    ];
 
     //Initialise the Android notification service
     if (widget.requestNotificationPermission &&

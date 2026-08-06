@@ -60,9 +60,9 @@ class StubActivityFeedData {
       ],
     ),
     ActivityFeedItem(
-      id: 'stub-sonia-melbourne',
-      displayName: 'Sonia',
-      username: 'sonia',
+      id: 'stub-jacob-melbourne',
+      displayName: 'jacob',
+      username: 'jacob',
       timestampLabel: 'August 4, 2026 at 4:28 PM',
       title: 'Exploring Melbourne CBD',
       kind: ActivityFeedKind.exploration,

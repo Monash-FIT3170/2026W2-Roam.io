@@ -3,8 +3,8 @@
  * Last Updated: 6 August 2026
  * Description:
  *   Home destination showing a stub friend activity feed. Friend cards expose
- *   Kudos + Comment only (Share omitted for privacy). Comment opens the
- *   Comments page; stubs are temporary and not a production feed backend.
+ *   Kudos + live comment count only (Share omitted for privacy). Comment opens
+ *   the shared Comments page; stubs are temporary and not a production feed.
  */
 
 import 'package:flutter/material.dart';
@@ -22,7 +22,7 @@ import '../../activity_feed/widgets/activity_feed_card.dart';
 class HomeScreen extends StatelessWidget {
   const HomeScreen({super.key, this.commentService});
 
-  /// Injected for tests; production uses the default [CommentService].
+  /// Injected for tests; production receives a shared instance from [MainShellScreen].
   final CommentService? commentService;
 
   @override
@@ -30,6 +30,7 @@ class HomeScreen extends StatelessWidget {
     final bottomClearance =
         AppBottomNavBar.clearanceFromScreenBottom(context) + 12;
     final activities = StubActivityFeedData.friendActivities;
+    final comments = commentService;
 
     return Container(
       color: AppSurfaces.pageBackground(context),
@@ -49,6 +50,7 @@ class HomeScreen extends StatelessWidget {
                   final activity = activities[index];
                   return ActivityFeedCard.fromItem(
                     activity,
+                    commentService: comments,
                     showShare: false,
                     onOverflowTap: () {
                       Navigator.of(context).push(
@@ -64,7 +66,7 @@ class HomeScreen extends StatelessWidget {
                         MaterialPageRoute<void>(
                           builder: (_) => CommentsScreen(
                             activityId: activity.id,
-                            commentService: commentService,
+                            commentService: comments,
                           ),
                         ),
                       );

@@ -104,13 +104,18 @@ Journey and sidequest graph modes remain empty until those domain sources
 exist. Bottom scroll padding uses `AppBottomNavBar.clearanceFromScreenBottom`
 with `SafeArea(bottom: false)` so content is not double-inset under the
 floating nav. `Activities` shows a personal stub via shared `activity_feed`
-cards; overflow opens a journey detail screen with **no** engagement controls.
-Personal cards keep Kudos / Comment / Share as UI placeholders only. `Home`
-uses a distinct friend stub dataset with **Kudos + Comment** only (Share
-omitted for privacy). Comment opens `CommentsScreen` backed by
-`activities/{activityId}/comments` via `CommentService`. Notifications for
-comments are deferred. Sidequest stubs use Time / Locations Visited / XP Gained
-(same shape as journeys). Map preview remains a replaceable placeholder.
+cards with **Kudos + live comment count + Share**. Overflow opens a journey
+detail screen with **no** engagement controls (share and comments stay on the
+card). Comment opens the shared `CommentsScreen` (same as Home) backed by
+`activities/{activityId}/comments` via `CommentService`; card counts use
+`watchCommentCount`. `MainShellScreen` injects one shared `CommentService`
+into Home and You so card counts stay in sync after posting. `Home` uses a
+distinct friend stub dataset with **Kudos + live comment count** (Share omitted
+for privacy). Empty comments copy is `No comments yet`. The composer tray fills
+`AppSurfaces.card` through the bottom SafeArea inset. Notifications for
+comments are deferred. Metric columns are equal-width and centre-aligned;
+Sidequest stubs use Time / Locations Visited / XP Gained. Map preview remains a
+replaceable placeholder.
 
 ### Notifications
 

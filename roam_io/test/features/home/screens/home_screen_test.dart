@@ -2,8 +2,8 @@
  * Author: Sanjevan Rajasegar
  * Last Updated: 6 August 2026
  * Description:
- *   Widget tests for the Home stub friend activity feed — privacy actions and
- *   Comment navigation to CommentsScreen.
+ *   Widget tests for the Home stub friend activity feed — privacy actions,
+ *   live comment counts, and Comment navigation to CommentsScreen.
  */
 
 import 'dart:async';
@@ -28,9 +28,13 @@ void main() {
     await tester.binding.setSurfaceSize(const Size(400, 1400));
     addTearDown(() => tester.binding.setSurfaceSize(null));
 
+    final comments = _FakeCommentService();
     await tester.pumpWidget(
-      const MaterialApp(home: Scaffold(body: HomeScreen())),
+      MaterialApp(
+        home: Scaffold(body: HomeScreen(commentService: comments)),
+      ),
     );
+    await tester.pumpAndSettle();
 
     expect(find.text('Home'), findsOneWidget);
     expect(find.text('Journeys'), findsNothing);
@@ -45,7 +49,7 @@ void main() {
     expect(find.text('Sidequest Progress'), findsNothing);
     expect(find.text('Share'), findsNothing);
     expect(find.text('Kudos'), findsWidgets);
-    expect(find.text('Comment'), findsWidgets);
+    expect(find.text('0 comments'), findsWidgets);
 
     await tester.scrollUntilVisible(
       find.text('Nathan'),
@@ -56,13 +60,15 @@ void main() {
     expect(find.text('Journey to Monash'), findsOneWidget);
 
     await tester.scrollUntilVisible(
-      find.text('Sonia'),
+      find.text('jacob'),
       200,
       scrollable: find.byType(Scrollable).first,
     );
-    expect(find.text('Sonia'), findsOneWidget);
+    expect(find.text('jacob'), findsOneWidget);
     expect(find.text('Exploring Melbourne CBD'), findsOneWidget);
     expect(find.text('Map preview'), findsWidgets);
+
+    await comments.dispose();
   });
 
   testWidgets('overflow opens activity detail without engagement controls', (
@@ -71,9 +77,13 @@ void main() {
     await tester.binding.setSurfaceSize(const Size(400, 1400));
     addTearDown(() => tester.binding.setSurfaceSize(null));
 
+    final comments = _FakeCommentService();
     await tester.pumpWidget(
-      const MaterialApp(home: Scaffold(body: HomeScreen())),
+      MaterialApp(
+        home: Scaffold(body: HomeScreen(commentService: comments)),
+      ),
     );
+    await tester.pumpAndSettle();
 
     await tester.tap(find.byIcon(Icons.more_horiz_rounded).first);
     await tester.pumpAndSettle();
@@ -82,11 +92,13 @@ void main() {
     expect(find.text('Sidequest with Mates'), findsOneWidget);
     expect(find.text('Journey route map'), findsOneWidget);
     expect(find.text('Kudos'), findsNothing);
-    expect(find.text('Comment'), findsNothing);
+    expect(find.text('0 comments'), findsNothing);
     expect(find.text('Share'), findsNothing);
+
+    await comments.dispose();
   });
 
-  testWidgets('Comment opens Comments page for friend activity', (
+  testWidgets('Comment opens Comments page and count updates after post', (
     tester,
   ) async {
     await tester.binding.setSurfaceSize(const Size(400, 1400));
@@ -106,12 +118,27 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    await tester.tap(find.text('Comment').first);
+    expect(find.text('0 comments').first, findsOneWidget);
+
+    await tester.tap(find.text('0 comments').first);
     await tester.pumpAndSettle();
 
     expect(find.byType(CommentsScreen), findsOneWidget);
     expect(find.text('Comments'), findsOneWidget);
     expect(find.text('Write a comment...'), findsOneWidget);
+    expect(find.text('No comments yet'), findsOneWidget);
+
+    await tester.enterText(find.byType(TextField), 'Nice work');
+    await tester.pump();
+    await tester.tap(find.widgetWithText(TextButton, 'Send'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Nice work'), findsOneWidget);
+
+    await tester.pageBack();
+    await tester.pumpAndSettle();
+
+    expect(find.text('1 comment'), findsWidgets);
 
     auth.dispose();
     await comments.dispose();
@@ -137,6 +164,19 @@ class _FakeCommentService implements CommentService {
   }
 
   @override
+  Stream<int> watchCommentCount(String activityId) {
+    return Stream<int>.multi((controller) {
+      controller.add(_comments.length);
+      final subscription = _controller.stream.listen(
+        (list) => controller.add(list.length),
+        onError: controller.addError,
+        onDone: controller.close,
+      );
+      controller.onCancel = subscription.cancel;
+    });
+  }
+
+  @override
   Future<ActivityComment> addComment({
     required String activityId,
     required String authorId,
@@ -146,7 +186,7 @@ class _FakeCommentService implements CommentService {
     String? authorPhotoUrl,
   }) async {
     final comment = ActivityComment(
-      id: 'c1',
+      id: 'c${_comments.length + 1}',
       activityId: activityId,
       authorId: authorId,
       authorDisplayName: authorDisplayName,

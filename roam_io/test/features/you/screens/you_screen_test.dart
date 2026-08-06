@@ -3,8 +3,9 @@
  * Last Updated: 6 August 2026
  * Description:
  *   Regression tests for You screen tabs, profile identity XP progress,
- *   full-width social/exploration stats, metric line graphs, activities stub,
- *   and location states.
+ *   full-width social/exploration stats, metric line graphs, activities stub
+ *   (Kudos + comments + Share on the card; no engagement on detail), and
+ *   location states.
  */
 
 import 'dart:async';
@@ -13,6 +14,9 @@ import 'package:firebase_auth/firebase_auth.dart' as firebase_auth;
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:provider/provider.dart';
+import 'package:roam_io/features/activity_feed/data/comment_service.dart';
+import 'package:roam_io/features/activity_feed/models/activity_comment.dart';
+import 'package:roam_io/features/activity_feed/screens/comments_screen.dart';
 import 'package:roam_io/features/you/screens/you_screen.dart';
 import 'package:roam_io/features/auth/data/auth_repository.dart';
 import 'package:roam_io/features/auth/providers/auth_provider.dart';
@@ -317,10 +321,14 @@ void main() {
   testWidgets('opens Activities tab and shows placeholder activity card', (
     tester,
   ) async {
+    await tester.binding.setSurfaceSize(const Size(400, 1400));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+
     final provider = AuthProvider(
       authRepository: _FakeAuthRepository(_buildProfile(xp: 75)),
     );
     await provider.refreshCurrentUser();
+    final comments = _FakeYouCommentService();
 
     await tester.pumpWidget(
       ChangeNotifierProvider<AuthProvider>.value(
@@ -330,6 +338,7 @@ void main() {
             body: YouScreen(
               visitService: _FakeVisitService(totalVisitCount: 0),
               visitedRegionService: _FakeVisitedRegionService(<String>{}),
+              commentService: comments,
             ),
           ),
         ),
@@ -350,8 +359,8 @@ void main() {
     expect(find.text('Morning Weight Training'), findsNothing);
     expect(find.text('Traveller'), findsOneWidget);
     expect(find.text('Kudos'), findsOneWidget);
-    expect(find.text('Comment'), findsOneWidget);
     expect(find.text('Share'), findsOneWidget);
+    expect(find.text('0 comments'), findsOneWidget);
 
     await tester.tap(find.byIcon(Icons.more_horiz_rounded));
     await tester.pumpAndSettle();
@@ -359,19 +368,84 @@ void main() {
     expect(find.text('Journey route map'), findsOneWidget);
     expect(find.text('Kudos'), findsNothing);
     expect(find.text('Comment'), findsNothing);
+    expect(find.text('0 comments'), findsNothing);
     expect(find.text('Share'), findsNothing);
     await tester.pageBack();
     await tester.pumpAndSettle();
 
-    // Personal card still shows engagement placeholders after detail pop.
+    // Personal card still exposes Kudos + Comments + Share after detail pop.
+    expect(find.text('0 comments'), findsOneWidget);
     expect(find.text('Kudos'), findsOneWidget);
-    expect(find.text('Comment'), findsOneWidget);
     expect(find.text('Share'), findsOneWidget);
+
+    await tester.ensureVisible(find.text('0 comments'));
+    await tester.tap(find.text('0 comments'));
+    await tester.pumpAndSettle();
+    expect(find.byType(CommentsScreen), findsOneWidget);
+    expect(find.text('No comments yet'), findsOneWidget);
+    await tester.pageBack();
+    await tester.pumpAndSettle();
 
     await tester.tap(find.text('Profile'));
     await tester.pumpAndSettle();
     expect(find.text('Traveller'), findsOneWidget);
 
+    await comments.dispose();
+    provider.dispose();
+  });
+
+  testWidgets('Activities Comment posts and updates personal card count', (
+    tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(400, 1400));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+
+    final provider = AuthProvider(
+      authRepository: _FakeAuthRepository(_buildProfile(xp: 75)),
+    );
+    await provider.refreshCurrentUser();
+    final comments = _FakeYouCommentService();
+
+    await tester.pumpWidget(
+      ChangeNotifierProvider<AuthProvider>.value(
+        value: provider,
+        child: MaterialApp(
+          home: Scaffold(
+            body: YouScreen(
+              visitService: _FakeVisitService(totalVisitCount: 0),
+              visitedRegionService: _FakeVisitedRegionService(<String>{}),
+              commentService: comments,
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Activities'));
+    await tester.pumpAndSettle();
+    expect(find.text('Kudos'), findsOneWidget);
+    expect(find.text('0 comments'), findsOneWidget);
+    expect(find.text('Share'), findsOneWidget);
+
+    await tester.ensureVisible(find.text('0 comments'));
+    await tester.tap(find.text('0 comments'));
+    await tester.pumpAndSettle();
+    expect(find.byType(CommentsScreen), findsOneWidget);
+
+    await tester.enterText(find.byType(TextField), 'Looks great');
+    await tester.pump();
+    await tester.tap(find.widgetWithText(TextButton, 'Send'));
+    await tester.pumpAndSettle();
+    expect(find.text('Looks great'), findsOneWidget);
+
+    await tester.pageBack();
+    await tester.pumpAndSettle();
+    expect(find.text('1 comment'), findsOneWidget);
+    expect(find.text('Kudos'), findsOneWidget);
+    expect(find.text('Share'), findsOneWidget);
+
+    await comments.dispose();
     provider.dispose();
   });
 
@@ -665,6 +739,8 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.text('Journey route map'), findsOneWidget);
       expect(find.text('Kudos'), findsNothing);
+      expect(find.text('0 comments'), findsNothing);
+      expect(find.text('Share'), findsNothing);
 
       await tester.pageBack();
       await tester.pumpAndSettle();
@@ -881,6 +957,62 @@ class _FakeVisitedRegionService implements VisitedRegionService {
       );
     });
   }
+}
+
+class _FakeYouCommentService implements CommentService {
+  final List<ActivityComment> _comments = <ActivityComment>[];
+  final StreamController<List<ActivityComment>> _controller =
+      StreamController<List<ActivityComment>>.broadcast();
+
+  @override
+  Stream<List<ActivityComment>> watchComments(String activityId) {
+    return Stream<List<ActivityComment>>.multi((controller) {
+      controller.add(List<ActivityComment>.from(_comments));
+      final subscription = _controller.stream.listen(
+        controller.add,
+        onError: controller.addError,
+        onDone: controller.close,
+      );
+      controller.onCancel = subscription.cancel;
+    });
+  }
+
+  @override
+  Stream<int> watchCommentCount(String activityId) {
+    return Stream<int>.multi((controller) {
+      controller.add(_comments.length);
+      final subscription = _controller.stream.listen(
+        (list) => controller.add(list.length),
+        onError: controller.addError,
+        onDone: controller.close,
+      );
+      controller.onCancel = subscription.cancel;
+    });
+  }
+
+  @override
+  Future<ActivityComment> addComment({
+    required String activityId,
+    required String authorId,
+    required String authorDisplayName,
+    required String text,
+    String? authorUsername,
+    String? authorPhotoUrl,
+  }) async {
+    final comment = ActivityComment(
+      id: 'c${_comments.length + 1}',
+      activityId: activityId,
+      authorId: authorId,
+      authorDisplayName: authorDisplayName,
+      text: text.trim(),
+      createdAt: DateTime(2026, 8, 6),
+    );
+    _comments.insert(0, comment);
+    _controller.add(List<ActivityComment>.from(_comments));
+    return comment;
+  }
+
+  Future<void> dispose() => _controller.close();
 }
 
 class _FakeUser implements firebase_auth.User {

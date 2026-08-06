@@ -7,8 +7,8 @@
  *   so XP graph, visits, and tiles survive Activities ↔ Profile remounts and
  *   Activity Detail navigation. Profile uses a densified header (64px avatar +
  *   identity/XP) above a full-width stats row. Activities shows a personal stub
- *   via shared activity_feed cards (temporary; not persisted). Personal detail
- *   has no engagement controls.
+ *   card with Kudos + reactive Comments count + Share (shared CommentsScreen).
+ *   Personal detail has no engagement controls; sharing/comments stay on the card.
  */
 
 import 'package:flutter/material.dart';
@@ -18,8 +18,10 @@ import '../../../services/profile_service.dart';
 import '../../../shared/widgets/app_bottom_nav_bar.dart';
 import '../../../theme/app_colours.dart';
 import '../../../theme/app_surfaces.dart';
+import '../../activity_feed/data/comment_service.dart';
 import '../../activity_feed/data/stub_activity_feed_data.dart';
 import '../../activity_feed/screens/activity_detail_screen.dart';
+import '../../activity_feed/screens/comments_screen.dart';
 import '../../activity_feed/widgets/activity_feed_card.dart';
 import '../../auth/providers/auth_provider.dart';
 import '../../map/data/visit.dart';
@@ -40,6 +42,7 @@ class YouScreen extends StatefulWidget {
     this.visitedRegionService,
     this.profileService,
     this.xpEventsStream,
+    this.commentService,
   });
 
   /// Injected for tests; production uses the default [VisitService].
@@ -53,6 +56,9 @@ class YouScreen extends StatefulWidget {
 
   /// Injected XP event stream for tests; production watches Firestore.
   final Stream<List<XpEvent>>? xpEventsStream;
+
+  /// Injected for tests; production receives a shared instance from MainShell.
+  final CommentService? commentService;
 
   @override
   State<YouScreen> createState() => _YouScreenState();
@@ -126,7 +132,10 @@ class _YouScreenState extends State<YouScreen>
                           selectedGraphMetric: _selectedGraphMetric,
                           onGraphMetricSelected: _selectGraphMetric,
                         ),
-                        _ActivitiesTab(profile: profile),
+                        _ActivitiesTab(
+                          profile: profile,
+                          commentService: widget.commentService,
+                        ),
                       ],
                     ),
                   ),
@@ -246,9 +255,10 @@ class _ProfileTab extends StatelessWidget {
 }
 
 class _ActivitiesTab extends StatelessWidget {
-  const _ActivitiesTab({required this.profile});
+  const _ActivitiesTab({required this.profile, this.commentService});
 
   final ProfileModel? profile;
+  final CommentService? commentService;
 
   @override
   Widget build(BuildContext context) {
@@ -259,11 +269,16 @@ class _ActivitiesTab extends StatelessWidget {
       username: profile?.username,
       photoUrl: profile?.photoUrl,
     );
+    final comments = commentService;
 
     return SingleChildScrollView(
       padding: EdgeInsets.fromLTRB(24, 20, 24, bottomClearance),
       child: ActivityFeedCard.fromItem(
         activity,
+        commentService: comments,
+        showKudos: true,
+        showComments: true,
+        showShare: true,
         onOverflowTap: () {
           Navigator.of(context).push(
             MaterialPageRoute<void>(
@@ -271,9 +286,22 @@ class _ActivitiesTab extends StatelessWidget {
             ),
           );
         },
-        onKudosTap: () {},
-        onCommentTap: () {},
-        onShareTap: () {},
+        onKudosTap: () {
+          // Kudos persistence is not wired yet; keep the action visible.
+        },
+        onCommentTap: () {
+          Navigator.of(context).push(
+            MaterialPageRoute<void>(
+              builder: (_) => CommentsScreen(
+                activityId: activity.id,
+                commentService: comments,
+              ),
+            ),
+          );
+        },
+        onShareTap: () {
+          // Activity sharing backend is deferred; preserve the Share action.
+        },
       ),
     );
   }

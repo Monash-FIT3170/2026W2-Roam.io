@@ -3,7 +3,9 @@
  * Last Updated: 6 August 2026
  * Description:
  *   Bottom comment composer with send enabled only for non-empty trimmed text.
- *   Stays above the keyboard via parent Scaffold resizeToAvoidBottomInset.
+ *   Continuous AppSurfaces.card fill extends through the bottom SafeArea so no
+ *   page-background strip shows under the tray. Input uses softCard for
+ *   contrast. Stays above the keyboard via Scaffold resizeToAvoidBottomInset.
  */
 
 import 'package:flutter/material.dart';
@@ -29,19 +31,21 @@ class CommentComposer extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
+    final trayColor = AppSurfaces.card(context);
 
     return ValueListenableBuilder<TextEditingValue>(
       valueListenable: controller,
       builder: (context, value, _) {
         final canSend = enabled && !isSending && value.text.trim().isNotEmpty;
 
-        return SafeArea(
-          top: false,
-          child: Material(
-            color: AppSurfaces.card(context),
+        return ColoredBox(
+          color: trayColor,
+          child: SafeArea(
+            top: false,
             child: Padding(
               padding: const EdgeInsets.fromLTRB(16, 10, 12, 10),
               child: Row(
+                crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
                   Expanded(
                     child: TextField(
@@ -68,6 +72,10 @@ class CommentComposer extends StatelessWidget {
                           borderSide: BorderSide(
                             color: AppSurfaces.border(context),
                           ),
+                        ),
+                        focusedBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(14),
+                          borderSide: BorderSide(color: colorScheme.primary),
                         ),
                         contentPadding: const EdgeInsets.symmetric(
                           horizontal: 14,

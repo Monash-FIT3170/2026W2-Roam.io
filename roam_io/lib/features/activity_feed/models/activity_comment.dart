@@ -4,8 +4,11 @@
  * Description:
  *   Comment model for activity_feed social comments under
  *   activities/{activityId}/comments/{commentId}. Notifications for new
- *   comments are intentionally deferred.
+ *   comments are intentionally deferred. createdAt accepts ISO strings or
+ *   Firestore Timestamps.
  */
+
+import 'package:cloud_firestore/cloud_firestore.dart';
 
 /// A single comment on an activity (personal or friend stub).
 class ActivityComment {
@@ -42,9 +45,28 @@ class ActivityComment {
       authorUsername: data['authorUsername'] as String?,
       authorPhotoUrl: data['authorPhotoUrl'] as String?,
       text: data['text'] as String? ?? '',
-      createdAt:
-          DateTime.tryParse(data['createdAt'] as String? ?? '') ??
-          DateTime.fromMillisecondsSinceEpoch(0),
+      createdAt: _parseCreatedAt(data['createdAt']),
     );
   }
+}
+
+DateTime _parseCreatedAt(Object? raw) {
+  if (raw is Timestamp) {
+    return raw.toDate();
+  }
+  if (raw is DateTime) {
+    return raw;
+  }
+  if (raw is String) {
+    return DateTime.tryParse(raw) ?? DateTime.fromMillisecondsSinceEpoch(0);
+  }
+  return DateTime.fromMillisecondsSinceEpoch(0);
+}
+
+/// Formats a comment count with correct singular/plural labelling.
+String formatCommentCount(int count) {
+  if (count == 1) {
+    return '1 comment';
+  }
+  return '$count comments';
 }

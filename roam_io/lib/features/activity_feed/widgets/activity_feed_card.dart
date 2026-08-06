@@ -3,14 +3,18 @@
  * Last Updated: 6 August 2026
  * Description:
  *   Reusable activity feed card for You → Activities (personal) and Home
- *   (friend stubs). Engagement actions are configurable for privacy:
- *   Home friends expose Kudos + Comment only (no Share). Personal cards keep
- *   Kudos/Comment/Share as UI placeholders. Metric labels stay on one line.
+ *   (friend stubs). Engagement is configurable via showKudos / showComments /
+ *   showShare: Home shows Kudos + live comment count (no Share); You personal
+ *   cards show Kudos + comments + Share. Action labels scale down instead of
+ *   ellipsizing so the full engagement row stays visible. Metrics use
+ *   equal-width centre-aligned columns with one-line labels.
  */
 
 import 'package:flutter/material.dart';
 
 import '../../../theme/app_surfaces.dart';
+import '../data/comment_service.dart';
+import '../models/activity_comment.dart';
 import '../models/activity_feed_item.dart';
 import 'activity_map_preview.dart';
 
@@ -24,6 +28,9 @@ class ActivityFeedCard extends StatelessWidget {
     required this.timestampLabel,
     required this.title,
     required this.metrics,
+    this.activityId,
+    this.commentService,
+    this.commentCountStream,
     this.photoUrl,
     this.username,
     this.showMapPreview = false,
@@ -43,6 +50,8 @@ class ActivityFeedCard extends StatelessWidget {
   factory ActivityFeedCard.fromItem(
     ActivityFeedItem item, {
     Key? key,
+    CommentService? commentService,
+    Stream<int>? commentCountStream,
     bool showKudos = true,
     bool showComments = true,
     bool showShare = true,
@@ -53,6 +62,9 @@ class ActivityFeedCard extends StatelessWidget {
   }) {
     return ActivityFeedCard(
       key: key,
+      activityId: item.id,
+      commentService: commentService,
+      commentCountStream: commentCountStream,
       displayName: item.displayName,
       username: item.username,
       photoUrl: item.photoUrl,
@@ -76,6 +88,14 @@ class ActivityFeedCard extends StatelessWidget {
   final String timestampLabel;
   final String title;
   final List<ActivityFeedMetric> metrics;
+
+  /// Stable activity id used for live comment counts (stub or production).
+  final String? activityId;
+  final CommentService? commentService;
+
+  /// Injected count stream for tests; production uses [commentService].
+  final Stream<int>? commentCountStream;
+
   final bool showMapPreview;
   final bool showKudos;
   final bool showComments;
@@ -90,10 +110,27 @@ class ActivityFeedCard extends StatelessWidget {
 
   bool get _hasEngagementActions => showKudos || showComments || showShare;
 
+  Stream<int>? get _resolvedCommentCountStream {
+    if (!showComments) {
+      return null;
+    }
+    if (commentCountStream != null) {
+      return commentCountStream;
+    }
+    final id = activityId;
+    final service = commentService;
+    if (id != null && service != null) {
+      return service.watchCommentCount(id);
+    }
+    // Widget tests / layouts without a service: show a stable zero count.
+    return Stream<int>.value(0);
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
+    final countStream = _resolvedCommentCountStream;
 
     return Container(
       width: double.infinity,
@@ -190,7 +227,7 @@ class ActivityFeedCard extends StatelessWidget {
           ],
           if (metrics.isNotEmpty) ...[
             const SizedBox(height: 14),
-            _ActivityMetricsRow(metrics: metrics),
+            ActivityMetricsRow(metrics: metrics),
           ],
           if (_hasEngagementActions) ...[
             const SizedBox(height: 12),
@@ -205,9 +242,9 @@ class ActivityFeedCard extends StatelessWidget {
                     onTap: onKudosTap,
                   ),
                 if (showComments)
-                  _ActionButton(
-                    icon: Icons.chat_bubble_outline_rounded,
-                    label: commentLabel,
+                  _CommentActionButton(
+                    countStream: countStream,
+                    fallbackLabel: commentLabel,
                     onTap: onCommentTap,
                   ),
                 if (showShare)
@@ -225,21 +262,9 @@ class ActivityFeedCard extends StatelessWidget {
   }
 }
 
-/// Shared one-line metric labels + values for cards and detail screens.
+/// Shared equal-width, centre-aligned metric columns for cards and detail.
 class ActivityMetricsRow extends StatelessWidget {
   const ActivityMetricsRow({super.key, required this.metrics, this.valueStyle});
-
-  final List<ActivityFeedMetric> metrics;
-  final TextStyle? valueStyle;
-
-  @override
-  Widget build(BuildContext context) {
-    return _ActivityMetricsRow(metrics: metrics, valueStyle: valueStyle);
-  }
-}
-
-class _ActivityMetricsRow extends StatelessWidget {
-  const _ActivityMetricsRow({required this.metrics, this.valueStyle});
 
   final List<ActivityFeedMetric> metrics;
   final TextStyle? valueStyle;
@@ -250,85 +275,128 @@ class _ActivityMetricsRow extends StatelessWidget {
 
     return Row(
       children: [
-        for (var index = 0; index < metrics.length; index += 1) ...[
-          if (index > 0) const SizedBox(width: 12),
+        for (var index = 0; index < metrics.length; index += 1)
           Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                FittedBox(
-                  fit: BoxFit.scaleDown,
-                  alignment: Alignment.centerLeft,
-                  child: Text(
-                    metrics[index].label,
-                    maxLines: 1,
-                    softWrap: false,
-                    style: theme.textTheme.labelMedium?.copyWith(
-                      color: AppSurfaces.textMuted(context),
-                      fontWeight: FontWeight.w700,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 4),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  FittedBox(
+                    fit: BoxFit.scaleDown,
+                    child: Text(
+                      metrics[index].label,
+                      maxLines: 1,
+                      softWrap: false,
+                      textAlign: TextAlign.center,
+                      style: theme.textTheme.labelMedium?.copyWith(
+                        color: AppSurfaces.textMuted(context),
+                        fontWeight: FontWeight.w700,
+                      ),
                     ),
                   ),
-                ),
-                const SizedBox(height: 4),
-                FittedBox(
-                  fit: BoxFit.scaleDown,
-                  alignment: Alignment.centerLeft,
-                  child: Text(
-                    metrics[index].value,
-                    maxLines: 1,
-                    softWrap: false,
-                    style:
-                        valueStyle ??
-                        theme.textTheme.titleSmall?.copyWith(
-                          color: AppSurfaces.textPrimary(context),
-                          fontWeight: FontWeight.w900,
-                        ),
+                  const SizedBox(height: 4),
+                  FittedBox(
+                    fit: BoxFit.scaleDown,
+                    child: Text(
+                      metrics[index].value,
+                      maxLines: 1,
+                      softWrap: false,
+                      textAlign: TextAlign.center,
+                      style:
+                          valueStyle ??
+                          theme.textTheme.titleSmall?.copyWith(
+                            color: AppSurfaces.textPrimary(context),
+                            fontWeight: FontWeight.w900,
+                          ),
+                    ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
           ),
-        ],
       ],
     );
   }
 }
 
+class _CommentActionButton extends StatelessWidget {
+  const _CommentActionButton({
+    required this.countStream,
+    required this.fallbackLabel,
+    required this.onTap,
+  });
+
+  final Stream<int>? countStream;
+  final String fallbackLabel;
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    if (countStream == null) {
+      return _ActionButton(
+        icon: Icons.chat_bubble_outline_rounded,
+        label: fallbackLabel,
+        onTap: onTap,
+      );
+    }
+
+    return Expanded(
+      child: StreamBuilder<int>(
+        stream: countStream,
+        builder: (context, snapshot) {
+          final count = snapshot.data ?? 0;
+          return _ActionButton(
+            icon: Icons.chat_bubble_outline_rounded,
+            label: formatCommentCount(count),
+            onTap: onTap,
+            expand: false,
+          );
+        },
+      ),
+    );
+  }
+}
+
+/// Equal-width engagement action. Labels scale down instead of ellipsizing so
+/// Kudos / comment counts / Share stay fully readable in a 2- or 3-button row.
 class _ActionButton extends StatelessWidget {
   const _ActionButton({
     required this.icon,
     required this.label,
     required this.onTap,
+    this.expand = true,
   });
 
   final IconData icon;
   final String label;
   final VoidCallback? onTap;
+  final bool expand;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
 
-    return Expanded(
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(10),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: 10),
+    final content = InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(10),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 2),
+        child: FittedBox(
+          fit: BoxFit.scaleDown,
           child: Row(
             mainAxisAlignment: MainAxisAlignment.center,
+            mainAxisSize: MainAxisSize.min,
             children: [
               Icon(icon, size: 18, color: AppSurfaces.textMuted(context)),
               const SizedBox(width: 6),
-              Flexible(
-                child: Text(
-                  label,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: theme.textTheme.labelLarge?.copyWith(
-                    color: AppSurfaces.textMuted(context),
-                    fontWeight: FontWeight.w800,
-                  ),
+              Text(
+                label,
+                maxLines: 1,
+                softWrap: false,
+                style: theme.textTheme.labelLarge?.copyWith(
+                  color: AppSurfaces.textMuted(context),
+                  fontWeight: FontWeight.w800,
                 ),
               ),
             ],
@@ -336,5 +404,10 @@ class _ActionButton extends StatelessWidget {
         ),
       ),
     );
+
+    if (!expand) {
+      return content;
+    }
+    return Expanded(child: content);
   }
 }

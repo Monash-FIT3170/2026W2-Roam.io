@@ -3,6 +3,7 @@
  * Last Updated: 6 August 2026
  * Description:
  *   Firestore comments for activities at activities/{activityId}/comments.
+ *   Exposes live comment lists and counts for cards and CommentsScreen.
  *   Notifications for comment creation are intentionally deferred.
  */
 
@@ -33,6 +34,11 @@ class CommentService {
           .map((doc) => ActivityComment.fromMap(doc.id, activityId, doc.data()))
           .toList();
     });
+  }
+
+  /// Live comment count for activity cards (same collection as [watchComments]).
+  Stream<int> watchCommentCount(String activityId) {
+    return _comments(activityId).snapshots().map((snapshot) => snapshot.size);
   }
 
   /// Creates a comment. [text] must already be trimmed and non-empty.

@@ -2,8 +2,9 @@
  * Author: Sanjevan Rajasegar
  * Last Updated: 6 August 2026
  * Description:
- *   Widget tests for CommentsScreen composer validation and CommentService
- *   persistence behaviour (success clears input; failure does not fake-add).
+ *   Widget tests for CommentsScreen composer validation, empty state, and
+ *   CommentService persistence (success clears input; failure does not
+ *   fake-add). Notifications for comments are deferred.
  */
 
 import 'dart:async';
@@ -15,9 +16,11 @@ import 'package:provider/provider.dart';
 import 'package:roam_io/features/activity_feed/data/comment_service.dart';
 import 'package:roam_io/features/activity_feed/models/activity_comment.dart';
 import 'package:roam_io/features/activity_feed/screens/comments_screen.dart';
+import 'package:roam_io/features/activity_feed/widgets/comment_composer.dart';
 import 'package:roam_io/features/auth/data/auth_repository.dart';
 import 'package:roam_io/features/auth/providers/auth_provider.dart';
 import 'package:roam_io/features/profile/domain/profile_model.dart';
+import 'package:roam_io/theme/app_surfaces.dart';
 
 void main() {
   testWidgets('empty and whitespace comments cannot submit', (tester) async {
@@ -38,6 +41,7 @@ void main() {
     );
     await tester.pumpAndSettle();
 
+    expect(find.text('No comments yet'), findsOneWidget);
     expect(find.widgetWithText(TextButton, 'Send'), findsOneWidget);
     final sendFinder = find.widgetWithText(TextButton, 'Send');
     expect(tester.widget<TextButton>(sendFinder).onPressed, isNull);
@@ -71,16 +75,22 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    expect(find.textContaining('No comments yet'), findsOneWidget);
+    expect(find.text('No comments yet'), findsOneWidget);
 
     await tester.enterText(find.byType(TextField), 'Great roam!');
     await tester.pump();
+    expect(
+      tester
+          .widget<TextButton>(find.widgetWithText(TextButton, 'Send'))
+          .onPressed,
+      isNotNull,
+    );
     await tester.tap(find.widgetWithText(TextButton, 'Send'));
     await tester.pumpAndSettle();
 
     expect(comments.addCalls, 1);
     expect(find.text('Great roam!'), findsOneWidget);
-    expect(find.textContaining('No comments yet'), findsNothing);
+    expect(find.text('No comments yet'), findsNothing);
     expect(
       tester.widget<TextField>(find.byType(TextField)).controller?.text,
       '',
@@ -116,8 +126,49 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Should fail'), findsOneWidget);
-    expect(find.text('Could not post comment. Try again.'), findsOneWidget);
-    expect(find.textContaining('No comments yet'), findsOneWidget);
+    // Inline error + AppToast both surface the same copy.
+    expect(find.text('Could not post comment. Try again.'), findsNWidgets(2));
+    expect(find.text('No comments yet'), findsOneWidget);
+
+    auth.dispose();
+    await comments.dispose();
+  });
+
+  testWidgets('composer tray ColoredBox uses AppSurfaces.card fill', (
+    tester,
+  ) async {
+    final comments = _FakeCommentService();
+    final auth = AuthProvider(authRepository: _FakeAuthRepository());
+    await auth.refreshCurrentUser();
+
+    late Color expectedTray;
+    await tester.pumpWidget(
+      ChangeNotifierProvider<AuthProvider>.value(
+        value: auth,
+        child: MaterialApp(
+          home: Builder(
+            builder: (context) {
+              expectedTray = AppSurfaces.card(context);
+              return CommentsScreen(
+                activityId: 'stub-amar-sidequest',
+                commentService: comments,
+              );
+            },
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final tray = tester.widget<ColoredBox>(
+      find
+          .descendant(
+            of: find.byType(CommentComposer),
+            matching: find.byType(ColoredBox),
+          )
+          .first,
+    );
+    expect(tray.color, expectedTray);
 
     auth.dispose();
     await comments.dispose();
@@ -139,6 +190,19 @@ class _FakeCommentService implements CommentService {
       controller.add(List<ActivityComment>.from(_comments));
       final subscription = _controller.stream.listen(
         controller.add,
+        onError: controller.addError,
+        onDone: controller.close,
+      );
+      controller.onCancel = subscription.cancel;
+    });
+  }
+
+  @override
+  Stream<int> watchCommentCount(String activityId) {
+    return Stream<int>.multi((controller) {
+      controller.add(_comments.length);
+      final subscription = _controller.stream.listen(
+        (list) => controller.add(list.length),
         onError: controller.addError,
         onDone: controller.close,
       );

@@ -2,14 +2,15 @@
  * Author: Sanjevan Rajasegar
  * Last Updated: 6 August 2026
  * Description:
- *   Comments page for a friend activity. Streams Firestore comments under
- *   activities/{activityId}/comments and posts via CommentService.
- *   Notifications for new comments are deferred.
+ *   Comments page for Home friend and You personal activities. Streams
+ *   Firestore comments under activities/{activityId}/comments and posts via
+ *   CommentService. Notifications for new comments are deferred.
  */
 
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../../../shared/widgets/app_toast.dart';
 import '../../../theme/app_surfaces.dart';
 import '../../auth/providers/auth_provider.dart';
 import '../data/comment_service.dart';
@@ -64,6 +65,7 @@ class _CommentsScreenState extends State<CommentsScreen> {
     final profile = auth.currentProfile;
     if (user == null) {
       setState(() => _errorMessage = 'Sign in to leave a comment.');
+      AppToast.error(context, 'Sign in to leave a comment.');
       return;
     }
 
@@ -83,11 +85,13 @@ class _CommentsScreenState extends State<CommentsScreen> {
       );
       if (!mounted) return;
       _controller.clear();
-    } catch (_) {
+    } catch (error, stackTrace) {
+      debugPrint('Comment submit failed: $error\n$stackTrace');
       if (!mounted) return;
       setState(() {
         _errorMessage = 'Could not post comment. Try again.';
       });
+      AppToast.error(context, 'Could not post comment. Try again.');
     } finally {
       if (mounted) {
         setState(() => _isSending = false);
@@ -152,7 +156,7 @@ class _CommentsScreenState extends State<CommentsScreen> {
                     child: Padding(
                       padding: const EdgeInsets.all(24),
                       child: Text(
-                        'No comments yet. Be the first to leave one.',
+                        'No comments yet',
                         textAlign: TextAlign.center,
                         style: theme.textTheme.bodyMedium?.copyWith(
                           color: AppSurfaces.textMuted(context),
@@ -176,13 +180,19 @@ class _CommentsScreenState extends State<CommentsScreen> {
             ),
           ),
           if (_errorMessage != null)
-            Padding(
-              padding: const EdgeInsets.fromLTRB(20, 0, 20, 6),
-              child: Text(
-                _errorMessage!,
-                style: theme.textTheme.bodySmall?.copyWith(
-                  color: theme.colorScheme.error,
-                  fontWeight: FontWeight.w700,
+            ColoredBox(
+              color: AppSurfaces.card(context),
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(20, 6, 20, 0),
+                child: Align(
+                  alignment: Alignment.centerLeft,
+                  child: Text(
+                    _errorMessage!,
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: theme.colorScheme.error,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
                 ),
               ),
             ),

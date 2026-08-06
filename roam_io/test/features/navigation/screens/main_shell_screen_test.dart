@@ -12,6 +12,8 @@ import 'package:firebase_core_platform_interface/test.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:provider/provider.dart';
+import 'package:roam_io/features/activity_feed/data/comment_service.dart';
+import 'package:roam_io/features/activity_feed/models/activity_comment.dart';
 import 'package:roam_io/features/auth/data/auth_repository.dart';
 import 'package:roam_io/features/auth/providers/auth_provider.dart';
 import 'package:roam_io/features/map/data/map_page.dart';
@@ -37,14 +39,16 @@ void main() {
   ) async {
     // Arrange: provide an authenticated user and profile.
     final repository = _MainShellAuthRepository();
+    final comments = _FakeCommentService();
 
     await tester.pumpWidget(
       MaterialApp(
         home: ChangeNotifierProvider<AuthProvider>(
           create: (_) => AuthProvider(authRepository: repository),
-          child: const MainShellScreen(
+          child: MainShellScreen(
             // Android platform permissions are not available in widget tests.
             requestNotificationPermission: false,
+            commentService: comments,
           ),
         ),
       ),
@@ -79,6 +83,8 @@ void main() {
     expect(find.text('Settings'), findsOneWidget);
     expect(find.text('Account'), findsOneWidget);
     expect(find.text('Preferences'), findsOneWidget);
+
+    await comments.dispose();
   });
 
   for (final scenario in [
@@ -101,13 +107,15 @@ void main() {
       '${scenario.action.label.toLowerCase()} notification action shows app toast',
       (tester) async {
         final repository = _MainShellAuthRepository();
+        final comments = _FakeCommentService();
 
         await tester.pumpWidget(
           MaterialApp(
             home: ChangeNotifierProvider<AuthProvider>(
               create: (_) => AuthProvider(authRepository: repository),
-              child: const MainShellScreen(
+              child: MainShellScreen(
                 requestNotificationPermission: false,
+                commentService: comments,
               ),
             ),
           ),
@@ -131,9 +139,38 @@ void main() {
         expect(find.byType(AppToastBanner), findsOneWidget);
         expect(find.byIcon(Icons.check_circle_rounded), findsOneWidget);
         expect(find.text(scenario.expectedMessage), findsOneWidget);
+
+        await comments.dispose();
       },
     );
   }
+}
+
+/// In-memory comments so shell tests never touch Firestore.
+class _FakeCommentService implements CommentService {
+  @override
+  Stream<List<ActivityComment>> watchComments(String activityId) {
+    return Stream<List<ActivityComment>>.value(const <ActivityComment>[]);
+  }
+
+  @override
+  Stream<int> watchCommentCount(String activityId) {
+    return Stream<int>.value(0);
+  }
+
+  @override
+  Future<ActivityComment> addComment({
+    required String activityId,
+    required String authorId,
+    required String authorDisplayName,
+    required String text,
+    String? authorUsername,
+    String? authorPhotoUrl,
+  }) async {
+    throw UnsupportedError('Shell tests do not post comments.');
+  }
+
+  Future<void> dispose() async {}
 }
 
 /// Signed-in user with profile so the shell can render authenticated tabs.
