@@ -1,11 +1,12 @@
 /*
  * Author: Sanjevan Rajasegar
- * Last Updated: 6 August 2026
+ * Last Updated: 7 August 2026
  * Description:
  *   Widget tests for main shell tab switching, Home friend feed stubs, and
  *   notification action toast feedback.
  */
 
+import 'package:fake_cloud_firestore/fake_cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart' as firebase_auth;
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_core_platform_interface/test.dart';
@@ -20,6 +21,8 @@ import 'package:roam_io/features/map/data/map_page.dart';
 import 'package:roam_io/features/navigation/screens/main_shell_screen.dart';
 import 'package:roam_io/features/profile/domain/profile_model.dart';
 import 'package:roam_io/notifications/notification.dart';
+import 'package:roam_io/features/social/data/friendship_service.dart';
+import 'package:roam_io/features/social/domain/friend_request.dart';
 import 'package:roam_io/shared/widgets/app_toast.dart';
 
 import '../../../support/fake_firebase_user.dart';
@@ -108,6 +111,27 @@ void main() {
       (tester) async {
         final repository = _MainShellAuthRepository();
         final comments = _FakeCommentService();
+        final firestore = FakeFirebaseFirestore();
+        final friendshipService = FriendshipService(firestore: firestore);
+        final pairKey = FriendshipService.pairKeyFor(
+          'sender-user',
+          'shell-user',
+        );
+        final now = DateTime(2026, 8, 7);
+        await firestore
+            .collection(FriendshipService.friendRequestsCollection)
+            .doc(pairKey)
+            .set(
+              FriendRequest(
+                id: pairKey,
+                pairKey: pairKey,
+                senderId: 'sender-user',
+                recipientId: 'shell-user',
+                status: FriendRequestStatus.pending,
+                createdAt: now,
+                updatedAt: now,
+              ).toMap(),
+            );
 
         await tester.pumpWidget(
           MaterialApp(
@@ -116,6 +140,7 @@ void main() {
               child: MainShellScreen(
                 requestNotificationPermission: false,
                 commentService: comments,
+                friendshipService: friendshipService,
               ),
             ),
           ),
@@ -125,16 +150,17 @@ void main() {
 
         NotificationService.instance.handleAction(
           notification: AppNotification(
-            id: 'friend-request-1',
+            id: pairKey,
             type: NotificationType.friendRequest,
             title: 'New Friend Request',
             body: 'Alex sent you a friend request.',
             timestamp: DateTime(2026, 8, 5),
+            data: {'friendRequestId': pairKey, 'senderId': 'sender-user'},
           ),
           action: scenario.action,
         );
 
-        await tester.pump();
+        await tester.pumpAndSettle();
 
         expect(find.byType(AppToastBanner), findsOneWidget);
         expect(find.byIcon(Icons.check_circle_rounded), findsOneWidget);

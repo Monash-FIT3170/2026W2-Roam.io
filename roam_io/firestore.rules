@@ -10,6 +10,62 @@ service cloud.firestore {
         request.resource.data.xp is int;
     }
 
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isPairParticipant(data) {
+      return isSignedIn() &&
+        (request.auth.uid == data.senderId || request.auth.uid == data.recipientId);
+    }
+
+    function sortedPairKey(userA, userB) {
+      return userA < userB ? userA + '_' + userB : userB + '_' + userA;
+    }
+
+    function hasPublicProfileFields() {
+      return request.resource.data.keys().hasOnly([
+        'uid',
+        'username',
+        'usernameSearch',
+        'displayName',
+        'displayNameSearch',
+        'photoUrl',
+        'xp',
+        'level',
+        'createdAt',
+        'updatedAt'
+      ]) &&
+      request.resource.data.uid is string &&
+      request.resource.data.username is string &&
+      request.resource.data.usernameSearch is string &&
+      request.resource.data.displayName is string &&
+      request.resource.data.displayNameSearch is string &&
+      request.resource.data.createdAt is string &&
+      request.resource.data.updatedAt is string &&
+      (!request.resource.data.keys().hasAny(['xp']) ||
+        request.resource.data.xp is int) &&
+      (!request.resource.data.keys().hasAny(['level']) ||
+        request.resource.data.level is int);
+    }
+
+    function hasFriendRequestFields() {
+      return request.resource.data.keys().hasOnly([
+        'pairKey',
+        'senderId',
+        'recipientId',
+        'status',
+        'createdAt',
+        'updatedAt'
+      ]) &&
+      request.resource.data.pairKey is string &&
+      request.resource.data.senderId is string &&
+      request.resource.data.recipientId is string &&
+      request.resource.data.status is string &&
+      request.resource.data.createdAt is string &&
+      request.resource.data.updatedAt is string;
+    }
+
     match /profiles/{userId} {
       // Only the signed-in owner can read/write their own profile document.
       allow read: if isProfileOwner(userId);
@@ -29,6 +85,87 @@ service cloud.firestore {
         allow read, create: if isProfileOwner(userId);
         allow update, delete: if false;
       }
+    }
+
+    match /public_profiles/{userId} {
+      allow read: if isSignedIn();
+      allow create, update: if isProfileOwner(userId)
+        && request.resource.data.uid == userId
+        && hasPublicProfileFields();
+      allow delete: if false;
+    }
+
+    match /friend_requests/{requestId} {
+      allow read: if isPairParticipant(resource.data);
+      allow create: if isSignedIn()
+        && hasFriendRequestFields()
+        && request.auth.uid == request.resource.data.senderId
+        && request.resource.data.senderId != request.resource.data.recipientId
+        && !exists(
+          /databases/$(database)/documents/friendships/$(requestId)
+        )
+        && request.resource.data.status == 'pending'
+        && request.resource.data.pairKey ==
+          sortedPairKey(
+            request.resource.data.senderId,
+            request.resource.data.recipientId
+          )
+        && requestId == request.resource.data.pairKey;
+      allow update: if isSignedIn()
+        && hasFriendRequestFields()
+        && request.resource.data.pairKey == resource.data.pairKey
+        && (
+          (
+            resource.data.status == 'pending'
+            && request.auth.uid == resource.data.recipientId
+            && request.resource.data.senderId == resource.data.senderId
+            && request.resource.data.recipientId == resource.data.recipientId
+            && request.resource.data.createdAt == resource.data.createdAt
+            && request.resource.data.status in ['accepted', 'declined']
+          ) ||
+          (
+            resource.data.status == 'declined'
+            && request.auth.uid == request.resource.data.senderId
+            && request.resource.data.senderId != request.resource.data.recipientId
+            && request.resource.data.status == 'pending'
+            && request.resource.data.pairKey ==
+              sortedPairKey(
+                request.resource.data.senderId,
+                request.resource.data.recipientId
+              )
+            && requestId == request.resource.data.pairKey
+            && !exists(
+              /databases/$(database)/documents/friendships/$(requestId)
+            )
+          )
+        );
+      allow delete: if false;
+    }
+
+    match /friendships/{pairKey} {
+      allow read: if isSignedIn() && request.auth.uid in resource.data.memberIds;
+      allow create: if isSignedIn()
+        && request.resource.data.keys().hasOnly([
+          'pairKey',
+          'memberIds',
+          'createdAt',
+          'acceptedRequestId'
+        ])
+        && request.resource.data.pairKey == pairKey
+        && request.resource.data.acceptedRequestId == pairKey
+        && request.resource.data.memberIds is list
+        && request.resource.data.memberIds.size() == 2
+        && request.auth.uid in request.resource.data.memberIds
+        && getAfter(
+          /databases/$(database)/documents/friend_requests/$(pairKey)
+        ).data.status == 'accepted'
+        && getAfter(
+          /databases/$(database)/documents/friend_requests/$(pairKey)
+        ).data.senderId in request.resource.data.memberIds
+        && getAfter(
+          /databases/$(database)/documents/friend_requests/$(pairKey)
+        ).data.recipientId in request.resource.data.memberIds;
+      allow update, delete: if false;
     }
 
     match /polygons_visited/{userId} {

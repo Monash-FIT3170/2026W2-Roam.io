@@ -1,6 +1,6 @@
 /*
  * Author: Sanjevan Rajasegar
- * Last Updated: 5 August 2026
+ * Last Updated: 7 August 2026
  * Description:
  *   Provides the Social destination foundation for future friend and community
  *   functionality without implementing feed features.
@@ -10,10 +10,15 @@ import 'package:flutter/material.dart';
 
 import '../../../shared/widgets/app_page_header.dart';
 import '../../../theme/app_surfaces.dart';
+import '../data/friendship_service.dart';
+import 'find_people_screen.dart';
 
 /// Top-level Social tab for friend and community functionality.
 class SocialScreen extends StatelessWidget {
-  const SocialScreen({super.key});
+  const SocialScreen({super.key, FriendshipService? friendshipService})
+    : _friendshipService = friendshipService;
+
+  final FriendshipService? _friendshipService;
 
   @override
   Widget build(BuildContext context) {
@@ -27,9 +32,23 @@ class SocialScreen extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const AppPageHeader(
+              AppPageHeader(
                 title: 'Social',
                 subtitle: 'Friends and community tools',
+                trailing: IconButton(
+                  tooltip: 'Find people',
+                  color: theme.colorScheme.primary,
+                  icon: const Icon(Icons.search),
+                  onPressed: () {
+                    Navigator.of(context).push(
+                      MaterialPageRoute<void>(
+                        builder: (_) => FindPeopleScreen(
+                          friendshipService: _friendshipService,
+                        ),
+                      ),
+                    );
+                  },
+                ),
               ),
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 24),

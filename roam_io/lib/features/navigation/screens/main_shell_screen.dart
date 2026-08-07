@@ -1,6 +1,6 @@
 /*
  * Author: Sanjevan Rajasegar
- * Last Updated: 6 August 2026
+ * Last Updated: 7 August 2026
  * Description:
  *   Provides the authenticated app shell with persistent bottom navigation
  *   across the main feature tabs and production notification action feedback.
@@ -11,14 +11,17 @@ import 'dart:async';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import 'package:roam_io/notifications/notification.dart';
 
 import '../../../shared/widgets/app_bottom_nav_bar.dart';
 import '../../../shared/widgets/app_toast.dart';
 import '../../activity_feed/data/comment_service.dart';
+import '../../auth/providers/auth_provider.dart';
 import '../../home/screens/home_screen.dart';
 import '../../map/data/map_page.dart';
 import '../../settings/screens/settings_screen.dart';
+import '../../social/data/friendship_service.dart';
 import '../../social/screens/social_screen.dart';
 import '../../you/screens/you_screen.dart';
 
@@ -29,10 +32,14 @@ class MainShellScreen extends StatefulWidget {
   /// Injected for tests; production uses the default [CommentService].
   final CommentService? commentService;
 
+  /// Injected for tests; production uses the default [FriendshipService].
+  final FriendshipService? friendshipService;
+
   const MainShellScreen({
     super.key,
     this.requestNotificationPermission = true,
     this.commentService,
+    this.friendshipService,
   });
 
   @override
@@ -43,14 +50,22 @@ class _MainShellScreenState extends State<MainShellScreen> {
   int selectedIndex = 2;
 
   StreamSubscription<NotificationActionEvent>? _actionSubscription;
+  StreamSubscription? _incomingRequestSubscription;
+  StreamSubscription? _acceptedRequestSubscription;
   late final CommentService _commentService;
+  late final FriendshipService _friendshipService;
   late final List<Widget> pages;
+  final Set<String> _seenIncomingRequestIds = <String>{};
+  final Set<String> _seenAcceptedRequestIds = <String>{};
+  var _hasSeededIncomingRequests = false;
+  var _hasSeededAcceptedRequests = false;
 
   @override
   void initState() {
     super.initState();
 
     _commentService = widget.commentService ?? CommentService();
+    _friendshipService = widget.friendshipService ?? FriendshipService();
     pages = [
       HomeScreen(commentService: _commentService),
       const SocialScreen(),
@@ -70,20 +85,58 @@ class _MainShellScreenState extends State<MainShellScreen> {
       });
     }
 
-    // Displays app-styled feedback for notification actions.
-    _actionSubscription = NotificationService.instance.actionEvents.listen((
-      event,
-    ) {
-      if (!mounted) return;
+    // Handles domain-specific notification actions before showing feedback.
+    _actionSubscription = NotificationService.instance.actionEvents.listen(
+      _handleNotificationAction,
+    );
 
-      AppToast.success(context, _messageForNotificationAction(event));
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _startFriendRequestListeners();
     });
   }
 
   @override
   void dispose() {
     _actionSubscription?.cancel();
+    _incomingRequestSubscription?.cancel();
+    _acceptedRequestSubscription?.cancel();
     super.dispose();
+  }
+
+  Future<void> _handleNotificationAction(NotificationActionEvent event) async {
+    if (!mounted) return;
+
+    if (event.notification.type == NotificationType.friendRequest) {
+      final requestId = event.notification.data['friendRequestId'];
+      final currentUserId = context.read<AuthProvider>().currentUser?.uid;
+      if (requestId == null || currentUserId == null) return;
+
+      try {
+        if (event.action.type == NotificationActionType.accept) {
+          await _friendshipService.acceptRequest(
+            requestId: requestId,
+            currentUserId: currentUserId,
+          );
+        } else if (event.action.type == NotificationActionType.decline) {
+          await _friendshipService.declineRequest(
+            requestId: requestId,
+            currentUserId: currentUserId,
+          );
+        } else {
+          AppToast.success(context, _messageForNotificationAction(event));
+          return;
+        }
+        if (!mounted) return;
+        AppToast.success(context, _messageForNotificationAction(event));
+      } catch (_) {
+        if (mounted) {
+          AppToast.error(context, 'Could not update friend request.');
+        }
+      }
+      return;
+    }
+
+    AppToast.success(context, _messageForNotificationAction(event));
   }
 
   String _messageForNotificationAction(NotificationActionEvent event) {
@@ -92,6 +145,68 @@ class _MainShellScreenState extends State<MainShellScreen> {
       NotificationActionType.decline => 'Friend request declined.',
       _ => '${event.action.label} selected for ${event.notification.title}.',
     };
+  }
+
+  void _startFriendRequestListeners() {
+    final currentUserId = context.read<AuthProvider>().currentUser?.uid;
+    if (currentUserId == null) return;
+
+    _incomingRequestSubscription?.cancel();
+    _acceptedRequestSubscription?.cancel();
+    _seenIncomingRequestIds.clear();
+    _seenAcceptedRequestIds.clear();
+    _hasSeededIncomingRequests = false;
+    _hasSeededAcceptedRequests = false;
+
+    _incomingRequestSubscription = _friendshipService
+        .watchIncomingRequests(currentUserId)
+        .listen((requests) async {
+          if (!_hasSeededIncomingRequests) {
+            _seenIncomingRequestIds.addAll(
+              requests.map((request) => request.id),
+            );
+            _hasSeededIncomingRequests = true;
+            return;
+          }
+
+          for (final request in requests) {
+            if (!_seenIncomingRequestIds.add(request.id)) continue;
+            final sender = await _friendshipService.getPublicProfile(
+              request.senderId,
+            );
+            await NotificationService.instance.show(
+              NotificationTemplates.friendRequest(
+                sender?.displayName ?? sender?.username ?? 'Someone',
+                friendRequestId: request.id,
+                senderId: request.senderId,
+              ),
+            );
+          }
+        });
+
+    _acceptedRequestSubscription = _friendshipService
+        .watchAcceptedRequestsForSender(currentUserId)
+        .listen((requests) async {
+          if (!_hasSeededAcceptedRequests) {
+            _seenAcceptedRequestIds.addAll(
+              requests.map((request) => request.id),
+            );
+            _hasSeededAcceptedRequests = true;
+            return;
+          }
+
+          for (final request in requests) {
+            if (!_seenAcceptedRequestIds.add(request.id)) continue;
+            final recipient = await _friendshipService.getPublicProfile(
+              request.recipientId,
+            );
+            await NotificationService.instance.show(
+              NotificationTemplates.friendAccepted(
+                recipient?.displayName ?? recipient?.username ?? 'Someone',
+              ),
+            );
+          }
+        });
   }
 
   void _selectPage(int index) {
