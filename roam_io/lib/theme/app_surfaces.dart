@@ -1,6 +1,6 @@
 /*
  * Author: Sanjevan Rajasegar
- * Last Modified: 3/05/2026
+ * Last Updated: 5 August 2026
  * Description:
  *   Provides shared surface, border, text, and shadow colours that adapt to
  *   the active theme brightness.
@@ -20,7 +20,7 @@ class AppSurfaces {
     return Theme.of(context).scaffoldBackgroundColor;
   }
 
-  /// Surface for primary cards, such as profile and analytics cards.
+  /// Surface for primary cards, such as Settings and You screen cards.
   static Color card(BuildContext context) {
     return isDark(context) ? const Color(0xFF171A20) : AppColors.sand;
   }

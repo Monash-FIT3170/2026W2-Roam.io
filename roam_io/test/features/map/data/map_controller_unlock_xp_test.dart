@@ -19,6 +19,7 @@ import 'package:roam_io/features/map/data/region_service.dart';
 import 'package:roam_io/features/map/data/tile_unlock_xp_service.dart';
 import 'package:roam_io/features/map/data/visit_service.dart';
 import 'package:roam_io/features/map/data/visited_region_service.dart';
+import 'package:roam_io/features/profile/domain/xp_award_result.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -297,7 +298,14 @@ MapController _buildController({
         }
         events?.add('xp');
         awardedXp.add(xpToAdd);
-        return didLevelUpOnAddXp;
+        return XpAwardResult.success(
+          amount: xpToAdd,
+          previousXp: 0,
+          newXp: xpToAdd,
+          previousLevel: 1,
+          newLevel: didLevelUpOnAddXp ? 2 : 1,
+          historyRecorded: true,
+        );
       },
     ),
   );

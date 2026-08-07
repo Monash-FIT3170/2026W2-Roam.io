@@ -1,9 +1,10 @@
 /*
  * Author: Sanjevan Rajasegar
- * Last Modified: 12/05/2026
+ * Last Updated: 6 August 2026
  * Description:
- *   Manages authentication, profile XP, level-up state, and account actions
- *   exposed to the widget tree.
+ *   Manages authentication, profile XP, level-up state, and Settings account
+ *   edit actions exposed to the widget tree. XP awards return an explicit
+ *   XpAwardResult so callers never treat a failed write as success.
  */
 
 import 'dart:async';
@@ -14,6 +15,8 @@ import 'package:image_picker/image_picker.dart';
 
 import '../data/auth_repository.dart';
 import '../../profile/domain/profile_model.dart';
+import '../../profile/domain/xp_award_result.dart';
+import '../../profile/domain/xp_event.dart';
 
 /// High-level authentication state used by auth gates and account screens.
 enum AuthViewState { loading, authenticated, unauthenticated }
@@ -152,6 +155,30 @@ class AuthProvider extends ChangeNotifier {
     });
   }
 
+  /// Updates the username and refreshes local profile state.
+  Future<void> updateUsername(String username) async {
+    await _runAuthAction(() async {
+      await _authRepository.updateUsername(username);
+      _currentProfile = _currentProfile?.copyWith(
+        username: username,
+        updatedAt: DateTime.now(),
+      );
+    });
+  }
+
+  /// Requests a verified account email change through Firebase Auth.
+  Future<void> requestEmailChange({
+    required String currentPassword,
+    required String newEmail,
+  }) async {
+    await _runAuthAction(
+      () => _authRepository.requestEmailChange(
+        currentPassword: currentPassword,
+        newEmail: newEmail,
+      ),
+    );
+  }
+
   /// Persists the user's dark mode preference and updates local profile state.
   Future<void> updateDarkModePreference(bool enabled) async {
     await _runAuthAction(() async {
@@ -193,33 +220,54 @@ class AuthProvider extends ChangeNotifier {
     return didLevelUp;
   }
 
-  /// Adds XP and updates local profile/level-up state after the write succeeds.
-  Future<bool> addXp(int xpToAdd) async {
-    var didLevelUp = false;
-    await _runAuthAction(() async {
-      final currentProfile = _currentProfile;
-      final currentXp = currentProfile?.xp ?? 0;
-      final oldLevel =
-          currentProfile?.level ?? ProfileModel.levelFromXp(currentXp);
-      final newXp = currentXp + xpToAdd;
-      final newLevel = ProfileModel.levelFromXp(newXp);
+  /// Awards XP and updates local profile/level state only when the canonical
+  /// Firestore write succeeds. Does not use [_runAuthAction] so callers receive
+  /// an explicit [XpAwardResult] instead of a swallowed false-success.
+  Future<XpAwardResult> addXp(
+    int xpToAdd, {
+    XpEventSource source = XpEventSource.unknown,
+    String? sourceId,
+  }) async {
+    _isBusy = true;
+    _errorMessage = null;
+    notifyListeners();
 
-      if (currentProfile == null) {
-        await _authRepository.addXp(xpToAdd);
-      } else {
-        await _authRepository.updateXp(newXp);
+    try {
+      final result = await _authRepository.addXp(
+        xpToAdd,
+        source: source,
+        sourceId: sourceId,
+      );
+
+      if (!result.succeeded) {
+        _errorMessage =
+            'We could not save your XP right now. Please try again.';
+        return result;
       }
 
+      final currentProfile = _currentProfile;
       _currentProfile = currentProfile == null
           ? await _authRepository.getCurrentUserProfile()
-          : currentProfile.copyWith(xp: newXp, level: newLevel);
+          : currentProfile.copyWith(xp: result.newXp, level: result.newLevel);
 
-      if (newLevel > oldLevel) {
-        _pendingLevelUp = newLevel;
-        didLevelUp = true;
+      if (result.didLevelUp) {
+        _pendingLevelUp = result.newLevel;
       }
-    });
-    return didLevelUp;
+
+      return result;
+    } on FirebaseAuthException catch (e) {
+      _errorMessage = _friendlyAuthMessage(e);
+      return XpAwardResult.failed(amount: xpToAdd);
+    } on FirebaseException catch (e) {
+      _errorMessage = _friendlyFirestoreMessage(e);
+      return XpAwardResult.failed(amount: xpToAdd);
+    } catch (e) {
+      _errorMessage = e.toString();
+      return XpAwardResult.failed(amount: xpToAdd);
+    } finally {
+      _isBusy = false;
+      notifyListeners();
+    }
   }
 
   /// Signs out and clears local authentication/profile state.
@@ -286,7 +334,7 @@ class AuthProvider extends ChangeNotifier {
       case 'network-request-failed':
         return 'Network error. Check your internet connection and try again.';
       case 'requires-recent-login':
-        return 'For security, please log in again before changing your password.';
+        return 'For security, please log in again before changing account details.';
       default:
         return 'Authentication failed. Please try again.';
     }

@@ -1,8 +1,9 @@
 /*
  * Author: Sanjevan Rajasegar
- * Last Modified: 1/05/2026
+ * Last Updated: 5 August 2026
  * Description:
- *   Provides the reusable bottom navigation bar used by the main app shell.
+ *   Provides the reusable Home, Social, Map, You, and Settings bottom
+ *   navigation bar used by the main app shell.
  */
 
 import 'package:flutter/material.dart';
@@ -32,11 +33,11 @@ class AppBottomNavBar extends StatelessWidget {
   });
 
   static const items = [
-    _NavItem(Icons.route_outlined, Icons.route, 'JOURNEYS'),
-    _NavItem(Icons.explore_outlined, Icons.explore, 'QUESTS'),
+    _NavItem(Icons.home_outlined, Icons.home, 'HOME'),
+    _NavItem(Icons.groups_2_outlined, Icons.groups_2, 'SOCIAL'),
     _NavItem(Icons.public_outlined, Icons.public, 'MAP'),
-    _NavItem(Icons.query_stats_outlined, Icons.query_stats, 'ANALYTICS'),
-    _NavItem(Icons.person_outline, Icons.person, 'PROFILE'),
+    _NavItem(Icons.person_outline, Icons.person, 'YOU'),
+    _NavItem(Icons.settings_outlined, Icons.settings, 'SETTINGS'),
   ];
 
   @override

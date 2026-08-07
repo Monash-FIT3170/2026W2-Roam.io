@@ -11,6 +11,8 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:roam_io/features/auth/data/auth_repository.dart';
 import 'package:roam_io/features/auth/providers/auth_provider.dart';
 import 'package:roam_io/features/profile/domain/profile_model.dart';
+import 'package:roam_io/features/profile/domain/xp_award_result.dart';
+import 'package:roam_io/features/profile/domain/xp_event.dart';
 import 'package:roam_io/features/profile/domain/xp_reward_config.dart';
 
 void main() {
@@ -78,10 +80,25 @@ class _MutableProfileAuthRepository implements AuthRepository {
   Future<void> reloadCurrentUser() async {}
 
   @override
-  Future<void> addXp(int xpToAdd) async {
+  Future<XpAwardResult> addXp(
+    int xpToAdd, {
+    XpEventSource source = XpEventSource.unknown,
+    String? sourceId,
+  }) async {
     final current = _read();
-    final newXp = current.xp + xpToAdd;
+    final previousXp = current.xp;
+    final previousLevel = current.level;
+    final newXp = previousXp + xpToAdd;
     await updateXp(newXp);
+    final updated = _read();
+    return XpAwardResult.success(
+      amount: xpToAdd,
+      previousXp: previousXp,
+      newXp: updated.xp,
+      previousLevel: previousLevel,
+      newLevel: updated.level,
+      historyRecorded: true,
+    );
   }
 
   @override

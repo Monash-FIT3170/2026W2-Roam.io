@@ -1,6 +1,6 @@
 /*
  * Author: Sanjevan Rajasegar
- * Last Modified: 17/05/2026
+ * Last Updated: 6 August 2026
  * Description:
  *   Hosts the map screen and wires widget lifecycle to the map controller. This
  *   file keeps UI thin while controller setup, visit XP wiring, heatmap
@@ -12,6 +12,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../auth/providers/auth_provider.dart';
+import '../../profile/domain/xp_event.dart';
 import '../../../shared/widgets/app_toast.dart';
 import '../widgets/map_render.dart';
 import 'map_controller.dart';
@@ -39,7 +40,9 @@ class _MapPageState extends State<MapPage> {
 
     // Own the controller for this page and start its setup work once mounted.
     _mapController = MapController(
-      tileUnlockXpService: TileUnlockXpService(addXp: authProvider.addXp),
+      tileUnlockXpService: TileUnlockXpService(
+        addXp: (xp) => authProvider.addXp(xp, source: XpEventSource.tileUnlock),
+      ),
     );
     _mapController.addListener(_onMapStateChanged);
     _mapController.onPlaceSelected = _showPlaceDetails;
@@ -51,7 +54,9 @@ class _MapPageState extends State<MapPage> {
       final authProvider = context.read<AuthProvider>();
       _mapController.initialise(
         userId: authProvider.currentUser?.uid,
-        onVisitXpAwarded: (xp) => authProvider.addXp(xp),
+        onVisitXpAwarded: (xp) async {
+          await authProvider.addXp(xp, source: XpEventSource.visit);
+        },
       );
     });
   }
