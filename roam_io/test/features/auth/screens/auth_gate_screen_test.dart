@@ -43,8 +43,8 @@ void main() {
         ),
       );
       await tester.pump();
-      // Wait for the 1.5 second splash delay
-      await tester.pump(const Duration(milliseconds: 1500));
+      await tester.pump(const Duration(seconds: 2));
+      await tester.pump();
 
       expect(find.byType(LoginScreen), findsOneWidget);
     });
@@ -67,8 +67,8 @@ void main() {
         ),
       );
       await tester.pump();
-      // Wait for the 1.5 second splash delay
-      await tester.pump(const Duration(milliseconds: 1500));
+      await tester.pump(const Duration(seconds: 2));
+      await tester.pump();
 
       expect(find.byType(VerifyEmailScreen), findsOneWidget);
     });
@@ -98,8 +98,8 @@ void main() {
         ),
       );
       await tester.pump();
-      // Wait for the 1.5 second splash delay
-      await tester.pump(const Duration(milliseconds: 1500));
+      await tester.pump(const Duration(seconds: 2));
+      await tester.pump();
 
       expect(find.byType(MainShellScreen), findsOneWidget);
     });

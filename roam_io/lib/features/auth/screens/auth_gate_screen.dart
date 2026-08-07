@@ -7,6 +7,7 @@
  */
 
 import 'package:flutter/material.dart';
+import 'package:flutter_native_splash/flutter_native_splash.dart';
 import 'package:provider/provider.dart';
 
 import '../../navigation/screens/main_shell_screen.dart';
@@ -25,16 +26,25 @@ class AuthGateScreen extends StatefulWidget {
 }
 
 class _AuthGateState extends State<AuthGateScreen> {
+  static const _minimumSplashDuration = Duration(seconds: 2);
+
+  bool _minimumSplashElapsed = false;
+
   @override
   void initState() {
     super.initState();
     // Refresh after the first frame so Provider access has a mounted context.
     WidgetsBinding.instance.addPostFrameCallback((_) async {
-      // Ensure splash screen is visible for at least 1.5 seconds
-      await Future.delayed(const Duration(milliseconds: 1000));
-      if (mounted) {
-        context.read<AuthProvider>().refreshCurrentUser();
-      }
+      await Future<void>.delayed(_minimumSplashDuration);
+      if (!mounted) return;
+
+      await context.read<AuthProvider>().refreshCurrentUser();
+      if (!mounted) return;
+
+      setState(() => _minimumSplashElapsed = true);
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        FlutterNativeSplash.remove();
+      });
     });
   }
 
@@ -42,7 +52,7 @@ class _AuthGateState extends State<AuthGateScreen> {
   Widget build(BuildContext context) {
     return Consumer<AuthProvider>(
       builder: (context, auth, _) {
-        if (auth.viewState == AuthViewState.loading) {
+        if (!_minimumSplashElapsed || auth.viewState == AuthViewState.loading) {
           return const SplashLoadingScreen();
         }
 
