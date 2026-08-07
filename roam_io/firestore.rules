@@ -66,6 +66,17 @@ service cloud.firestore {
       request.resource.data.updatedAt is string;
     }
 
+    function hasFollowFields() {
+      return request.resource.data.keys().hasOnly([
+        'followerId',
+        'followeeId',
+        'createdAt'
+      ]) &&
+      request.resource.data.followerId is string &&
+      request.resource.data.followeeId is string &&
+      request.resource.data.createdAt is string;
+    }
+
     match /profiles/{userId} {
       // Only the signed-in owner can read/write their own profile document.
       allow read: if isProfileOwner(userId);
@@ -74,15 +85,20 @@ service cloud.firestore {
       
       // Visits subcollection - tracks places the user has visited
       match /visits/{visitId} {
-        // Only the signed-in owner can read/create/update their own visits.
-        allow read, create, update: if request.auth != null && request.auth.uid == userId;
+        // Temporary public-by-default social dashboard access.
+        // ART2-84 must replace this with configurable privacy/projection rules.
+        allow read: if isSignedIn();
+        allow create, update: if request.auth != null && request.auth.uid == userId;
         // No deletes - visits are permanent
         allow delete: if false;
       }
 
       // Timestamped XP gain events for weekly XP Gained analytics.
       match /xp_events/{eventId} {
-        allow read, create: if isProfileOwner(userId);
+        // Temporary public-by-default social dashboard access.
+        // ART2-84 must replace this with configurable privacy/projection rules.
+        allow read: if isSignedIn();
+        allow create: if isProfileOwner(userId);
         allow update, delete: if false;
       }
     }
@@ -168,9 +184,23 @@ service cloud.firestore {
       allow update, delete: if false;
     }
 
+    match /follows/{followId} {
+      allow read: if isSignedIn();
+      allow create: if isSignedIn()
+        && hasFollowFields()
+        && request.resource.data.followerId == request.auth.uid
+        && request.resource.data.followeeId != request.auth.uid
+        && followId == request.resource.data.followerId + '_' + request.resource.data.followeeId;
+      allow delete: if isSignedIn()
+        && resource.data.followerId == request.auth.uid
+        && followId == resource.data.followerId + '_' + resource.data.followeeId;
+      allow update: if false;
+    }
+
     match /polygons_visited/{userId} {
-      // Users can only read/write their own visited polygon document.
-      allow get: if request.auth != null && request.auth.uid == userId;
+      // Temporary public-by-default social dashboard access.
+      // ART2-84 must replace this with configurable privacy/projection rules.
+      allow get, list: if isSignedIn();
       allow create: if request.auth != null
         && request.auth.uid == userId
         && request.resource.data.profile_id == request.auth.uid;

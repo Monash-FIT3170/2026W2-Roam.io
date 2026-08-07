@@ -10,9 +10,17 @@ import 'package:firebase_auth/firebase_auth.dart' as firebase_auth;
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:provider/provider.dart';
+import 'package:roam_io/features/activity_feed/data/activity_feed_service.dart';
 import 'package:roam_io/features/auth/data/auth_repository.dart';
 import 'package:roam_io/features/auth/providers/auth_provider.dart';
+import 'package:roam_io/features/map/data/visit.dart';
+import 'package:roam_io/features/map/data/visit_service.dart';
+import 'package:roam_io/features/map/data/visited_region_service.dart';
 import 'package:roam_io/features/profile/domain/profile_model.dart';
+import 'package:roam_io/features/profile/domain/xp_event.dart';
+import 'package:roam_io/services/polygon_service.dart';
+import 'package:roam_io/services/profile_service.dart';
+import 'package:roam_io/features/social/data/follow_service.dart';
 import 'package:roam_io/features/social/data/friendship_service.dart';
 import 'package:roam_io/features/social/domain/friend_relationship.dart';
 import 'package:roam_io/features/social/domain/friend_request.dart';
@@ -181,13 +189,353 @@ void main() {
     expect(find.text('Nathan Nunes'), findsOneWidget);
     expect(find.text('@nathan'), findsOneWidget);
     expect(find.text('Level 2'), findsOneWidget);
-    expect(find.text('Activity and stats are not public yet.'), findsOneWidget);
+    expect(
+      find.text('Activity is visible after you become friends.'),
+      findsNothing,
+    );
+    expect(find.text('Follow'), findsOneWidget);
+    expect(find.text('Following'), findsOneWidget);
+    expect(find.text('Followers'), findsOneWidget);
+    expect(find.text('XP Gained'), findsWidgets);
+    expect(find.text('Journeys'), findsOneWidget);
+    expect(find.text('Sidequests'), findsOneWidget);
 
     await tester.pageBack();
     await tester.pumpAndSettle();
 
     expect(find.byType(FindPeopleScreen), findsOneWidget);
     expect(find.text('Nathan Nunes'), findsOneWidget);
+  });
+
+  testWidgets('accepted friend external profile shows selected-user activity', (
+    tester,
+  ) async {
+    final firestore = FakeFirebaseFirestore();
+    final friendshipService = FriendshipService(firestore: firestore);
+    final followService = FollowService(firestore: firestore);
+    final polygonService = PolygonService(firestore: firestore);
+    await friendshipService.upsertPublicProfile(
+      uid: 'other-user',
+      username: 'nathan',
+      displayName: 'Nathan Nunes',
+      xp: 140,
+      level: 2,
+    );
+    await firestore
+        .collection('profiles')
+        .doc('other-user')
+        .collection('visits')
+        .doc('1')
+        .set(
+          Visit(
+            placeId: 1,
+            googlePlaceId: 'g-1',
+            placeName: 'Lakeside Cafe',
+            regionId: 'region-a',
+            category: 'food_drink',
+            visitedAt: DateTime(2026, 8, 7),
+          ).toMap(),
+        );
+    await firestore
+        .collection('profiles')
+        .doc('other-user')
+        .collection('xp_events')
+        .doc('xp-1')
+        .set(
+          XpEvent(
+            id: 'xp-1',
+            amount: 50,
+            earnedAt: DateTime(2026, 8, 7),
+            source: XpEventSource.visit,
+          ).toMap(),
+        );
+    await polygonService.upsertVisitedPolygon(
+      profileId: 'other-user',
+      polygonId: 'tile-a',
+      visitedAt: DateTime(2026, 8, 7),
+    );
+    await friendshipService.sendRequest(
+      senderId: 'current-user',
+      recipientId: 'other-user',
+    );
+    await friendshipService.acceptRequest(
+      requestId: FriendshipService.pairKeyFor('current-user', 'other-user'),
+      currentUserId: 'other-user',
+    );
+
+    await _pumpOtherProfile(
+      tester,
+      OtherUserProfileScreen(
+        selectedUserId: 'other-user',
+        friendshipService: friendshipService,
+        visitService: VisitService(firestore: firestore),
+        visitedRegionService: VisitedRegionService(
+          polygonService: polygonService,
+        ),
+        profileService: ProfileService(firestore: firestore),
+        followService: followService,
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Nathan Nunes'), findsOneWidget);
+    expect(find.text('Tiles'), findsOneWidget);
+    expect(find.text('Lakeside Cafe'), findsWidgets);
+    expect(find.text('Recent Visited Locations'), findsOneWidget);
+    expect(
+      find.text('Activity is visible after you become friends.'),
+      findsNothing,
+    );
+    expect(find.text('Following'), findsOneWidget);
+    expect(find.text('Followers'), findsOneWidget);
+    expect(find.text('XP Gained'), findsWidgets);
+    expect(find.text('Journeys'), findsOneWidget);
+    expect(find.text('Sidequests'), findsOneWidget);
+    expect(
+      find.text(
+        'Journeys and sidequests will appear when persisted activity history is available.',
+      ),
+      findsNothing,
+    );
+  });
+
+  testWidgets('external follow toggles and updates counts reactively', (
+    tester,
+  ) async {
+    final firestore = FakeFirebaseFirestore();
+    final friendshipService = FriendshipService(firestore: firestore);
+    final followService = FollowService(firestore: firestore);
+    await friendshipService.upsertPublicProfile(
+      uid: 'other-user',
+      username: 'nathan',
+      displayName: 'Nathan Nunes',
+      xp: 140,
+      level: 2,
+    );
+
+    await _pumpOtherProfile(
+      tester,
+      OtherUserProfileScreen(
+        selectedUserId: 'other-user',
+        friendshipService: friendshipService,
+        followService: followService,
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Follow'), findsOneWidget);
+    expect(await followService.watchFollowerCount('other-user').first, 0);
+
+    await tester.tap(find.text('Follow'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Following'), findsWidgets);
+    expect(await followService.watchFollowerCount('other-user').first, 1);
+    expect(await followService.watchFollowingCount('current-user').first, 1);
+    expect(
+      await friendshipService
+          .watchRelationship(
+            currentUserId: 'current-user',
+            otherUserId: 'other-user',
+          )
+          .first
+          .then((relationship) => relationship.status),
+      FriendRelationshipStatus.none,
+    );
+
+    await tester.tap(find.widgetWithText(FilledButton, 'Following'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Follow'), findsOneWidget);
+    expect(await followService.watchFollowerCount('other-user').first, 0);
+  });
+
+  testWidgets(
+    'external follow button stays Following after analytics count rebuild',
+    (tester) async {
+      final firestore = FakeFirebaseFirestore();
+      final friendshipService = FriendshipService(firestore: firestore);
+      final followService = FollowService(firestore: firestore);
+      await friendshipService.upsertPublicProfile(
+        uid: 'other-user',
+        username: 'nathan',
+        displayName: 'Nathan Nunes',
+        xp: 140,
+        level: 2,
+      );
+
+      await _pumpOtherProfile(
+        tester,
+        OtherUserProfileScreen(
+          selectedUserId: 'other-user',
+          friendshipService: friendshipService,
+          followService: followService,
+          visitService: VisitService(firestore: firestore),
+          visitedRegionService: VisitedRegionService(
+            polygonService: PolygonService(firestore: firestore),
+          ),
+          profileService: ProfileService(firestore: firestore),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('Follow'));
+      await tester.pumpAndSettle();
+
+      expect(find.widgetWithText(FilledButton, 'Following'), findsOneWidget);
+      expect(find.text('1'), findsWidgets);
+
+      // Force another frame after count streams have updated analytics.
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 50));
+
+      expect(find.widgetWithText(FilledButton, 'Following'), findsOneWidget);
+      expect(find.text('Follow'), findsNothing);
+    },
+  );
+
+  testWidgets(
+    'external profile does not leak current-user visits into selected profile',
+    (tester) async {
+      final firestore = FakeFirebaseFirestore();
+      final friendshipService = FriendshipService(firestore: firestore);
+      await friendshipService.upsertPublicProfile(
+        uid: 'other-user',
+        username: 'nathan',
+        displayName: 'Nathan Nunes',
+        xp: 140,
+        level: 2,
+      );
+      await firestore
+          .collection('profiles')
+          .doc('current-user')
+          .collection('visits')
+          .doc('99')
+          .set(
+            Visit(
+              placeId: 99,
+              googlePlaceId: 'g-current',
+              placeName: 'Current User Only Cafe',
+              regionId: 'region-current',
+              category: 'food_drink',
+              visitedAt: DateTime(2026, 8, 7),
+            ).toMap(),
+          );
+      await firestore
+          .collection('profiles')
+          .doc('other-user')
+          .collection('visits')
+          .doc('1')
+          .set(
+            Visit(
+              placeId: 1,
+              googlePlaceId: 'g-1',
+              placeName: 'Selected User Cafe',
+              regionId: 'region-a',
+              category: 'food_drink',
+              visitedAt: DateTime(2026, 8, 7),
+            ).toMap(),
+          );
+
+      await _pumpOtherProfile(
+        tester,
+        OtherUserProfileScreen(
+          selectedUserId: 'other-user',
+          friendshipService: friendshipService,
+          visitService: VisitService(firestore: firestore),
+          visitedRegionService: VisitedRegionService(
+            polygonService: PolygonService(firestore: firestore),
+          ),
+          profileService: ProfileService(firestore: firestore),
+          followService: FollowService(firestore: firestore),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text('Selected User Cafe'), findsWidgets);
+      expect(find.text('Current User Only Cafe'), findsNothing);
+    },
+  );
+
+  testWidgets('external activities render persisted items only', (
+    tester,
+  ) async {
+    final firestore = FakeFirebaseFirestore();
+    final friendshipService = FriendshipService(firestore: firestore);
+    await friendshipService.upsertPublicProfile(
+      uid: 'other-user',
+      username: 'nathan',
+      displayName: 'Nathan Nunes',
+      xp: 140,
+      level: 2,
+    );
+    await firestore.collection('activities').doc('real-activity').set({
+      'profileId': 'other-user',
+      'displayName': 'Nathan Nunes',
+      'username': 'nathan',
+      'title': 'Real campus walk',
+      'kind': 'exploration',
+      'createdAt': DateTime(2026, 8, 7).toIso8601String(),
+      'metrics': [
+        {'label': 'XP Gained', 'value': '+50 XP'},
+      ],
+    });
+    await firestore.collection('activities').doc('other-activity').set({
+      'profileId': 'someone-else',
+      'displayName': 'Someone Else',
+      'title': 'Should not show',
+      'kind': 'exploration',
+      'createdAt': DateTime(2026, 8, 7).toIso8601String(),
+    });
+
+    await _pumpOtherProfile(
+      tester,
+      OtherUserProfileScreen(
+        selectedUserId: 'other-user',
+        friendshipService: friendshipService,
+        activityFeedService: ActivityFeedService(firestore: firestore),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Activities'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Real campus walk'), findsOneWidget);
+    expect(find.text('Should not show'), findsNothing);
+    expect(find.text('Share'), findsNothing);
+    expect(find.text('Journey to Coles'), findsNothing);
+    expect(find.text('No activities yet'), findsNothing);
+  });
+
+  testWidgets('external activities show empty state without persisted items', (
+    tester,
+  ) async {
+    final firestore = FakeFirebaseFirestore();
+    final friendshipService = FriendshipService(firestore: firestore);
+    await friendshipService.upsertPublicProfile(
+      uid: 'other-user',
+      username: 'nathan',
+      displayName: 'Nathan Nunes',
+      xp: 140,
+      level: 2,
+    );
+
+    await _pumpOtherProfile(
+      tester,
+      OtherUserProfileScreen(
+        selectedUserId: 'other-user',
+        friendshipService: friendshipService,
+        activityFeedService: ActivityFeedService(firestore: firestore),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Activities'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('No activities yet'), findsOneWidget);
+    expect(find.text('Journey to Coles'), findsNothing);
   });
 
   testWidgets('incoming request can be accepted from result row', (
@@ -286,10 +634,21 @@ Future<void> _pumpFindPeople(
 ) async {
   final auth = AuthProvider(authRepository: _FindPeopleAuthRepository());
   await tester.pumpWidget(
+    ChangeNotifierProvider<AuthProvider>.value(
+      value: auth,
+      child: MaterialApp(home: FindPeopleScreen(friendshipService: service)),
+    ),
+  );
+  await tester.pump();
+}
+
+Future<void> _pumpOtherProfile(WidgetTester tester, Widget child) async {
+  final auth = AuthProvider(authRepository: _FindPeopleAuthRepository());
+  await tester.pumpWidget(
     MaterialApp(
       home: ChangeNotifierProvider<AuthProvider>.value(
         value: auth,
-        child: FindPeopleScreen(friendshipService: service),
+        child: child,
       ),
     ),
   );

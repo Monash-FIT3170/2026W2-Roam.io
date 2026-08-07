@@ -1,13 +1,22 @@
 /*
  * Author: Sanjevan Rajasegar
- * Last Updated: 6 August 2026
+ * Last Updated: 7 August 2026
  * Description:
- *   Presentation-only activity feed item used by Home (friend stubs) and
- *   You → Activities (personal stubs). Not persisted to Firestore.
+ *   Presentation activity feed item used by Home/You stubs and persisted
+ *   public activity documents when available for external profiles.
  */
 
-/// Kind of activity represented in the feed UI (stub-phase only).
+/// Kind of activity represented in the feed UI.
 enum ActivityFeedKind { journey, sidequest, exploration }
+
+extension ActivityFeedKindParsing on ActivityFeedKind {
+  static ActivityFeedKind fromWireValue(String value) {
+    return ActivityFeedKind.values.firstWhere(
+      (kind) => kind.name == value,
+      orElse: () => ActivityFeedKind.exploration,
+    );
+  }
+}
 
 /// A single metric row value shown on an activity card or detail screen.
 class ActivityFeedMetric {
@@ -17,7 +26,7 @@ class ActivityFeedMetric {
   final String value;
 }
 
-/// UI model for an activity feed entry. Replace stubs when the real feed lands.
+/// UI model for an activity feed entry.
 class ActivityFeedItem {
   const ActivityFeedItem({
     required this.id,

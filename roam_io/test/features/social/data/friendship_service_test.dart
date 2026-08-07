@@ -8,6 +8,7 @@
 
 import 'package:fake_cloud_firestore/fake_cloud_firestore.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:roam_io/features/social/data/follow_service.dart';
 import 'package:roam_io/features/social/data/friendship_service.dart';
 import 'package:roam_io/features/social/domain/friend_relationship.dart';
 import 'package:roam_io/features/social/domain/friend_request.dart';
@@ -214,6 +215,71 @@ void main() {
       );
 
       expect(resend, SendFriendRequestResult.sent);
+    });
+  });
+
+  group('FollowService', () {
+    test('follows and unfollows independently from friendship', () async {
+      final firestore = FakeFirebaseFirestore();
+      final followService = FollowService(firestore: firestore);
+      final friendshipService = FriendshipService(firestore: firestore);
+
+      await followService.follow(followerId: 'user-a', followeeId: 'user-b');
+
+      expect(
+        await followService
+            .watchIsFollowing(followerId: 'user-a', followeeId: 'user-b')
+            .first,
+        isTrue,
+      );
+      expect(await followService.watchFollowingCount('user-a').first, 1);
+      expect(await followService.watchFollowerCount('user-b').first, 1);
+      final relationship = await friendshipService
+          .watchRelationship(currentUserId: 'user-a', otherUserId: 'user-b')
+          .first;
+      expect(relationship.status, FriendRelationshipStatus.none);
+
+      await followService.unfollow(followerId: 'user-a', followeeId: 'user-b');
+
+      expect(
+        await followService
+            .watchIsFollowing(followerId: 'user-a', followeeId: 'user-b')
+            .first,
+        isFalse,
+      );
+      expect(await followService.watchFollowingCount('user-a').first, 0);
+      expect(await followService.watchFollowerCount('user-b').first, 0);
+    });
+
+    test(
+      'persists follow document with followerId followeeId createdAt',
+      () async {
+        final firestore = FakeFirebaseFirestore();
+        final followService = FollowService(firestore: firestore);
+
+        await followService.follow(followerId: 'user-a', followeeId: 'user-b');
+
+        final doc = await firestore
+            .collection(FollowService.followsCollection)
+            .doc(FollowService.followIdFor('user-a', 'user-b'))
+            .get();
+        expect(doc.exists, isTrue);
+        expect(doc.data()?['followerId'], 'user-a');
+        expect(doc.data()?['followeeId'], 'user-b');
+        expect(doc.data()?['createdAt'], isA<String>());
+      },
+    );
+
+    test('ignores self follow attempts', () async {
+      final firestore = FakeFirebaseFirestore();
+      final service = FollowService(firestore: firestore);
+
+      await service.follow(followerId: 'user-a', followeeId: 'user-a');
+
+      final snapshot = await firestore
+          .collection(FollowService.followsCollection)
+          .get();
+      expect(snapshot.docs, isEmpty);
     });
   });
 }

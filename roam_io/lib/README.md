@@ -81,41 +81,48 @@ Firebase's verified email change flow rather than a direct profile overwrite.
 Successful display-name and username saves keep the user on the edit screen so
 the updated value can be reviewed before manually navigating back.
 
-### You Dashboard
+### Public Profile Dashboards
 
-`You` owns personal profile context and personal activity surfaces. It uses
-internal `Profile` and `Activities` tabs rather than adding more bottom-nav
-destinations. `Profile` keeps a compact identity row (64px avatar beside
-display name, username, and level/XP) with the five-stat row
-(Following/Followers/Tiles/Journeys/Sidequests) full-width beneath, then a
-metric-selectable interactive line graph. Analytics subscriptions live in
-`YouAnalyticsProvider`, which holds the latest visits / tiles / XP events so
-Profile data survives Activities tab remounts and Activity Detail push/pop
-(do not cache Firestore watches with `.asBroadcastStream()` on the screen).
-Locations Visited and Tiles Unlocked use existing visit/polygon timestamps.
-XP Gained uses timestamped `profiles/{uid}/xp_events` recorded **after** the
-canonical `profiles/{uid}` XP/level update succeeds. History is secondary
-analytics: a failure to write an XP event must never roll back or block
-progression. History accumulates from the point event tracking was introduced —
-existing aggregate XP is not reverse-engineered into fabricated past weeks.
-Weekly buckets use Monday-start local calendar weeks. Tapping a graph point
-selects it and shows that week's exact value; changing metric resets selection.
-Journey and sidequest graph modes remain empty until those domain sources
-exist. Bottom scroll padding uses `AppBottomNavBar.clearanceFromScreenBottom`
-with `SafeArea(bottom: false)` so content is not double-inset under the
-floating nav. `Activities` shows a personal stub via shared `activity_feed`
-cards with **Kudos + live comment count + Share**. Overflow opens a journey
-detail screen with **no** engagement controls (share and comments stay on the
-card). Comment opens the shared `CommentsScreen` (same as Home) backed by
-`activities/{activityId}/comments` via `CommentService`; card counts use
-`watchCommentCount`. `MainShellScreen` injects one shared `CommentService`
-into Home and You so card counts stay in sync after posting. `Home` uses a
-distinct friend stub dataset with **Kudos + live comment count** (Share omitted
-for privacy). Empty comments copy is `No comments yet`. The composer tray fills
-`AppSurfaces.card` through the bottom SafeArea inset. Notifications for
-comments are deferred. Metric columns are equal-width and centre-aligned;
-Sidequest stubs use Time / Locations Visited / XP Gained. Map preview remains a
-replaceable placeholder.
+Registered users have public social profiles by default until ART2-84 adds
+configurable privacy controls. `profiles/{uid}` remains the authoritative
+private profile document; `public_profiles/{uid}` is the safe public identity
+and progression projection used by search and external profiles. `You` owns
+authenticated-user state, while `OtherUserProfileScreen(selectedUserId)` owns
+selected-user state and composes the same dashboard presentation. Every
+external analytics watch must bind to `selectedUserId`, not
+`AuthProvider.currentUser.uid` (except Follow / Add Friend relationship
+actions).
+
+Profile headers show identity, level/XP, and six public stats:
+Following, Followers, Tiles, XP Gained, Journeys, and Sidequests. Following /
+Followers come from one-way `follows/{followerId_followeeId}` documents
+(`followerId`, `followeeId`, `createdAt`). Following count =
+relationships where `followerId == profileId`; Followers count =
+relationships where `followeeId == profileId`. Follow is independent from
+mutual friendship requests. Tiles use selected-user visited polygon records.
+The top-level XP Gained stat uses lifetime/current profile XP, while the XP
+Gained graph uses timestamped `profiles/{uid}/xp_events` recorded **after**
+the canonical `profiles/{uid}` XP/level update succeeds. Journey and sidequest
+counts are explicit zeroes in the profile stats view model until persisted
+completion sources exist.
+
+Failed Firestore analytics queries must not silently render as `0`.
+`YouAnalyticsProvider` distinguishes loading, real empty results, and errors
+(Following / Followers / Tiles show `—` when unavailable). Recent visits and
+most-visited surfaces show an unavailable state on error.
+
+`YouAnalyticsProvider` holds the latest visits / tiles / XP events / follow
+counts for its bound profile id so Profile data survives Activities tab
+remounts and Activity Detail push/pop. Weekly graph buckets use Monday-start
+local calendar weeks; tapping a graph point selects it and changing metric
+resets selection. The metric pill carousel uses `clipBehavior: Clip.none` so
+partially visible capsules keep rounded edges instead of a rectangular clip.
+`You → Activities` still uses the personal stub card with Kudos + live comment
+count + Share. External profile Activities must only render persisted
+`activities` documents for the selected profile; when none exist, show the
+normal empty state and do not render stubs. Public dashboard reads of visits,
+XP events, and tile records are temporary public-by-default access and must be
+replaced by ART2-84 privacy/projection rules.
 
 ### Notifications
 

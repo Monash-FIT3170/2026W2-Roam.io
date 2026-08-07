@@ -1,6 +1,6 @@
 /*
  * Author: Sanjevan Rajasegar
- * Last Updated: 6 August 2026
+ * Last Updated: 7 August 2026
  * Description:
  *   Regression tests for You screen tabs, profile identity XP progress,
  *   full-width social/exploration stats, metric line graphs, activities stub
@@ -10,6 +10,7 @@
 
 import 'dart:async';
 
+import 'package:fake_cloud_firestore/fake_cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart' as firebase_auth;
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -26,6 +27,7 @@ import 'package:roam_io/features/map/data/visited_region_service.dart';
 import 'package:roam_io/features/profile/domain/profile_model.dart';
 import 'package:roam_io/features/profile/domain/visited_polygon_record.dart';
 import 'package:roam_io/features/profile/domain/xp_event.dart';
+import 'package:roam_io/features/social/data/follow_service.dart';
 
 void main() {
   testWidgets('shows current profile XP instead of placeholder XP', (
@@ -104,6 +106,7 @@ void main() {
     expect(find.text('Tiles'), findsOneWidget);
     expect(find.text('Following'), findsOneWidget);
     expect(find.text('Followers'), findsOneWidget);
+    expect(find.text('XP Gained'), findsWidgets);
     expect(find.text('Journeys'), findsOneWidget);
     expect(find.text('Sidequests'), findsOneWidget);
     expect(find.text('6'), findsWidgets);
@@ -205,7 +208,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Most Visited Location'), findsOneWidget);
-    expect(find.text('Your top location'), findsOneWidget);
+    expect(find.text('Top location'), findsOneWidget);
     expect(find.text('Lakeside Cafe'), findsWidgets);
     // City Park appears in Recent Visited Locations (not most-visited).
     expect(find.text('City Park'), findsOneWidget);
@@ -242,9 +245,7 @@ void main() {
     expect(find.text('No locations yet'), findsOneWidget);
     expect(find.text('No locations to chart yet'), findsOneWidget);
     expect(
-      find.text(
-        'Visit places on the map to see your most visited location here.',
-      ),
+      find.text('Visit places on the map to build this profile.'),
       findsOneWidget,
     );
     expect(find.text('Most Visited Location'), findsOneWidget);
@@ -308,7 +309,7 @@ void main() {
       });
       await tester.pumpAndSettle();
 
-      expect(find.text('Your top location'), findsOneWidget);
+      expect(find.text('Top location'), findsOneWidget);
       expect(find.text('Lakeside Cafe'), findsWidgets);
       expect(find.text('2'), findsWidgets);
 
@@ -478,8 +479,9 @@ void main() {
 
       expect(find.byType(CustomPaint), findsWidgets);
 
-      await tester.ensureVisible(find.text('XP Gained'));
-      await tester.tap(find.text('XP Gained'));
+      final xpMetric = find.byKey(const ValueKey('profile-metric-xpGained'));
+      await tester.ensureVisible(xpMetric);
+      await tester.tap(xpMetric);
       await tester.pumpAndSettle();
 
       expect(find.text('No XP gained yet this period'), findsOneWidget);
@@ -516,8 +518,9 @@ void main() {
     xpController.add(const <XpEvent>[]);
     await tester.pumpAndSettle();
 
-    await tester.ensureVisible(find.text('XP Gained'));
-    await tester.tap(find.text('XP Gained'));
+    final xpMetric = find.byKey(const ValueKey('profile-metric-xpGained'));
+    await tester.ensureVisible(xpMetric);
+    await tester.tap(xpMetric);
     await tester.pumpAndSettle();
     expect(find.text('No XP gained yet this period'), findsOneWidget);
 
@@ -727,8 +730,9 @@ void main() {
       expect(find.text('Tiles'), findsOneWidget);
       expect(find.text('2'), findsWidgets);
 
-      await tester.ensureVisible(find.text('XP Gained'));
-      await tester.tap(find.text('XP Gained'));
+      final xpMetric = find.byKey(const ValueKey('profile-metric-xpGained'));
+      await tester.ensureVisible(xpMetric);
+      await tester.tap(xpMetric);
       await tester.pumpAndSettle();
 
       await tester.tap(find.text('Activities'));
@@ -770,6 +774,44 @@ void main() {
       await xpController.close();
     },
   );
+
+  testWidgets('You Following count updates from FollowService relationships', (
+    tester,
+  ) async {
+    final firestore = FakeFirebaseFirestore();
+    final followService = FollowService(firestore: firestore);
+    final provider = AuthProvider(
+      authRepository: _FakeAuthRepository(_buildProfile(xp: 50)),
+    );
+    await provider.refreshCurrentUser();
+
+    await tester.pumpWidget(
+      ChangeNotifierProvider<AuthProvider>.value(
+        value: provider,
+        child: MaterialApp(
+          home: Scaffold(
+            body: YouScreen(
+              visitService: _FakeVisitService(totalVisitCount: 0),
+              visitedRegionService: _FakeVisitedRegionService(<String>{}),
+              followService: followService,
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Following'), findsOneWidget);
+    expect(find.text('0'), findsWidgets);
+
+    await followService.follow(followerId: 'user-1', followeeId: 'user-b');
+    await tester.pumpAndSettle();
+
+    expect(find.text('1'), findsWidgets);
+    expect(await followService.watchFollowingCount('user-1').first, 1);
+
+    provider.dispose();
+  });
 }
 
 DateTime _mondayOnOrBefore(DateTime date) {
@@ -920,7 +962,9 @@ class _FakeVisitedRegionService implements VisitedRegionService {
   }
 
   @override
-  Stream<List<VisitedPolygonRecord>> watchVisitedPolygonRecords() {
+  Stream<List<VisitedPolygonRecord>> watchVisitedPolygonRecords({
+    String? profileId,
+  }) {
     return Stream<List<VisitedPolygonRecord>>.multi((controller) {
       controller.add(_visitedPolygonRecords);
       final subscription = _visitedPolygonRecordsController.stream.listen(

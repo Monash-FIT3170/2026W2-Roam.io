@@ -72,6 +72,24 @@ void main() {
 
     expect((titleCenter.dy - searchCenter.dy).abs(), lessThan(18));
   });
+
+  testWidgets('search icon uses standard foreground colour not primary green', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      const MaterialApp(home: Scaffold(body: SocialScreen())),
+    );
+
+    final button = tester.widget<IconButton>(
+      find.widgetWithIcon(IconButton, Icons.search),
+    );
+    final theme = Theme.of(
+      tester.element(find.widgetWithIcon(IconButton, Icons.search)),
+    );
+
+    expect(button.color, theme.colorScheme.onSurface);
+    expect(button.color, isNot(theme.colorScheme.primary));
+  });
 }
 
 class _SocialAuthRepository implements AuthRepository {

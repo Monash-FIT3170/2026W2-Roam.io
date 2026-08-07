@@ -9,7 +9,8 @@
     "logs": "firebase functions:log",
     "backfill:public-profiles": "node scripts/backfill_public_profiles.js --project roam-io-71e2c",
     "inspect:public-profiles": "node scripts/inspect_public_profiles.js --project roam-io-71e2c --username jacob_delapaz",
-    "test:backfill": "node scripts/backfill_public_profiles.test.js"
+    "test:backfill": "node scripts/backfill_public_profiles.test.js",
+    "test:rules": "node scripts/firestore_rules_activity_access.test.js"
   },
   "engines": {
     "node": "22"
@@ -24,6 +25,7 @@
     "pg": "^8.20.0"
   },
   "devDependencies": {
+    "@firebase/rules-unit-testing": "^5.0.1",
     "firebase-functions-test": "^3.1.0"
   },
   "private": true

@@ -3,7 +3,8 @@
  * Last Updated: 7 August 2026
  * Description:
  *   Provides the Social destination foundation for future friend and community
- *   functionality without implementing feed features.
+ *   functionality. The Find People search icon uses standard text-primary
+ *   foreground colour (not the sage primary accent).
  */
 
 import 'package:flutter/material.dart';
@@ -37,7 +38,8 @@ class SocialScreen extends StatelessWidget {
                 subtitle: 'Friends and community tools',
                 trailing: IconButton(
                   tooltip: 'Find people',
-                  color: theme.colorScheme.primary,
+                  // Use standard header foreground, not the sage primary accent.
+                  color: AppSurfaces.textPrimary(context),
                   icon: const Icon(Icons.search),
                   onPressed: () {
                     Navigator.of(context).push(

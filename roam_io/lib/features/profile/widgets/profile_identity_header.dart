@@ -10,6 +10,7 @@ import 'package:flutter/material.dart';
 
 import '../../../theme/app_surfaces.dart';
 import '../domain/profile_model.dart';
+import '../domain/profile_stats.dart';
 
 /// Displays public identity and optional level/XP information.
 class ProfileIdentityHeader extends StatelessWidget {
@@ -21,6 +22,8 @@ class ProfileIdentityHeader extends StatelessWidget {
     this.level,
     this.xp,
     this.tileCount,
+    this.stats,
+    this.action,
   });
 
   final String displayName;
@@ -29,6 +32,8 @@ class ProfileIdentityHeader extends StatelessWidget {
   final int? level;
   final int? xp;
   final int? tileCount;
+  final List<ProfileStatItem>? stats;
+  final Widget? action;
 
   @override
   Widget build(BuildContext context) {
@@ -101,15 +106,24 @@ class ProfileIdentityHeader extends StatelessWidget {
             ),
           ],
         ),
-        if (tileCount != null) ...[
+        if ((stats != null && stats!.isNotEmpty) || tileCount != null) ...[
           const SizedBox(height: 12),
           Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              _ProfileStat(label: 'Tiles', value: _formatNumber(tileCount!)),
+              for (final stat
+                  in stats ??
+                      [
+                        ProfileStatItem(
+                          label: 'Tiles',
+                          value: _formatNumber(tileCount!),
+                        ),
+                      ])
+                _ProfileStat(label: stat.label, value: stat.value),
             ],
           ),
         ],
+        if (action != null) ...[const SizedBox(height: 12), action!],
       ],
     );
   }

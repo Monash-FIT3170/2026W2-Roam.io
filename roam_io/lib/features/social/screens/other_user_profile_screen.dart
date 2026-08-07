@@ -3,85 +3,561 @@
  * Last Updated: 7 August 2026
  * Description:
  *   Displays a read-only public profile for another registered user loaded
- *   from the safe public_profiles projection.
+ *   from public_profiles/{selectedUserId}. Analytics bind exclusively to
+ *   selectedUserId (visits, tiles, xp_events, follow counts). Follow is
+ *   independent of friendship and derives Following state from Firestore
+ *   follows/{followerId_followeeId}.
  */
 
 import 'package:flutter/material.dart';
+import 'package:firebase_auth/firebase_auth.dart' as firebase_auth;
+import 'package:firebase_core/firebase_core.dart';
+import 'package:provider/provider.dart';
 
+import '../../../services/profile_service.dart';
+import '../../../shared/widgets/app_bottom_nav_bar.dart';
+import '../../../shared/widgets/app_toast.dart';
 import '../../../theme/app_surfaces.dart';
-import '../../profile/widgets/profile_identity_header.dart';
+import '../../activity_feed/data/activity_feed_service.dart';
+import '../../activity_feed/data/comment_service.dart';
+import '../../activity_feed/models/activity_feed_item.dart';
+import '../../activity_feed/screens/activity_detail_screen.dart';
+import '../../activity_feed/screens/comments_screen.dart';
+import '../../activity_feed/widgets/activity_feed_card.dart';
+import '../../auth/providers/auth_provider.dart';
+import '../../map/data/visit.dart';
+import '../../map/data/visit_service.dart';
+import '../../map/data/visited_region_service.dart';
+import '../../profile/domain/profile_stats.dart';
+import '../../profile/domain/visited_polygon_record.dart';
+import '../../profile/widgets/profile_dashboard.dart';
+import '../../you/providers/you_analytics_provider.dart';
+import '../data/follow_service.dart';
 import '../data/friendship_service.dart';
 import '../domain/public_profile.dart';
 
 /// Read-only social profile for a selected user.
-class OtherUserProfileScreen extends StatelessWidget {
+class OtherUserProfileScreen extends StatefulWidget {
   const OtherUserProfileScreen({
     super.key,
     required this.selectedUserId,
     FriendshipService? friendshipService,
-  }) : _friendshipService = friendshipService;
+    VisitService? visitService,
+    VisitedRegionService? visitedRegionService,
+    ProfileService? profileService,
+    FollowService? followService,
+    ActivityFeedService? activityFeedService,
+    CommentService? commentService,
+  }) : _friendshipService = friendshipService,
+       _visitService = visitService,
+       _visitedRegionService = visitedRegionService,
+       _profileService = profileService,
+       _followService = followService,
+       _activityFeedService = activityFeedService,
+       _commentService = commentService;
 
   final String selectedUserId;
   final FriendshipService? _friendshipService;
+  final VisitService? _visitService;
+  final VisitedRegionService? _visitedRegionService;
+  final ProfileService? _profileService;
+  final FollowService? _followService;
+  final ActivityFeedService? _activityFeedService;
+  final CommentService? _commentService;
+
+  @override
+  State<OtherUserProfileScreen> createState() => _OtherUserProfileScreenState();
+}
+
+class _OtherUserProfileScreenState extends State<OtherUserProfileScreen>
+    with SingleTickerProviderStateMixin {
+  late final TabController _tabController;
+  late final FriendshipService _friendshipService;
+  late final FollowService _followService;
+  late final ActivityFeedService _activityFeedService;
+  late final CommentService? _commentService;
+  late final YouAnalyticsProvider _analytics;
+  ProfileGraphMetric _selectedGraphMetric = ProfileGraphMetric.locationsVisited;
+
+  @override
+  void initState() {
+    super.initState();
+    _tabController = TabController(length: 2, vsync: this);
+    _friendshipService = widget._friendshipService ?? FriendshipService();
+    final hasFirebase = Firebase.apps.isNotEmpty;
+    _followService =
+        widget._followService ??
+        (hasFirebase ? FollowService() : _EmptyFollowService());
+    _activityFeedService =
+        widget._activityFeedService ??
+        (hasFirebase ? ActivityFeedService() : _EmptyActivityFeedService());
+    _commentService =
+        widget._commentService ?? (hasFirebase ? CommentService() : null);
+    _analytics = YouAnalyticsProvider(
+      visitService:
+          widget._visitService ?? (hasFirebase ? null : _EmptyVisitService()),
+      visitedRegionService:
+          widget._visitedRegionService ??
+          (hasFirebase ? null : _EmptyVisitedRegionService()),
+      profileService:
+          widget._profileService ?? (hasFirebase ? ProfileService() : null),
+      followService: _followService,
+    );
+  }
+
+  @override
+  void dispose() {
+    _tabController.dispose();
+    _analytics.dispose();
+    super.dispose();
+  }
+
+  void _selectGraphMetric(ProfileGraphMetric metric) {
+    if (_selectedGraphMetric == metric) return;
+    setState(() {
+      _selectedGraphMetric = metric;
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
-    final friendshipService = _friendshipService ?? FriendshipService();
+    final currentUserId = _currentUserId(context);
 
-    return Scaffold(
-      backgroundColor: AppSurfaces.pageBackground(context),
-      appBar: AppBar(title: const Text('Profile')),
-      body: SafeArea(
-        child: FutureBuilder<PublicProfile?>(
-          future: friendshipService.getPublicProfile(selectedUserId),
-          builder: (context, snapshot) {
-            if (snapshot.connectionState == ConnectionState.waiting) {
-              return const Center(child: CircularProgressIndicator());
-            }
+    return ChangeNotifierProvider<YouAnalyticsProvider>.value(
+      value: _analytics,
+      child: Scaffold(
+        backgroundColor: AppSurfaces.pageBackground(context),
+        appBar: AppBar(title: const Text('Profile')),
+        body: SafeArea(
+          child: StreamBuilder<PublicProfile?>(
+            stream: _friendshipService.watchPublicProfile(
+              widget.selectedUserId,
+            ),
+            builder: (context, profileSnapshot) {
+              if (profileSnapshot.connectionState == ConnectionState.waiting) {
+                return const Center(child: CircularProgressIndicator());
+              }
 
-            final profile = snapshot.data;
-            if (profile == null) {
-              return Center(
-                child: Padding(
-                  padding: const EdgeInsets.all(24),
-                  child: Text(
-                    'This profile is unavailable.',
-                    textAlign: TextAlign.center,
-                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                      color: AppSurfaces.textMuted(context),
+              final profile = profileSnapshot.data;
+              if (profile == null) {
+                return Center(
+                  child: Padding(
+                    padding: const EdgeInsets.all(24),
+                    child: Text(
+                      'This profile is unavailable.',
+                      textAlign: TextAlign.center,
+                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                        color: AppSurfaces.textMuted(context),
+                      ),
                     ),
                   ),
-                ),
-              );
-            }
+                );
+              }
 
-            return SingleChildScrollView(
-              padding: const EdgeInsets.fromLTRB(24, 18, 24, 32),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
+              _bindAnalytics(widget.selectedUserId);
+              return Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  ProfileIdentityHeader(
-                    displayName: profile.displayName,
-                    username: profile.username,
-                    photoUrl: profile.photoUrl,
-                    level: profile.level,
-                    xp: profile.xp,
-                  ),
-                  const SizedBox(height: 24),
-                  Text(
-                    'Activity and stats are not public yet.',
-                    textAlign: TextAlign.center,
-                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                      color: AppSurfaces.textMuted(context),
-                      fontWeight: FontWeight.w600,
+                  _ExternalProfileTabBar(controller: _tabController),
+                  Expanded(
+                    child: TabBarView(
+                      controller: _tabController,
+                      children: [
+                        _ExternalProfileDashboard(
+                          profile: profile,
+                          currentUserId: currentUserId,
+                          followService: _followService,
+                          selectedMetric: _selectedGraphMetric,
+                          onMetricSelected: _selectGraphMetric,
+                        ),
+                        _ExternalActivitiesTab(
+                          selectedUserId: widget.selectedUserId,
+                          activityFeedService: _activityFeedService,
+                          commentService: _commentService,
+                        ),
+                      ],
                     ),
                   ),
                 ],
-              ),
-            );
-          },
+              );
+            },
+          ),
         ),
       ),
     );
   }
+
+  void _bindAnalytics(String? uid) {
+    if (_analytics.boundUid == uid) return;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      _analytics.bindUid(uid);
+    });
+  }
+
+  String? _currentUserId(BuildContext context) {
+    try {
+      return context.watch<AuthProvider>().currentUser?.uid;
+    } on ProviderNotFoundException {
+      if (Firebase.apps.isEmpty) return null;
+      return firebase_auth.FirebaseAuth.instance.currentUser?.uid;
+    }
+  }
+}
+
+class _ExternalProfileTabBar extends StatelessWidget {
+  const _ExternalProfileTabBar({required this.controller});
+
+  final TabController controller;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(24, 12, 24, 0),
+      child: Align(
+        alignment: Alignment.centerLeft,
+        child: TabBar(
+          controller: controller,
+          isScrollable: true,
+          tabAlignment: TabAlignment.start,
+          labelColor: theme.colorScheme.primary,
+          unselectedLabelColor: AppSurfaces.textMuted(context),
+          indicatorColor: theme.colorScheme.primary,
+          indicatorWeight: 3,
+          dividerColor: AppSurfaces.border(context),
+          labelStyle: theme.textTheme.titleMedium?.copyWith(
+            fontWeight: FontWeight.w900,
+          ),
+          unselectedLabelStyle: theme.textTheme.titleMedium?.copyWith(
+            fontWeight: FontWeight.w700,
+          ),
+          tabs: const [
+            Tab(text: 'Profile'),
+            Tab(text: 'Activities'),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _ExternalProfileDashboard extends StatelessWidget {
+  const _ExternalProfileDashboard({
+    required this.profile,
+    required this.currentUserId,
+    required this.followService,
+    required this.selectedMetric,
+    required this.onMetricSelected,
+  });
+
+  final PublicProfile profile;
+  final String? currentUserId;
+  final FollowService followService;
+  final ProfileGraphMetric selectedMetric;
+  final ValueChanged<ProfileGraphMetric> onMetricSelected;
+
+  @override
+  Widget build(BuildContext context) {
+    final analytics = context.watch<YouAnalyticsProvider>();
+
+    return ProfileDashboard(
+      displayName: profile.displayName,
+      username: profile.username,
+      photoUrl: profile.photoUrl,
+      level: profile.level,
+      xp: profile.xp,
+      headerAction: currentUserId == null || currentUserId == profile.uid
+          ? null
+          : _FollowAction(
+              followerId: currentUserId!,
+              followeeId: profile.uid,
+              followService: followService,
+            ),
+      stats: ProfileStats(
+        following: analytics.followingCount,
+        followers: analytics.followerCount,
+        tiles: analytics.tileCount,
+        xpGained: profile.xp ?? 0,
+        journeys: 0,
+        sidequests: 0,
+      ),
+      visits: analytics.visits,
+      recentVisits: analytics.recentVisits,
+      tileRecords: analytics.tileRecords,
+      xpEvents: analytics.xpEvents,
+      selectedMetric: selectedMetric,
+      onMetricSelected: onMetricSelected,
+      recentVisitsReady: analytics.recentVisitsReady,
+      recentVisitsError: analytics.recentVisitsError,
+      visitsError: analytics.visitsError,
+      bottomPadding: AppBottomNavBar.clearanceFromScreenBottom(context) + 12,
+    );
+  }
+}
+
+/// Follow / Following control driven only by the persisted Firestore relationship.
+///
+/// The [watchIsFollowing] stream is created once so parent analytics rebuilds
+/// (count updates) cannot reset the button via a fresh StreamBuilder
+/// `initialData: false`.
+class _FollowAction extends StatefulWidget {
+  const _FollowAction({
+    required this.followerId,
+    required this.followeeId,
+    required this.followService,
+  });
+
+  final String followerId;
+  final String followeeId;
+  final FollowService followService;
+
+  @override
+  State<_FollowAction> createState() => _FollowActionState();
+}
+
+class _FollowActionState extends State<_FollowAction> {
+  late Stream<bool> _isFollowingStream;
+  bool _busy = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _isFollowingStream = widget.followService.watchIsFollowing(
+      followerId: widget.followerId,
+      followeeId: widget.followeeId,
+    );
+  }
+
+  @override
+  void didUpdateWidget(covariant _FollowAction oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.followerId != widget.followerId ||
+        oldWidget.followeeId != widget.followeeId ||
+        oldWidget.followService != widget.followService) {
+      _isFollowingStream = widget.followService.watchIsFollowing(
+        followerId: widget.followerId,
+        followeeId: widget.followeeId,
+      );
+    }
+  }
+
+  Future<void> _toggle(bool isFollowing) async {
+    if (_busy) return;
+    setState(() => _busy = true);
+    try {
+      if (isFollowing) {
+        await widget.followService.unfollow(
+          followerId: widget.followerId,
+          followeeId: widget.followeeId,
+        );
+      } else {
+        await widget.followService.follow(
+          followerId: widget.followerId,
+          followeeId: widget.followeeId,
+        );
+      }
+    } catch (error) {
+      final code = error is FirebaseException ? error.code : 'unknown';
+      debugPrint(
+        '[Follow] followerId=${widget.followerId} '
+        'followeeId=${widget.followeeId} '
+        'op=${isFollowing ? 'unfollow' : 'follow'} '
+        'collection=follows code=$code error=$error',
+      );
+      if (mounted) {
+        AppToast.error(
+          context,
+          isFollowing
+              ? 'Could not unfollow right now.'
+              : 'Could not follow right now.',
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _busy = false);
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return StreamBuilder<bool>(
+      stream: _isFollowingStream,
+      builder: (context, snapshot) {
+        final isFollowing = snapshot.data ?? false;
+        final waiting =
+            snapshot.connectionState == ConnectionState.waiting &&
+            !snapshot.hasData;
+        return Align(
+          alignment: Alignment.centerLeft,
+          child: FilledButton(
+            onPressed: _busy || waiting ? null : () => _toggle(isFollowing),
+            child: Text(isFollowing ? 'Following' : 'Follow'),
+          ),
+        );
+      },
+    );
+  }
+}
+
+class _ExternalActivitiesTab extends StatelessWidget {
+  const _ExternalActivitiesTab({
+    required this.selectedUserId,
+    required this.activityFeedService,
+    required this.commentService,
+  });
+
+  final String selectedUserId;
+  final ActivityFeedService activityFeedService;
+  final CommentService? commentService;
+
+  @override
+  Widget build(BuildContext context) {
+    final bottomClearance =
+        AppBottomNavBar.clearanceFromScreenBottom(context) + 12;
+
+    return StreamBuilder<List<ActivityFeedItem>>(
+      stream: activityFeedService.watchPublicActivitiesForProfile(
+        selectedUserId,
+      ),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting &&
+            !snapshot.hasData) {
+          return const Center(child: CircularProgressIndicator());
+        }
+        final activities = snapshot.data ?? const <ActivityFeedItem>[];
+        if (activities.isEmpty) {
+          return Center(
+            child: Padding(
+              padding: const EdgeInsets.all(24),
+              child: Text(
+                'No activities yet',
+                textAlign: TextAlign.center,
+                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                  color: AppSurfaces.textMuted(context),
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ),
+          );
+        }
+
+        return ListView.separated(
+          padding: EdgeInsets.fromLTRB(20, 20, 20, bottomClearance),
+          itemCount: activities.length,
+          separatorBuilder: (context, index) => const SizedBox(height: 14),
+          itemBuilder: (context, index) {
+            final activity = activities[index];
+            return ActivityFeedCard.fromItem(
+              activity,
+              commentService: commentService,
+              showKudos: true,
+              showComments: true,
+              showShare: false,
+              onOverflowTap: () {
+                Navigator.of(context).push(
+                  MaterialPageRoute<void>(
+                    builder: (_) => ActivityDetailScreen(activity: activity),
+                  ),
+                );
+              },
+              onKudosTap: () {},
+              onCommentTap: () {
+                Navigator.of(context).push(
+                  MaterialPageRoute<void>(
+                    builder: (_) => CommentsScreen(
+                      activityId: activity.id,
+                      commentService: commentService,
+                    ),
+                  ),
+                );
+              },
+            );
+          },
+        );
+      },
+    );
+  }
+}
+
+class _EmptyVisitService implements VisitService {
+  @override
+  Stream<List<Visit>> watchAllVisits(String userId) {
+    return Stream<List<Visit>>.value(const <Visit>[]);
+  }
+
+  @override
+  Stream<List<Visit>> watchRecentVisits(String userId, {int limit = 5}) {
+    return Stream<List<Visit>>.value(const <Visit>[]);
+  }
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+}
+
+class _EmptyVisitedRegionService implements VisitedRegionService {
+  @override
+  Stream<List<VisitedPolygonRecord>> watchVisitedPolygonRecords({
+    String? profileId,
+  }) {
+    return Stream<List<VisitedPolygonRecord>>.value(
+      const <VisitedPolygonRecord>[],
+    );
+  }
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+}
+
+class _EmptyFollowService implements FollowService {
+  @override
+  Stream<bool> watchIsFollowing({
+    required String followerId,
+    required String followeeId,
+  }) {
+    return Stream<bool>.value(false);
+  }
+
+  @override
+  Stream<int> watchFollowingCount(String uid) {
+    return Stream<int>.value(0);
+  }
+
+  @override
+  Stream<int> watchFollowerCount(String uid) {
+    return Stream<int>.value(0);
+  }
+
+  @override
+  Future<void> follow({
+    required String followerId,
+    required String followeeId,
+  }) {
+    return Future<void>.value();
+  }
+
+  @override
+  Future<void> unfollow({
+    required String followerId,
+    required String followeeId,
+  }) {
+    return Future<void>.value();
+  }
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+}
+
+class _EmptyActivityFeedService implements ActivityFeedService {
+  @override
+  Stream<List<ActivityFeedItem>> watchPublicActivitiesForProfile(
+    String profileId,
+  ) {
+    return Stream<List<ActivityFeedItem>>.value(const <ActivityFeedItem>[]);
+  }
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
 }

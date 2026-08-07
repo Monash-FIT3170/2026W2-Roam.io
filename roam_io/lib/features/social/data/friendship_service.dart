@@ -110,6 +110,15 @@ class FriendshipService {
     return PublicProfile.fromMap(data);
   }
 
+  /// Watches a public profile by uid for reactive external profile screens.
+  Stream<PublicProfile?> watchPublicProfile(String uid) {
+    return _publicProfiles.doc(uid).snapshots().map((doc) {
+      final data = doc.data();
+      if (data == null) return null;
+      return PublicProfile.fromMap(data);
+    });
+  }
+
   /// Creates or refreshes the public search profile mirror.
   Future<void> upsertPublicProfile({
     required String uid,
