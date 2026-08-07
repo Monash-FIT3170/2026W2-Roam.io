@@ -5,6 +5,8 @@
  *   Provides the authenticated app shell with persistent bottom navigation
  *   across the main feature tabs and production notification action feedback.
  *   Shares one CommentService across Home and You for live comment counts.
+ *   Wires SocialNotificationCoordinator for follow inbox banners and You
+ *   unread badge.
  */
 
 import 'dart:async';
@@ -22,6 +24,8 @@ import '../../home/screens/home_screen.dart';
 import '../../map/data/map_page.dart';
 import '../../settings/screens/settings_screen.dart';
 import '../../social/data/friendship_service.dart';
+import '../../social/data/social_notification_coordinator.dart';
+import '../../social/data/social_notification_service.dart';
 import '../../social/screens/social_screen.dart';
 import '../../you/screens/you_screen.dart';
 
@@ -35,11 +39,15 @@ class MainShellScreen extends StatefulWidget {
   /// Injected for tests; production uses the default [FriendshipService].
   final FriendshipService? friendshipService;
 
+  /// Injected for tests; production uses the default coordinator services.
+  final SocialNotificationCoordinator? socialNotificationCoordinator;
+
   const MainShellScreen({
     super.key,
     this.requestNotificationPermission = true,
     this.commentService,
     this.friendshipService,
+    this.socialNotificationCoordinator,
   });
 
   @override
@@ -54,11 +62,13 @@ class _MainShellScreenState extends State<MainShellScreen> {
   StreamSubscription? _acceptedRequestSubscription;
   late final CommentService _commentService;
   late final FriendshipService _friendshipService;
+  late final SocialNotificationCoordinator _socialNotificationCoordinator;
   late final List<Widget> pages;
   final Set<String> _seenIncomingRequestIds = <String>{};
   final Set<String> _seenAcceptedRequestIds = <String>{};
   var _hasSeededIncomingRequests = false;
   var _hasSeededAcceptedRequests = false;
+  var _ownsCoordinator = false;
 
   @override
   void initState() {
@@ -66,6 +76,16 @@ class _MainShellScreenState extends State<MainShellScreen> {
 
     _commentService = widget.commentService ?? CommentService();
     _friendshipService = widget.friendshipService ?? FriendshipService();
+    if (widget.socialNotificationCoordinator != null) {
+      _socialNotificationCoordinator = widget.socialNotificationCoordinator!;
+      _ownsCoordinator = false;
+    } else {
+      _socialNotificationCoordinator = SocialNotificationCoordinator(
+        friendshipService: _friendshipService,
+        notificationService: SocialNotificationService(),
+      );
+      _ownsCoordinator = true;
+    }
     pages = [
       HomeScreen(commentService: _commentService),
       const SocialScreen(),
@@ -92,6 +112,7 @@ class _MainShellScreenState extends State<MainShellScreen> {
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _startFriendRequestListeners();
+      _bindSocialNotifications();
     });
   }
 
@@ -100,7 +121,15 @@ class _MainShellScreenState extends State<MainShellScreen> {
     _actionSubscription?.cancel();
     _incomingRequestSubscription?.cancel();
     _acceptedRequestSubscription?.cancel();
+    if (_ownsCoordinator) {
+      _socialNotificationCoordinator.dispose();
+    }
     super.dispose();
+  }
+
+  void _bindSocialNotifications() {
+    final currentUserId = context.read<AuthProvider>().currentUser?.uid;
+    _socialNotificationCoordinator.bindUid(currentUserId);
   }
 
   Future<void> _handleNotificationAction(NotificationActionEvent event) async {
@@ -219,14 +248,29 @@ class _MainShellScreenState extends State<MainShellScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      extendBody: true,
+    // Re-bind when auth uid changes (e.g. after refresh).
+    final uid = context.watch<AuthProvider>().currentUser?.uid;
+    if (_socialNotificationCoordinator.boundUid != uid) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        _socialNotificationCoordinator.bindUid(uid);
+      });
+    }
 
-      body: IndexedStack(index: selectedIndex, children: pages),
-
-      bottomNavigationBar: AppBottomNavBar(
-        currentIndex: selectedIndex,
-        onTap: _selectPage,
+    return ChangeNotifierProvider<SocialNotificationCoordinator>.value(
+      value: _socialNotificationCoordinator,
+      child: Scaffold(
+        extendBody: true,
+        body: IndexedStack(index: selectedIndex, children: pages),
+        bottomNavigationBar: Consumer<SocialNotificationCoordinator>(
+          builder: (context, coordinator, _) {
+            return AppBottomNavBar(
+              currentIndex: selectedIndex,
+              onTap: _selectPage,
+              youHasUnread: coordinator.hasUnread,
+            );
+          },
+        ),
       ),
     );
   }

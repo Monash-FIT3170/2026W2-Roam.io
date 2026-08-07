@@ -164,10 +164,136 @@ async function runFollowWriteTests() {
         createdAt: '2026-08-07T00:00:00.000Z',
       }),
     );
+    // Clear existing follow so followee Remove can be exercised on a fresh doc.
     await assertSucceeds(
       followerDb.collection('follows').doc(followId('follower', 'owner')).delete(),
     );
+    await assertSucceeds(
+      followerDb.collection('follows').doc(followId('follower', 'owner')).set({
+        followerId: 'follower',
+        followeeId: 'owner',
+        createdAt: '2026-08-07T00:00:00.000Z',
+      }),
+    );
+    const ownerDb = testEnv.authenticatedContext('owner').firestore();
+    await assertSucceeds(
+      ownerDb.collection('follows').doc(followId('follower', 'owner')).delete(),
+    );
     console.log('passed: follow write rules');
+  } finally {
+    await testEnv.cleanup();
+  }
+}
+
+async function runNotificationRulesTests() {
+  const testEnv = await initializeTestEnvironment({ projectId, firestore: { rules } });
+  try {
+    await seed(testEnv);
+    await testEnv.withSecurityRulesDisabled(async (context) => {
+      const db = context.firestore();
+      await db
+        .collection('profiles')
+        .doc('owner')
+        .collection('notifications')
+        .doc('follower_owner')
+        .set({
+          recipientId: 'owner',
+          actorId: 'follower',
+          type: 'follow',
+          createdAt: '2026-08-07T00:00:00.000Z',
+          readAt: null,
+        });
+    });
+
+    const ownerDb = testEnv.authenticatedContext('owner').firestore();
+    const viewerDb = testEnv.authenticatedContext('viewer').firestore();
+    const followerDb = testEnv.authenticatedContext('follower').firestore();
+
+    await assertSucceeds(
+      ownerDb
+        .collection('profiles')
+        .doc('owner')
+        .collection('notifications')
+        .doc('follower_owner')
+        .get(),
+    );
+    await assertFails(
+      viewerDb
+        .collection('profiles')
+        .doc('owner')
+        .collection('notifications')
+        .doc('follower_owner')
+        .get(),
+    );
+    await assertFails(
+      followerDb
+        .collection('profiles')
+        .doc('owner')
+        .collection('notifications')
+        .doc('new')
+        .set({
+          recipientId: 'owner',
+          actorId: 'follower',
+          type: 'follow',
+          createdAt: '2026-08-07T00:00:00.000Z',
+          readAt: null,
+        }),
+    );
+    // Client may create when the matching follow exists (fresh id, not seeded).
+    const actorCreateId = followId('follower', 'owner2');
+    await assertSucceeds(
+      followerDb.collection('follows').doc(actorCreateId).set({
+        followerId: 'follower',
+        followeeId: 'owner2',
+        createdAt: '2026-08-07T00:00:00.000Z',
+      }),
+    );
+    await assertSucceeds(
+      followerDb
+        .collection('profiles')
+        .doc('owner2')
+        .collection('notifications')
+        .doc(actorCreateId)
+        .set({
+          recipientId: 'owner2',
+          actorId: 'follower',
+          type: 'follow',
+          createdAt: '2026-08-07T00:00:00.000Z',
+          readAt: null,
+        }),
+    );
+    // Spoofed actorId / wrong id denied even with a follow present.
+    await assertFails(
+      followerDb
+        .collection('profiles')
+        .doc('owner2')
+        .collection('notifications')
+        .doc('spoof_owner2')
+        .set({
+          recipientId: 'owner2',
+          actorId: 'spoof',
+          type: 'follow',
+          createdAt: '2026-08-07T00:00:00.000Z',
+          readAt: null,
+        }),
+    );
+    await assertSucceeds(
+      ownerDb
+        .collection('profiles')
+        .doc('owner')
+        .collection('notifications')
+        .doc('follower_owner')
+        .update({ readAt: '2026-08-07T01:00:00.000Z' }),
+    );
+    await assertFails(
+      ownerDb
+        .collection('profiles')
+        .doc('owner')
+        .collection('notifications')
+        .doc('follower_owner')
+        .update({ actorId: 'someone-else' }),
+    );
+    console.log('passed: social notification rules');
   } finally {
     await testEnv.cleanup();
   }
@@ -178,6 +304,7 @@ async function runFollowWriteTests() {
   await runScenario('authenticated public dashboard reads', 'viewer', assertSucceeds);
   await runScenario('unauthenticated public dashboard denied', null, assertFails);
   await runFollowWriteTests();
+  await runNotificationRulesTests();
   console.log('firestore public profile and follow rules passed');
 })().catch((error) => {
   console.error(error);

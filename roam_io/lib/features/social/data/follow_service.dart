@@ -4,14 +4,16 @@
  * Description:
  *   Firestore-backed one-way follow actions and reactive follow counts.
  *   Documents live at follows/{followerId_followeeId} with followerId,
- *   followeeId, and createdAt. Counts are derived from relationship queries
- *   (Following = followerId == uid, Followers = followeeId == uid), independent
- *   of mutual friendship.
+ *   followeeId, and createdAt. After a successful follow write, best-effort
+ *   creates profiles/{followeeId}/notifications/{followId} (Cloud Function is
+ *   preferred when deployed; same deterministic ID dedupes both writers).
  */
 
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flutter/foundation.dart';
 
 import '../domain/follow.dart';
+import '../domain/social_notification.dart';
 
 /// Owns one-way public follow relationships.
 class FollowService {
@@ -73,14 +75,48 @@ class FollowService {
       createdAt: DateTime.now(),
     );
     await _follows.doc(follow.id).set(follow.toMap());
+    await _tryCreateFollowNotification(follow);
   }
 
-  /// Removes a one-way follow. No-ops for self-follow attempts.
+  /// Best-effort inbox write after follow. Failures are logged and ignored so
+  /// the Follow relationship remains authoritative.
+  Future<void> _tryCreateFollowNotification(Follow follow) async {
+    try {
+      final notification = SocialNotification(
+        id: follow.id,
+        recipientId: follow.followeeId,
+        actorId: follow.followerId,
+        type: SocialNotificationType.follow,
+        createdAt: follow.createdAt,
+      );
+      await _firestore
+          .collection('profiles')
+          .doc(follow.followeeId)
+          .collection('notifications')
+          .doc(follow.id)
+          .set(notification.toMap(), SetOptions(merge: true));
+    } catch (error) {
+      debugPrint(
+        '[FollowService] notification write failed followId=${follow.id} '
+        'error=$error',
+      );
+    }
+  }
+
+  /// Removes a one-way follow initiated by the follower. No-ops for self-follow.
   Future<void> unfollow({
     required String followerId,
     required String followeeId,
   }) async {
     if (followerId == followeeId) return;
     await _follows.doc(followIdFor(followerId, followeeId)).delete();
+  }
+
+  /// Followee removes [followerId]'s follow (no notification to the follower).
+  Future<void> removeFollower({
+    required String followerId,
+    required String followeeId,
+  }) async {
+    await unfollow(followerId: followerId, followeeId: followeeId);
   }
 }

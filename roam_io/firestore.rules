@@ -101,6 +101,43 @@ service cloud.firestore {
         allow create: if isProfileOwner(userId);
         allow update, delete: if false;
       }
+
+      // Persistent social inbox (follow notifications). Prefer Cloud Function
+      // creation; clients may create only as the actor for a real follow doc.
+      match /notifications/{notificationId} {
+        allow read: if isProfileOwner(userId);
+        allow create: if isSignedIn()
+          && request.resource.data.keys().hasOnly([
+            'recipientId',
+            'actorId',
+            'type',
+            'createdAt',
+            'readAt'
+          ])
+          && request.resource.data.recipientId == userId
+          && request.resource.data.actorId == request.auth.uid
+          && request.resource.data.actorId != userId
+          && request.resource.data.type == 'follow'
+          && request.resource.data.createdAt is string
+          && (request.resource.data.readAt == null
+              || request.resource.data.readAt is string)
+          && notificationId == request.resource.data.actorId + '_' + userId
+          && exists(
+            /databases/$(database)/documents/follows/$(notificationId)
+          );
+        allow update: if isProfileOwner(userId)
+          && request.resource.data.diff(resource.data).affectedKeys()
+            .hasOnly(['readAt'])
+          && request.resource.data.recipientId == resource.data.recipientId
+          && request.resource.data.actorId == resource.data.actorId
+          && request.resource.data.type == resource.data.type
+          && request.resource.data.createdAt == resource.data.createdAt
+          && (
+            request.resource.data.readAt == null
+            || request.resource.data.readAt is string
+          );
+        allow delete: if false;
+      }
     }
 
     match /public_profiles/{userId} {
@@ -191,9 +228,13 @@ service cloud.firestore {
         && request.resource.data.followerId == request.auth.uid
         && request.resource.data.followeeId != request.auth.uid
         && followId == request.resource.data.followerId + '_' + request.resource.data.followeeId;
+      // Follower may unfollow; followee may Remove follower.
       allow delete: if isSignedIn()
-        && resource.data.followerId == request.auth.uid
-        && followId == resource.data.followerId + '_' + resource.data.followeeId;
+        && followId == resource.data.followerId + '_' + resource.data.followeeId
+        && (
+          resource.data.followerId == request.auth.uid
+          || resource.data.followeeId == request.auth.uid
+        );
       allow update: if false;
     }
 

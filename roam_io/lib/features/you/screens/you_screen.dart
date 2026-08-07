@@ -6,7 +6,8 @@
  *   analytics are owned by YouAnalyticsProvider bound to the authenticated
  *   uid (visits, tiles, xp_events, follow counts). Following/Followers use
  *   the same follows collection as external profiles so counts update without
- *   manual refresh.
+ *   manual refresh. A notifications bell opens the social inbox; unread
+ *   badges share SocialNotificationCoordinator state with the You nav item.
  */
 
 import 'package:flutter/material.dart';
@@ -28,6 +29,8 @@ import '../../profile/domain/profile_stats.dart';
 import '../../profile/domain/xp_event.dart';
 import '../../profile/widgets/profile_dashboard.dart';
 import '../../social/data/follow_service.dart';
+import '../../social/data/social_notification_coordinator.dart';
+import '../../social/screens/notifications_screen.dart';
 import '../providers/you_analytics_provider.dart';
 
 /// Displays personal profile analytics and the user's own activity area.
@@ -161,31 +164,76 @@ class _YouTabBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    var hasUnread = false;
+    try {
+      hasUnread = context.watch<SocialNotificationCoordinator>().hasUnread;
+    } on ProviderNotFoundException {
+      hasUnread = false;
+    }
 
     return Padding(
-      padding: const EdgeInsets.fromLTRB(24, 12, 24, 0),
-      child: Align(
-        alignment: Alignment.centerLeft,
-        child: TabBar(
-          controller: controller,
-          isScrollable: true,
-          tabAlignment: TabAlignment.start,
-          labelColor: theme.colorScheme.primary,
-          unselectedLabelColor: AppSurfaces.textMuted(context),
-          indicatorColor: theme.colorScheme.primary,
-          indicatorWeight: 3,
-          dividerColor: AppSurfaces.border(context),
-          labelStyle: theme.textTheme.titleMedium?.copyWith(
-            fontWeight: FontWeight.w900,
+      padding: const EdgeInsets.fromLTRB(12, 8, 12, 0),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          Expanded(
+            child: Align(
+              alignment: Alignment.centerLeft,
+              child: TabBar(
+                controller: controller,
+                isScrollable: true,
+                tabAlignment: TabAlignment.start,
+                labelColor: theme.colorScheme.primary,
+                unselectedLabelColor: AppSurfaces.textMuted(context),
+                indicatorColor: theme.colorScheme.primary,
+                indicatorWeight: 3,
+                dividerColor: AppSurfaces.border(context),
+                labelStyle: theme.textTheme.titleMedium?.copyWith(
+                  fontWeight: FontWeight.w900,
+                ),
+                unselectedLabelStyle: theme.textTheme.titleMedium?.copyWith(
+                  fontWeight: FontWeight.w700,
+                ),
+                tabs: const [
+                  Tab(text: 'Profile'),
+                  Tab(text: 'Activities'),
+                ],
+              ),
+            ),
           ),
-          unselectedLabelStyle: theme.textTheme.titleMedium?.copyWith(
-            fontWeight: FontWeight.w700,
+          Stack(
+            clipBehavior: Clip.none,
+            children: [
+              IconButton(
+                tooltip: 'Notifications',
+                onPressed: () {
+                  Navigator.of(context).push(
+                    MaterialPageRoute<void>(
+                      builder: (_) => const NotificationsScreen(),
+                    ),
+                  );
+                },
+                icon: Icon(
+                  Icons.notifications_none_rounded,
+                  color: AppSurfaces.textPrimary(context),
+                ),
+              ),
+              if (hasUnread)
+                Positioned(
+                  top: 10,
+                  right: 10,
+                  child: Container(
+                    width: 8,
+                    height: 8,
+                    decoration: BoxDecoration(
+                      color: theme.colorScheme.primary,
+                      shape: BoxShape.circle,
+                    ),
+                  ),
+                ),
+            ],
           ),
-          tabs: const [
-            Tab(text: 'Profile'),
-            Tab(text: 'Activities'),
-          ],
-        ),
+        ],
       ),
     );
   }

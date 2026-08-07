@@ -21,6 +21,9 @@ enum NotificationType {
   /// A previously sent friend request has been accepted.
   friendAccepted,
 
+  /// Someone followed the user on a public profile (in-app inbox + banner).
+  follow,
+
   /// An application or activity error occurred.
   error,
 

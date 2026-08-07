@@ -118,4 +118,39 @@ class NotificationTemplates {
       ],
     );
   }
+
+  /// In-app banner when [username] follows the current user (public profiles).
+  static AppNotification followedYou(
+    String username, {
+    String? notificationId,
+    String? actorId,
+  }) {
+    final now = DateTime.now();
+    return AppNotification(
+      id: notificationId ?? now.microsecondsSinceEpoch.toString(),
+      type: NotificationType.follow,
+      title: 'New Follower',
+      body: '$username followed you',
+      timestamp: now,
+      showOnDevice: false,
+      displayDuration: const Duration(seconds: 5),
+      data: {'notificationId': ?notificationId, 'actorId': ?actorId},
+    );
+  }
+
+  /// Cold-start summary when multiple unread follow notifications exist.
+  static AppNotification followSummary(int count) {
+    final now = DateTime.now();
+    final safeCount = count < 1 ? 1 : count;
+    return AppNotification(
+      id: 'follow-summary-${now.microsecondsSinceEpoch}',
+      type: NotificationType.follow,
+      title: 'New Followers',
+      body: '$safeCount people followed you',
+      timestamp: now,
+      showOnDevice: false,
+      displayDuration: const Duration(seconds: 6),
+      data: {'followSummaryCount': '$safeCount'},
+    );
+  }
 }

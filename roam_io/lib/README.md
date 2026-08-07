@@ -126,10 +126,33 @@ replaced by ART2-84 privacy/projection rules.
 
 ### Notifications
 
-The authenticated shell listens for production notification actions and displays
-shared app toasts. User-facing manual Test Notification controls should not be
-added to app chrome; notification templates, overlays, and services remain under
-`lib/notifications/`.
+ART2-96 in-app banners (`NotificationService` + `NotificationOverlay`) remain
+the presentation layer. Friend-request banners continue to listen to
+`friend_requests` from `MainShellScreen`.
+
+Public-profile **Follow** notifications are persisted at
+`profiles/{recipientId}/notifications/{followerId_followeeId}`. Creation is
+idempotent on that ID: Cloud Function `onFollowCreated` (when deployable) and
+a best-effort client write after `FollowService.follow` both use the same
+document. Clients may create only as `actorId == auth.uid` when the matching
+`follows/{id}` document exists. Recipients may only update `readAt`.
+Notification write failures never roll back Follow.
+
+`SocialNotificationCoordinator` (shell-scoped) watches the inbox:
+
+- Cold start: one summary banner (`N people followed you` / single name) for
+  unread follows; does **not** mark them read.
+- Live: each new unread follow after cold start surfaces one green in-app
+  banner (`showOnDevice: false`).
+- Session `_surfacedBannerIds` prevents rebuild/tab replay.
+
+Unread count drives the You bottom-nav dot and the You tab bell badge. Opening
+You does not clear unread. Opening `NotificationsScreen` calls `markAllRead`
+and keeps historical rows. Rows support Follow Back (normal Follow) and
+Remove follower (delete `follows/{actor_recipient}` with no notify).
+
+User-facing manual Test Notification controls should not be added to app
+chrome; templates, overlays, and services remain under `lib/notifications/`.
 
 ### `features/<feature>/screens`
 

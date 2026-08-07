@@ -1,9 +1,10 @@
 /*
  * Author: Sanjevan Rajasegar
- * Last Updated: 5 August 2026
+ * Last Updated: 7 August 2026
  * Description:
  *   Provides the reusable Home, Social, Map, You, and Settings bottom
- *   navigation bar used by the main app shell.
+ *   navigation bar used by the main app shell. Optional unread indicator on
+ *   the You tab for persisted social notifications.
  */
 
 import 'package:flutter/material.dart';
@@ -26,10 +27,14 @@ class AppBottomNavBar extends StatelessWidget {
   final int currentIndex;
   final ValueChanged<int> onTap;
 
+  /// When true, shows a small unread dot on the YOU icon (top-right).
+  final bool youHasUnread;
+
   const AppBottomNavBar({
     super.key,
     required this.currentIndex,
     required this.onTap,
+    this.youHasUnread = false,
   });
 
   static const items = [
@@ -39,6 +44,8 @@ class AppBottomNavBar extends StatelessWidget {
     _NavItem(Icons.person_outline, Icons.person, 'YOU'),
     _NavItem(Icons.settings_outlined, Icons.settings, 'SETTINGS'),
   ];
+
+  static const int youIndex = 3;
 
   @override
   Widget build(BuildContext context) {
@@ -99,14 +106,36 @@ class AppBottomNavBar extends StatelessWidget {
                               scale: isSelected ? 1.14 : 1.0,
                               duration: const Duration(milliseconds: 180),
                               curve: Curves.easeOutCubic,
-                              child: Icon(
-                                isSelected
-                                    ? item.filledIcon
-                                    : item.outlinedIcon,
-                                size: 25,
-                                color: isSelected
-                                    ? selectedColor
-                                    : unselectedColor,
+                              child: Stack(
+                                clipBehavior: Clip.none,
+                                children: [
+                                  Icon(
+                                    isSelected
+                                        ? item.filledIcon
+                                        : item.outlinedIcon,
+                                    size: 25,
+                                    color: isSelected
+                                        ? selectedColor
+                                        : unselectedColor,
+                                  ),
+                                  if (index == youIndex && youHasUnread)
+                                    Positioned(
+                                      top: -2,
+                                      right: -4,
+                                      child: Container(
+                                        width: 8,
+                                        height: 8,
+                                        decoration: BoxDecoration(
+                                          color: colorScheme.primary,
+                                          shape: BoxShape.circle,
+                                          border: Border.all(
+                                            color: backgroundColor,
+                                            width: 1.5,
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                ],
                               ),
                             ),
                             const SizedBox(height: 5),
