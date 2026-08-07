@@ -1,6 +1,6 @@
 /*
  * Author: Sanjevan Rajasegar
- * Last Modified: 17/05/2026
+ * Last Modified: 04/08/2026
  * Description:
  *   Widget tests routing AuthGateScreen to login, verify email, or main shell.
  */
@@ -18,6 +18,7 @@ import 'package:roam_io/features/auth/screens/login_screen.dart';
 import 'package:roam_io/features/auth/screens/verify_email_screen.dart';
 import 'package:roam_io/features/navigation/screens/main_shell_screen.dart';
 import 'package:roam_io/features/profile/domain/profile_model.dart';
+import 'package:roam_io/notifications/notification.dart';
 
 import '../../../support/fake_firebase_user.dart';
 
@@ -62,7 +63,7 @@ void main() {
         MaterialApp(
           home: ChangeNotifierProvider(
             create: (_) => AuthProvider(authRepository: repo),
-            child: const AuthGateScreen(),
+            child: const AuthGateScreen(requestNotificationPermission: false),
           ),
         ),
       );
@@ -93,7 +94,7 @@ void main() {
         MaterialApp(
           home: ChangeNotifierProvider(
             create: (_) => AuthProvider(authRepository: repo),
-            child: const AuthGateScreen(),
+            child: const AuthGateScreen(requestNotificationPermission: false),
           ),
         ),
       );
@@ -101,6 +102,7 @@ void main() {
       await tester.pump(const Duration(seconds: 2));
       await tester.pump();
 
+      expect(find.byType(NotificationOverlay), findsOneWidget);
       expect(find.byType(MainShellScreen), findsOneWidget);
     });
   });

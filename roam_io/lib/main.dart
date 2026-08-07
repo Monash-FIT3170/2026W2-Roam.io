@@ -16,11 +16,16 @@ import 'features/auth/screens/auth_gate_screen.dart';
 import 'firebase_options.dart';
 import 'shared/widgets/level_up_celebration.dart';
 import 'theme/app_theme.dart';
+import 'package:roam_io/notifications/services/android_notification_service.dart';
+import 'package:roam_io/notifications/services/app_lifecycle_service.dart';
 
 /// Starts the Flutter app after Firebase has been initialized.
 Future<void> main() async {
   final widgetsBinding = WidgetsFlutterBinding.ensureInitialized();
   FlutterNativeSplash.preserve(widgetsBinding: widgetsBinding);
+
+  AppLifecycleService.instance.initialise();
+  await AndroidNotificationService.instance.initialise();
 
   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
   runApp(const MyApp());
