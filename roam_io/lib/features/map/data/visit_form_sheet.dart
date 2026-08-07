@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
@@ -290,46 +291,21 @@ class _VisitFormSheetState extends State<VisitFormSheet> {
 
       final storageService = widget.storageService ?? StorageService();
       final visitService = widget.visitService ?? VisitService();
+      final mediaItems = List<_MediaItem>.from(_mediaItems);
+      final shouldUploadMediaAfterCreate =
+          !_isEditMode && mediaItems.any((item) => item.file != null);
 
-      // Upload new media files
-      final mediaUrls = <String>[];
-      debugPrint(
-        '[VisitFormSheet] Processing ${_mediaItems.length} media items',
-      );
-
-      for (int i = 0; i < _mediaItems.length; i++) {
-        final item = _mediaItems[i];
-        if (item.url != null) {
-          // Existing media, keep the URL
-          debugPrint('[VisitFormSheet] Media $i: keeping existing URL');
-          mediaUrls.add(item.url!);
-        } else if (item.file != null) {
-          // New media, upload it
-          debugPrint(
-            '[VisitFormSheet] Media $i: uploading file ${item.file!.name}',
-          );
-          try {
-            final bytes = await item.file!.readAsBytes();
-            debugPrint('[VisitFormSheet] Media $i: read ${bytes.length} bytes');
-            final url = await storageService.uploadVisitMedia(
-              uid: widget.userId,
+      final mediaUrls = shouldUploadMediaAfterCreate
+          ? mediaItems
+                .where((item) => item.url != null)
+                .map((item) => item.url!)
+                .toList()
+          : await _uploadVisitMedia(
+              storageService: storageService,
+              mediaItems: mediaItems,
+              userId: widget.userId,
               placeId: widget.place.id,
-              bytes: bytes,
-              filename: item.file!.name,
             );
-            debugPrint(
-              '[VisitFormSheet] Media $i: uploaded successfully, URL: $url',
-            );
-            mediaUrls.add(url);
-          } catch (uploadError, uploadStack) {
-            debugPrint(
-              '[VisitFormSheet] Media $i: upload failed: $uploadError',
-            );
-            debugPrint('[VisitFormSheet] Stack trace: $uploadStack');
-            rethrow;
-          }
-        }
-      }
 
       // Get custom name (null if same as place name)
       final customName = _nameController.text.trim();
@@ -375,6 +351,18 @@ class _VisitFormSheetState extends State<VisitFormSheet> {
         }
       }
 
+      if (shouldUploadMediaAfterCreate) {
+        unawaited(
+          _uploadAndAttachVisitMedia(
+            visitService: visitService,
+            storageService: storageService,
+            mediaItems: mediaItems,
+            userId: widget.userId,
+            placeId: widget.place.id,
+          ),
+        );
+      }
+
       debugPrint('[VisitFormSheet] Visit saved successfully!');
       if (!mounted) return;
       Navigator.of(context).pop(VisitFormResult.success);
@@ -386,6 +374,96 @@ class _VisitFormSheetState extends State<VisitFormSheet> {
         _isLoading = false;
         _errorMessage = 'Failed to save visit. Please try again.';
       });
+    }
+  }
+
+  Future<void> _uploadAndAttachVisitMedia({
+    required VisitService visitService,
+    required StorageService storageService,
+    required List<_MediaItem> mediaItems,
+    required String userId,
+    required int placeId,
+  }) async {
+    try {
+      final mediaUrls = await _uploadVisitMedia(
+        storageService: storageService,
+        mediaItems: mediaItems,
+        userId: userId,
+        placeId: placeId,
+      );
+
+      await visitService.updateVisit(
+        userId: userId,
+        placeId: placeId,
+        mediaUrls: mediaUrls,
+      );
+    } catch (error, stackTrace) {
+      debugPrint('[VisitFormSheet] Background media upload failed: $error');
+      debugPrint('[VisitFormSheet] Stack trace: $stackTrace');
+    }
+  }
+
+  Future<List<String>> _uploadVisitMedia({
+    required StorageService storageService,
+    required List<_MediaItem> mediaItems,
+    required String userId,
+    required int placeId,
+  }) async {
+    debugPrint('[VisitFormSheet] Processing ${mediaItems.length} media items');
+
+    final uploads = <Future<String>>[];
+
+    for (var i = 0; i < mediaItems.length; i++) {
+      final item = mediaItems[i];
+      final url = item.url;
+      if (url != null) {
+        debugPrint('[VisitFormSheet] Media $i: keeping existing URL');
+        uploads.add(Future<String>.value(url));
+        continue;
+      }
+
+      final file = item.file;
+      if (file == null) continue;
+
+      uploads.add(
+        _uploadVisitMediaFile(
+          storageService: storageService,
+          file: file,
+          index: i,
+          userId: userId,
+          placeId: placeId,
+        ),
+      );
+    }
+
+    return Future.wait(uploads);
+  }
+
+  Future<String> _uploadVisitMediaFile({
+    required StorageService storageService,
+    required XFile file,
+    required int index,
+    required String userId,
+    required int placeId,
+  }) async {
+    debugPrint('[VisitFormSheet] Media $index: uploading file ${file.name}');
+    try {
+      final bytes = await file.readAsBytes();
+      debugPrint('[VisitFormSheet] Media $index: read ${bytes.length} bytes');
+      final url = await storageService.uploadVisitMedia(
+        uid: userId,
+        placeId: placeId,
+        bytes: bytes,
+        filename: file.name,
+      );
+      debugPrint(
+        '[VisitFormSheet] Media $index: uploaded successfully, URL: $url',
+      );
+      return url;
+    } catch (uploadError, uploadStack) {
+      debugPrint('[VisitFormSheet] Media $index: upload failed: $uploadError');
+      debugPrint('[VisitFormSheet] Stack trace: $uploadStack');
+      rethrow;
     }
   }
 

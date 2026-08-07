@@ -7,6 +7,8 @@
  */
 
 import 'package:firebase_auth/firebase_auth.dart' as firebase_auth;
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:provider/provider.dart';
@@ -223,6 +225,68 @@ void main() {
 
     provider.dispose();
   });
+
+  testWidgets('updates analytics automatically when streamed data changes', (
+    tester,
+  ) async {
+    final provider = AuthProvider(
+      authRepository: _FakeAuthRepository(_buildProfile(xp: 75)),
+    );
+    await provider.refreshCurrentUser();
+
+    final visitService = _FakeVisitService(
+      totalVisitCount: 0,
+      allVisits: const <Visit>[],
+    );
+    final visitedRegionService = _FakeVisitedRegionService(<String>{});
+
+    await tester.pumpWidget(
+      ChangeNotifierProvider<AuthProvider>.value(
+        value: provider,
+        child: MaterialApp(
+          home: Scaffold(
+            body: AnalyticsScreen(
+              visitService: visitService,
+              visitedRegionService: visitedRegionService,
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('No locations yet'), findsOneWidget);
+    expect(find.text('0'), findsWidgets);
+
+    visitService.emitAllVisits(<Visit>[
+      Visit(
+        placeId: 1,
+        googlePlaceId: 'g-1',
+        placeName: 'Lakeside Cafe',
+        regionId: 'region-a',
+        category: 'food_drink',
+        visitedAt: DateTime(2026, 5, 10, 10),
+      ),
+      Visit(
+        placeId: 1,
+        googlePlaceId: 'g-1',
+        placeName: 'Lakeside Cafe',
+        regionId: 'region-a',
+        category: 'food_drink',
+        visitedAt: DateTime(2026, 5, 11, 10),
+      ),
+    ]);
+    visitedRegionService.emitVisitedRegionIds(<String>{'region-a', 'region-b'});
+    await tester.pumpAndSettle();
+
+    expect(find.text('Your top location'), findsOneWidget);
+    expect(find.text('Lakeside Cafe'), findsOneWidget);
+    expect(find.text('2'), findsWidgets);
+
+    await visitService.dispose();
+    await visitedRegionService.dispose();
+    provider.dispose();
+  });
 }
 
 ProfileModel _buildProfile({required int xp}) {
@@ -265,13 +329,13 @@ class _FakeAuthRepository implements AuthRepository {
 }
 
 class _FakeVisitService implements VisitService {
-  _FakeVisitService({
-    required this.totalVisitCount,
-    this.allVisits = const <Visit>[],
-  });
+  _FakeVisitService({required this.totalVisitCount, List<Visit>? allVisits})
+    : _allVisits = allVisits ?? _buildVisits(totalVisitCount);
 
   final int totalVisitCount;
-  final List<Visit> allVisits;
+  List<Visit> _allVisits;
+  final StreamController<List<Visit>> _allVisitsController =
+      StreamController<List<Visit>>.broadcast();
 
   @override
   Future<int> getVisitCount(String userId) async {
@@ -280,7 +344,20 @@ class _FakeVisitService implements VisitService {
 
   @override
   Future<List<Visit>> getAllVisits(String userId) async {
-    return allVisits;
+    return _allVisits;
+  }
+
+  @override
+  Stream<List<Visit>> watchAllVisits(String userId) {
+    return Stream<List<Visit>>.multi((controller) {
+      controller.add(_allVisits);
+      final subscription = _allVisitsController.stream.listen(
+        controller.add,
+        onError: controller.addError,
+        onDone: controller.close,
+      );
+      controller.onCancel = subscription.cancel;
+    });
   }
 
   @override
@@ -288,18 +365,66 @@ class _FakeVisitService implements VisitService {
     return Stream<List<Visit>>.value(const <Visit>[]);
   }
 
+  void emitAllVisits(List<Visit> visits) {
+    _allVisits = visits;
+    _allVisitsController.add(visits);
+  }
+
+  Future<void> dispose() {
+    return _allVisitsController.close();
+  }
+
   @override
   dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+
+  static List<Visit> _buildVisits(int count) {
+    return List<Visit>.generate(
+      count,
+      (index) => Visit(
+        placeId: index,
+        googlePlaceId: 'generated-$index',
+        placeName: 'Generated Visit $index',
+        regionId: 'generated-region',
+        category: 'other',
+        visitedAt: DateTime(2026, 5, 1).add(Duration(minutes: index)),
+      ),
+    );
+  }
 }
 
 class _FakeVisitedRegionService implements VisitedRegionService {
-  _FakeVisitedRegionService(this._visitedRegionIds);
+  _FakeVisitedRegionService(Set<String> visitedRegionIds)
+    : _visitedRegionIds = visitedRegionIds;
 
-  final Set<String> _visitedRegionIds;
+  Set<String> _visitedRegionIds;
+  final StreamController<Set<String>> _visitedRegionIdsController =
+      StreamController<Set<String>>.broadcast();
 
   @override
   Future<Set<String>> loadVisitedRegionIds() async {
     return _visitedRegionIds;
+  }
+
+  @override
+  Stream<Set<String>> watchVisitedRegionIds() {
+    return Stream<Set<String>>.multi((controller) {
+      controller.add(_visitedRegionIds);
+      final subscription = _visitedRegionIdsController.stream.listen(
+        controller.add,
+        onError: controller.addError,
+        onDone: controller.close,
+      );
+      controller.onCancel = subscription.cancel;
+    });
+  }
+
+  void emitVisitedRegionIds(Set<String> visitedRegionIds) {
+    _visitedRegionIds = visitedRegionIds;
+    _visitedRegionIdsController.add(visitedRegionIds);
+  }
+
+  Future<void> dispose() {
+    return _visitedRegionIdsController.close();
   }
 
   @override

@@ -33,6 +33,20 @@ class VisitedRegionService {
     return records.map((record) => record.polygonId).toSet();
   }
 
+  // Streams the set of region IDs the user has visited. Emits an empty set if
+  // no user is signed in.
+  Stream<Set<String>> watchVisitedRegionIds() {
+    final user = _auth.currentUser;
+
+    if (user == null) {
+      return Stream<Set<String>>.value(<String>{});
+    }
+
+    return _polygonService
+        .watchVisitedPolygonRecords(profileId: user.uid)
+        .map((records) => records.map((record) => record.polygonId).toSet());
+  }
+
   // Marks a region as visited for the current user. Returns true only when the
   // persisted data confirms this is the first unlock for the user.
   Future<bool> markVisited(String regionId, {DateTime? visitedAt}) async {

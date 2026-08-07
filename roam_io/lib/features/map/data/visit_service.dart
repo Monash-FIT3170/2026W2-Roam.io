@@ -106,6 +106,17 @@ class VisitService {
     return snapshot.docs.map((doc) => Visit.fromMap(doc.data())).toList();
   }
 
+  /// Watches all visits for a user with full details.
+  ///
+  /// Use this for analytics surfaces that need to update as visits are created
+  /// or edited.
+  Stream<List<Visit>> watchAllVisits(String userId) {
+    return _visitsCollection(userId).snapshots().map(
+      (snapshot) =>
+          snapshot.docs.map((doc) => Visit.fromMap(doc.data())).toList(),
+    );
+  }
+
   /// Gets visits for a specific region.
   ///
   /// Useful for showing visited places within a particular tile.
@@ -130,13 +141,25 @@ class VisitService {
   /// This counts saved place visits, not unlocked map tiles. Analytics and
   /// heatmap UIs can combine this with visited region IDs to keep visits and
   /// tiles distinct.
-  Future<Map<String, int>> getVisitCountsByRegion(String userId) async {
+  Future<Map<String, int>> getVisitCountsByRegion(
+    String userId, {
+    Set<String>? validRegionIds,
+  }) async {
     final visits = await getAllVisits(userId);
     final countsByRegion = <String, int>{};
 
     for (final visit in visits) {
+      final regionId = visit.regionId.trim();
+
+      if (regionId.isEmpty) continue;
+
+      // Ignore old SA2/stale region IDs after the SA1 migration.
+      if (validRegionIds != null && !validRegionIds.contains(regionId)) {
+        continue;
+      }
+
       countsByRegion.update(
-        visit.regionId,
+        regionId,
         (existingCount) => existingCount + 1,
         ifAbsent: () => 1,
       );

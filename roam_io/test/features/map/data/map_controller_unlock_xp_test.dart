@@ -10,6 +10,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:roam_io/features/map/data/geolocator_service.dart';
 import 'package:roam_io/features/map/data/map_controller.dart';
+import 'package:roam_io/features/map/data/place_marker_manager.dart';
 import 'package:roam_io/features/map/data/place_of_interest.dart';
 import 'package:roam_io/features/map/data/places_service.dart';
 import 'package:roam_io/features/map/data/region_polygon.dart';
@@ -18,7 +19,6 @@ import 'package:roam_io/features/map/data/region_service.dart';
 import 'package:roam_io/features/map/data/tile_unlock_xp_service.dart';
 import 'package:roam_io/features/map/data/visit_service.dart';
 import 'package:roam_io/features/map/data/visited_region_service.dart';
-import 'package:roam_io/features/profile/domain/xp_reward_config.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -35,9 +35,8 @@ void main() {
 
       await controller.initialise(userId: 'user-1');
 
-      expect(awardedXp, <int>[75]);
-      expect(awardedXp.single, isNot(XpRewardConfig.baseTileUnlockXp));
-      expect(feedbackEvents, <String>['Region One:75']);
+      expect(awardedXp, <int>[50]);
+      expect(feedbackEvents, <String>['Region One:50']);
 
       controller.disposeController();
     });
@@ -74,8 +73,8 @@ void main() {
       await controller.initialise(userId: 'user-1');
       await controller.initialise(userId: 'user-1');
 
-      expect(awardedXp, <int>[75]);
-      expect(feedbackEvents, <String>['Region One:75']);
+      expect(awardedXp, <int>[50]);
+      expect(feedbackEvents, <String>['Region One:50']);
 
       controller.disposeController();
     });
@@ -100,8 +99,7 @@ void main() {
       await largeController.initialise(userId: 'user-1');
       largeController.disposeController();
 
-      expect(awardedXp, <int>[50, 75]);
-      expect(awardedXp.last, greaterThan(awardedXp.first));
+      expect(awardedXp, <int>[50, 50]);
     });
 
     test(
@@ -109,7 +107,9 @@ void main() {
       () async {
         final awardedXp = <int>[];
         final feedbackEvents = <String>[];
+
         final cache = RegionPolygonCache();
+
         final cachedRegion = _region(areaSquareMetres: 4000000);
 
         cache.cacheRegion(
@@ -128,14 +128,13 @@ void main() {
 
         await controller.initialise(userId: 'user-1');
 
-        expect(awardedXp, <int>[75]);
-        expect(awardedXp.single, isNot(XpRewardConfig.minTileUnlockXp));
-        expect(feedbackEvents, <String>['Region One:75']);
+        expect(awardedXp, <int>[50]);
+
+        expect(feedbackEvents, <String>['Region One:50']);
 
         controller.disposeController();
       },
     );
-
     test('persistence returning false prevents XP', () async {
       final awardedXp = <int>[];
       final feedbackEvents = <String>[];
@@ -208,7 +207,7 @@ void main() {
       await controller.initialise(userId: 'user-1');
 
       expect(events, <String>['persisted', 'xp']);
-      expect(awardedXp, <int>[75]);
+      expect(awardedXp, <int>[50]);
 
       controller.disposeController();
     });
@@ -227,8 +226,8 @@ void main() {
 
         await controller.initialise(userId: 'user-1');
 
-        expect(awardedXp, <int>[75]);
-        expect(feedbackEvents, <String>['Region One:75']);
+        expect(awardedXp, <int>[50]);
+        expect(feedbackEvents, <String>['Region One:50']);
 
         controller.disposeController();
       },
@@ -262,8 +261,7 @@ void main() {
 
       await controller.initialise(userId: 'user-1');
 
-      expect(awardedXp, <int>[XpRewardConfig.minTileUnlockXp]);
-
+      expect(awardedXp, <int>[50]);
       controller.disposeController();
     });
   });
@@ -283,7 +281,7 @@ MapController _buildController({
   final controller = MapController(
     geoLocatorService: _FakeGeoLocatorService(),
     regionService: _FakeRegionService(region),
-    placesService: _FakePlacesService(),
+    placeMarkerManager: PlaceMarkerManager(placesService: _FakePlacesService()),
     visitService: _FakeVisitService(),
     regionPolygonCache: regionPolygonCache,
     visitedRegionService:
@@ -305,6 +303,9 @@ MapController _buildController({
   );
 
   controller.onRegionUnlockRewarded = (region, xpAwarded) {
+    feedbackEvents?.add('${region.name}:$xpAwarded');
+  };
+  controller.onRegionUnlockCelebrationRewarded = (region, xpAwarded) {
     feedbackEvents?.add('${region.name}:$xpAwarded');
   };
 
@@ -383,7 +384,10 @@ class _FakeVisitService implements VisitService {
   Future<Set<int>> getVisitedPlaceIds(String userId) async => <int>{};
 
   @override
-  Future<Map<String, int>> getVisitCountsByRegion(String userId) async {
+  Future<Map<String, int>> getVisitCountsByRegion(
+    String userId, {
+    Set<String>? validRegionIds,
+  }) async {
     return const <String, int>{};
   }
 

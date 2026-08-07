@@ -1,6 +1,6 @@
 /*
  * Author: Sanjevan Rajasegar
- * Last Modified: 17/05/2026
+ * Last Modified: 27/05/2026
  * Description:
  *   Owns the map feature's state and business logic. This controller resolves
  *   the user's current region, loads viewport polygons and places, caches map
@@ -17,41 +17,24 @@ import 'package:geolocator/geolocator.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 
 import '../../profile/domain/xp_reward_config.dart';
+import 'geolocator_service.dart';
+import 'map_viewport_policy.dart';
+import 'place_marker_manager.dart';
 import 'place_of_interest.dart';
-import 'places_service.dart';
 import 'region_polygon.dart';
 import 'region_polygon_cache.dart';
 import 'region_service.dart';
 import 'tile_unlock_xp_service.dart';
 import 'visit_service.dart';
 import 'visited_region_service.dart';
-import 'geolocator_service.dart';
+import 'viewport_region_loader.dart';
+import '../../../services/polygon_service.dart';
 
-/// Result of attempting to mark a place as visited.
-enum VisitResult {
-  /// Successfully marked as visited.
-  success,
+enum VisitResult { success, notLoggedIn, alreadyVisited, tooFar, error }
 
-  /// User is not logged in.
-  notLoggedIn,
-
-  /// Place has already been visited.
-  alreadyVisited,
-
-  /// User is too far from the place (beyond proximity threshold).
-  tooFar,
-
-  /// An error occurred (network, Firestore, etc).
-  error,
-}
-
-/// Controls map loading, visit persistence, and first-time unlock XP rewards.
 class MapController extends ChangeNotifier {
   static const LatLng fallbackCenter = LatLng(-37.8136, 144.9631);
-
-  static const double defaultZoom = 13.5;
-
-  /// Maximum distance (in metres) user can be from a place to mark it as visited.
+  static const double defaultZoom = MapViewportPolicy.defaultZoom;
   static const double visitProximityThreshold = 100.0;
 
   static const String _mapStyle = '''
@@ -84,36 +67,59 @@ class MapController extends ChangeNotifier {
 ]
 ''';
 
-  final GeoLocatorService _geoLocatorService;
-  final RegionService _regionService;
-  final PlacesService _placesService;
-  final VisitService _visitService;
-  final VisitedRegionService _visitedRegionService;
-  final RegionPolygonCache _regionPolygonCache;
-  final TileUnlockXpService _tileUnlockXpService;
-
-  /// Emits one feedback event after a first-time region unlock is persisted and
-  /// the area-based XP write succeeds.
-  void Function(RegionPolygon region, int xpAwarded)? onRegionUnlockRewarded;
-
   MapController({
     GeoLocatorService? geoLocatorService,
     RegionService? regionService,
-    PlacesService? placesService,
     VisitService? visitService,
     VisitedRegionService? visitedRegionService,
     RegionPolygonCache? regionPolygonCache,
     TileUnlockXpService? tileUnlockXpService,
+    ViewportRegionLoader? viewportRegionLoader,
+    PlaceMarkerManager? placeMarkerManager,
+    MapViewportPolicy? viewportPolicy,
+    PolygonService? polygonService,
   }) : _geoLocatorService = geoLocatorService ?? GeoLocatorService(),
        _regionService = regionService ?? RegionService(),
-       _placesService = placesService ?? PlacesService(),
        _visitService = visitService ?? VisitService(),
        _visitedRegionService = visitedRegionService ?? VisitedRegionService(),
        _regionPolygonCache = regionPolygonCache ?? RegionPolygonCache(),
-       _tileUnlockXpService = tileUnlockXpService ?? TileUnlockXpService();
+       _tileUnlockXpService = tileUnlockXpService ?? TileUnlockXpService(),
+       _viewportRegionLoader = viewportRegionLoader ?? ViewportRegionLoader(),
+       _placeMarkerManager = placeMarkerManager ?? PlaceMarkerManager(),
+       _viewportPolicy = viewportPolicy ?? MapViewportPolicy(),
+       _polygonService = polygonService;
+
+  final GeoLocatorService _geoLocatorService;
+  final RegionService _regionService;
+  final VisitService _visitService;
+  final VisitedRegionService _visitedRegionService;
+  final RegionPolygonCache _regionPolygonCache;
+  final TileUnlockXpService _tileUnlockXpService;
+  final ViewportRegionLoader _viewportRegionLoader;
+  final PlaceMarkerManager _placeMarkerManager;
+  final MapViewportPolicy _viewportPolicy;
+  PolygonService? _polygonService;
+
+  PolygonService get _resolvedPolygonService =>
+      _polygonService ??= PolygonService();
 
   GoogleMapController? _googleMapController;
   StreamSubscription<Position>? _locationUpdatesSubscription;
+
+  String? _userId;
+  Future<void> Function(int amount)? _onVisitXpAwarded;
+
+  Set<int> _visitedPlaceIds = {};
+  Set<String> _visitedRegionIds = <String>{};
+  Map<String, int> _visitCountsByRegion = <String, int>{};
+  Map<String, int> _entryCountsByRegion = <String, int>{};
+
+  bool _isHeatmapEnabled = false;
+  bool _isResolvingCurrentRegion = false;
+  Position? _queuedRegionCheckPosition;
+
+  double _currentZoom = defaultZoom;
+  MapLayerMode _currentLayerMode = MapLayerMode.sa1Detail;
 
   LatLng center = fallbackCenter;
   bool myLocationEnabled = false;
@@ -122,40 +128,23 @@ class MapController extends ChangeNotifier {
   bool isLoadingPlaces = false;
   String? message;
 
-  // User authentication
-  String? _userId;
-
-  /// Exposes the current user ID for external use.
-  String? get userId => _userId;
-
-  // Visited places tracking
-  Set<int> _visitedPlaceIds = {};
-  Set<String> _visitedRegionIds = <String>{};
-  Map<String, int> _visitCountsByRegion = <String, int>{};
-  bool _isHeatmapEnabled = false;
-
   RegionPolygon? currentRegion;
   Set<Polygon> polygons = {};
   Set<Marker> markers = {};
 
-  /// Whether visited tiles are currently styled as a visit heatmap.
-  bool get isHeatmapEnabled => _isHeatmapEnabled;
+  void Function(PlaceOfInterest place)? onPlaceSelected;
+  void Function(RegionPolygon region, int xpAwarded)? onRegionUnlockRewarded;
+  void Function(RegionPolygon region, int xpAwarded)?
+  onRegionUnlockCelebrationRewarded;
 
-  /// Exposes the map style for use by MapRender.
+  String? get userId => _userId;
   String get mapStyle => _mapStyle;
+  bool get isHeatmapEnabled => _isHeatmapEnabled;
+  Set<int> get visitedPlaceIds => Set.unmodifiable(_visitedPlaceIds);
+  Set<String> get visitedRegionIds => Set.unmodifiable(_visitedRegionIds);
+  Map<String, int> get visitCountsByRegion =>
+      Map<String, int>.unmodifiable(_visitCountsByRegion);
 
-  // cache places to avoid re-fetching (key = regionId)
-  final Map<String, List<PlaceOfInterest>> _placesCache = {};
-
-  LatLngBounds? _lastLoadedBounds;
-  DateTime? _lastViewportLoadTime;
-  bool _isResolvingCurrentRegion = false;
-  Position? _queuedRegionCheckPosition;
-
-  /// Invoked only after a visit row is persisted; used to grant flat visit XP.
-  Future<void> Function(int amount)? _onVisitXpAwarded;
-
-  /// Wires flat visit XP after persistence when not using [initialise] (e.g. tests).
   void bindVisitXpAwarding(
     Future<void> Function(int amount)? onVisitXpAwarded,
   ) {
@@ -169,104 +158,44 @@ class MapController extends ChangeNotifier {
     _userId = userId;
     _onVisitXpAwarded = onVisitXpAwarded;
 
-    // Pre-load circle icons for all place categories
     await PlaceOfInterest.preloadIcons();
+    await _loadUserVisitState();
 
-    // Load persisted visit state before any polygons are rendered.
-    if (_userId != null) {
-      await _loadVisitedPlaces();
-      await _loadVisitedRegionIds();
-      await _loadVisitCountsByRegion();
-    } else {
-      _visitedRegionIds = <String>{};
-      _visitCountsByRegion = <String, int>{};
-    }
-
+    _placeMarkerManager.setVisitedPlaceIds(_visitedPlaceIds);
     _refreshCachedPolygonsStyles();
+
     await _loadInitialRegion();
   }
 
-  /// Sets the user ID and loads their visited places.
-  /// Call this when the user logs in.
   Future<void> setUserId(String? userId) async {
     _userId = userId;
-    if (userId != null) {
-      await _loadVisitedPlaces();
-      await _loadVisitedRegionIds();
-      await _loadVisitCountsByRegion();
-    } else {
-      _visitedPlaceIds = {};
-      _visitedRegionIds = <String>{};
-      _visitCountsByRegion = <String, int>{};
-    }
-    _rebuildMarkers();
+
+    await _loadUserVisitState();
+
+    _placeMarkerManager.setVisitedPlaceIds(_visitedPlaceIds);
+    _placeMarkerManager.rebuildMarkers(onPlaceTapped: onPlaceTapped);
+    markers = _placeMarkerManager.markers;
+
     _refreshCachedPolygonsStyles();
     notifyListeners();
   }
 
-  /// Load visited place IDs from Firestore.
-  Future<void> _loadVisitedPlaces() async {
-    if (_userId == null) return;
-
-    try {
-      _visitedPlaceIds = await _visitService.getVisitedPlaceIds(_userId!);
-      debugPrint(
-        '[MapController] Loaded ${_visitedPlaceIds.length} visited places',
-      );
-    } catch (error) {
-      debugPrint('[MapController] Error loading visited places: $error');
-    }
-  }
-
-  /// Refreshes visited places from Firestore and rebuilds markers.
-  /// Call this after marking a place as visited externally.
   Future<void> refreshVisitedPlaces() async {
     await _loadVisitedPlaces();
-    _rebuildMarkers();
+
+    _placeMarkerManager.setVisitedPlaceIds(_visitedPlaceIds);
+    _placeMarkerManager.rebuildMarkers(onPlaceTapped: onPlaceTapped);
+    markers = _placeMarkerManager.markers;
+
     notifyListeners();
   }
 
-  /// Load visited region IDs from Firestore.
-  Future<void> _loadVisitedRegionIds() async {
-    if (_userId == null) return;
-
-    try {
-      _visitedRegionIds = await _visitedRegionService.loadVisitedRegionIds();
-      debugPrint(
-        '[MapController] Loaded ${_visitedRegionIds.length} visited regions',
-      );
-    } catch (error) {
-      debugPrint('[MapController] Error loading visited regions: $error');
-    }
-  }
-
-  /// Load completed visit totals per region from Firestore.
-  Future<void> _loadVisitCountsByRegion() async {
-    if (_userId == null) return;
-
-    try {
-      _visitCountsByRegion = await _visitService.getVisitCountsByRegion(
-        _userId!,
-      );
-      debugPrint(
-        '[MapController] Loaded visit counts for ${_visitCountsByRegion.length} regions',
-      );
-    } catch (error) {
-      debugPrint(
-        '[MapController] Error loading visit counts by region: $error',
-      );
-    }
-  }
-
-  /// Toggles heatmap styling for visited tiles.
-  ///
-  /// Tile membership comes from visited region IDs. Heat is calculated from
-  /// completed place visits grouped by each tile's region ID.
   Future<void> toggleHeatmap() async {
     _isHeatmapEnabled = !_isHeatmapEnabled;
 
     if (_isHeatmapEnabled && _userId != null) {
-      await _loadVisitCountsByRegion();
+      await _loadEntryCountsByRegion();
+      await loadViewportRegions(force: true);
     }
 
     _refreshCachedPolygonsStyles();
@@ -286,68 +215,230 @@ class MapController extends ChangeNotifier {
       CameraUpdate.newLatLngZoom(center, defaultZoom),
     );
 
-    await loadViewportRegions();
+    // Initial viewport loading happens after the real user location is resolved.
   }
 
-  /// Handle camera movement to update marker sizes based on zoom level.
   void onCameraMove(CameraPosition position) {
-    final sizeChanged = PlaceOfInterest.updateSizeForZoom(position.zoom);
-    if (sizeChanged) {
-      // Rebuild markers with new size
-      _rebuildMarkers();
+    _currentZoom = position.zoom;
+
+    final markerSizeChanged = _placeMarkerManager.updateMarkerSizeForZoom(
+      position.zoom,
+    );
+
+    if (markerSizeChanged) {
+      _placeMarkerManager.rebuildMarkers(onPlaceTapped: onPlaceTapped);
+      markers = _placeMarkerManager.markers;
       notifyListeners();
     }
   }
 
-  // polygon for the region you are in
+  Future<void> loadViewportRegions({bool force = false}) async {
+    final controller = _googleMapController;
+    if (controller == null) return;
+
+    final targetMode = _viewportPolicy.modeForZoom(
+      zoom: _currentZoom,
+      currentMode: _currentLayerMode,
+    );
+
+    if (targetMode == MapLayerMode.sa3Overview) {
+      _currentLayerMode = MapLayerMode.sa3Overview;
+      _syncPolygonsForCurrentMode();
+      notifyListeners();
+      return;
+    }
+
+    if (_currentLayerMode != MapLayerMode.sa1Detail) {
+      _currentLayerMode = MapLayerMode.sa1Detail;
+      _syncPolygonsForCurrentMode();
+      notifyListeners();
+    }
+
+    isLoadingViewport = true;
+    notifyListeners();
+
+    try {
+      final result = await _viewportRegionLoader.load(
+        mapController: controller,
+        currentZoom: _currentZoom,
+        currentMode: _currentLayerMode,
+        force: force,
+      );
+
+      if (result.message != null) {
+        message = result.message;
+      }
+
+      if (!result.didSkip) {
+        var newRegionCount = 0;
+
+        for (final region in result.regions) {
+          final cacheResult = _cacheRegionAsPolygons(region);
+
+          if (cacheResult.wasAdded) {
+            newRegionCount++;
+          }
+        }
+
+        message = 'Loaded $newRegionCount new nearby tiles';
+      }
+
+      _syncPolygonsForCurrentMode();
+    } catch (error) {
+      message = 'Could not load nearby regions: $error';
+      debugPrint('[MapController] Viewport loading error: $error');
+    } finally {
+      isLoadingViewport = false;
+      notifyListeners();
+    }
+  }
+
+  void onRegionTapped(String regionId, String regionName) {
+    message = regionName;
+    notifyListeners();
+  }
+
+  void onPlaceTapped(PlaceOfInterest place) {
+    message = '${place.name} • ${place.category.displayName}';
+    notifyListeners();
+
+    onPlaceSelected?.call(place);
+  }
+
+  bool isPlaceVisited(int placeId) {
+    return _visitedPlaceIds.contains(placeId);
+  }
+
+  Future<double?> getDistanceToPlace(PlaceOfInterest place) async {
+    try {
+      final position = await _geoLocatorService.getCurrentLocation();
+
+      return Geolocator.distanceBetween(
+        position.latitude,
+        position.longitude,
+        place.location.latitude,
+        place.location.longitude,
+      );
+    } catch (error) {
+      debugPrint('[MapController] Error getting distance to place: $error');
+      return null;
+    }
+  }
+
+  Future<({bool isNear, double? distance})> checkProximity(
+    PlaceOfInterest place,
+  ) async {
+    final distance = await getDistanceToPlace(place);
+
+    if (distance == null) {
+      return (isNear: false, distance: null);
+    }
+
+    return (isNear: distance <= visitProximityThreshold, distance: distance);
+  }
+
+  Future<VisitResult> markPlaceAsVisited(
+    PlaceOfInterest place, {
+    String? customName,
+    String? description,
+    List<String>? mediaUrls,
+  }) async {
+    if (_userId == null) {
+      message = 'Please log in to mark places as visited';
+      notifyListeners();
+      return VisitResult.notLoggedIn;
+    }
+
+    if (_visitedPlaceIds.contains(place.id)) {
+      message = 'You have already visited ${place.name}';
+      notifyListeners();
+      return VisitResult.alreadyVisited;
+    }
+
+    final proximity = await checkProximity(place);
+
+    if (!proximity.isNear) {
+      final distanceText = proximity.distance != null
+          ? '${proximity.distance!.round()}m away'
+          : 'too far away';
+
+      message =
+          'You need to be within ${visitProximityThreshold.round()}m to visit this place ($distanceText)';
+      notifyListeners();
+      return VisitResult.tooFar;
+    }
+
+    try {
+      await _visitService.markVisited(
+        userId: _userId!,
+        place: place,
+        customName: customName,
+        description: description,
+        mediaUrls: mediaUrls,
+      );
+    } catch (error) {
+      message = 'Could not save visit: $error';
+      notifyListeners();
+      return VisitResult.error;
+    }
+
+    _visitedPlaceIds.add(place.id);
+    _visitCountsByRegion.update(
+      place.regionId,
+      (count) => count + 1,
+      ifAbsent: () => 1,
+    );
+
+    _placeMarkerManager.setVisitedPlaceIds(_visitedPlaceIds);
+    _placeMarkerManager.rebuildMarkers(onPlaceTapped: onPlaceTapped);
+    markers = _placeMarkerManager.markers;
+
+    _refreshCachedPolygonsStyles();
+
+    message = 'Visited ${place.name}!';
+    notifyListeners();
+
+    unawaited(_awardVisitXpSafely());
+
+    return VisitResult.success;
+  }
+
+  PlaceOfInterest? getPlaceById(int placeId) {
+    return _placeMarkerManager.getPlaceById(placeId);
+  }
 
   Future<void> _loadInitialRegion() async {
     try {
       debugPrint('[MapController] Loading initial region...');
 
-      final Position position = await _geoLocatorService.getCurrentLocation();
-
-      debugPrint(
-        '[MapController] User location: ${position.latitude}, ${position.longitude}',
-      );
-
+      final position = await _geoLocatorService.getCurrentLocation();
       final userCenter = LatLng(position.latitude, position.longitude);
+
+      center = userCenter;
+      myLocationEnabled = true;
+      isLoading = false;
 
       final region = await _regionService.getContainingRegion(
         lat: position.latitude,
         lng: position.longitude,
       );
 
-      center = userCenter;
-      myLocationEnabled = true;
-      isLoading = false;
-
       if (region == null) {
         currentRegion = null;
-        message = 'No SA2 region found';
+        message = 'No SA1 region found';
       } else {
-        currentRegion = region;
-        final cacheResult = _cacheRegionAsPolygons(region: region);
-        final effectiveRegion = cacheResult.region;
-
-        // XP must use the cached effective polygon because the cache preserves
-        // PostGIS area_square_metres when a later response omits it.
-        currentRegion = effectiveRegion;
-        message = effectiveRegion.name;
-        await _markRegionAsVisited(effectiveRegion);
-        _refreshCachedPolygonsStyles();
-
-        // Load places for the current (unlocked) region
-        await _loadPlacesForRegion(effectiveRegion.id);
+        await _handleCurrentRegion(region);
       }
 
-      polygons = _regionPolygonCache.polygons;
-
+      _syncPolygonsForCurrentMode();
       notifyListeners();
 
       await _googleMapController?.animateCamera(
         CameraUpdate.newLatLngZoom(userCenter, defaultZoom),
       );
+
+      await Future.delayed(const Duration(milliseconds: 350));
+      await loadViewportRegions(force: true);
 
       await _startLocationUpdates();
     } catch (error) {
@@ -355,19 +446,56 @@ class MapController extends ChangeNotifier {
       isLoading = false;
       myLocationEnabled = false;
       message = 'Could not load location/region: $error';
-      debugPrint('[MapController] Initial region/location error: $error');
 
+      debugPrint('[MapController] Initial region/location error: $error');
+      notifyListeners();
+    }
+  }
+
+  Future<void> _handleCurrentRegion(RegionPolygon region) async {
+    currentRegion = region;
+
+    final cacheResult = _cacheRegionAsPolygons(region);
+    final effectiveRegion = cacheResult.region;
+
+    currentRegion = effectiveRegion;
+    message = effectiveRegion.name;
+
+    await _markRegionAsVisited(effectiveRegion);
+    // Record an entry for heatmap counts (app opened / entered tile).
+    await _recordRegionEntry(effectiveRegion);
+    _refreshCachedPolygonsStyles();
+
+    await _loadPlacesForRegion(effectiveRegion.id);
+  }
+
+  Future<void> _loadPlacesForRegion(String regionId) async {
+    isLoadingPlaces = true;
+    notifyListeners();
+
+    try {
+      final places = await _placeMarkerManager.loadPlacesForRegion(
+        regionId: regionId,
+        onPlaceTapped: onPlaceTapped,
+      );
+
+      markers = _placeMarkerManager.markers;
+      message = 'Loaded ${places.length} places in this region';
+    } catch (error) {
+      message = 'Could not load places: $error';
+      debugPrint('[MapController] Places loading error: $error');
+    } finally {
+      isLoadingPlaces = false;
       notifyListeners();
     }
   }
 
   Future<void> _startLocationUpdates() async {
-    if (_locationUpdatesSubscription != null) {
-      return;
-    }
+    if (_locationUpdatesSubscription != null) return;
 
     try {
       final locationUpdates = await _geoLocatorService.getLocationUpdates();
+
       _locationUpdatesSubscription = locationUpdates.listen(
         _queueRegionCheck,
         onError: (Object error) {
@@ -382,17 +510,13 @@ class MapController extends ChangeNotifier {
   void _queueRegionCheck(Position position) {
     _queuedRegionCheckPosition = position;
 
-    if (_isResolvingCurrentRegion) {
-      return;
-    }
+    if (_isResolvingCurrentRegion) return;
 
     unawaited(_drainQueuedRegionChecks());
   }
 
   Future<void> _drainQueuedRegionChecks() async {
-    if (_isResolvingCurrentRegion) {
-      return;
-    }
+    if (_isResolvingCurrentRegion) return;
 
     _isResolvingCurrentRegion = true;
 
@@ -416,15 +540,11 @@ class MapController extends ChangeNotifier {
         lng: position.longitude,
       );
 
-      final nextRegionId = region?.id;
-
-      if (nextRegionId == previousRegionId) {
-        return;
-      }
+      if (region?.id == previousRegionId) return;
 
       if (region == null) {
         currentRegion = null;
-        message = 'No SA2 region found';
+        message = 'No SA1 region found';
         _refreshCachedPolygonsStyles();
         notifyListeners();
         return;
@@ -434,81 +554,14 @@ class MapController extends ChangeNotifier {
         '[MapController] Current region changed: $previousRegionId -> ${region.id}',
       );
 
-      currentRegion = region;
-      final cacheResult = _cacheRegionAsPolygons(region: region);
-      final effectiveRegion = cacheResult.region;
-
-      // Preserve the backend/PostGIS square-metre area through the unlock flow;
-      // 50 XP is only the fallback when no valid area is available anywhere.
-      currentRegion = effectiveRegion;
-      message = effectiveRegion.name;
-      await _markRegionAsVisited(effectiveRegion);
-      _refreshCachedPolygonsStyles();
-      await _loadPlacesForRegion(effectiveRegion.id);
+      await _handleCurrentRegion(region);
       notifyListeners();
     } catch (error) {
       debugPrint('[MapController] Error resolving current region: $error');
     }
   }
 
-  // load all other polyons in view and cache
-
-  Future<void> loadViewportRegions() async {
-    final controller = _googleMapController;
-
-    if (controller == null) return;
-    if (isLoadingViewport) return;
-    if (_isWithinDebounceWindow()) return;
-
-    try {
-      final bounds = await controller.getVisibleRegion();
-
-      if (_isSimilarToLastBounds(bounds)) {
-        return;
-      }
-
-      isLoadingViewport = true;
-      notifyListeners();
-
-      final regions = await _regionService.getRegionsForViewport(
-        south: bounds.southwest.latitude,
-        west: bounds.southwest.longitude,
-        north: bounds.northeast.latitude,
-        east: bounds.northeast.longitude,
-      );
-
-      var newRegionCount = 0;
-
-      for (final region in regions) {
-        final cacheResult = _cacheRegionAsPolygons(region: region);
-
-        if (cacheResult.wasAdded) {
-          newRegionCount++;
-        }
-      }
-
-      polygons = _regionPolygonCache.polygons;
-      _lastLoadedBounds = bounds;
-      isLoadingViewport = false;
-
-      if (newRegionCount > 0) {
-        message = 'Loaded $newRegionCount new nearby regions';
-      } else {
-        message = 'Already loaded this area';
-      }
-
-      notifyListeners();
-    } catch (error) {
-      isLoadingViewport = false;
-      message = 'Could not load nearby regions: $error';
-
-      notifyListeners();
-    }
-  }
-
-  RegionPolygonCacheResult _cacheRegionAsPolygons({
-    required RegionPolygon region,
-  }) {
+  RegionPolygonCacheResult _cacheRegionAsPolygons(RegionPolygon region) {
     final cacheResult = _regionPolygonCache.cacheRegion(
       region: region,
       isVisited: _visitedRegionIds.contains(region.id),
@@ -517,7 +570,7 @@ class MapController extends ChangeNotifier {
       heatmapIntensity: _heatmapIntensityForRegion(region.id),
     );
 
-    polygons = _regionPolygonCache.polygons;
+    _syncPolygonsForCurrentMode();
 
     return cacheResult;
   }
@@ -530,263 +583,130 @@ class MapController extends ChangeNotifier {
       heatmapIntensityForRegion: _heatmapIntensityForRegion,
     );
 
-    polygons = _regionPolygonCache.polygons;
+    _syncPolygonsForCurrentMode();
   }
 
-  bool _isWithinDebounceWindow() {
-    final now = DateTime.now();
-
-    if (_lastViewportLoadTime == null) {
-      _lastViewportLoadTime = now;
-      return false;
-    }
-
-    final difference = now.difference(_lastViewportLoadTime!);
-
-    if (difference.inMilliseconds < 700) {
-      return true;
-    }
-
-    _lastViewportLoadTime = now;
-    return false;
-  }
-
-  bool _isSimilarToLastBounds(LatLngBounds newBounds) {
-    final oldBounds = _lastLoadedBounds;
-
-    if (oldBounds == null) return false;
-
-    const threshold = 0.01;
-
-    final southDiff =
-        (newBounds.southwest.latitude - oldBounds.southwest.latitude).abs();
-
-    final westDiff =
-        (newBounds.southwest.longitude - oldBounds.southwest.longitude).abs();
-
-    final northDiff =
-        (newBounds.northeast.latitude - oldBounds.northeast.latitude).abs();
-
-    final eastDiff =
-        (newBounds.northeast.longitude - oldBounds.northeast.longitude).abs();
-
-    return southDiff < threshold &&
-        westDiff < threshold &&
-        northDiff < threshold &&
-        eastDiff < threshold;
-  }
-
-  void onRegionTapped(String regionId, String regionName) {
-    message = regionName;
-    notifyListeners();
-  }
-
-  // ─────────────────────────────────────────────────────────────────────────────
-  // PLACES METHODS
-  // ─────────────────────────────────────────────────────────────────────────────
-
-  /// Load places for a specific region.
-  /// Only fetches from API if not already cached.
-  Future<void> _loadPlacesForRegion(String regionId) async {
-    debugPrint('[MapController] _loadPlacesForRegion called for: $regionId');
-
-    // Already cached? Just rebuild markers
-    if (_placesCache.containsKey(regionId)) {
-      debugPrint(
-        '[MapController] Cache hit - ${_placesCache[regionId]!.length} places',
+  void _syncPolygonsForCurrentMode() {
+    if (_currentLayerMode == MapLayerMode.sa1Detail) {
+      polygons = _regionPolygonCache.polygonsForDisplay(
+        showUnvisitedRegions: true,
+        visitedRegionIds: _visitedRegionIds,
+        currentRegionId: currentRegion?.id,
       );
-      _rebuildMarkers();
       return;
     }
 
-    isLoadingPlaces = true;
-    notifyListeners();
-
-    try {
-      debugPrint('[MapController] Fetching places from API...');
-      final places = await _placesService.getPlacesForRegion(
-        regionId: regionId,
-      );
-
-      debugPrint('[MapController] API returned ${places.length} places');
-      _placesCache[regionId] = places;
-      _rebuildMarkers();
-      debugPrint('[MapController] Markers rebuilt: ${markers.length}');
-
-      message = 'Loaded ${places.length} places in this region';
-    } catch (error) {
-      debugPrint('[MapController] ERROR loading places: $error');
-      message = 'Could not load places: $error';
-    } finally {
-      isLoadingPlaces = false;
-      notifyListeners();
-    }
-  }
-
-  /// Rebuild the markers set from all cached places.
-  void _rebuildMarkers() {
-    final allMarkers = <Marker>{};
-
-    for (final places in _placesCache.values) {
-      for (final place in places) {
-        final isVisited = _visitedPlaceIds.contains(place.id);
-        allMarkers.add(
-          place.toMarker(onTap: onPlaceTapped, visited: isVisited),
-        );
-      }
-    }
-
-    markers = allMarkers;
-  }
-
-  /// Callback invoked when a place marker is tapped.
-  /// Set this to show the place details sheet.
-  void Function(PlaceOfInterest place)? onPlaceSelected;
-
-  /// Called when a place marker is tapped.
-  void onPlaceTapped(PlaceOfInterest place) {
-    message = '${place.name} • ${place.category.displayName}';
-    notifyListeners();
-
-    // Notify external listener (e.g., to show details sheet)
-    onPlaceSelected?.call(place);
-  }
-
-  // ─────────────────────────────────────────────────────────────────────────────
-  // VISIT METHODS
-  // ─────────────────────────────────────────────────────────────────────────────
-
-  /// Check if a place has been visited by the current user.
-  bool isPlaceVisited(int placeId) {
-    return _visitedPlaceIds.contains(placeId);
-  }
-
-  /// Get all visited place IDs.
-  Set<int> get visitedPlaceIds => Set.unmodifiable(_visitedPlaceIds);
-
-  /// Get all visited region IDs.
-  Set<String> get visitedRegionIds => Set.unmodifiable(_visitedRegionIds);
-
-  /// Completed visit counts keyed by tile/region ID.
-  Map<String, int> get visitCountsByRegion =>
-      Map<String, int>.unmodifiable(_visitCountsByRegion);
-
-  /// Calculate distance in metres between user's current location and a place.
-  /// Returns null if unable to get user location.
-  Future<double?> getDistanceToPlace(PlaceOfInterest place) async {
-    try {
-      final position = await _geoLocatorService.getCurrentLocation();
-      return Geolocator.distanceBetween(
-        position.latitude,
-        position.longitude,
-        place.location.latitude,
-        place.location.longitude,
-      );
-    } catch (error) {
-      debugPrint('[MapController] Error getting distance to place: $error');
-      return null;
-    }
-  }
-
-  /// Check if user is within proximity threshold of a place.
-  /// Returns the distance in metres, or null if unable to determine.
-  Future<({bool isNear, double? distance})> checkProximity(
-    PlaceOfInterest place,
-  ) async {
-    final distance = await getDistanceToPlace(place);
-    if (distance == null) {
-      return (isNear: false, distance: null);
-    }
-    return (isNear: distance <= visitProximityThreshold, distance: distance);
-  }
-
-  /// Mark a place as visited.
-  /// Validates that user is within [visitProximityThreshold] metres of the place.
-  Future<VisitResult> markPlaceAsVisited(
-    PlaceOfInterest place, {
-    String? customName,
-    String? description,
-    List<String>? mediaUrls,
-  }) async {
-    if (_userId == null) {
-      debugPrint('[MapController] Cannot mark visited: no user logged in');
-      message = 'Please log in to mark places as visited';
-      notifyListeners();
-      return VisitResult.notLoggedIn;
-    }
-
-    if (_visitedPlaceIds.contains(place.id)) {
-      debugPrint('[MapController] Place ${place.id} already visited');
-      message = 'You have already visited ${place.name}';
-      notifyListeners();
-      return VisitResult.alreadyVisited;
-    }
-
-    // Check proximity
-    final proximity = await checkProximity(place);
-    if (!proximity.isNear) {
-      final distanceText = proximity.distance != null
-          ? '${proximity.distance!.round()}m away'
-          : 'too far away';
-      debugPrint('[MapController] User is $distanceText from ${place.name}');
-      message =
-          'You need to be within ${visitProximityThreshold.round()}m to visit this place ($distanceText)';
-      notifyListeners();
-      return VisitResult.tooFar;
-    }
-
-    try {
-      await _visitService.markVisited(
-        userId: _userId!,
-        place: place,
-        customName: customName,
-        description: description,
-        mediaUrls: mediaUrls,
-      );
-    } catch (error) {
-      debugPrint('[MapController] Error marking place as visited: $error');
-      message = 'Could not save visit: $error';
-      notifyListeners();
-      return VisitResult.error;
-    }
-
-    // Flat visit XP only after Firestore persisted the visit (not tile area XP).
-    try {
-      await _onVisitXpAwarded?.call(XpRewardConfig.visitXpReward);
-    } catch (error) {
-      debugPrint('[MapController] Visit XP award failed after save: $error');
-    }
-
-    _visitedPlaceIds.add(place.id);
-    _visitCountsByRegion.update(
-      place.regionId,
-      (count) => count + 1,
-      ifAbsent: () => 1,
+    polygons = _regionPolygonCache.polygonsForDisplay(
+      showUnvisitedRegions: false,
+      visitedRegionIds: _visitedRegionIds,
+      currentRegionId: currentRegion?.id,
     );
-    _rebuildMarkers();
-    _refreshCachedPolygonsStyles();
-
-    message = 'Visited ${place.name}!';
-    notifyListeners();
-
-    debugPrint('[MapController] Marked place ${place.id} as visited');
-    return VisitResult.success;
   }
 
-  /// Get a place by its ID from the cache.
-  PlaceOfInterest? getPlaceById(int placeId) {
-    for (final places in _placesCache.values) {
-      for (final place in places) {
-        if (place.id == placeId) {
-          return place;
-        }
-      }
+  Future<void> _loadUserVisitState() async {
+    if (_userId == null) {
+      _visitedPlaceIds = {};
+      _visitedRegionIds = <String>{};
+      _visitCountsByRegion = <String, int>{};
+      return;
     }
-    return null;
+
+    await _loadVisitedPlaces();
+    await _loadVisitedRegionIds();
+    // Load entry counts when heatmap is enabled, otherwise fall back to
+    // historical place-visit counts used elsewhere in the UI.
+    if (_isHeatmapEnabled) {
+      await _loadEntryCountsByRegion();
+    } else {
+      await _loadVisitCountsByRegion();
+    }
   }
 
-  /// Persists a region unlock and awards XP only when persistence confirms the
-  /// polygon was not previously unlocked by this user.
+  Future<void> _loadVisitedPlaces() async {
+    if (_userId == null) return;
+
+    try {
+      _visitedPlaceIds = await _visitService.getVisitedPlaceIds(_userId!);
+      debugPrint(
+        '[MapController] Loaded ${_visitedPlaceIds.length} visited places',
+      );
+    } catch (error) {
+      debugPrint('[MapController] Error loading visited places: $error');
+    }
+  }
+
+  Future<void> _loadVisitedRegionIds() async {
+    if (_userId == null) return;
+
+    try {
+      _visitedRegionIds = await _visitedRegionService.loadVisitedRegionIds();
+      debugPrint(
+        '[MapController] Loaded ${_visitedRegionIds.length} visited regions',
+      );
+    } catch (error) {
+      debugPrint('[MapController] Error loading visited regions: $error');
+    }
+  }
+
+  Future<void> _loadVisitCountsByRegion() async {
+    if (_userId == null) return;
+
+    try {
+      _visitCountsByRegion = await _visitService.getVisitCountsByRegion(
+        _userId!,
+        validRegionIds: _visitedRegionIds,
+      );
+
+      debugPrint(
+        '[MapController] Loaded visit counts for ${_visitCountsByRegion.length} SA1 regions',
+      );
+    } catch (error) {
+      debugPrint(
+        '[MapController] Error loading visit counts by region: $error',
+      );
+    }
+  }
+
+  Future<void> _loadEntryCountsByRegion() async {
+    if (_userId == null) return;
+
+    try {
+      _entryCountsByRegion = await _resolvedPolygonService
+          .getPolygonEntryCounts(
+            profileId: _userId!,
+            validPolygonIds: _visitedRegionIds.isEmpty
+                ? null
+                : _visitedRegionIds,
+          );
+
+      debugPrint(
+        '[MapController] Loaded entry counts for ${_entryCountsByRegion.length} SA1 regions',
+      );
+    } catch (error) {
+      debugPrint(
+        '[MapController] Error loading entry counts by region: $error',
+      );
+    }
+  }
+
+  Future<void> _recordRegionEntry(RegionPolygon region) async {
+    if (_userId == null) return;
+
+    try {
+      // Optimistically update local cache so the heatmap updates immediately.
+      _entryCountsByRegion.update(region.id, (c) => c + 1, ifAbsent: () => 1);
+
+      unawaited(
+        _resolvedPolygonService.incrementPolygonEntryCount(
+          profileId: _userId!,
+          polygonId: region.id,
+        ),
+      );
+    } catch (error) {
+      debugPrint('[MapController] Error recording region entry: $error');
+    }
+  }
+
   Future<bool> _markRegionAsVisited(RegionPolygon region) async {
     final regionId = region.id;
 
@@ -802,12 +722,17 @@ class MapController extends ChangeNotifier {
       }
 
       _visitedRegionIds.add(regionId);
+
       final xpResult = await _awardUnlockXp(region);
-      if (xpResult == null) {
-        return true;
+
+      if (xpResult != null) {
+        if (xpResult.didLevelUp) {
+          onRegionUnlockCelebrationRewarded?.call(region, xpResult.xpAwarded);
+        } else {
+          onRegionUnlockRewarded?.call(region, xpResult.xpAwarded);
+        }
       }
 
-      onRegionUnlockRewarded?.call(region, xpResult.xpAwarded);
       return true;
     } catch (error) {
       debugPrint(
@@ -828,30 +753,44 @@ class MapController extends ChangeNotifier {
     }
   }
 
+  Future<void> _awardVisitXpSafely() async {
+    try {
+      await _onVisitXpAwarded?.call(XpRewardConfig.visitXpReward);
+    } catch (error) {
+      debugPrint('[MapController] Visit XP award failed after save: $error');
+    }
+  }
+
   double? _heatmapIntensityForRegion(String regionId) {
     if (!_isHeatmapEnabled || !_visitedRegionIds.contains(regionId)) {
       return null;
     }
 
-    final maxVisitCount = _maxVisitCountAcrossVisitedRegions;
-    if (maxVisitCount <= 0) {
-      return 0;
-    }
+    final regionCount = _entryCountsByRegion[regionId] ?? 0;
 
-    final regionVisitCount = _visitCountsByRegion[regionId] ?? 0;
-    return regionVisitCount / maxVisitCount;
+    debugPrint(
+      '[Heatmap] region=$regionId '
+      'enabled=$_isHeatmapEnabled '
+      'visited=${_visitedRegionIds.contains(regionId)} '
+      'count=$regionCount',
+    );
+
+    return _heatmapIntensityForCount(regionCount);
   }
 
-  int get _maxVisitCountAcrossVisitedRegions {
-    var maxVisitCount = 0;
-
-    for (final regionId in _visitedRegionIds) {
-      final regionVisitCount = _visitCountsByRegion[regionId] ?? 0;
-      if (regionVisitCount > maxVisitCount) {
-        maxVisitCount = regionVisitCount;
-      }
+  double _heatmapIntensityForCount(int regionCount) {
+    if (regionCount <= 0) {
+      return 0.0;
     }
 
-    return maxVisitCount;
+    if (regionCount <= 2) {
+      return 0.2;
+    }
+
+    if (regionCount <= 4) {
+      return 0.6;
+    }
+
+    return 1.0;
   }
 }

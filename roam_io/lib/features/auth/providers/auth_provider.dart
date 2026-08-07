@@ -145,16 +145,10 @@ class AuthProvider extends ChangeNotifier {
   Future<void> updateDisplayName(String displayName) async {
     await _runAuthAction(() async {
       await _authRepository.updateDisplayName(displayName);
-      await _authRepository.reloadCurrentUser();
-
-      final user = _authRepository.currentUser;
-      _currentUser = user;
-      _currentProfile = user == null
-          ? null
-          : await _authRepository.getCurrentUserProfile();
-      _viewState = user == null
-          ? AuthViewState.unauthenticated
-          : AuthViewState.authenticated;
+      _currentProfile = _currentProfile?.copyWith(
+        displayName: displayName,
+        updatedAt: DateTime.now(),
+      );
     });
   }
 
@@ -210,7 +204,12 @@ class AuthProvider extends ChangeNotifier {
       final newXp = currentXp + xpToAdd;
       final newLevel = ProfileModel.levelFromXp(newXp);
 
-      await _authRepository.addXp(xpToAdd);
+      if (currentProfile == null) {
+        await _authRepository.addXp(xpToAdd);
+      } else {
+        await _authRepository.updateXp(newXp);
+      }
+
       _currentProfile = currentProfile == null
           ? await _authRepository.getCurrentUserProfile()
           : currentProfile.copyWith(xp: newXp, level: newLevel);

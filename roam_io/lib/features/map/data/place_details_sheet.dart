@@ -178,8 +178,6 @@ class _PlaceDetailsSheetState extends State<PlaceDetailsSheet> {
     );
 
     if (result == VisitFormResult.success) {
-      // Refresh the map controller's visited places
-      await widget.mapController.refreshVisitedPlaces();
       if (messenger != null) {
         WidgetsBinding.instance.addPostFrameCallback((_) {
           if (!messenger.mounted) return;

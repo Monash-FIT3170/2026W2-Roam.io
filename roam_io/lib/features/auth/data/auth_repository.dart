@@ -110,8 +110,10 @@ class AuthRepository {
       );
     }
 
-    await _profileService.updateDisplayName(user.uid, displayName);
-    await _authService.updateDisplayName(displayName);
+    await Future.wait([
+      _profileService.updateDisplayName(user.uid, displayName),
+      _authService.updateDisplayName(displayName),
+    ]);
   }
 
   /// Loads the signed-in user's profile from Firestore.

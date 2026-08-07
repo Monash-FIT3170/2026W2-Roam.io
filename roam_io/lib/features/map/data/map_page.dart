@@ -44,6 +44,7 @@ class _MapPageState extends State<MapPage> {
     _mapController.addListener(_onMapStateChanged);
     _mapController.onPlaceSelected = _showPlaceDetails;
     _mapController.onRegionUnlockRewarded = _showRegionUnlockReward;
+    _mapController.onRegionUnlockCelebrationRewarded = _showRegionUnlockReward;
 
     // Get user ID from auth provider and initialize
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -72,7 +73,7 @@ class _MapPageState extends State<MapPage> {
   void _showRegionUnlockReward(RegionPolygon region, int xpAwarded) {
     if (!mounted) return;
 
-    final message = 'Unlocked ${region.name} +$xpAwarded XP';
+    final message = 'Unlocked New Region +$xpAwarded XP';
     final auth = context.read<AuthProvider>();
 
     // When XP triggers a level-up, show the unlock toast inside the celebration
@@ -90,6 +91,7 @@ class _MapPageState extends State<MapPage> {
     // Detach listeners and release controller resources when leaving the page.
     _mapController.onPlaceSelected = null;
     _mapController.onRegionUnlockRewarded = null;
+    _mapController.onRegionUnlockCelebrationRewarded = null;
     _mapController.removeListener(_onMapStateChanged);
     _mapController.disposeController();
     super.dispose();
@@ -112,12 +114,93 @@ class _MapPageState extends State<MapPage> {
           onCameraIdle: _mapController.loadViewportRegions,
           onCameraMove: _mapController.onCameraMove,
         ),
+        if (_mapController.isHeatmapEnabled)
+          Positioned(
+            top: MediaQuery.paddingOf(context).top + 16,
+            left: 16,
+            child: const _HeatmapLegend(),
+          ),
         Positioned(
           top: MediaQuery.paddingOf(context).top + 16,
           right: 16,
           child: _HeatmapToggleButton(
             isEnabled: _mapController.isHeatmapEnabled,
             onPressed: _mapController.toggleHeatmap,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _HeatmapLegend extends StatelessWidget {
+  const _HeatmapLegend();
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
+    return Material(
+      color: theme.colorScheme.surface.withValues(alpha: 0.94),
+      elevation: 6,
+      shadowColor: Colors.black.withValues(alpha: 0.18),
+      borderRadius: BorderRadius.circular(12),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+        constraints: const BoxConstraints(maxWidth: 200),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Heatmap legend',
+              style: theme.textTheme.labelLarge?.copyWith(
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+            const SizedBox(height: 8),
+            const _LegendRow(color: Color(0xFFFFF176), label: '1–2 entries'),
+            const SizedBox(height: 6),
+            const _LegendRow(color: Color(0xFFFFC247), label: '3–4 entries'),
+            const SizedBox(height: 6),
+            const _LegendRow(color: Color(0xFFE53935), label: '5+ entries'),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _LegendRow extends StatelessWidget {
+  const _LegendRow({required this.color, required this.label});
+
+  final Color color;
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Container(
+          width: 14,
+          height: 14,
+          decoration: BoxDecoration(
+            color: color,
+            shape: BoxShape.circle,
+            border: Border.all(
+              color: Colors.black.withValues(alpha: 0.14),
+              width: 0.8,
+            ),
+          ),
+        ),
+        const SizedBox(width: 8),
+        Expanded(
+          child: Text(
+            label,
+            style: Theme.of(
+              context,
+            ).textTheme.bodySmall?.copyWith(color: Colors.black),
           ),
         ),
       ],
