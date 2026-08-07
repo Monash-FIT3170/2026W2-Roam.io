@@ -26,7 +26,7 @@ class AuthGateScreen extends StatefulWidget {
 }
 
 class _AuthGateState extends State<AuthGateScreen> {
-  static const _minimumSplashDuration = Duration(seconds: 2);
+  static const _minimumSplashDuration = Duration(milliseconds: 500);
 
   bool _minimumSplashElapsed = false;
 
