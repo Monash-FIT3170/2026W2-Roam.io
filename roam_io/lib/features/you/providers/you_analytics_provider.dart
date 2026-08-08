@@ -1,12 +1,13 @@
 /*
  * Author: Sanjevan Rajasegar
- * Last Updated: 7 August 2026
+ * Last Updated: 8 August 2026
  * Description:
  *   Session-scoped analytics for an explicitly bound profile uid (You or an
  *   external selectedUserId). Holds the latest visits, tile records, XP events,
  *   and follow counts from live Firestore watches so Profile data survives
- *   TabBarView dispose/remount. Distinguishes loading, real empty (0), and
- *   query failure so permission errors are not silently rendered as zeroes.
+ *   TabBarView dispose/remount. Following/Followers seed to 0 and never expose
+ *   null for display (empty relationships = 0). Other analytics still
+ *   distinguish loading, real empty, and query failure.
  */
 
 import 'dart:async';
@@ -74,10 +75,14 @@ class YouAnalyticsProvider extends ChangeNotifier {
   List<VisitedPolygonRecord> get tileRecords => _tileRecords;
   List<XpEvent> get xpEvents => _xpEvents;
 
-  /// Null while loading or when the follow-count query failed.
-  int? get followingCount =>
-      _followingCountError != null ? null : _followingCount;
-  int? get followerCount => _followerCountError != null ? null : _followerCount;
+  /// Follow counts always expose a number for UI (empty / unset / error = 0).
+  /// Errors remain available via [followingCountError] for diagnostics.
+  int get followingCount =>
+      _followingCountError != null ? 0 : (_followingCount ?? 0);
+
+  /// See [followingCount].
+  int get followerCount =>
+      _followerCountError != null ? 0 : (_followerCount ?? 0);
 
   bool get visitsReady => _visitsReady;
   bool get recentVisitsReady => _recentVisitsReady;
@@ -231,6 +236,7 @@ class YouAnalyticsProvider extends ChangeNotifier {
               collection: 'follows',
               error: error,
             );
+            _followingCount = 0;
             _followingCountError = error;
             _followingCountReady = true;
             notifyListeners();
@@ -253,6 +259,7 @@ class YouAnalyticsProvider extends ChangeNotifier {
               collection: 'follows',
               error: error,
             );
+            _followerCount = 0;
             _followerCountError = error;
             _followerCountReady = true;
             notifyListeners();
@@ -291,14 +298,16 @@ class YouAnalyticsProvider extends ChangeNotifier {
     _recentVisits = const <Visit>[];
     _tileRecords = const <VisitedPolygonRecord>[];
     _xpEvents = const <XpEvent>[];
-    _followingCount = null;
-    _followerCount = null;
+    // Seed follow counts to 0 so ProfileStats never flash an em dash while
+    // the first Firestore snapshot is in flight.
+    _followingCount = 0;
+    _followerCount = 0;
     _visitsReady = false;
     _recentVisitsReady = false;
     _tileRecordsReady = false;
     _xpEventsReady = false;
-    _followingCountReady = false;
-    _followerCountReady = false;
+    _followingCountReady = true;
+    _followerCountReady = true;
     _visitsError = null;
     _recentVisitsError = null;
     _tileRecordsError = null;

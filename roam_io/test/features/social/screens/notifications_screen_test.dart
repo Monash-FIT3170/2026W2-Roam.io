@@ -1,9 +1,9 @@
 /*
  * Author: Sanjevan Rajasegar
- * Last Updated: 7 August 2026
+ * Last Updated: 8 August 2026
  * Description:
- *   Widget tests for NotificationsScreen list, mark-read, Follow Back / Remove
- *   chrome, and empty state. Relationship mutations are covered in service tests.
+ *   Widget tests for NotificationsScreen list, mark-read, Follow Back /
+ *   Following unfollow, Remove chrome, and empty state.
  */
 
 import 'package:fake_cloud_firestore/fake_cloud_firestore.dart';
@@ -108,6 +108,51 @@ void main() {
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 50));
     expect(find.text('Remove follower'), findsOneWidget);
+    auth.dispose();
+  });
+
+  testWidgets('Following on notification row unfollows immediately', (
+    tester,
+  ) async {
+    final firestore = FakeFirebaseFirestore();
+    final friendship = FriendshipService(firestore: firestore);
+    final notif = SocialNotificationService(firestore: firestore);
+    final follow = FollowService(firestore: firestore);
+    await friendship.upsertPublicProfile(
+      uid: 'actor',
+      username: 'jacob',
+      displayName: 'Jacob',
+    );
+    await notif.upsertFollowNotificationForTests(
+      recipientId: 'current-user',
+      actorId: 'actor',
+      notificationId: FollowService.followIdFor('actor', 'current-user'),
+    );
+    await follow.follow(followerId: 'current-user', followeeId: 'actor');
+
+    final auth = AuthProvider(authRepository: _NotifAuthRepository());
+    await pumpNotifScreen(
+      tester,
+      auth: auth,
+      notif: notif,
+      follow: follow,
+      friendship: friendship,
+    );
+
+    expect(find.widgetWithText(OutlinedButton, 'Following'), findsOneWidget);
+    await tester.tap(find.widgetWithText(OutlinedButton, 'Following'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 50));
+
+    expect(find.text('Follow Back'), findsOneWidget);
+    expect(
+      await firestore
+          .collection(FollowService.followsCollection)
+          .doc(FollowService.followIdFor('current-user', 'actor'))
+          .get()
+          .then((doc) => doc.exists),
+      isFalse,
+    );
     auth.dispose();
   });
 

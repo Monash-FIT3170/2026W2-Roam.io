@@ -1,9 +1,12 @@
 /*
  * Author: Sanjevan Rajasegar
- * Last Updated: 7 August 2026
+ * Last Updated: 8 August 2026
  * Description:
- *   Owns public profile search, friend request transactions, friendship state,
- *   and reactive streams consumed by Social and in-app notifications.
+ *   Owns public profile search (usernameSearch / displayNameSearch prefix),
+ *   friend request transactions, friendship state, and reactive streams
+ *   consumed by Social and in-app notifications. Search only reads
+ *   public_profiles (needs signed-in list/read rules deployed) and is
+ *   independent of Follow state.
  */
 
 import 'dart:async';
@@ -89,17 +92,28 @@ class FriendshipService {
   }) async {
     if (normalizedQuery.isEmpty) return const <PublicProfile>[];
 
-    final snapshot = await _publicProfiles
-        .orderBy(field)
-        .startAt([normalizedQuery])
-        .endAt(['$normalizedQuery\uf8ff'])
-        .limit(limit)
-        .get();
+    try {
+      final snapshot = await _publicProfiles
+          .orderBy(field)
+          .startAt([normalizedQuery])
+          .endAt(['$normalizedQuery\uf8ff'])
+          .limit(limit)
+          .get();
 
-    return snapshot.docs
-        .map((doc) => PublicProfile.fromMap(doc.data()))
-        .where((profile) => profile.uid.isNotEmpty)
-        .toList();
+      return snapshot.docs
+          .map((doc) => PublicProfile.fromMap(doc.data()))
+          .where((profile) => profile.uid.isNotEmpty)
+          .toList();
+    } on FirebaseException catch (error) {
+      // Preserve the field name so Find People logs can report which query failed.
+      throw FirebaseException(
+        plugin: error.plugin,
+        code: error.code,
+        message:
+            'public_profiles orderBy($field) prefix "$normalizedQuery": '
+            '${error.message}',
+      );
+    }
   }
 
   /// Reads a public profile by uid for notification copy.

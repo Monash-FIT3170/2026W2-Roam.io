@@ -1,8 +1,9 @@
 /*
  * Author: Sanjevan Rajasegar
- * Last Updated: 7 August 2026
+ * Last Updated: 8 August 2026
  * Description:
- *   Represents the search-safe public profile fields used by Find People.
+ *   Represents the search-safe public profile fields used by Find People,
+ *   including normalized usernameSearch / displayNameSearch prefixes.
  */
 
 /// Public profile fields exposed for people search.

@@ -1,9 +1,10 @@
 /*
  * Author: Sanjevan Rajasegar
- * Last Updated: 7 August 2026
+ * Last Updated: 8 August 2026
  * Description:
  *   Unit tests for YouAnalyticsProvider follow counts, error handling, and
- *   selected-uid binding behaviour.
+ *   selected-uid binding behaviour. Follow counts always expose 0 on empty
+ *   or error for UI (errors remain on followingCountError).
  */
 
 import 'dart:async';
@@ -47,7 +48,7 @@ void main() {
     },
   );
 
-  test('follow count query errors do not surface as zero', () async {
+  test('follow count query errors surface as zero with error flag', () async {
     final followService = _FakeFollowService();
     final provider = YouAnalyticsProvider(
       visitService: _EmptyVisitService(),
@@ -64,7 +65,7 @@ void main() {
 
     expect(provider.followingCountReady, isTrue);
     expect(provider.followingCountError, isNotNull);
-    expect(provider.followingCount, isNull);
+    expect(provider.followingCount, 0);
 
     provider.dispose();
     await followService.dispose();

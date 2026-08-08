@@ -1,9 +1,10 @@
 /*
- * Author: Alvin Liong
- * Last Modified: 4/05/2026
+ * Author: Sanjevan Rajasegar
+ * Last Updated: 8 August 2026
  * Description:
  *   Routes users between loading, login, email verification, and authenticated
- *   app shell states.
+ *   app shell states. Keys the authenticated shell by UID so logout/login
+ *   account switching rebuilds a fresh notification session.
  */
 
 import 'package:flutter/material.dart';
@@ -55,8 +56,11 @@ class _AuthGateState extends State<AuthGateScreen> {
           return const VerifyEmailScreen();
         }
 
+        final uid = auth.currentUser!.uid;
         return NotificationOverlay(
+          key: ValueKey<String>('notification-overlay-$uid'),
           child: MainShellScreen(
+            key: ValueKey<String>('main-shell-$uid'),
             requestNotificationPermission: widget.requestNotificationPermission,
           ),
         );

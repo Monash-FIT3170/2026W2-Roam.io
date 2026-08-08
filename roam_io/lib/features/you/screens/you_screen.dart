@@ -1,13 +1,14 @@
 /*
  * Author: Sanjevan Rajasegar
- * Last Updated: 7 August 2026
+ * Last Updated: 8 August 2026
  * Description:
  *   Provides the You destination with Profile and Activities tabs. Profile
  *   analytics are owned by YouAnalyticsProvider bound to the authenticated
  *   uid (visits, tiles, xp_events, follow counts). Following/Followers use
  *   the same follows collection as external profiles so counts update without
- *   manual refresh. A notifications bell opens the social inbox; unread
- *   badges share SocialNotificationCoordinator state with the You nav item.
+ *   manual refresh and open dedicated connection lists. A notifications bell
+ *   opens the social inbox; numeric unread badges share SocialNotificationCoordinator
+ *   state with the You nav item.
  */
 
 import 'package:flutter/material.dart';
@@ -30,6 +31,7 @@ import '../../profile/domain/xp_event.dart';
 import '../../profile/widgets/profile_dashboard.dart';
 import '../../social/data/follow_service.dart';
 import '../../social/data/social_notification_coordinator.dart';
+import '../../social/screens/follow_connections_screen.dart';
 import '../../social/screens/notifications_screen.dart';
 import '../providers/you_analytics_provider.dart';
 
@@ -71,6 +73,7 @@ class _YouScreenState extends State<YouScreen>
     with SingleTickerProviderStateMixin {
   late final TabController _tabController;
   late final YouAnalyticsProvider _analytics;
+  late final FollowService _followService;
   ProfileGraphMetric _selectedGraphMetric = ProfileGraphMetric.locationsVisited;
 
   @override
@@ -81,14 +84,14 @@ class _YouScreenState extends State<YouScreen>
     final profileService =
         widget.profileService ??
         (widget.visitService != null ? null : ProfileService());
-    final followService =
+    _followService =
         widget.followService ??
         (widget.visitService != null ? _EmptyFollowService() : FollowService());
     _analytics = YouAnalyticsProvider(
       visitService: widget.visitService,
       visitedRegionService: widget.visitedRegionService,
       profileService: profileService,
-      followService: followService,
+      followService: _followService,
       xpEventsStream: widget.xpEventsStream,
     );
   }
@@ -136,6 +139,8 @@ class _YouScreenState extends State<YouScreen>
                       children: [
                         _ProfileTab(
                           profile: profile,
+                          currentUserId: uid,
+                          followService: _followService,
                           selectedGraphMetric: _selectedGraphMetric,
                           onGraphMetricSelected: _selectGraphMetric,
                         ),
@@ -164,11 +169,11 @@ class _YouTabBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    var hasUnread = false;
+    var unreadCount = 0;
     try {
-      hasUnread = context.watch<SocialNotificationCoordinator>().hasUnread;
+      unreadCount = context.watch<SocialNotificationCoordinator>().unreadCount;
     } on ProviderNotFoundException {
-      hasUnread = false;
+      unreadCount = 0;
     }
 
     return Padding(
@@ -218,16 +223,29 @@ class _YouTabBar extends StatelessWidget {
                   color: AppSurfaces.textPrimary(context),
                 ),
               ),
-              if (hasUnread)
+              if (unreadCount > 0)
                 Positioned(
-                  top: 10,
-                  right: 10,
+                  top: 6,
+                  right: 6,
                   child: Container(
-                    width: 8,
-                    height: 8,
+                    constraints: const BoxConstraints(
+                      minWidth: 16,
+                      minHeight: 16,
+                    ),
+                    padding: const EdgeInsets.symmetric(horizontal: 4),
                     decoration: BoxDecoration(
                       color: theme.colorScheme.primary,
-                      shape: BoxShape.circle,
+                      borderRadius: BorderRadius.circular(999),
+                    ),
+                    alignment: Alignment.center,
+                    child: Text(
+                      unreadCount > 99 ? '99+' : '$unreadCount',
+                      style: TextStyle(
+                        color: theme.colorScheme.onPrimary,
+                        fontSize: 10,
+                        fontWeight: FontWeight.w800,
+                        height: 1,
+                      ),
                     ),
                   ),
                 ),
@@ -242,11 +260,15 @@ class _YouTabBar extends StatelessWidget {
 class _ProfileTab extends StatelessWidget {
   const _ProfileTab({
     required this.profile,
+    required this.currentUserId,
+    required this.followService,
     required this.selectedGraphMetric,
     required this.onGraphMetricSelected,
   });
 
   final ProfileModel? profile;
+  final String? currentUserId;
+  final FollowService followService;
   final ProfileGraphMetric selectedGraphMetric;
   final ValueChanged<ProfileGraphMetric> onGraphMetricSelected;
 
@@ -268,6 +290,32 @@ class _ProfileTab extends StatelessWidget {
         xpGained: profile?.xp ?? 0,
         journeys: 0,
         sidequests: 0,
+        onFollowingTap: currentUserId == null
+            ? null
+            : () {
+                Navigator.of(context).push(
+                  MaterialPageRoute<void>(
+                    builder: (_) => FollowConnectionsScreen(
+                      selectedUserId: currentUserId!,
+                      mode: FollowConnectionsMode.following,
+                      followService: followService,
+                    ),
+                  ),
+                );
+              },
+        onFollowersTap: currentUserId == null
+            ? null
+            : () {
+                Navigator.of(context).push(
+                  MaterialPageRoute<void>(
+                    builder: (_) => FollowConnectionsScreen(
+                      selectedUserId: currentUserId!,
+                      mode: FollowConnectionsMode.followers,
+                      followService: followService,
+                    ),
+                  ),
+                );
+              },
       ),
       visits: analytics.visits,
       recentVisits: analytics.recentVisits,
@@ -292,6 +340,16 @@ class _EmptyFollowService implements FollowService {
   @override
   Stream<int> watchFollowerCount(String uid) {
     return Stream<int>.value(0);
+  }
+
+  @override
+  Stream<List<String>> watchFollowingIds(String uid) {
+    return Stream<List<String>>.value(const <String>[]);
+  }
+
+  @override
+  Stream<List<String>> watchFollowerIds(String uid) {
+    return Stream<List<String>>.value(const <String>[]);
   }
 
   @override

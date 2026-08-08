@@ -1,16 +1,28 @@
 /*
  * Author: Sanjevan Rajasegar
- * Last Updated: 7 August 2026
+ * Last Updated: 8 August 2026
  * Description:
  *   Firestore-backed social inbox under profiles/{uid}/notifications.
- *   Follow notification documents are created server-side (Cloud Function) with
- *   deterministic IDs matching follows/{followerId_followeeId}. Clients read,
- *   watch unread state, and mark readAt only.
+ *   Follow notification documents are created after follow persistence
+ *   (client best-effort + Cloud Function when deployed) with deterministic
+ *   IDs matching follows/{followerId_followeeId}. Clients read, watch unread
+ *   state, and mark readAt only.
  */
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 
 import '../domain/social_notification.dart';
+
+/// One emit from [SocialNotificationService.watchRecentSnapshots].
+class SocialNotificationRecentSnapshot {
+  const SocialNotificationRecentSnapshot({
+    required this.items,
+    required this.isFromCache,
+  });
+
+  final List<SocialNotification> items;
+  final bool isFromCache;
+}
 
 /// Owns persistent social inbox reads and read-state updates.
 class SocialNotificationService {
@@ -29,8 +41,8 @@ class SocialNotificationService {
         .collection(notificationsSubcollection);
   }
 
-  /// Recent notifications for [uid], newest first.
-  Stream<List<SocialNotification>> watchRecent(
+  /// Recent notifications for [uid], newest first, with cache metadata.
+  Stream<SocialNotificationRecentSnapshot> watchRecentSnapshots(
     String uid, {
     int limit = defaultRecentLimit,
   }) {
@@ -39,10 +51,24 @@ class SocialNotificationService {
         .limit(limit)
         .snapshots()
         .map(
-          (snapshot) => snapshot.docs
-              .map((doc) => SocialNotification.fromMap(doc.id, doc.data()))
-              .toList(),
+          (snapshot) => SocialNotificationRecentSnapshot(
+            items: snapshot.docs
+                .map((doc) => SocialNotification.fromMap(doc.id, doc.data()))
+                .toList(),
+            isFromCache: snapshot.metadata.isFromCache,
+          ),
         );
+  }
+
+  /// Recent notifications for [uid], newest first.
+  Stream<List<SocialNotification>> watchRecent(
+    String uid, {
+    int limit = defaultRecentLimit,
+  }) {
+    return watchRecentSnapshots(
+      uid,
+      limit: limit,
+    ).map((snapshot) => snapshot.items);
   }
 
   /// Unread follow notifications for cold-start summary (newest first).
@@ -84,7 +110,8 @@ class SocialNotificationService {
 
   /// Test/admin helper: writes a follow notification document directly.
   ///
-  /// Production creation is owned by the Cloud Function on follows create.
+  /// Production creation is owned by FollowService client write and/or the
+  /// Cloud Function on follows create.
   Future<void> upsertFollowNotificationForTests({
     required String recipientId,
     required String actorId,

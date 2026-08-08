@@ -1,12 +1,13 @@
 /*
  * Author: Sanjevan Rajasegar
- * Last Updated: 7 August 2026
+ * Last Updated: 8 August 2026
  * Description:
- *   Firestore-backed one-way follow actions and reactive follow counts.
- *   Documents live at follows/{followerId_followeeId} with followerId,
- *   followeeId, and createdAt. After a successful follow write, best-effort
- *   creates profiles/{followeeId}/notifications/{followId} (Cloud Function is
- *   preferred when deployed; same deterministic ID dedupes both writers).
+ *   Firestore-backed one-way follow actions, reactive follow counts, and
+ *   follower/following id list streams. Documents live at
+ *   follows/{followerId_followeeId}. After a successful follow write,
+ *   best-effort creates profiles/{followeeId}/notifications/{followId}
+ *   (Cloud Function is preferred when deployed; same deterministic ID
+ *   dedupes both writers). Unfollow is silent — no notification.
  */
 
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -46,20 +47,42 @@ class FollowService {
         .map((doc) => doc.exists);
   }
 
+  Query<Map<String, dynamic>> _followingQuery(String uid) {
+    return _follows.where('followerId', isEqualTo: uid);
+  }
+
+  Query<Map<String, dynamic>> _followersQuery(String uid) {
+    return _follows.where('followeeId', isEqualTo: uid);
+  }
+
   /// Counts users followed by [uid].
   Stream<int> watchFollowingCount(String uid) {
-    return _follows
-        .where('followerId', isEqualTo: uid)
-        .snapshots()
-        .map((snapshot) => snapshot.size);
+    return _followingQuery(uid).snapshots().map((snapshot) => snapshot.size);
   }
 
   /// Counts users following [uid].
   Stream<int> watchFollowerCount(String uid) {
-    return _follows
-        .where('followeeId', isEqualTo: uid)
-        .snapshots()
-        .map((snapshot) => snapshot.size);
+    return _followersQuery(uid).snapshots().map((snapshot) => snapshot.size);
+  }
+
+  /// User ids that [uid] currently follows (same source as following count).
+  Stream<List<String>> watchFollowingIds(String uid) {
+    return _followingQuery(uid).snapshots().map(
+      (snapshot) => snapshot.docs
+          .map((doc) => doc.data()['followeeId'] as String? ?? '')
+          .where((id) => id.isNotEmpty)
+          .toList(growable: false),
+    );
+  }
+
+  /// User ids that currently follow [uid] (same source as follower count).
+  Stream<List<String>> watchFollowerIds(String uid) {
+    return _followersQuery(uid).snapshots().map(
+      (snapshot) => snapshot.docs
+          .map((doc) => doc.data()['followerId'] as String? ?? '')
+          .where((id) => id.isNotEmpty)
+          .toList(growable: false),
+    );
   }
 
   /// Persists a one-way follow. No-ops for self-follow attempts.
@@ -96,14 +119,17 @@ class FollowService {
           .doc(follow.id)
           .set(notification.toMap(), SetOptions(merge: true));
     } catch (error) {
+      final code = error is FirebaseException ? error.code : 'unknown';
       debugPrint(
-        '[FollowService] notification write failed followId=${follow.id} '
-        'error=$error',
+        '[FollowService] notification write failed '
+        'followId=${follow.id} recipientId=${follow.followeeId} '
+        'actorId=${follow.followerId} code=$code error=$error',
       );
     }
   }
 
   /// Removes a one-way follow initiated by the follower. No-ops for self-follow.
+  /// Silent: does not create or delete notifications.
   Future<void> unfollow({
     required String followerId,
     required String followeeId,

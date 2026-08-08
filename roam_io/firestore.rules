@@ -140,6 +140,9 @@ service cloud.firestore {
       }
     }
 
+    // Find People prefix queries require signed-in list/read on this
+    // collection. Keep production in sync:
+    // firebase deploy --only firestore:rules --project roam-io-71e2c
     match /public_profiles/{userId} {
       allow read: if isSignedIn();
       allow create, update: if isProfileOwner(userId)

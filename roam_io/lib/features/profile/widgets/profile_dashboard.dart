@@ -1,10 +1,10 @@
 /*
  * Author: Sanjevan Rajasegar
- * Last Updated: 7 August 2026
+ * Last Updated: 8 August 2026
  * Description:
  *   Shared profile dashboard presentation for the authenticated You profile
- *   and selected external public profiles. Metric pill carousel uses
- *   clipBehavior: Clip.none so partially visible capsules keep rounded edges.
+ *   and selected external public profiles. Metric pill carousel clips to the
+ *   outer rounded card; individual pills stay stadium/capsule shaped.
  */
 
 import 'package:flutter/material.dart';
@@ -179,16 +179,14 @@ class _ProfileMetricLineGraphSectionState
         Container(
           width: double.infinity,
           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+          clipBehavior: Clip.antiAlias,
           decoration: BoxDecoration(
             color: AppSurfaces.card(context),
             borderRadius: BorderRadius.circular(18),
             border: Border.all(color: AppSurfaces.border(context)),
           ),
-          // Clip.none keeps partially visible capsule pills rounded instead of
-          // slicing them with the scroll view's default rectangular hardEdge.
           child: SingleChildScrollView(
             scrollDirection: Axis.horizontal,
-            clipBehavior: Clip.none,
             child: Row(
               children: ProfileGraphMetric.values.map((metric) {
                 return Padding(

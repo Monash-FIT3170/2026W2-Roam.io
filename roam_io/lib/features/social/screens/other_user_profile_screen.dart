@@ -1,12 +1,14 @@
 /*
  * Author: Sanjevan Rajasegar
- * Last Updated: 7 August 2026
+ * Last Updated: 8 August 2026
  * Description:
  *   Displays a read-only public profile for another registered user loaded
  *   from public_profiles/{selectedUserId}. Analytics bind exclusively to
- *   selectedUserId (visits, tiles, xp_events, follow counts). Follow is
- *   independent of friendship and derives Following state from Firestore
- *   follows/{followerId_followeeId}.
+ *   selectedUserId (visits, tiles, xp_events, follow counts). Follow /
+ *   Following is always the shared stadium relationship button (never plain
+ *   text); Following taps unfollow immediately via
+ *   follows/{followerId_followeeId}. Following/Followers stats open lists
+ *   for selectedUserId.
  */
 
 import 'package:flutter/material.dart';
@@ -16,7 +18,6 @@ import 'package:provider/provider.dart';
 
 import '../../../services/profile_service.dart';
 import '../../../shared/widgets/app_bottom_nav_bar.dart';
-import '../../../shared/widgets/app_toast.dart';
 import '../../../theme/app_surfaces.dart';
 import '../../activity_feed/data/activity_feed_service.dart';
 import '../../activity_feed/data/comment_service.dart';
@@ -35,6 +36,8 @@ import '../../you/providers/you_analytics_provider.dart';
 import '../data/follow_service.dart';
 import '../data/friendship_service.dart';
 import '../domain/public_profile.dart';
+import '../widgets/follow_relationship_button.dart';
+import 'follow_connections_screen.dart';
 
 /// Read-only social profile for a selected user.
 class OtherUserProfileScreen extends StatefulWidget {
@@ -167,6 +170,7 @@ class _OtherUserProfileScreenState extends State<OtherUserProfileScreen>
                           profile: profile,
                           currentUserId: currentUserId,
                           followService: _followService,
+                          friendshipService: _friendshipService,
                           selectedMetric: _selectedGraphMetric,
                           onMetricSelected: _selectGraphMetric,
                         ),
@@ -248,6 +252,7 @@ class _ExternalProfileDashboard extends StatelessWidget {
     required this.profile,
     required this.currentUserId,
     required this.followService,
+    required this.friendshipService,
     required this.selectedMetric,
     required this.onMetricSelected,
   });
@@ -255,6 +260,7 @@ class _ExternalProfileDashboard extends StatelessWidget {
   final PublicProfile profile;
   final String? currentUserId;
   final FollowService followService;
+  final FriendshipService friendshipService;
   final ProfileGraphMetric selectedMetric;
   final ValueChanged<ProfileGraphMetric> onMetricSelected;
 
@@ -270,10 +276,11 @@ class _ExternalProfileDashboard extends StatelessWidget {
       xp: profile.xp,
       headerAction: currentUserId == null || currentUserId == profile.uid
           ? null
-          : _FollowAction(
+          : FollowRelationshipButton(
               followerId: currentUserId!,
               followeeId: profile.uid,
               followService: followService,
+              expandWidth: true,
             ),
       stats: ProfileStats(
         following: analytics.followingCount,
@@ -282,6 +289,30 @@ class _ExternalProfileDashboard extends StatelessWidget {
         xpGained: profile.xp ?? 0,
         journeys: 0,
         sidequests: 0,
+        onFollowingTap: () {
+          Navigator.of(context).push(
+            MaterialPageRoute<void>(
+              builder: (_) => FollowConnectionsScreen(
+                selectedUserId: profile.uid,
+                mode: FollowConnectionsMode.following,
+                followService: followService,
+                friendshipService: friendshipService,
+              ),
+            ),
+          );
+        },
+        onFollowersTap: () {
+          Navigator.of(context).push(
+            MaterialPageRoute<void>(
+              builder: (_) => FollowConnectionsScreen(
+                selectedUserId: profile.uid,
+                mode: FollowConnectionsMode.followers,
+                followService: followService,
+                friendshipService: friendshipService,
+              ),
+            ),
+          );
+        },
       ),
       visits: analytics.visits,
       recentVisits: analytics.recentVisits,
@@ -293,111 +324,6 @@ class _ExternalProfileDashboard extends StatelessWidget {
       recentVisitsError: analytics.recentVisitsError,
       visitsError: analytics.visitsError,
       bottomPadding: AppBottomNavBar.clearanceFromScreenBottom(context) + 12,
-    );
-  }
-}
-
-/// Follow / Following control driven only by the persisted Firestore relationship.
-///
-/// The [watchIsFollowing] stream is created once so parent analytics rebuilds
-/// (count updates) cannot reset the button via a fresh StreamBuilder
-/// `initialData: false`.
-class _FollowAction extends StatefulWidget {
-  const _FollowAction({
-    required this.followerId,
-    required this.followeeId,
-    required this.followService,
-  });
-
-  final String followerId;
-  final String followeeId;
-  final FollowService followService;
-
-  @override
-  State<_FollowAction> createState() => _FollowActionState();
-}
-
-class _FollowActionState extends State<_FollowAction> {
-  late Stream<bool> _isFollowingStream;
-  bool _busy = false;
-
-  @override
-  void initState() {
-    super.initState();
-    _isFollowingStream = widget.followService.watchIsFollowing(
-      followerId: widget.followerId,
-      followeeId: widget.followeeId,
-    );
-  }
-
-  @override
-  void didUpdateWidget(covariant _FollowAction oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    if (oldWidget.followerId != widget.followerId ||
-        oldWidget.followeeId != widget.followeeId ||
-        oldWidget.followService != widget.followService) {
-      _isFollowingStream = widget.followService.watchIsFollowing(
-        followerId: widget.followerId,
-        followeeId: widget.followeeId,
-      );
-    }
-  }
-
-  Future<void> _toggle(bool isFollowing) async {
-    if (_busy) return;
-    setState(() => _busy = true);
-    try {
-      if (isFollowing) {
-        await widget.followService.unfollow(
-          followerId: widget.followerId,
-          followeeId: widget.followeeId,
-        );
-      } else {
-        await widget.followService.follow(
-          followerId: widget.followerId,
-          followeeId: widget.followeeId,
-        );
-      }
-    } catch (error) {
-      final code = error is FirebaseException ? error.code : 'unknown';
-      debugPrint(
-        '[Follow] followerId=${widget.followerId} '
-        'followeeId=${widget.followeeId} '
-        'op=${isFollowing ? 'unfollow' : 'follow'} '
-        'collection=follows code=$code error=$error',
-      );
-      if (mounted) {
-        AppToast.error(
-          context,
-          isFollowing
-              ? 'Could not unfollow right now.'
-              : 'Could not follow right now.',
-        );
-      }
-    } finally {
-      if (mounted) {
-        setState(() => _busy = false);
-      }
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return StreamBuilder<bool>(
-      stream: _isFollowingStream,
-      builder: (context, snapshot) {
-        final isFollowing = snapshot.data ?? false;
-        final waiting =
-            snapshot.connectionState == ConnectionState.waiting &&
-            !snapshot.hasData;
-        return Align(
-          alignment: Alignment.centerLeft,
-          child: FilledButton(
-            onPressed: _busy || waiting ? null : () => _toggle(isFollowing),
-            child: Text(isFollowing ? 'Following' : 'Follow'),
-          ),
-        );
-      },
     );
   }
 }
@@ -528,6 +454,16 @@ class _EmptyFollowService implements FollowService {
   @override
   Stream<int> watchFollowerCount(String uid) {
     return Stream<int>.value(0);
+  }
+
+  @override
+  Stream<List<String>> watchFollowingIds(String uid) {
+    return Stream<List<String>>.value(const <String>[]);
+  }
+
+  @override
+  Stream<List<String>> watchFollowerIds(String uid) {
+    return Stream<List<String>>.value(const <String>[]);
   }
 
   @override

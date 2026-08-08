@@ -90,33 +90,58 @@ and progression projection used by search and external profiles. `You` owns
 authenticated-user state, while `OtherUserProfileScreen(selectedUserId)` owns
 selected-user state and composes the same dashboard presentation. Every
 external analytics watch must bind to `selectedUserId`, not
-`AuthProvider.currentUser.uid` (except Follow / Add Friend relationship
-actions).
+`AuthProvider.currentUser.uid` (except Follow relationship actions, which
+always use the authenticated user's follow graph).
+
+Find People (`FindPeopleScreen` → `FriendshipService.searchUsers`) lists
+`public_profiles` with prefix queries on `usernameSearch` /
+`displayNameSearch`. Deployed Firestore rules must allow signed-in
+`read` (get/list) on `public_profiles` — without that, clients get
+`permission-denied` on `orderBy(displayNameSearch|usernameSearch)` even
+though Auth and Map still work. Keep rules in sync via
+`firebase deploy --only firestore:rules --project roam-io-71e2c` from
+`roam_io/`. Search does not depend on Follow documents or Follow UI state;
+Follow / Following is resolved per row after results render. Missing
+search fields cause empty hits, not permission errors — backfill with
+`npm run backfill:public-profiles` in `roam_io/functions` when needed.
 
 Profile headers show identity, level/XP, and six public stats:
 Following, Followers, Tiles, XP Gained, Journeys, and Sidequests. Following /
 Followers come from one-way `follows/{followerId_followeeId}` documents
 (`followerId`, `followeeId`, `createdAt`). Following count =
 relationships where `followerId == profileId`; Followers count =
-relationships where `followeeId == profileId`. Follow is independent from
-mutual friendship requests. Tiles use selected-user visited polygon records.
+relationships where `followeeId == profileId`. Counts and
+`FollowConnectionsScreen` lists share those queries. Tapping Following or
+Followers on You or an external profile opens the list for that profile id;
+row Follow / Following buttons still reflect whether **the authenticated user**
+follows each listed person. Public discovery (`FindPeopleScreen`) and external
+profiles use Follow / Following stadium buttons (filled Follow, outlined
+Following with immediate silent unfollow); Add Friend /
+friend-request chrome is not shown in this public Follow phase. Follow is
+independent from mutual friendship requests. Lists and counts stream from
+the same `follows` collection, so unfollow on an external profile updates
+any open Following/Followers list and profile counts without a manual
+refresh. Tiles use selected-user visited polygon records.
 The top-level XP Gained stat uses lifetime/current profile XP, while the XP
 Gained graph uses timestamped `profiles/{uid}/xp_events` recorded **after**
 the canonical `profiles/{uid}` XP/level update succeeds. Journey and sidequest
 counts are explicit zeroes in the profile stats view model until persisted
 completion sources exist.
 
-Failed Firestore analytics queries must not silently render as `0`.
+Failed Firestore analytics queries must not silently render Tiles as `0`.
 `YouAnalyticsProvider` distinguishes loading, real empty results, and errors
-(Following / Followers / Tiles show `—` when unavailable). Recent visits and
+for tiles (Tiles show `—` when unavailable). Following / Followers always
+render a numeric value: empty or unavailable relationships show `0`, never
+`—`. Recent visits and
 most-visited surfaces show an unavailable state on error.
 
 `YouAnalyticsProvider` holds the latest visits / tiles / XP events / follow
 counts for its bound profile id so Profile data survives Activities tab
 remounts and Activity Detail push/pop. Weekly graph buckets use Monday-start
 local calendar weeks; tapping a graph point selects it and changing metric
-resets selection. The metric pill carousel uses `clipBehavior: Clip.none` so
-partially visible capsules keep rounded edges instead of a rectangular clip.
+resets selection. The metric pill carousel clips to its outer rounded card
+(`clipBehavior: Clip.antiAlias`) so pills never protrude; each pill stays
+stadium/capsule shaped (`BorderRadius.circular(999)`).
 `You → Activities` still uses the personal stub card with Kudos + live comment
 count + Share. External profile Activities must only render persisted
 `activities` documents for the selected profile; when none exist, show the
@@ -132,24 +157,35 @@ the presentation layer. Friend-request banners continue to listen to
 
 Public-profile **Follow** notifications are persisted at
 `profiles/{recipientId}/notifications/{followerId_followeeId}`. Creation is
-idempotent on that ID: Cloud Function `onFollowCreated` (when deployable) and
-a best-effort client write after `FollowService.follow` both use the same
-document. Clients may create only as `actorId == auth.uid` when the matching
-`follows/{id}` document exists. Recipients may only update `readAt`.
-Notification write failures never roll back Follow.
+idempotent on that ID: after `follows/{id}` is written, a best-effort client
+write from `FollowService.follow` creates the inbox row for the followee even
+when the recipient is offline; Cloud Function `onFollowCreated` (when
+deployed) uses the same document. Clients may create only as
+`actorId == auth.uid` when the matching `follows/{id}` document exists.
+Recipients may only update `readAt`. Notification write failures never roll
+back Follow. Unfollow is silent (no notification create or delete).
 
-`SocialNotificationCoordinator` (shell-scoped) watches the inbox:
+`SocialNotificationCoordinator` (shell-scoped, keyed/rebound by auth UID)
+watches the inbox:
 
-- Cold start: one summary banner (`N people followed you` / single name) for
-  unread follows; does **not** mark them read.
+- On auth UID change: cancels prior subscriptions, clears
+  `_surfacedBannerIds` / cold-start state / unread, then starts the new
+  user's unread query + recent listener. Account switch on one device must
+  behave like cold-start session init.
+- Cold start: skips provisional empty cache emits; then one summary banner
+  (`N people followed you` / single name) for unread follows; does **not**
+  mark them read.
 - Live: each new unread follow after cold start surfaces one green in-app
   banner (`showOnDevice: false`).
-- Session `_surfacedBannerIds` prevents rebuild/tab replay.
+- Per-session `_surfacedBannerIds` is cleared on UID change so Account A
+  dedupe cannot suppress Account B.
 
-Unread count drives the You bottom-nav dot and the You tab bell badge. Opening
+Unread count drives a numeric You bottom-nav badge and the You tab bell badge
+(counts above 99 show as `99+`). Opening
 You does not clear unread. Opening `NotificationsScreen` calls `markAllRead`
-and keeps historical rows. Rows support Follow Back (normal Follow) and
-Remove follower (delete `follows/{actor_recipient}` with no notify).
+and keeps historical rows. Rows support Follow Back / Following (immediate
+unfollow) and Remove follower (delete `follows/{actor_recipient}` with no
+notify).
 
 User-facing manual Test Notification controls should not be added to app
 chrome; templates, overlays, and services remain under `lib/notifications/`.

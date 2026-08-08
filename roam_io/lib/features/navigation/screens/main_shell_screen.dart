@@ -1,12 +1,12 @@
 /*
  * Author: Sanjevan Rajasegar
- * Last Updated: 7 August 2026
+ * Last Updated: 8 August 2026
  * Description:
  *   Provides the authenticated app shell with persistent bottom navigation
  *   across the main feature tabs and production notification action feedback.
  *   Shares one CommentService across Home and You for live comment counts.
  *   Wires SocialNotificationCoordinator for follow inbox banners and You
- *   unread badge.
+ *   unread badge. Rebinds coordinator when auth UID changes.
  */
 
 import 'dart:async';
@@ -267,7 +267,7 @@ class _MainShellScreenState extends State<MainShellScreen> {
             return AppBottomNavBar(
               currentIndex: selectedIndex,
               onTap: _selectPage,
-              youHasUnread: coordinator.hasUnread,
+              youUnreadCount: coordinator.unreadCount,
             );
           },
         ),

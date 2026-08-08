@@ -1,6 +1,6 @@
 /*
  * Author: Sanjevan Rajasegar
- * Last Updated: 7 August 2026
+ * Last Updated: 8 August 2026
  * Description:
  *   Widget tests for profile metric pill carousel clipping behaviour.
  */
@@ -14,7 +14,7 @@ import 'package:roam_io/features/profile/widgets/profile_dashboard.dart';
 
 void main() {
   testWidgets(
-    'metric pill carousel uses Clip.none so capsules keep rounded edges',
+    'metric pill carousel clips to outer card and keeps capsule pills',
     (tester) async {
       var selected = ProfileGraphMetric.locationsVisited;
 
@@ -52,7 +52,20 @@ void main() {
               widget.scrollDirection == Axis.horizontal,
         ),
       );
-      expect(scrollable.clipBehavior, Clip.none);
+      final carouselCard = tester.widget<Container>(
+        find.ancestor(
+          of: find.byWidget(scrollable),
+          matching: find.byWidgetPredicate(
+            (widget) =>
+                widget is Container &&
+                widget.clipBehavior == Clip.antiAlias &&
+                widget.decoration is BoxDecoration &&
+                (widget.decoration! as BoxDecoration).borderRadius ==
+                    BorderRadius.circular(18),
+          ),
+        ),
+      );
+      expect(carouselCard.clipBehavior, Clip.antiAlias);
 
       // Scroll so a later pill is only partially inside the narrow viewport.
       await tester.drag(

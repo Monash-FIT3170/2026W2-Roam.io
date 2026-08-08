@@ -1,8 +1,14 @@
 /*
  * Author: Sanjevan Rajasegar
- * Last Updated: 7 August 2026
+ * Last Updated: 8 August 2026
  * Description:
- *   Provides live user search and friend-request actions for the Social tab.
+ *   Provides live user search with public-profile Follow / Following actions
+ *   for the Social tab. Queries public_profiles by usernameSearch /
+ *   displayNameSearch (requires deployed rules: signed-in read on
+ *   public_profiles). Search is independent of Follow; Follow state loads
+ *   per row after results. Search failures are shown explicitly (not blank).
+ *   Friend-request UI is intentionally not shown during the public Follow
+ *   phase.
  */
 
 import 'dart:async';
@@ -11,20 +17,25 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
-import '../../../shared/widgets/app_toast.dart';
 import '../../../theme/app_surfaces.dart';
 import '../../auth/providers/auth_provider.dart';
+import '../data/follow_service.dart';
 import '../data/friendship_service.dart';
-import '../domain/friend_relationship.dart';
 import '../domain/public_profile.dart';
+import '../widgets/follow_relationship_button.dart';
 import 'other_user_profile_screen.dart';
 
 /// Dedicated user-search screen for finding registered users.
 class FindPeopleScreen extends StatefulWidget {
-  const FindPeopleScreen({super.key, FriendshipService? friendshipService})
-    : _friendshipService = friendshipService;
+  const FindPeopleScreen({
+    super.key,
+    FriendshipService? friendshipService,
+    FollowService? followService,
+  }) : _friendshipService = friendshipService,
+       _followService = followService;
 
   final FriendshipService? _friendshipService;
+  final FollowService? _followService;
 
   @override
   State<FindPeopleScreen> createState() => _FindPeopleScreenState();
@@ -32,6 +43,7 @@ class FindPeopleScreen extends StatefulWidget {
 
 class _FindPeopleScreenState extends State<FindPeopleScreen> {
   late final FriendshipService _friendshipService;
+  late final FollowService _followService;
   final TextEditingController _controller = TextEditingController();
   final FocusNode _focusNode = FocusNode();
   Timer? _debounce;
@@ -46,6 +58,7 @@ class _FindPeopleScreenState extends State<FindPeopleScreen> {
   void initState() {
     super.initState();
     _friendshipService = widget._friendshipService ?? FriendshipService();
+    _followService = widget._followService ?? FollowService();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) _focusNode.requestFocus();
     });
@@ -75,6 +88,12 @@ class _FindPeopleScreenState extends State<FindPeopleScreen> {
       return;
     }
 
+    // Show spinner during debounce so the list is never silently blank.
+    setState(() {
+      _isSearching = true;
+      _searchFailed = false;
+    });
+
     _debounce = Timer(const Duration(milliseconds: 300), () {
       _runSearch(query);
     });
@@ -82,12 +101,24 @@ class _FindPeopleScreenState extends State<FindPeopleScreen> {
 
   Future<void> _runSearch(String query) async {
     final currentUserId = context.read<AuthProvider>().currentUser?.uid;
-    if (currentUserId == null) return;
+    if (currentUserId == null) {
+      if (!mounted) return;
+      setState(() {
+        _isSearching = false;
+        _hasCompletedSearch = false;
+        _searchFailed = false;
+        _results = const <PublicProfile>[];
+      });
+      return;
+    }
 
     final generation = ++_searchGeneration;
-    setState(() {
-      _isSearching = true;
-    });
+    if (!_isSearching) {
+      setState(() {
+        _isSearching = true;
+        _searchFailed = false;
+      });
+    }
 
     try {
       final results = await _friendshipService.searchUsers(
@@ -109,6 +140,7 @@ class _FindPeopleScreenState extends State<FindPeopleScreen> {
         _isSearching = false;
         _hasCompletedSearch = false;
         _searchFailed = true;
+        _results = const <PublicProfile>[];
       });
       final code = error is FirebaseException ? error.code : 'unknown';
       debugPrint(
@@ -152,6 +184,7 @@ class _FindPeopleScreenState extends State<FindPeopleScreen> {
                 searchFailed: _searchFailed,
                 results: _results,
                 friendshipService: _friendshipService,
+                followService: _followService,
               ),
             ),
           ],
@@ -170,6 +203,7 @@ class _SearchResults extends StatelessWidget {
     required this.searchFailed,
     required this.results,
     required this.friendshipService,
+    required this.followService,
   });
 
   final String? currentUserId;
@@ -179,6 +213,7 @@ class _SearchResults extends StatelessWidget {
   final bool searchFailed;
   final List<PublicProfile> results;
   final FriendshipService friendshipService;
+  final FollowService followService;
 
   @override
   Widget build(BuildContext context) {
@@ -186,8 +221,21 @@ class _SearchResults extends StatelessWidget {
       return const Center(child: Text('Sign in to find people.'));
     }
 
-    if (query.isEmpty || searchFailed) {
+    if (query.isEmpty) {
       return const SizedBox.shrink();
+    }
+
+    if (searchFailed) {
+      return Center(
+        child: Text(
+          'Could not search people right now.',
+          textAlign: TextAlign.center,
+          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+            color: AppSurfaces.textMuted(context),
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+      );
     }
 
     if (isSearching) {
@@ -211,6 +259,7 @@ class _SearchResults extends StatelessWidget {
           profile: results[index],
           currentUserId: currentUserId!,
           friendshipService: friendshipService,
+          followService: followService,
         );
       },
     );
@@ -222,11 +271,13 @@ class _PersonResultRow extends StatelessWidget {
     required this.profile,
     required this.currentUserId,
     required this.friendshipService,
+    required this.followService,
   });
 
   final PublicProfile profile;
   final String currentUserId;
   final FriendshipService friendshipService;
+  final FollowService followService;
 
   @override
   Widget build(BuildContext context) {
@@ -248,6 +299,7 @@ class _PersonResultRow extends StatelessWidget {
                     builder: (_) => OtherUserProfileScreen(
                       selectedUserId: profile.uid,
                       friendshipService: friendshipService,
+                      followService: followService,
                     ),
                   ),
                 );
@@ -286,20 +338,11 @@ class _PersonResultRow extends StatelessWidget {
             ),
           ),
           const SizedBox(width: 10),
-          StreamBuilder<FriendRelationship>(
-            stream: friendshipService.watchRelationship(
-              currentUserId: currentUserId,
-              otherUserId: profile.uid,
-            ),
-            initialData: const FriendRelationship.none(),
-            builder: (context, snapshot) {
-              return _RelationshipAction(
-                currentUserId: currentUserId,
-                profile: profile,
-                relationship: snapshot.data ?? const FriendRelationship.none(),
-                friendshipService: friendshipService,
-              );
-            },
+          FollowRelationshipButton(
+            followerId: currentUserId,
+            followeeId: profile.uid,
+            followService: followService,
+            compact: true,
           ),
         ],
       ),
@@ -314,7 +357,8 @@ class _ProfileAvatar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final photoUrl = profile.photoUrl;
+    final url = profile.photoUrl;
+    final hasPhoto = url != null && url.isNotEmpty;
     final initial = profile.displayName.trim().isEmpty
         ? '?'
         : profile.displayName.trim().characters.first;
@@ -322,116 +366,8 @@ class _ProfileAvatar extends StatelessWidget {
       radius: 24,
       backgroundColor: Theme.of(context).colorScheme.primary,
       foregroundColor: Theme.of(context).colorScheme.onPrimary,
-      backgroundImage: photoUrl == null || photoUrl.isEmpty
-          ? null
-          : NetworkImage(photoUrl),
-      child: photoUrl == null || photoUrl.isEmpty ? Text(initial) : null,
+      backgroundImage: hasPhoto ? NetworkImage(url) : null,
+      child: hasPhoto ? null : Text(initial),
     );
-  }
-}
-
-class _RelationshipAction extends StatefulWidget {
-  const _RelationshipAction({
-    required this.currentUserId,
-    required this.profile,
-    required this.relationship,
-    required this.friendshipService,
-  });
-
-  final String currentUserId;
-  final PublicProfile profile;
-  final FriendRelationship relationship;
-  final FriendshipService friendshipService;
-
-  @override
-  State<_RelationshipAction> createState() => _RelationshipActionState();
-}
-
-class _RelationshipActionState extends State<_RelationshipAction> {
-  var _isBusy = false;
-
-  Future<void> _sendRequest() async {
-    setState(() => _isBusy = true);
-    try {
-      final result = await widget.friendshipService.sendRequest(
-        senderId: widget.currentUserId,
-        recipientId: widget.profile.uid,
-      );
-      if (!mounted) return;
-      if (result == SendFriendRequestResult.sent) {
-        AppToast.success(context, 'Friend request sent.');
-      } else if (result == SendFriendRequestResult.incomingRequest) {
-        AppToast.show(context, 'They already sent you a request.');
-      } else if (result == SendFriendRequestResult.alreadyFriends) {
-        AppToast.show(context, 'You are already friends.');
-      }
-    } catch (_) {
-      if (mounted) {
-        AppToast.error(context, 'Could not send friend request.');
-      }
-    } finally {
-      if (mounted) setState(() => _isBusy = false);
-    }
-  }
-
-  Future<void> _acceptRequest() async {
-    final requestId = widget.relationship.request?.id;
-    if (requestId == null) return;
-    setState(() => _isBusy = true);
-    try {
-      await widget.friendshipService.acceptRequest(
-        requestId: requestId,
-        currentUserId: widget.currentUserId,
-      );
-      if (mounted) AppToast.success(context, 'Friend request accepted.');
-    } catch (_) {
-      if (mounted) AppToast.error(context, 'Could not accept request.');
-    } finally {
-      if (mounted) setState(() => _isBusy = false);
-    }
-  }
-
-  Future<void> _declineRequest() async {
-    final requestId = widget.relationship.request?.id;
-    if (requestId == null) return;
-    setState(() => _isBusy = true);
-    try {
-      await widget.friendshipService.declineRequest(
-        requestId: requestId,
-        currentUserId: widget.currentUserId,
-      );
-      if (mounted) AppToast.success(context, 'Friend request declined.');
-    } catch (_) {
-      if (mounted) AppToast.error(context, 'Could not decline request.');
-    } finally {
-      if (mounted) setState(() => _isBusy = false);
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    if (_isBusy) {
-      return const SizedBox(
-        width: 28,
-        height: 28,
-        child: CircularProgressIndicator(strokeWidth: 2),
-      );
-    }
-
-    return switch (widget.relationship.status) {
-      FriendRelationshipStatus.none => FilledButton(
-        onPressed: _sendRequest,
-        child: const Text('Add Friend'),
-      ),
-      FriendRelationshipStatus.requestSent => const Text('Request Sent'),
-      FriendRelationshipStatus.incomingRequest => Wrap(
-        spacing: 6,
-        children: [
-          FilledButton(onPressed: _acceptRequest, child: const Text('Accept')),
-          TextButton(onPressed: _declineRequest, child: const Text('Decline')),
-        ],
-      ),
-      FriendRelationshipStatus.friends => const Text('Friends'),
-    };
   }
 }

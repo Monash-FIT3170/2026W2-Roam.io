@@ -1,11 +1,12 @@
 /*
  * Author: Sanjevan Rajasegar
- * Last Updated: 7 August 2026
+ * Last Updated: 8 August 2026
  * Description:
  *   Session coordinator that turns persisted follow inbox documents into
  *   ART2-96 in-app banners. Handles cold-start unread summary (one banner),
- *   live single-follow banners, and session dedupe so rebuilds do not replay.
- *   Does not mark notifications read — that happens on Notifications screen.
+ *   live single-follow banners, and per-UID session dedupe so rebuilds and
+ *   account switches do not replay or leak banners. Does not mark
+ *   notifications read — that happens on Notifications screen.
  */
 
 import 'dart:async';
@@ -32,10 +33,11 @@ class SocialNotificationCoordinator extends ChangeNotifier {
   final FriendshipService _friendshipService;
   final NotificationService _bannerService;
 
-  StreamSubscription<List<SocialNotification>>? _recentSub;
+  StreamSubscription<SocialNotificationRecentSnapshot>? _recentSub;
   StreamSubscription<int>? _unreadSub;
 
   String? _boundUid;
+  int _bindGeneration = 0;
   final Set<String> _surfacedBannerIds = <String>{};
   var _coldStartHandled = false;
   int _unreadCount = 0;
@@ -55,6 +57,8 @@ class SocialNotificationCoordinator extends ChangeNotifier {
     _recentSub = null;
     _unreadSub = null;
     _boundUid = uid;
+    _bindGeneration += 1;
+    final generation = _bindGeneration;
     _surfacedBannerIds.clear();
     _coldStartHandled = false;
     _unreadCount = 0;
@@ -66,6 +70,7 @@ class SocialNotificationCoordinator extends ChangeNotifier {
         .watchUnreadCount(uid)
         .listen(
           (count) {
+            if (_boundUid != uid || generation != _bindGeneration) return;
             if (_unreadCount == count) return;
             _unreadCount = count;
             notifyListeners();
@@ -78,10 +83,23 @@ class SocialNotificationCoordinator extends ChangeNotifier {
         );
 
     _recentSub = _notificationService
-        .watchRecent(uid)
+        .watchRecentSnapshots(uid)
         .listen(
-          (items) async {
-            await _onNotifications(items);
+          (snapshot) async {
+            if (_boundUid != uid || generation != _bindGeneration) return;
+            try {
+              await _onNotifications(
+                items: snapshot.items,
+                isFromCache: snapshot.isFromCache,
+                expectedUid: uid,
+                generation: generation,
+              );
+            } catch (error, stackTrace) {
+              debugPrint(
+                '[SocialNotifCoordinator] onNotifications uid=$uid '
+                'error=$error\n$stackTrace',
+              );
+            }
           },
           onError: (Object error) {
             debugPrint(
@@ -91,22 +109,33 @@ class SocialNotificationCoordinator extends ChangeNotifier {
         );
   }
 
-  Future<void> _onNotifications(List<SocialNotification> items) async {
+  Future<void> _onNotifications({
+    required List<SocialNotification> items,
+    required bool isFromCache,
+    required String expectedUid,
+    required int generation,
+  }) async {
+    if (!_isCurrentBind(expectedUid, generation)) return;
+
     final followItems = items.where((item) => item.isFollow).toList();
     final unreadFollows = followItems
         .where((item) => !item.isRead)
         .toList(growable: false);
 
     if (!_coldStartHandled) {
+      // Skip provisional empty cache emits so cold-start summary still works
+      // when server data arrives after login / account switch.
+      if (isFromCache && unreadFollows.isEmpty) {
+        return;
+      }
+
       _coldStartHandled = true;
       if (unreadFollows.isEmpty) {
-        // Seed all known ids so reconnects do not treat history as new.
         _surfacedBannerIds.addAll(followItems.map((item) => item.id));
         return;
       }
 
       _surfacedBannerIds.addAll(unreadFollows.map((item) => item.id));
-      // Also seed already-read history so they never banner later.
       _surfacedBannerIds.addAll(
         followItems.where((item) => item.isRead).map((item) => item.id),
       );
@@ -114,6 +143,7 @@ class SocialNotificationCoordinator extends ChangeNotifier {
       if (unreadFollows.length == 1) {
         final only = unreadFollows.first;
         final actor = await _friendshipService.getPublicProfile(only.actorId);
+        if (!_isCurrentBind(expectedUid, generation)) return;
         final name = actor?.displayName ?? actor?.username ?? 'Someone';
         await _bannerService.show(
           NotificationTemplates.followedYou(
@@ -123,6 +153,7 @@ class SocialNotificationCoordinator extends ChangeNotifier {
           ),
         );
       } else {
+        if (!_isCurrentBind(expectedUid, generation)) return;
         await _bannerService.show(
           NotificationTemplates.followSummary(unreadFollows.length),
         );
@@ -131,10 +162,11 @@ class SocialNotificationCoordinator extends ChangeNotifier {
     }
 
     for (final item in followItems) {
+      if (!_isCurrentBind(expectedUid, generation)) return;
       if (!_surfacedBannerIds.add(item.id)) continue;
-      // Only banner newly seen unread follows after cold start.
       if (item.isRead) continue;
       final actor = await _friendshipService.getPublicProfile(item.actorId);
+      if (!_isCurrentBind(expectedUid, generation)) return;
       final name = actor?.displayName ?? actor?.username ?? 'Someone';
       await _bannerService.show(
         NotificationTemplates.followedYou(
@@ -146,10 +178,19 @@ class SocialNotificationCoordinator extends ChangeNotifier {
     }
   }
 
+  bool _isCurrentBind(String expectedUid, int generation) {
+    return _boundUid == expectedUid && generation == _bindGeneration;
+  }
+
   @override
   void dispose() {
     _recentSub?.cancel();
     _unreadSub?.cancel();
+    _recentSub = null;
+    _unreadSub = null;
+    _boundUid = null;
+    _bindGeneration += 1;
+    _surfacedBannerIds.clear();
     super.dispose();
   }
 }

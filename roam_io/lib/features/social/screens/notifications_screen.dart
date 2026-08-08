@@ -1,10 +1,11 @@
 /*
  * Author: Sanjevan Rajasegar
- * Last Updated: 7 August 2026
+ * Last Updated: 8 August 2026
  * Description:
  *   Instagram-style social notifications list for public-profile Follow events.
- *   Opening marks unread notifications read. Rows support Follow Back and
- *   Remove follower without deleting history.
+ *   Opening marks unread notifications read. Rows support Follow Back /
+ *   Following (immediate unfollow) and Remove follower without deleting
+ *   history.
  */
 
 import 'package:flutter/material.dart';
@@ -19,6 +20,7 @@ import '../data/social_notification_service.dart';
 import '../domain/public_profile.dart';
 import '../domain/social_notification.dart';
 import '../utils/relative_time.dart';
+import '../widgets/follow_relationship_button.dart';
 
 /// Dedicated Notifications screen opened from the You bell.
 class NotificationsScreen extends StatefulWidget {
@@ -187,10 +189,12 @@ class _FollowNotificationRow extends StatelessWidget {
                 ),
               ),
               const SizedBox(width: 8),
-              _FollowBackAction(
-                currentUserId: currentUserId,
-                actorId: notification.actorId,
+              FollowRelationshipButton(
+                followerId: currentUserId,
+                followeeId: notification.actorId,
                 followService: followService,
+                labelMode: FollowRelationshipLabelMode.followBack,
+                compact: true,
               ),
               PopupMenuButton<String>(
                 tooltip: 'More',
@@ -261,96 +265,6 @@ class _ActorAvatar extends StatelessWidget {
               color: theme.colorScheme.primary,
               size: 22,
             ),
-    );
-  }
-}
-
-class _FollowBackAction extends StatefulWidget {
-  const _FollowBackAction({
-    required this.currentUserId,
-    required this.actorId,
-    required this.followService,
-  });
-
-  final String currentUserId;
-  final String actorId;
-  final FollowService followService;
-
-  @override
-  State<_FollowBackAction> createState() => _FollowBackActionState();
-}
-
-class _FollowBackActionState extends State<_FollowBackAction> {
-  late Stream<bool> _isFollowingStream;
-  var _busy = false;
-
-  @override
-  void initState() {
-    super.initState();
-    _isFollowingStream = widget.followService.watchIsFollowing(
-      followerId: widget.currentUserId,
-      followeeId: widget.actorId,
-    );
-  }
-
-  @override
-  void didUpdateWidget(covariant _FollowBackAction oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    if (oldWidget.currentUserId != widget.currentUserId ||
-        oldWidget.actorId != widget.actorId ||
-        oldWidget.followService != widget.followService) {
-      _isFollowingStream = widget.followService.watchIsFollowing(
-        followerId: widget.currentUserId,
-        followeeId: widget.actorId,
-      );
-    }
-  }
-
-  Future<void> _followBack() async {
-    if (_busy) return;
-    setState(() => _busy = true);
-    try {
-      await widget.followService.follow(
-        followerId: widget.currentUserId,
-        followeeId: widget.actorId,
-      );
-    } catch (error) {
-      debugPrint('[NotificationsScreen] followBack failed: $error');
-      if (mounted) {
-        AppToast.error(context, 'Could not follow right now.');
-      }
-    } finally {
-      if (mounted) setState(() => _busy = false);
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return StreamBuilder<bool>(
-      stream: _isFollowingStream,
-      builder: (context, snapshot) {
-        final isFollowing = snapshot.data ?? false;
-        if (isFollowing) {
-          return TextButton(
-            onPressed: null,
-            child: Text(
-              'Following',
-              style: TextStyle(
-                fontWeight: FontWeight.w800,
-                color: AppSurfaces.textMuted(context),
-              ),
-            ),
-          );
-        }
-        return FilledButton(
-          onPressed: _busy ? null : _followBack,
-          style: FilledButton.styleFrom(
-            visualDensity: VisualDensity.compact,
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-          ),
-          child: const Text('Follow Back'),
-        );
-      },
     );
   }
 }

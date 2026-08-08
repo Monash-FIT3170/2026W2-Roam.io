@@ -1,9 +1,10 @@
 /*
  * Author: Sanjevan Rajasegar
- * Last Updated: 7 August 2026
+ * Last Updated: 8 August 2026
  * Description:
- *   Reusable read-only profile identity header for the current user and
- *   public social profile views.
+ *   Reusable profile identity header for the current user and public social
+ *   profile views. Following/Followers stats are independently tappable when
+ *   callbacks are provided.
  */
 
 import 'package:flutter/material.dart';
@@ -119,7 +120,11 @@ class ProfileIdentityHeader extends StatelessWidget {
                           value: _formatNumber(tileCount!),
                         ),
                       ])
-                _ProfileStat(label: stat.label, value: stat.value),
+                _ProfileStat(
+                  label: stat.label,
+                  value: stat.value,
+                  onTap: stat.onTap,
+                ),
             ],
           ),
         ],
@@ -191,50 +196,66 @@ class _CompactPublicXp extends StatelessWidget {
 }
 
 class _ProfileStat extends StatelessWidget {
-  const _ProfileStat({required this.label, required this.value});
+  const _ProfileStat({
+    required this.label,
+    required this.value,
+    this.onTap,
+  });
 
   final String label;
   final String value;
+  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
 
+    final content = Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.center,
+      children: [
+        FittedBox(
+          fit: BoxFit.scaleDown,
+          child: Text(
+            label,
+            maxLines: 1,
+            textAlign: TextAlign.center,
+            style: theme.textTheme.labelSmall?.copyWith(
+              color: AppSurfaces.textMuted(context),
+              fontWeight: FontWeight.w600,
+              fontSize: 9,
+              height: 1.0,
+            ),
+          ),
+        ),
+        const SizedBox(height: 1),
+        FittedBox(
+          fit: BoxFit.scaleDown,
+          child: Text(
+            value,
+            maxLines: 1,
+            textAlign: TextAlign.center,
+            style: theme.textTheme.titleSmall?.copyWith(
+              color: AppSurfaces.textPrimary(context),
+              fontWeight: FontWeight.w900,
+              height: 1.0,
+            ),
+          ),
+        ),
+      ],
+    );
+
     return Expanded(
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.center,
-        children: [
-          FittedBox(
-            fit: BoxFit.scaleDown,
-            child: Text(
-              label,
-              maxLines: 1,
-              textAlign: TextAlign.center,
-              style: theme.textTheme.labelSmall?.copyWith(
-                color: AppSurfaces.textMuted(context),
-                fontWeight: FontWeight.w600,
-                fontSize: 9,
-                height: 1.0,
+      child: onTap == null
+          ? content
+          : InkWell(
+              onTap: onTap,
+              borderRadius: BorderRadius.circular(8),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(vertical: 2),
+                child: content,
               ),
             ),
-          ),
-          const SizedBox(height: 1),
-          FittedBox(
-            fit: BoxFit.scaleDown,
-            child: Text(
-              value,
-              maxLines: 1,
-              textAlign: TextAlign.center,
-              style: theme.textTheme.titleSmall?.copyWith(
-                color: AppSurfaces.textPrimary(context),
-                fontWeight: FontWeight.w900,
-                height: 1.0,
-              ),
-            ),
-          ),
-        ],
-      ),
     );
   }
 }
