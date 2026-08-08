@@ -60,11 +60,7 @@ class ProfileStats {
 
 /// Single formatted profile statistic for presentation.
 class ProfileStatItem {
-  const ProfileStatItem({
-    required this.label,
-    required this.value,
-    this.onTap,
-  });
+  const ProfileStatItem({required this.label, required this.value, this.onTap});
 
   final String label;
   final String value;

@@ -129,8 +129,7 @@ class _FollowRelationshipButtonState extends State<FollowRelationshipButton> {
         final waiting =
             snapshot.connectionState == ConnectionState.waiting &&
             !snapshot.hasData;
-        final onPressed =
-            _busy || waiting ? null : () => _toggle(isFollowing);
+        final onPressed = _busy || waiting ? null : () => _toggle(isFollowing);
         final label = Text(_idleLabel(isFollowing));
 
         // Outlined Following stays a real button (cream softCard fill looked
@@ -144,10 +143,7 @@ class _FollowRelationshipButtonState extends State<FollowRelationshipButton> {
                       ? VisualDensity.compact
                       : VisualDensity.standard,
                   padding: widget.compact
-                      ? const EdgeInsets.symmetric(
-                          horizontal: 12,
-                          vertical: 8,
-                        )
+                      ? const EdgeInsets.symmetric(horizontal: 12, vertical: 8)
                       : null,
                   foregroundColor: AppSurfaces.textPrimary(context),
                   backgroundColor: AppSurfaces.card(context),
@@ -163,10 +159,7 @@ class _FollowRelationshipButtonState extends State<FollowRelationshipButton> {
                       ? VisualDensity.compact
                       : VisualDensity.standard,
                   padding: widget.compact
-                      ? const EdgeInsets.symmetric(
-                          horizontal: 12,
-                          vertical: 8,
-                        )
+                      ? const EdgeInsets.symmetric(horizontal: 12, vertical: 8)
                       : null,
                 ),
                 child: label,

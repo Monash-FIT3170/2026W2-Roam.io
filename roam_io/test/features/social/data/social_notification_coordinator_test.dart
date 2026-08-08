@@ -183,48 +183,51 @@ void main() {
     coordinator.dispose();
   });
 
-  test('stale async work from previous UID does not banner after switch', () async {
-    final firestore = FakeFirebaseFirestore();
-    final friendship = _SlowFriendshipService(firestore);
-    final notif = SocialNotificationService(firestore: firestore);
-    await friendship.upsertPublicProfile(
-      uid: 'alice',
-      username: 'alice',
-      displayName: 'Alice',
-    );
-    await friendship.upsertPublicProfile(
-      uid: 'peer',
-      username: 'peer',
-      displayName: 'Peer',
-    );
+  test(
+    'stale async work from previous UID does not banner after switch',
+    () async {
+      final firestore = FakeFirebaseFirestore();
+      final friendship = _SlowFriendshipService(firestore);
+      final notif = SocialNotificationService(firestore: firestore);
+      await friendship.upsertPublicProfile(
+        uid: 'alice',
+        username: 'alice',
+        displayName: 'Alice',
+      );
+      await friendship.upsertPublicProfile(
+        uid: 'peer',
+        username: 'peer',
+        displayName: 'Peer',
+      );
 
-    final coordinator = SocialNotificationCoordinator(
-      notificationService: notif,
-      friendshipService: friendship,
-      bannerService: bannerService(),
-    );
+      final coordinator = SocialNotificationCoordinator(
+        notificationService: notif,
+        friendshipService: friendship,
+        bannerService: bannerService(),
+      );
 
-    coordinator.bindUid('alice');
-    await Future<void>.delayed(const Duration(milliseconds: 30));
+      coordinator.bindUid('alice');
+      await Future<void>.delayed(const Duration(milliseconds: 30));
 
-    await notif.upsertFollowNotificationForTests(
-      recipientId: 'alice',
-      actorId: 'peer',
-      notificationId: FollowService.followIdFor('peer', 'alice'),
-      createdAt: DateTime(2026, 8, 7, 12),
-    );
+      await notif.upsertFollowNotificationForTests(
+        recipientId: 'alice',
+        actorId: 'peer',
+        notificationId: FollowService.followIdFor('peer', 'alice'),
+        createdAt: DateTime(2026, 8, 7, 12),
+      );
 
-    // Switch while getPublicProfile is still delayed for Alice's cold start.
-    await Future<void>.delayed(const Duration(milliseconds: 20));
-    coordinator.bindUid('bob');
-    await Future<void>.delayed(const Duration(milliseconds: 120));
+      // Switch while getPublicProfile is still delayed for Alice's cold start.
+      await Future<void>.delayed(const Duration(milliseconds: 20));
+      coordinator.bindUid('bob');
+      await Future<void>.delayed(const Duration(milliseconds: 120));
 
-    expect(shown.where((n) => n.body.contains('Peer')), isEmpty);
-    expect(coordinator.boundUid, 'bob');
-    expect(coordinator.unreadCount, 0);
+      expect(shown.where((n) => n.body.contains('Peer')), isEmpty);
+      expect(coordinator.boundUid, 'bob');
+      expect(coordinator.unreadCount, 0);
 
-    coordinator.dispose();
-  });
+      coordinator.dispose();
+    },
+  );
 }
 
 class _CapturingBannerService implements NotificationService {
@@ -243,7 +246,8 @@ class _CapturingBannerService implements NotificationService {
 
 /// Delays [getPublicProfile] so bind generation races can be asserted.
 class _SlowFriendshipService extends FriendshipService {
-  _SlowFriendshipService(FirebaseFirestore firestore) : super(firestore: firestore);
+  _SlowFriendshipService(FirebaseFirestore firestore)
+    : super(firestore: firestore);
 
   @override
   Future<PublicProfile?> getPublicProfile(String uid) async {

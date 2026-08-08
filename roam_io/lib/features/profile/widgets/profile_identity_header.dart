@@ -196,11 +196,7 @@ class _CompactPublicXp extends StatelessWidget {
 }
 
 class _ProfileStat extends StatelessWidget {
-  const _ProfileStat({
-    required this.label,
-    required this.value,
-    this.onTap,
-  });
+  const _ProfileStat({required this.label, required this.value, this.onTap});
 
   final String label;
   final String value;

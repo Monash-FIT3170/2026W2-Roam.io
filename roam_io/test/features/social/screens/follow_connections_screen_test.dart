@@ -223,14 +223,18 @@ void main() {
     final removeButton = tester.widget<OutlinedButton>(
       find.widgetWithText(OutlinedButton, 'Remove'),
     );
-    expect(removeButton.style?.shape?.resolve(const <WidgetState>{}),
-        isA<StadiumBorder>());
+    expect(
+      removeButton.style?.shape?.resolve(const <WidgetState>{}),
+      isA<StadiumBorder>(),
+    );
 
     final followButton = tester.widget<FilledButton>(
       find.widgetWithText(FilledButton, 'Follow'),
     );
-    expect(followButton.style?.shape?.resolve(const <WidgetState>{}),
-        isA<StadiumBorder>());
+    expect(
+      followButton.style?.shape?.resolve(const <WidgetState>{}),
+      isA<StadiumBorder>(),
+    );
 
     await tester.tap(find.widgetWithText(OutlinedButton, 'Remove'));
     await tester.pump();
@@ -343,6 +347,7 @@ void main() {
     expect(find.widgetWithText(OutlinedButton, 'Remove'), findsNothing);
   });
 }
+
 class _ListAuthRepository implements AuthRepository {
   _ListAuthRepository()
     : _user = FakeFirebaseUser(

@@ -725,7 +725,8 @@ Future<void> _pumpFindPeople(
   FollowService? followService,
 }) async {
   final auth = AuthProvider(authRepository: _FindPeopleAuthRepository());
-  final follow = followService ?? FollowService(firestore: FakeFirebaseFirestore());
+  final follow =
+      followService ?? FollowService(firestore: FakeFirebaseFirestore());
   await tester.pumpWidget(
     ChangeNotifierProvider<AuthProvider>.value(
       value: auth,
