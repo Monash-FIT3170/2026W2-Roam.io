@@ -666,7 +666,7 @@ class _MapPageState extends State<MapPage> {
         if (_mapController.myLocationEnabled)
           Positioned(
             right: 16,
-            bottom: isTracking ? 220 : 100,
+            bottom: isTracking ? 220 : 120,
             child: FloatingActionButton.small(
               heroTag: 'recenter_map',
               tooltip: 'Centre on my location',

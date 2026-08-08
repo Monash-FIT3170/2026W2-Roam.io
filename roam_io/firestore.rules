@@ -30,6 +30,7 @@ service cloud.firestore {
         allow read, create, update: if request.auth != null && request.auth.uid == userId;
         // Allow deleting journeys
         allow delete: if request.auth != null && request.auth.uid == userId;
+      }
 
       // Timestamped XP gain events for weekly XP Gained analytics.
       match /xp_events/{eventId} {
