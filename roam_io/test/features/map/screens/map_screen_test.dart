@@ -10,6 +10,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:roam_io/features/map/domain/map_styles.dart';
+import 'package:roam_io/features/map/data/map_viewport_policy.dart';
 import 'package:roam_io/features/map/widgets/map_render.dart';
 
 void main() {
@@ -21,8 +22,11 @@ void main() {
     expect(map.style, MapStyles.dark);
     expect(map.mapToolbarEnabled, isFalse);
     expect(map.zoomControlsEnabled, isFalse);
+    expect(map.minMaxZoomPreference.minZoom, MapViewportPolicy.minimumZoom);
+    expect(map.myLocationButtonEnabled, isFalse);
     expect(map.onMapCreated, isNotNull);
     expect(map.onCameraIdle, isNotNull);
+    expect(map.onCameraMoveStarted, isNotNull);
   });
 
   testWidgets('light theme applies light Google Map style', (tester) async {
@@ -53,6 +57,7 @@ Future<void> _pumpMapRender(
           polygons: const <Polygon>{},
           onMapCreated: (_) async {},
           onCameraIdle: () {},
+          onCameraMoveStarted: () {},
         ),
       ),
     ),

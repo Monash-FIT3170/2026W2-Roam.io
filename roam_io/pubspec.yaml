@@ -85,6 +85,7 @@ flutter:
     - assets/logos/roam_io_logo.png
     - assets/logos/roam_io_logo_with_text.png
 
+    - icons/
 
   # An image asset can refer to one or more resolution-specific "variants", see
   # https://flutter.dev/to/resolution-aware-images

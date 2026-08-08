@@ -13,6 +13,7 @@ import 'package:provider/provider.dart';
 
 import 'features/auth/providers/auth_provider.dart';
 import 'features/auth/screens/auth_gate_screen.dart';
+import 'features/journeys/data/journey_controller.dart';
 import 'firebase_options.dart';
 import 'shared/widgets/level_up_celebration.dart';
 import 'theme/app_theme.dart';
@@ -45,8 +46,13 @@ class _MyAppState extends State<MyApp> {
 
   @override
   Widget build(BuildContext context) {
-    return ChangeNotifierProvider<AuthProvider>(
-      create: (_) => AuthProvider(),
+    return MultiProvider(
+      providers: [
+        ChangeNotifierProvider<AuthProvider>(create: (_) => AuthProvider()),
+        ChangeNotifierProvider<JourneyController>(
+          create: (_) => JourneyController(),
+        ),
+      ],
       child: Consumer<AuthProvider>(
         builder: (context, auth, _) {
           // Listen for level-up events

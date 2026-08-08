@@ -16,11 +16,13 @@ import 'package:roam_io/features/auth/providers/auth_provider.dart';
 import 'package:roam_io/features/auth/screens/auth_gate_screen.dart';
 import 'package:roam_io/features/auth/screens/login_screen.dart';
 import 'package:roam_io/features/auth/screens/verify_email_screen.dart';
+import 'package:roam_io/features/journeys/data/journey_controller.dart';
 import 'package:roam_io/features/navigation/screens/main_shell_screen.dart';
 import 'package:roam_io/features/profile/domain/profile_model.dart';
 import 'package:roam_io/notifications/notification.dart';
 
 import '../../../support/fake_firebase_user.dart';
+import '../../../support/journey_test_harness.dart';
 
 void main() {
   // MainShellScreen initialises Firebase-dependent map widgets.
@@ -92,8 +94,15 @@ void main() {
       final repo = _AuthGateRepository(user: user, profile: profile);
       await tester.pumpWidget(
         MaterialApp(
-          home: ChangeNotifierProvider(
-            create: (_) => AuthProvider(authRepository: repo),
+          home: MultiProvider(
+            providers: [
+              ChangeNotifierProvider(
+                create: (_) => AuthProvider(authRepository: repo),
+              ),
+              ChangeNotifierProvider<JourneyController>(
+                create: (_) => JourneyTestController(),
+              ),
+            ],
             child: const AuthGateScreen(requestNotificationPermission: false),
           ),
         ),
