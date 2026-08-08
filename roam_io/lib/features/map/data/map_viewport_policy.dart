@@ -13,6 +13,7 @@ enum MapLayerMode { sa3Overview, sa1Detail }
 
 class MapViewportPolicy {
   static const double defaultZoom = 16.0;
+  static const double minimumZoom = 14.5;
 
   // Hysteresis:
   // SA1 -> SA3 only when zoomed far out.
@@ -22,6 +23,8 @@ class MapViewportPolicy {
 
   static const int debounceMilliseconds = 650;
   static const double sa1PrefetchPaddingRatio = 1.25;
+
+  bool supportsViewportLoading(double zoom) => zoom >= minimumZoom;
 
   MapLayerMode modeForZoom({
     required double zoom,

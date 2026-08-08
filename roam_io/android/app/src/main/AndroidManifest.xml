@@ -9,7 +9,7 @@
 
 
     <application
-        android:label="roam_io"
+        android:label="Roam.io"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher">
 
