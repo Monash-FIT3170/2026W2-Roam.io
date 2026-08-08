@@ -69,6 +69,7 @@ void main() {
     final completer = Completer<void>();
     final repo = _BlockingSignInRepository(completer.future);
     final provider = AuthProvider(authRepository: repo);
+    addTearDown(provider.dispose);
 
     await tester.pumpWidget(
       MaterialApp(
@@ -84,11 +85,12 @@ void main() {
     await tester.tap(find.byType(ElevatedButton));
     await tester.pump();
 
-    expect(find.byType(CircularProgressIndicator), findsWidgets);
+    expect(repo.signInStarted, isTrue);
+    expect(provider.isBusy, isTrue);
+    expect(find.byType(CircularProgressIndicator), findsOneWidget);
 
     completer.complete();
     await tester.pumpAndSettle();
-    provider.dispose();
   });
 }
 
@@ -110,6 +112,7 @@ class _BlockingSignInRepository implements AuthRepository {
   _BlockingSignInRepository(this._block);
 
   final Future<void> _block;
+  bool signInStarted = false;
 
   @override
   Stream<firebase_auth.User?> authStateChanges() async* {
@@ -121,6 +124,7 @@ class _BlockingSignInRepository implements AuthRepository {
 
   @override
   Future<void> signIn({required String email, required String password}) async {
+    signInStarted = true;
     await _block;
   }
 
