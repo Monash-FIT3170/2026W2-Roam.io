@@ -1,9 +1,9 @@
 /*
  * Author: Sanjevan Rajasegar
- * Last Modified: 30/07/2026
+ * Last Updated: 5 August 2026
  * Description:
- *   Provides the journeys screen UI for displaying past exploration entries
- *   and journey filters. Now uses real data from Firestore.
+ *   Provides reusable journey history content for Home and transitional
+ *   standalone journey views.
  */
 
 import 'package:flutter/material.dart';
@@ -19,7 +19,9 @@ import '../widgets/past_journey_summary_sheet.dart';
 
 /// Displays the user's journey history and filter controls.
 class JourneysScreen extends StatelessWidget {
-  const JourneysScreen({super.key});
+  const JourneysScreen({super.key, this.showHeader = true});
+
+  final bool showHeader;
 
   @override
   Widget build(BuildContext context) {
@@ -30,15 +32,18 @@ class JourneysScreen extends StatelessWidget {
     return Container(
       color: AppSurfaces.pageBackground(context),
       child: SafeArea(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const AppPageHeader(
-              title: 'Journeys',
-              subtitle: 'Your past urban explorations and discoveries',
-            ),
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.only(bottom: 110),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              if (showHeader)
+                const AppPageHeader(
+                  title: 'Journeys',
+                  subtitle: 'Your past urban explorations and discoveries',
+                ),
 
-            const SizedBox(height: 24),
+              SizedBox(height: showHeader ? 24 : 12),
 
             _buildFilterChips(context),
 

@@ -1,9 +1,9 @@
 /*
  * Author: Sanjevan Rajasegar
- * Last Modified: 9/05/2026
+ * Last Updated: 5 August 2026
  * Description:
- *   Regression tests for profile screen dark mode toggling preserving profile
- *   data.
+ *   Regression tests for row-based Settings dark mode toggling and profile
+ *   data preservation.
  */
 
 import 'package:firebase_auth/firebase_auth.dart' as firebase_auth;
@@ -13,22 +13,24 @@ import 'package:provider/provider.dart';
 import 'package:roam_io/features/auth/data/auth_repository.dart';
 import 'package:roam_io/features/auth/providers/auth_provider.dart';
 import 'package:roam_io/features/profile/domain/profile_model.dart';
-import 'package:roam_io/features/profile/screens/profile_screen.dart';
+import 'package:roam_io/features/settings/screens/settings_screen.dart';
 
 void main() {
-  testWidgets('toggling dark mode on preserves existing profile screen data', (
+  testWidgets('toggling dark mode on preserves existing settings screen data', (
     tester,
   ) async {
     final profile = _buildProfile(darkModeEnabled: false);
     final repository = _FakeAuthRepository(profile);
     final provider = AuthProvider(authRepository: repository);
 
-    await _pumpProfileScreen(tester, provider);
+    await _pumpSettingsScreen(tester, provider);
     repository.clearRecordedActions();
 
     final before = provider.currentProfile!;
 
-    await tester.tap(find.byType(SwitchListTile));
+    final darkModeSwitch = find.byType(Switch);
+    await tester.ensureVisible(darkModeSwitch);
+    await tester.tap(darkModeSwitch);
     await tester.pump();
     await tester.pump();
 
@@ -42,41 +44,44 @@ void main() {
     provider.dispose();
   });
 
-  testWidgets('toggling dark mode off preserves existing profile screen data', (
-    tester,
-  ) async {
-    final profile = _buildProfile(darkModeEnabled: true);
-    final repository = _FakeAuthRepository(profile);
-    final provider = AuthProvider(authRepository: repository);
+  testWidgets(
+    'toggling dark mode off preserves existing settings screen data',
+    (tester) async {
+      final profile = _buildProfile(darkModeEnabled: true);
+      final repository = _FakeAuthRepository(profile);
+      final provider = AuthProvider(authRepository: repository);
 
-    await _pumpProfileScreen(tester, provider);
-    repository.clearRecordedActions();
+      await _pumpSettingsScreen(tester, provider);
+      repository.clearRecordedActions();
 
-    final before = provider.currentProfile!;
+      final before = provider.currentProfile!;
 
-    await tester.tap(find.byType(SwitchListTile));
-    await tester.pump();
-    await tester.pump();
+      final darkModeSwitch = find.byType(Switch);
+      await tester.ensureVisible(darkModeSwitch);
+      await tester.tap(darkModeSwitch);
+      await tester.pump();
+      await tester.pump();
 
-    final after = provider.currentProfile!;
+      final after = provider.currentProfile!;
 
-    expect(repository.darkModeUpdates, <bool>[false]);
-    expect(after.darkModeEnabled, isFalse);
-    expect(after.updatedAt, isNot(before.updatedAt));
-    _expectUnrelatedProfileFieldsPreserved(before, after);
+      expect(repository.darkModeUpdates, <bool>[false]);
+      expect(after.darkModeEnabled, isFalse);
+      expect(after.updatedAt, isNot(before.updatedAt));
+      _expectUnrelatedProfileFieldsPreserved(before, after);
 
-    provider.dispose();
-  });
+      provider.dispose();
+    },
+  );
 }
 
-Future<void> _pumpProfileScreen(
+Future<void> _pumpSettingsScreen(
   WidgetTester tester,
   AuthProvider provider,
 ) async {
   await tester.pumpWidget(
     ChangeNotifierProvider<AuthProvider>.value(
       value: provider,
-      child: const MaterialApp(home: Scaffold(body: ProfileScreen())),
+      child: const MaterialApp(home: Scaffold(body: SettingsScreen())),
     ),
   );
 
@@ -84,7 +89,7 @@ Future<void> _pumpProfileScreen(
   await tester.pump();
 
   expect(provider.currentProfile, isNotNull);
-  expect(find.byType(SwitchListTile), findsOneWidget);
+  expect(find.byType(Switch), findsOneWidget);
 }
 
 ProfileModel _buildProfile({required bool darkModeEnabled}) {

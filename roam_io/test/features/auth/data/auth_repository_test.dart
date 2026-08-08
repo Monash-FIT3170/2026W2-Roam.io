@@ -1,9 +1,9 @@
 /*
  * Author: Sanjevan Rajasegar
- * Last Modified: 18/05/2026
+ * Last Updated: 5 August 2026
  * Description:
  *   Tests AuthRepository delegation, authenticated-user guards, profile writes,
- *   and profile photo upload branches for ART-68 coverage enforcement.
+ *   Settings account updates, and profile photo upload branches.
  */
 
 import 'dart:async';
@@ -16,6 +16,8 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:roam_io/features/auth/data/auth_repository.dart';
 import 'package:roam_io/features/profile/domain/profile_model.dart';
+import 'package:roam_io/features/profile/domain/xp_award_result.dart';
+import 'package:roam_io/features/profile/domain/xp_event.dart';
 import 'package:roam_io/services/auth_service.dart';
 import 'package:roam_io/services/profile_service.dart';
 import 'package:roam_io/services/storage_service.dart';
@@ -132,6 +134,23 @@ void main() {
       expect(authService.updatedDisplayName, 'New Name');
     });
 
+    test('updates username for the current user', () async {
+      await repository.updateUsername('newtraveller');
+
+      expect(profileService.updatedUsernameUid, user.uid);
+      expect(profileService.updatedUsername, 'newtraveller');
+    });
+
+    test('requests verified email change through auth service', () async {
+      await repository.requestEmailChange(
+        currentPassword: 'current-password',
+        newEmail: 'new@example.com',
+      );
+
+      expect(authService.emailChangePassword, 'current-password');
+      expect(authService.emailChangeNewEmail, 'new@example.com');
+    });
+
     test('throws when updating display name without a current user', () async {
       authService.currentUserValue = null;
 
@@ -141,6 +160,17 @@ void main() {
       );
 
       expect(profileService.updatedDisplayName, isNull);
+    });
+
+    test('throws when updating username without a current user', () async {
+      authService.currentUserValue = null;
+
+      await expectLater(
+        repository.updateUsername('newtraveller'),
+        throwsA(isA<firebase_auth.FirebaseAuthException>()),
+      );
+
+      expect(profileService.updatedUsername, isNull);
     });
 
     test('loads the current profile only when signed in', () async {
@@ -305,6 +335,8 @@ class _FakeAuthService implements AuthService {
   String? signInPassword;
   String? passwordResetEmail;
   String? updatedDisplayName;
+  String? emailChangePassword;
+  String? emailChangeNewEmail;
   String? changePasswordCurrent;
   String? changePasswordNew;
   int authStateListenCount = 0;
@@ -371,6 +403,15 @@ class _FakeAuthService implements AuthService {
   }
 
   @override
+  Future<void> requestEmailChange({
+    required String currentPassword,
+    required String newEmail,
+  }) async {
+    emailChangePassword = currentPassword;
+    emailChangeNewEmail = newEmail;
+  }
+
+  @override
   Future<void> signOut() async {
     signOutCount += 1;
   }
@@ -384,6 +425,8 @@ class _FakeProfileService implements ProfileService {
   String? requestedProfileUid;
   String? updatedDisplayNameUid;
   String? updatedDisplayName;
+  String? updatedUsernameUid;
+  String? updatedUsername;
   String? darkModeUid;
   bool? darkModeEnabled;
   String? updatedPhotoUid;
@@ -410,6 +453,12 @@ class _FakeProfileService implements ProfileService {
   Future<void> updateDisplayName(String uid, String displayName) async {
     updatedDisplayNameUid = uid;
     updatedDisplayName = displayName;
+  }
+
+  @override
+  Future<void> updateUsername(String uid, String username) async {
+    updatedUsernameUid = uid;
+    updatedUsername = username;
   }
 
   @override
@@ -448,9 +497,29 @@ class _FakeProfileService implements ProfileService {
   }
 
   @override
-  Future<void> addXp(String uid, int xpToAdd) async {
+  Future<XpAwardResult> addXp(
+    String uid,
+    int xpToAdd, {
+    XpEventSource source = XpEventSource.unknown,
+    String? sourceId,
+  }) async {
     addedXpUid = uid;
     addedXp = xpToAdd;
+    final previousXp = profile?.xp ?? 0;
+    final previousLevel = profile?.level ?? 1;
+    final nextXp = previousXp + xpToAdd;
+    final nextLevel = ProfileModel.levelFromXp(nextXp);
+    if (profile != null) {
+      profile = profile!.copyWith(xp: nextXp, level: nextLevel);
+    }
+    return XpAwardResult.success(
+      amount: xpToAdd,
+      previousXp: previousXp,
+      newXp: nextXp,
+      previousLevel: previousLevel,
+      newLevel: nextLevel,
+      historyRecorded: true,
+    );
   }
 
   @override

@@ -30,6 +30,11 @@ service cloud.firestore {
         allow read, create, update: if request.auth != null && request.auth.uid == userId;
         // Allow deleting journeys
         allow delete: if request.auth != null && request.auth.uid == userId;
+
+      // Timestamped XP gain events for weekly XP Gained analytics.
+      match /xp_events/{eventId} {
+        allow read, create: if isProfileOwner(userId);
+        allow update, delete: if false;
       }
     }
 
@@ -55,6 +60,27 @@ service cloud.firestore {
     }
 
     // Deny all other collections/documents by default for MVP safety.
+    // Activity comments (notifications for comments deferred).
+    match /activities/{activityId} {
+      allow read: if request.auth != null;
+      allow write: if false;
+
+      match /comments/{commentId} {
+        allow read: if request.auth != null;
+        allow create: if request.auth != null
+          && request.resource.data.authorId == request.auth.uid
+          && request.resource.data.text is string
+          && request.resource.data.text.size() > 0
+          && request.resource.data.keys().hasAll([
+            'authorId',
+            'authorDisplayName',
+            'text',
+            'createdAt'
+          ]);
+        allow update, delete: if false;
+      }
+    }
+
     match /{document=**} {
       allow read, write: if false;
     }
