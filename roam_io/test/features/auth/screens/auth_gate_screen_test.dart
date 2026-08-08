@@ -92,8 +92,15 @@ void main() {
       final repo = _AuthGateRepository(user: user, profile: profile);
       await tester.pumpWidget(
         MaterialApp(
-          home: ChangeNotifierProvider(
-            create: (_) => AuthProvider(authRepository: repo),
+          home: MultiProvider(
+            providers: [
+              ChangeNotifierProvider(
+                create: (_) => AuthProvider(authRepository: repo),
+              ),
+              ChangeNotifierProvider<JourneyController>(
+                create: (_) => JourneyTestController(),
+              ),
+            ],
             child: const AuthGateScreen(requestNotificationPermission: false),
           ),
         ),

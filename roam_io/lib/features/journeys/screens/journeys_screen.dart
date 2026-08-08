@@ -32,18 +32,16 @@ class JourneysScreen extends StatelessWidget {
     return Container(
       color: AppSurfaces.pageBackground(context),
       child: SafeArea(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.only(bottom: 110),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              if (showHeader)
-                const AppPageHeader(
-                  title: 'Journeys',
-                  subtitle: 'Your past urban explorations and discoveries',
-                ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            if (showHeader)
+              const AppPageHeader(
+                title: 'Journeys',
+                subtitle: 'Your past urban explorations and discoveries',
+              ),
 
-              SizedBox(height: showHeader ? 24 : 12),
+            SizedBox(height: showHeader ? 24 : 12),
 
             _buildFilterChips(context),
 

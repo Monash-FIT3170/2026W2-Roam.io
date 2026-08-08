@@ -11,17 +11,12 @@ import 'package:firebase_core_platform_interface/test.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:provider/provider.dart';
-import 'package:roam_io/features/auth/providers/auth_provider.dart';
-import 'package:roam_io/features/journeys/data/journey_controller.dart';
-import 'package:roam_io/features/journeys/screens/journeys_screen.dart';
-import 'package:roam_io/features/navigation/screens/main_shell_screen.dart';
 import 'package:roam_io/features/activity_feed/data/comment_service.dart';
 import 'package:roam_io/features/activity_feed/models/activity_comment.dart';
-import 'package:roam_io/features/auth/data/auth_repository.dart';
 import 'package:roam_io/features/auth/providers/auth_provider.dart';
+import 'package:roam_io/features/journeys/data/journey_controller.dart';
 import 'package:roam_io/features/map/data/map_page.dart';
 import 'package:roam_io/features/navigation/screens/main_shell_screen.dart';
-import 'package:roam_io/features/profile/domain/profile_model.dart';
 import 'package:roam_io/notifications/notification.dart';
 import 'package:roam_io/shared/widgets/app_toast.dart';
 
@@ -41,13 +36,20 @@ void main() {
     tester,
   ) async {
     // Arrange: provide an authenticated user and profile.
-    final repository = _MainShellAuthRepository();
+    final repository = JourneyTestAuthRepository();
     final comments = _FakeCommentService();
 
     await tester.pumpWidget(
       MaterialApp(
-        home: ChangeNotifierProvider<AuthProvider>(
-          create: (_) => AuthProvider(authRepository: repository),
+        home: MultiProvider(
+          providers: [
+            ChangeNotifierProvider<AuthProvider>(
+              create: (_) => AuthProvider(authRepository: repository),
+            ),
+            ChangeNotifierProvider<JourneyController>(
+              create: (_) => JourneyTestController(),
+            ),
+          ],
           child: MainShellScreen(
             // Android platform permissions are not available in widget tests.
             requestNotificationPermission: false,
@@ -109,13 +111,20 @@ void main() {
     testWidgets(
       '${scenario.action.label.toLowerCase()} notification action shows app toast',
       (tester) async {
-        final repository = _MainShellAuthRepository();
+        final repository = JourneyTestAuthRepository();
         final comments = _FakeCommentService();
 
         await tester.pumpWidget(
           MaterialApp(
-            home: ChangeNotifierProvider<AuthProvider>(
-              create: (_) => AuthProvider(authRepository: repository),
+            home: MultiProvider(
+              providers: [
+                ChangeNotifierProvider<AuthProvider>(
+                  create: (_) => AuthProvider(authRepository: repository),
+                ),
+                ChangeNotifierProvider<JourneyController>(
+                  create: (_) => JourneyTestController(),
+                ),
+              ],
               child: MainShellScreen(
                 requestNotificationPermission: false,
                 commentService: comments,
