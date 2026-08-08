@@ -15,6 +15,7 @@ import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 
+import '../domain/exploration_mode.dart';
 import '../../profile/domain/xp_reward_config.dart';
 import 'geolocator_service.dart';
 import 'map_viewport_policy.dart';
@@ -112,10 +113,16 @@ class MapController extends ChangeNotifier {
   Set<String> _visitedRegionIds = <String>{};
   Map<String, int> _visitCountsByRegion = <String, int>{};
   Map<String, int> _entryCountsByRegion = <String, int>{};
+  Set<String> _visibleViewportRegionIds = <String>{};
 
   bool _isHeatmapEnabled = false;
   bool _isResolvingCurrentRegion = false;
   Position? _queuedRegionCheckPosition;
+  Position? _latestPosition;
+  bool _isFollowingUser = true;
+  bool _isProgrammaticCameraMove = false;
+
+  ExplorationMode _currentMode = ExplorationMode.exploration;
 
   double _currentZoom = defaultZoom;
   MapLayerMode _currentLayerMode = MapLayerMode.sa1Detail;
@@ -139,10 +146,20 @@ class MapController extends ChangeNotifier {
   String? get userId => _userId;
   String get mapStyle => _mapStyle;
   bool get isHeatmapEnabled => _isHeatmapEnabled;
+  bool get isFollowingUser => _isFollowingUser;
+  ExplorationMode get currentMode => _currentMode;
   Set<int> get visitedPlaceIds => Set.unmodifiable(_visitedPlaceIds);
   Set<String> get visitedRegionIds => Set.unmodifiable(_visitedRegionIds);
   Map<String, int> get visitCountsByRegion =>
       Map<String, int>.unmodifiable(_visitCountsByRegion);
+
+  /// Sets the current exploration mode and notifies listeners.
+  void setMode(ExplorationMode mode) {
+    if (_currentMode != mode) {
+      _currentMode = mode;
+      notifyListeners();
+    }
+  }
 
   void bindVisitXpAwarding(
     Future<void> Function(int amount)? onVisitXpAwarded,
@@ -210,9 +227,15 @@ class MapController extends ChangeNotifier {
   Future<void> onMapCreated(GoogleMapController controller) async {
     _googleMapController = controller;
 
-    await _googleMapController?.animateCamera(
-      CameraUpdate.newLatLngZoom(center, defaultZoom),
-    );
+    _isProgrammaticCameraMove = true;
+    try {
+      await _googleMapController?.animateCamera(
+        CameraUpdate.newLatLngZoom(center, defaultZoom),
+      );
+    } catch (_) {
+      _isProgrammaticCameraMove = false;
+      rethrow;
+    }
 
     // Initial viewport loading happens after the real user location is resolved.
   }
@@ -231,6 +254,42 @@ class MapController extends ChangeNotifier {
     }
   }
 
+  /// Stops automatic location following when the user moves the map.
+  void onCameraMoveStarted() {
+    if (!_isProgrammaticCameraMove) {
+      _isFollowingUser = false;
+    }
+  }
+
+  Future<void> onCameraIdle() async {
+    _isProgrammaticCameraMove = false;
+    await loadViewportRegions();
+  }
+
+  /// Re-centres the map and resumes following future location updates.
+  Future<void> recenterOnUser() async {
+    _isFollowingUser = true;
+    final position =
+        _latestPosition ?? await _geoLocatorService.getCurrentLocation();
+    _latestPosition = position;
+    await _moveCameraTo(position);
+  }
+
+  Future<void> _moveCameraTo(Position position) async {
+    final controller = _googleMapController;
+    if (controller == null) return;
+
+    _isProgrammaticCameraMove = true;
+    try {
+      await controller.animateCamera(
+        CameraUpdate.newLatLng(LatLng(position.latitude, position.longitude)),
+      );
+    } catch (_) {
+      _isProgrammaticCameraMove = false;
+      rethrow;
+    }
+  }
+
   Future<void> loadViewportRegions({bool force = false}) async {
     final controller = _googleMapController;
     if (controller == null) return;
@@ -242,6 +301,9 @@ class MapController extends ChangeNotifier {
 
     if (targetMode == MapLayerMode.sa3Overview) {
       _currentLayerMode = MapLayerMode.sa3Overview;
+      _visibleViewportRegionIds = <String>{};
+      _placeMarkerManager.setVisibleRegionIds(const <String>{});
+      markers = _placeMarkerManager.markers;
       _syncPolygonsForCurrentMode();
       notifyListeners();
       return;
@@ -283,6 +345,12 @@ class MapController extends ChangeNotifier {
       }
 
       _syncPolygonsForCurrentMode();
+      final visibleBounds = await controller.getVisibleRegion();
+      _visibleViewportRegionIds = _regionPolygonCache.regions
+          .where((region) => region.intersectsBounds(visibleBounds))
+          .map((region) => region.id)
+          .toSet();
+      await _syncVisibleUnlockedPlaces();
     } catch (error) {
       message = 'Could not load nearby regions: $error';
       debugPrint('[MapController] Viewport loading error: $error');
@@ -311,6 +379,7 @@ class MapController extends ChangeNotifier {
   Future<double?> getDistanceToPlace(PlaceOfInterest place) async {
     try {
       final position = await _geoLocatorService.getCurrentLocation();
+      _latestPosition = position;
 
       return Geolocator.distanceBetween(
         position.latitude,
@@ -334,6 +403,12 @@ class MapController extends ChangeNotifier {
     }
 
     return (isNear: distance <= visitProximityThreshold, distance: distance);
+  }
+
+  /// Returns the user's current GPS position.
+  /// Throws if location access fails.
+  Future<Position> getCurrentPosition() async {
+    return _geoLocatorService.getCurrentLocation();
   }
 
   Future<VisitResult> markPlaceAsVisited(
@@ -432,9 +507,7 @@ class MapController extends ChangeNotifier {
       _syncPolygonsForCurrentMode();
       notifyListeners();
 
-      await _googleMapController?.animateCamera(
-        CameraUpdate.newLatLngZoom(userCenter, defaultZoom),
-      );
+      await _moveCameraTo(position);
 
       await Future.delayed(const Duration(milliseconds: 350));
       await loadViewportRegions(force: true);
@@ -460,29 +533,46 @@ class MapController extends ChangeNotifier {
     currentRegion = effectiveRegion;
     message = effectiveRegion.name;
 
-    await _markRegionAsVisited(effectiveRegion);
+    final wasNewlyUnlocked = await _markRegionAsVisited(effectiveRegion);
     // Record an entry for heatmap counts (app opened / entered tile).
     await _recordRegionEntry(effectiveRegion);
     _refreshCachedPolygonsStyles();
-
-    await _loadPlacesForRegion(effectiveRegion.id);
+    _visibleViewportRegionIds.add(effectiveRegion.id);
+    if (wasNewlyUnlocked) {
+      _placeMarkerManager.setVisibleRegionIds(
+        _visibleViewportRegionIds.intersection(_visitedRegionIds),
+      );
+      await _placeMarkerManager.loadPlacesForRegion(
+        regionId: effectiveRegion.id,
+        onPlaceTapped: onPlaceTapped,
+      );
+      markers = _placeMarkerManager.markers;
+    }
+    await _syncVisibleUnlockedPlaces();
   }
 
-  Future<void> _loadPlacesForRegion(String regionId) async {
+  Future<void> _syncVisibleUnlockedPlaces() async {
+    final visibleUnlockedRegionIds = _visibleViewportRegionIds.intersection(
+      _visitedRegionIds,
+    );
+    _placeMarkerManager.setVisibleRegionIds(visibleUnlockedRegionIds);
+    markers = _placeMarkerManager.markers;
+
+    if (visibleUnlockedRegionIds.isEmpty) return;
+
     isLoadingPlaces = true;
     notifyListeners();
 
     try {
-      final places = await _placeMarkerManager.loadPlacesForRegion(
-        regionId: regionId,
+      await _placeMarkerManager.loadPlacesForRegions(
+        regionIds: visibleUnlockedRegionIds,
         onPlaceTapped: onPlaceTapped,
       );
 
       markers = _placeMarkerManager.markers;
-      message = 'Loaded ${places.length} places in this region';
     } catch (error) {
-      message = 'Could not load places: $error';
-      debugPrint('[MapController] Places loading error: $error');
+      message = 'Could not load visible places: $error';
+      debugPrint('[MapController] Visible places loading error: $error');
     } finally {
       isLoadingPlaces = false;
       notifyListeners();
@@ -496,13 +586,21 @@ class MapController extends ChangeNotifier {
       final locationUpdates = await _geoLocatorService.getLocationUpdates();
 
       _locationUpdatesSubscription = locationUpdates.listen(
-        _queueRegionCheck,
+        _handleLocationUpdate,
         onError: (Object error) {
           debugPrint('[MapController] Location updates error: $error');
         },
       );
     } catch (error) {
       debugPrint('[MapController] Could not start location updates: $error');
+    }
+  }
+
+  void _handleLocationUpdate(Position position) {
+    _latestPosition = position;
+    _queueRegionCheck(position);
+    if (_isFollowingUser) {
+      unawaited(_moveCameraTo(position));
     }
   }
 

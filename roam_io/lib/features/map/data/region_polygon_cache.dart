@@ -166,6 +166,8 @@ class RegionPolygonCache {
     return _regionsById[regionId];
   }
 
+  Iterable<RegionPolygon> get regions => _regionsById.values;
+
   Color _strokeColorForRegion({
     required bool isVisited,
     required bool isCurrentRegion,

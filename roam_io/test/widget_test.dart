@@ -1,8 +1,15 @@
+import 'package:firebase_core/firebase_core.dart';
+import 'package:firebase_core_platform_interface/test.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:provider/provider.dart';
+import 'package:roam_io/features/auth/providers/auth_provider.dart';
+import 'package:roam_io/features/journeys/data/journey_controller.dart';
 import 'package:roam_io/features/journeys/screens/journeys_screen.dart';
 import 'package:roam_io/features/profile/domain/profile_model.dart';
 import 'package:roam_io/shared/widgets/level_up_celebration.dart';
+
+import 'support/journey_test_harness.dart';
 
 /*
  * Author: Sanjevan Rajasegar
@@ -14,6 +21,14 @@ import 'package:roam_io/shared/widgets/level_up_celebration.dart';
 
 /// Runs profile model serialization and compatibility tests.
 void main() {
+  setUpAll(() async {
+    TestWidgetsFlutterBinding.ensureInitialized();
+    setupFirebaseCoreMocks();
+    if (Firebase.apps.isEmpty) {
+      await Firebase.initializeApp();
+    }
+  });
+
   group('ProfileModel Firestore mapping', () {
     test('defaults missing optional fields for legacy profiles', () {
       final profile = ProfileModel.fromMap(<String, dynamic>{
@@ -103,8 +118,20 @@ void main() {
       tester,
     ) async {
       await tester.pumpWidget(
-        const MaterialApp(home: Scaffold(body: JourneysScreen())),
+        MultiProvider(
+          providers: [
+            ChangeNotifierProvider(
+              create: (_) =>
+                  AuthProvider(authRepository: JourneyTestAuthRepository()),
+            ),
+            ChangeNotifierProvider<JourneyController>(
+              create: (_) => JourneyTestController(),
+            ),
+          ],
+          child: const MaterialApp(home: Scaffold(body: JourneysScreen())),
+        ),
       );
+      await tester.pumpAndSettle();
 
       expect(find.text('32 XP earned'), findsOneWidget);
       expect(find.text('50 XP earned'), findsOneWidget);

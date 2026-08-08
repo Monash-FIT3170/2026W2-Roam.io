@@ -110,6 +110,36 @@ class StorageService {
     return storageRef.getDownloadURL();
   }
 
+  /// Uploads media attached to a journey-created custom location.
+  Future<String> uploadCustomLocationMedia({
+    required String uid,
+    required String locationKey,
+    required Uint8List bytes,
+    required String filename,
+  }) async {
+    final lowerName = filename.toLowerCase();
+    final contentType = lowerName.endsWith('.mp4')
+        ? 'video/mp4'
+        : lowerName.endsWith('.mov')
+        ? 'video/quicktime'
+        : lowerName.endsWith('.png')
+        ? 'image/png'
+        : 'image/jpeg';
+    final safeFilename = filename.replaceAll(RegExp(r"[^a-zA-Z0-9_.-]"), '_');
+    final safeLocationKey = locationKey.replaceAll(
+      RegExp(r"[^a-zA-Z0-9_.-]"),
+      '_',
+    );
+    final ref = _firebaseStorage
+        .ref()
+        .child('custom_location_media')
+        .child(uid)
+        .child(safeLocationKey)
+        .child('${DateTime.now().microsecondsSinceEpoch}_$safeFilename');
+    await ref.putData(bytes, SettableMetadata(contentType: contentType));
+    return ref.getDownloadURL();
+  }
+
   /// Downloads bytes from an existing Firebase Storage download URL.
   Future<Uint8List?> downloadBytesFromUrl(String url) {
     return _firebaseStorage.refFromURL(url).getData();

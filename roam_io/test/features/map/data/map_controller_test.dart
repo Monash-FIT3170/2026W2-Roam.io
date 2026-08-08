@@ -44,6 +44,32 @@ class _FakeVisitedRegionService extends FakeVisitedRegionService {
 }
 
 void main() {
+  group('MapController location following', () {
+    test(
+      'user camera movement pauses following and recenter resumes it',
+      () async {
+        final controller = MapController(
+          geoLocatorService: FakeGeoLocatorService(
+            testPosition(-37.8136, 144.9631),
+          ),
+          visitService: RecordingVisitService(),
+          visitedRegionService: FakeVisitedRegionService(),
+        );
+
+        expect(controller.isFollowingUser, isTrue);
+
+        controller.onCameraMoveStarted();
+        expect(controller.isFollowingUser, isFalse);
+
+        await controller.recenterOnUser();
+        expect(controller.isFollowingUser, isTrue);
+
+        controller.disposeController();
+        controller.dispose();
+      },
+    );
+  });
+
   group('MapController.checkProximity', () {
     test('returns isNear true when within threshold', () async {
       // Same coordinates as [testPlace] so distance is effectively zero.

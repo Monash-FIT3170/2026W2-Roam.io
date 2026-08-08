@@ -51,6 +51,15 @@ class ViewportRegionLoader {
     required MapLayerMode currentMode,
     bool force = false,
   }) async {
+    if (!_policy.supportsViewportLoading(currentZoom)) {
+      return const ViewportRegionLoadResult(
+        regions: [],
+        mode: MapLayerMode.sa1Detail,
+        didSkip: true,
+        message: 'Zoom level is outside the supported map range',
+      );
+    }
+
     final targetMode = _policy.modeForZoom(
       zoom: currentZoom,
       currentMode: currentMode,
