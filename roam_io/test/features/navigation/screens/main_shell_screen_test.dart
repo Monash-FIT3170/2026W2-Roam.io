@@ -118,9 +118,10 @@ void main() {
         final comments = _FakeCommentService();
         final firestore = FakeFirebaseFirestore();
         final friendshipService = FriendshipService(firestore: firestore);
+        final currentUserId = repository.currentUser!.uid;
         final pairKey = FriendshipService.pairKeyFor(
           'sender-user',
-          'shell-user',
+          currentUserId,
         );
         final now = DateTime(2026, 8, 7);
         await firestore
@@ -131,7 +132,7 @@ void main() {
                 id: pairKey,
                 pairKey: pairKey,
                 senderId: 'sender-user',
-                recipientId: 'shell-user',
+                recipientId: currentUserId,
                 status: FriendRequestStatus.pending,
                 createdAt: now,
                 updatedAt: now,
@@ -174,8 +175,10 @@ void main() {
 
         await tester.pumpAndSettle();
 
-        expect(find.byType(AppToastBanner), findsOneWidget);
-        expect(find.byIcon(Icons.check_circle_rounded), findsOneWidget);
+        final toast = tester.widget<AppToastBanner>(
+          find.byType(AppToastBanner),
+        );
+        expect(toast.icon, Icons.check_circle_rounded);
         expect(find.text(scenario.expectedMessage), findsOneWidget);
 
         await comments.dispose();
