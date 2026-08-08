@@ -13,6 +13,7 @@ import 'package:provider/provider.dart';
 import 'package:roam_io/features/auth/data/auth_repository.dart';
 import 'package:roam_io/features/auth/providers/auth_provider.dart';
 import 'package:roam_io/features/profile/domain/profile_model.dart';
+import 'package:roam_io/features/social/data/follow_service.dart';
 import 'package:roam_io/features/social/data/friendship_service.dart';
 import 'package:roam_io/features/social/screens/find_people_screen.dart';
 import 'package:roam_io/features/social/screens/social_screen.dart';
@@ -35,6 +36,7 @@ void main() {
 
   testWidgets('search icon opens Find People screen', (tester) async {
     final auth = AuthProvider(authRepository: _SocialAuthRepository());
+    final firestore = FakeFirebaseFirestore();
 
     await tester.pumpWidget(
       ChangeNotifierProvider<AuthProvider>.value(
@@ -42,9 +44,8 @@ void main() {
         child: MaterialApp(
           home: Scaffold(
             body: SocialScreen(
-              friendshipService: FriendshipService(
-                firestore: FakeFirebaseFirestore(),
-              ),
+              friendshipService: FriendshipService(firestore: firestore),
+              followService: FollowService(firestore: firestore),
             ),
           ),
         ),
