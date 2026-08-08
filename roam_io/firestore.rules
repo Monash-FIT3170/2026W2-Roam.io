@@ -14,6 +14,29 @@ service cloud.firestore {
       return request.auth != null;
     }
 
+    function isPrivateAccount(userId) {
+      return exists(
+        /databases/$(database)/documents/public_profiles/$(userId)
+      )
+      && get(
+        /databases/$(database)/documents/public_profiles/$(userId)
+      ).data.keys().hasAny(['isPrivateAccount'])
+      && get(
+        /databases/$(database)/documents/public_profiles/$(userId)
+      ).data.isPrivateAccount == true;
+    }
+
+    function isApprovedFollower(userId) {
+      return isSignedIn() && exists(
+        /databases/$(database)/documents/follows/$(request.auth.uid + '_' + userId)
+      );
+    }
+
+    function canViewProfileActivity(userId) {
+      return isProfileOwner(userId) ||
+        (isSignedIn() && (!isPrivateAccount(userId) || isApprovedFollower(userId)));
+    }
+
     function isPairParticipant(data) {
       return isSignedIn() &&
         (request.auth.uid == data.senderId || request.auth.uid == data.recipientId);
@@ -33,6 +56,7 @@ service cloud.firestore {
         'photoUrl',
         'xp',
         'level',
+        'isPrivateAccount',
         'createdAt',
         'updatedAt'
       ]) &&
@@ -46,7 +70,9 @@ service cloud.firestore {
       (!request.resource.data.keys().hasAny(['xp']) ||
         request.resource.data.xp is int) &&
       (!request.resource.data.keys().hasAny(['level']) ||
-        request.resource.data.level is int);
+        request.resource.data.level is int) &&
+      (!request.resource.data.keys().hasAny(['isPrivateAccount']) ||
+        request.resource.data.isPrivateAccount is bool);
     }
 
     function hasFriendRequestFields() {
@@ -70,11 +96,60 @@ service cloud.firestore {
       return request.resource.data.keys().hasOnly([
         'followerId',
         'followeeId',
-        'createdAt'
+        'createdAt',
+        'source',
+        'acceptedRequestId'
       ]) &&
       request.resource.data.followerId is string &&
       request.resource.data.followeeId is string &&
-      request.resource.data.createdAt is string;
+      request.resource.data.createdAt is string &&
+      (!request.resource.data.keys().hasAny(['source']) ||
+        request.resource.data.source is string) &&
+      (!request.resource.data.keys().hasAny(['acceptedRequestId']) ||
+        request.resource.data.acceptedRequestId is string);
+    }
+
+    function hasFollowRequestFields() {
+      return request.resource.data.keys().hasOnly([
+        'requesterId',
+        'targetId',
+        'status',
+        'createdAt',
+        'updatedAt'
+      ]) &&
+      request.resource.data.requesterId is string &&
+      request.resource.data.targetId is string &&
+      request.resource.data.status is string &&
+      request.resource.data.createdAt is string &&
+      request.resource.data.updatedAt is string;
+    }
+
+    function isImmediatePublicFollow(followId) {
+      return request.auth.uid == request.resource.data.followerId
+        && !isPrivateAccount(request.resource.data.followeeId)
+        && !request.resource.data.keys().hasAny(['source', 'acceptedRequestId'])
+        && followId == request.resource.data.followerId + '_' +
+          request.resource.data.followeeId;
+    }
+
+    function isAcceptedRequestFollow(followId) {
+      return request.auth.uid == request.resource.data.followeeId
+        && request.resource.data.source == 'follow_request_acceptance'
+        && request.resource.data.acceptedRequestId == followId
+        && followId == request.resource.data.followerId + '_' +
+          request.resource.data.followeeId
+        && exists(
+          /databases/$(database)/documents/follow_requests/$(followId)
+        )
+        && get(
+          /databases/$(database)/documents/follow_requests/$(followId)
+        ).data.requesterId == request.resource.data.followerId
+        && get(
+          /databases/$(database)/documents/follow_requests/$(followId)
+        ).data.targetId == request.resource.data.followeeId
+        && get(
+          /databases/$(database)/documents/follow_requests/$(followId)
+        ).data.status == 'pending';
     }
 
     match /profiles/{userId} {
@@ -85,9 +160,7 @@ service cloud.firestore {
       
       // Visits subcollection - tracks places the user has visited
       match /visits/{visitId} {
-        // Temporary public-by-default social dashboard access.
-        // ART2-84 must replace this with configurable privacy/projection rules.
-        allow read: if isSignedIn();
+        allow read: if canViewProfileActivity(userId);
         allow create, update: if request.auth != null && request.auth.uid == userId;
         // No deletes - visits are permanent
         allow delete: if false;
@@ -103,9 +176,7 @@ service cloud.firestore {
 
       // Timestamped XP gain events for weekly XP Gained analytics.
       match /xp_events/{eventId} {
-        // Temporary public-by-default social dashboard access.
-        // ART2-84 must replace this with configurable privacy/projection rules.
-        allow read: if isSignedIn();
+        allow read: if canViewProfileActivity(userId);
         allow create: if isProfileOwner(userId);
         allow update, delete: if false;
       }
@@ -125,13 +196,47 @@ service cloud.firestore {
           && request.resource.data.recipientId == userId
           && request.resource.data.actorId == request.auth.uid
           && request.resource.data.actorId != userId
-          && request.resource.data.type == 'follow'
+          && request.resource.data.type in [
+            'follow',
+            'followRequest',
+            'followRequestAccepted'
+          ]
           && request.resource.data.createdAt is string
           && (request.resource.data.readAt == null
               || request.resource.data.readAt is string)
-          && notificationId == request.resource.data.actorId + '_' + userId
-          && exists(
-            /databases/$(database)/documents/follows/$(notificationId)
+          && (
+            (
+              request.resource.data.type == 'follow'
+              && notificationId == request.resource.data.actorId + '_' + userId
+              && exists(
+                /databases/$(database)/documents/follows/$(notificationId)
+              )
+            ) ||
+            (
+              request.resource.data.type == 'followRequest'
+              && notificationId == 'follow_request_' +
+                request.resource.data.actorId + '_' + userId
+              && exists(
+                /databases/$(database)/documents/follow_requests/$(
+                  request.resource.data.actorId + '_' + userId
+                )
+              )
+            ) ||
+            (
+              request.resource.data.type == 'followRequestAccepted'
+              && notificationId == 'follow_request_accepted_' +
+                request.resource.data.actorId + '_' + userId
+              && exists(
+                /databases/$(database)/documents/follows/$(
+                  userId + '_' + request.resource.data.actorId
+                )
+              )
+              && get(
+                /databases/$(database)/documents/follows/$(
+                  userId + '_' + request.resource.data.actorId
+                )
+              ).data.source == 'follow_request_acceptance'
+            )
           );
         allow update: if isProfileOwner(userId)
           && request.resource.data.diff(resource.data).affectedKeys()
@@ -236,9 +341,11 @@ service cloud.firestore {
       allow read: if isSignedIn();
       allow create: if isSignedIn()
         && hasFollowFields()
-        && request.resource.data.followerId == request.auth.uid
-        && request.resource.data.followeeId != request.auth.uid
-        && followId == request.resource.data.followerId + '_' + request.resource.data.followeeId;
+        && request.resource.data.followerId != request.resource.data.followeeId
+        && (
+          isImmediatePublicFollow(followId) ||
+          isAcceptedRequestFollow(followId)
+        );
       // Follower may unfollow; followee may Remove follower.
       allow delete: if isSignedIn()
         && followId == resource.data.followerId + '_' + resource.data.followeeId
@@ -249,10 +356,35 @@ service cloud.firestore {
       allow update: if false;
     }
 
+    match /follow_requests/{requestId} {
+      allow read: if isSignedIn()
+        && (
+          request.auth.uid == resource.data.requesterId
+          || request.auth.uid == resource.data.targetId
+        );
+      allow create: if isSignedIn()
+        && hasFollowRequestFields()
+        && request.auth.uid == request.resource.data.requesterId
+        && request.resource.data.requesterId != request.resource.data.targetId
+        && request.resource.data.status == 'pending'
+        && requestId == request.resource.data.requesterId + '_' +
+          request.resource.data.targetId
+        && isPrivateAccount(request.resource.data.targetId)
+        && !exists(
+          /databases/$(database)/documents/follows/$(requestId)
+        );
+      allow delete: if isSignedIn()
+        && resource.data.status == 'pending'
+        && requestId == resource.data.requesterId + '_' + resource.data.targetId
+        && (
+          request.auth.uid == resource.data.requesterId
+          || request.auth.uid == resource.data.targetId
+        );
+      allow update: if false;
+    }
+
     match /polygons_visited/{userId} {
-      // Temporary public-by-default social dashboard access.
-      // ART2-84 must replace this with configurable privacy/projection rules.
-      allow get, list: if isSignedIn();
+      allow get, list: if canViewProfileActivity(userId);
       allow create: if request.auth != null
         && request.auth.uid == userId
         && request.resource.data.profile_id == request.auth.uid;
@@ -274,11 +406,21 @@ service cloud.firestore {
     // Deny all other collections/documents by default for MVP safety.
     // Activity comments (notifications for comments deferred).
     match /activities/{activityId} {
-      allow read: if request.auth != null;
+      allow read: if request.auth != null
+        && resource.data.profileId is string
+        && canViewProfileActivity(resource.data.profileId);
       allow write: if false;
 
       match /comments/{commentId} {
-        allow read: if request.auth != null;
+        allow read: if request.auth != null
+          && get(
+            /databases/$(database)/documents/activities/$(activityId)
+          ).data.profileId is string
+          && canViewProfileActivity(
+            get(
+              /databases/$(database)/documents/activities/$(activityId)
+            ).data.profileId
+          );
         allow create: if request.auth != null
           && request.resource.data.authorId == request.auth.uid
           && request.resource.data.text is string

@@ -16,6 +16,7 @@ import '../features/profile/domain/profile_model.dart';
 import '../features/profile/domain/xp_award_result.dart';
 import '../features/profile/domain/xp_event.dart';
 import '../features/social/data/friendship_service.dart';
+import '../features/social/domain/social_privacy_settings.dart';
 
 /// Owns reads and writes for Firestore documents in the `profiles` collection.
 class ProfileService {
@@ -82,6 +83,24 @@ class ProfileService {
       'darkModeEnabled': enabled,
       'updatedAt': DateTime.now().toIso8601String(),
     });
+  }
+
+  /// Updates the user's private-account setting on the authoritative profile.
+  Future<void> updateSocialPrivacy({
+    required String uid,
+    required SocialPrivacySettings privacy,
+  }) async {
+    await _profiles.doc(uid).update(<String, dynamic>{
+      'privacy': privacy.toMap(),
+      'updatedAt': DateTime.now().toIso8601String(),
+    });
+    final profile = await getProfile(uid);
+    if (profile != null) {
+      await _trySyncPublicProfile(profile, reason: 'updateSocialPrivacy');
+    }
+    if (!privacy.isPrivateAccount) {
+      await _tryResolvePendingFollowRequestsForPublicTarget(uid);
+    }
   }
 
   /// Stores the user's profile photo URL and content hash.
@@ -317,6 +336,7 @@ class ProfileService {
         createdAt: profile.createdAt,
         xp: profile.xp,
         level: profile.level,
+        isPrivateAccount: profile.privacy.isPrivateAccount,
       );
       return true;
     } catch (error, stackTrace) {
@@ -325,6 +345,29 @@ class ProfileService {
         '(canonical profile kept) uid=${profile.uid} error=$error\n$stackTrace',
       );
       return false;
+    }
+  }
+
+  Future<void> _tryResolvePendingFollowRequestsForPublicTarget(
+    String targetId,
+  ) async {
+    try {
+      final snapshot = await _firestore
+          .collection('follow_requests')
+          .where('targetId', isEqualTo: targetId)
+          .where('status', isEqualTo: 'pending')
+          .get();
+      if (snapshot.docs.isEmpty) return;
+      final batch = _firestore.batch();
+      for (final doc in snapshot.docs) {
+        batch.delete(doc.reference);
+      }
+      await batch.commit();
+    } catch (error, stackTrace) {
+      debugPrint(
+        '[ProfileService.updateSocialPrivacy] stale request cleanup failed '
+        'targetId=$targetId error=$error\n$stackTrace',
+      );
     }
   }
 

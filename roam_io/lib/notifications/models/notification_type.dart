@@ -24,6 +24,12 @@ enum NotificationType {
   /// Someone followed the user on a public profile (in-app inbox + banner).
   follow,
 
+  /// Someone requested to follow a private account.
+  followRequest,
+
+  /// A private-account follow request was accepted.
+  followRequestAccepted,
+
   /// An application or activity error occurred.
   error,
 

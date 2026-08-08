@@ -212,6 +212,7 @@ class _ThrowingProjectionFriendshipService implements FriendshipService {
     DateTime? createdAt,
     int? xp,
     int? level,
+    bool isPrivateAccount = false,
   }) async {
     throw Exception('simulated public projection failure');
   }

@@ -19,7 +19,10 @@ import 'package:roam_io/features/journeys/data/journey_controller.dart';
 import 'package:roam_io/features/map/data/map_page.dart';
 import 'package:roam_io/features/navigation/screens/main_shell_screen.dart';
 import 'package:roam_io/notifications/notification.dart';
+import 'package:roam_io/features/social/data/follow_request_service.dart';
 import 'package:roam_io/features/social/data/friendship_service.dart';
+import 'package:roam_io/features/social/data/social_notification_coordinator.dart';
+import 'package:roam_io/features/social/data/social_notification_service.dart';
 import 'package:roam_io/features/social/domain/friend_request.dart';
 import 'package:roam_io/shared/widgets/app_toast.dart';
 
@@ -41,6 +44,7 @@ void main() {
     // Arrange: provide an authenticated user and profile.
     final repository = JourneyTestAuthRepository();
     final comments = _FakeCommentService();
+    final firestore = FakeFirebaseFirestore();
 
     await tester.pumpWidget(
       MaterialApp(
@@ -57,6 +61,14 @@ void main() {
             // Android platform permissions are not available in widget tests.
             requestNotificationPermission: false,
             commentService: comments,
+            friendshipService: FriendshipService(firestore: firestore),
+            followRequestService: FollowRequestService(firestore: firestore),
+            socialNotificationCoordinator: SocialNotificationCoordinator(
+              friendshipService: FriendshipService(firestore: firestore),
+              notificationService: SocialNotificationService(
+                firestore: firestore,
+              ),
+            ),
           ),
         ),
       ),
@@ -71,7 +83,7 @@ void main() {
     expect(find.byType(FloatingActionButton), findsNothing);
 
     await tester.tap(find.text('HOME'));
-    await tester.pumpAndSettle();
+    await _pumpShellFrame(tester);
     expect(find.text('Home'), findsOneWidget);
     expect(find.text('Amar'), findsOneWidget);
     expect(find.text('Sidequest with Mates'), findsOneWidget);
@@ -79,15 +91,15 @@ void main() {
     expect(find.text('Quests'), findsNothing);
 
     await tester.tap(find.text('SOCIAL'));
-    await tester.pumpAndSettle();
-    expect(find.text('Social hub'), findsOneWidget);
+    await _pumpShellFrame(tester);
+    expect(find.text('Follow and community tools'), findsOneWidget);
 
     await tester.tap(find.text('YOU'));
-    await tester.pumpAndSettle();
+    await _pumpShellFrame(tester);
     expect(find.text('Most Visited Location'), findsOneWidget);
 
     await tester.tap(find.text('SETTINGS'));
-    await tester.pumpAndSettle();
+    await _pumpShellFrame(tester);
     expect(find.text('Settings'), findsOneWidget);
     expect(find.text('Account'), findsOneWidget);
     expect(find.text('Preferences'), findsOneWidget);
@@ -154,6 +166,15 @@ void main() {
                 requestNotificationPermission: false,
                 commentService: comments,
                 friendshipService: friendshipService,
+                followRequestService: FollowRequestService(
+                  firestore: firestore,
+                ),
+                socialNotificationCoordinator: SocialNotificationCoordinator(
+                  friendshipService: FriendshipService(firestore: firestore),
+                  notificationService: SocialNotificationService(
+                    firestore: firestore,
+                  ),
+                ),
               ),
             ),
           ),
@@ -173,7 +194,7 @@ void main() {
           action: scenario.action,
         );
 
-        await tester.pumpAndSettle();
+        await _pumpShellFrame(tester);
 
         final toast = tester.widget<AppToastBanner>(
           find.byType(AppToastBanner),
@@ -185,6 +206,11 @@ void main() {
       },
     );
   }
+}
+
+Future<void> _pumpShellFrame(WidgetTester tester) async {
+  await tester.pump();
+  await tester.pump(const Duration(milliseconds: 300));
 }
 
 /// In-memory comments so shell tests never touch Firestore.

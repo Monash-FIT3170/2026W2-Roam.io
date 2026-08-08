@@ -83,15 +83,18 @@ the updated value can be reviewed before manually navigating back.
 
 ### Public Profile Dashboards
 
-Registered users have public social profiles by default until ART2-84 adds
-configurable privacy controls. `profiles/{uid}` remains the authoritative
-private profile document; `public_profiles/{uid}` is the safe public identity
-and progression projection used by search and external profiles. `You` owns
-authenticated-user state, while `OtherUserProfileScreen(selectedUserId)` owns
-selected-user state and composes the same dashboard presentation. Every
-external analytics watch must bind to `selectedUserId`, not
-`AuthProvider.currentUser.uid` (except Follow relationship actions, which
-always use the authenticated user's follow graph).
+Registered users have public social profiles by default. Private accounts are
+authoritative at `profiles/{uid}.privacy.isPrivateAccount`, mirrored as the
+safe discovery bit `public_profiles/{uid}.isPrivateAccount`. Aggregate identity
+data stays public for private profiles: avatar, display name, username,
+following/follower counts, level, and XP. Detailed visits, XP event graphs,
+locations, tiles, and activity feeds are gated to the owner or approved
+followers. `You` owns authenticated-user state, while
+`OtherUserProfileScreen(selectedUserId)` owns selected-user state and composes
+the same dashboard presentation only after access is resolved. Every external
+analytics watch must bind to `selectedUserId`, not `AuthProvider.currentUser.uid`
+(except Follow relationship actions, which always use the authenticated user's
+follow graph).
 
 Find People (`FindPeopleScreen` → `FriendshipService.searchUsers`) lists
 `public_profiles` with prefix queries on `usernameSearch` /
@@ -116,12 +119,14 @@ Followers on You or an external profile opens the list for that profile id;
 row Follow / Following buttons still reflect whether **the authenticated user**
 follows each listed person. Public discovery (`FindPeopleScreen`) and external
 profiles use Follow / Following stadium buttons (filled Follow, outlined
-Following with immediate silent unfollow); Add Friend /
-friend-request chrome is not shown in this public Follow phase. Follow is
-independent from mutual friendship requests. Lists and counts stream from
-the same `follows` collection, so unfollow on an external profile updates
-any open Following/Followers list and profile counts without a manual
-refresh. Tiles use selected-user visited polygon records.
+Following with immediate silent unfollow for public profiles). Private targets
+resolve to `Requested` through `follow_requests/{requesterId_targetId}` until
+the owner accepts. Accepted requests create the same one-way
+`follows/{followerId_followeeId}` document with request-acceptance metadata so
+the target does not receive a redundant followed-you notification. Lists and
+counts stream from the same `follows` collection, so unfollow on an external
+profile updates any open Following/Followers list and profile counts without a
+manual refresh. Tiles use selected-user visited polygon records.
 The top-level XP Gained stat uses lifetime/current profile XP, while the XP
 Gained graph uses timestamped `profiles/{uid}/xp_events` recorded **after**
 the canonical `profiles/{uid}` XP/level update succeeds. Journey and sidequest

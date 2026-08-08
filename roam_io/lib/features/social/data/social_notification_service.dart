@@ -71,15 +71,13 @@ class SocialNotificationService {
     ).map((snapshot) => snapshot.items);
   }
 
-  /// Unread follow notifications for cold-start summary (newest first).
-  Stream<List<SocialNotification>> watchUnreadFollowNotifications(
+  /// Unread social notifications for cold-start summary (newest first).
+  Stream<List<SocialNotification>> watchUnreadSocialNotifications(
     String uid, {
     int limit = defaultRecentLimit,
   }) {
     return watchRecent(uid, limit: limit).map(
-      (items) => items
-          .where((item) => item.isFollow && !item.isRead)
-          .toList(growable: false),
+      (items) => items.where((item) => !item.isRead).toList(growable: false),
     );
   }
 
@@ -130,5 +128,12 @@ class SocialNotificationService {
     await _notifications(
       recipientId,
     ).doc(notificationId).set(notification.toMap());
+  }
+
+  /// Test/admin helper for follow request notifications.
+  Future<void> upsertNotificationForTests(SocialNotification notification) {
+    return _notifications(
+      notification.recipientId,
+    ).doc(notification.id).set(notification.toMap());
   }
 }

@@ -153,4 +153,57 @@ class NotificationTemplates {
       data: {'followSummaryCount': '$safeCount'},
     );
   }
+
+  /// In-app banner when [username] requests to follow the current user.
+  static AppNotification followRequest(
+    String username, {
+    String? notificationId,
+    String? requestId,
+    String? requesterId,
+  }) {
+    final now = DateTime.now();
+    return AppNotification(
+      id: notificationId ?? now.microsecondsSinceEpoch.toString(),
+      type: NotificationType.followRequest,
+      title: 'Follow Request',
+      body: '$username requested to follow you',
+      timestamp: now,
+      showOnDevice: false,
+      displayDuration: const Duration(seconds: 7),
+      actions: const [
+        NotificationAction(
+          type: NotificationActionType.accept,
+          label: 'Accept',
+        ),
+        NotificationAction(
+          type: NotificationActionType.decline,
+          label: 'Decline',
+        ),
+      ],
+      data: {
+        'notificationId': ?notificationId,
+        'requestId': ?requestId,
+        'requesterId': ?requesterId,
+      },
+    );
+  }
+
+  /// In-app banner when a private-account follow request is accepted.
+  static AppNotification followRequestAccepted(
+    String username, {
+    String? notificationId,
+    String? actorId,
+  }) {
+    final now = DateTime.now();
+    return AppNotification(
+      id: notificationId ?? now.microsecondsSinceEpoch.toString(),
+      type: NotificationType.followRequestAccepted,
+      title: 'Follow Request Accepted',
+      body: '$username accepted your follow request',
+      timestamp: now,
+      showOnDevice: false,
+      displayDuration: const Duration(seconds: 5),
+      data: {'notificationId': ?notificationId, 'actorId': ?actorId},
+    );
+  }
 }

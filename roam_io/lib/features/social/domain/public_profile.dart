@@ -3,7 +3,8 @@
  * Last Updated: 8 August 2026
  * Description:
  *   Represents the search-safe public profile fields used by Find People,
- *   including normalized usernameSearch / displayNameSearch prefixes.
+ *   including normalized usernameSearch / displayNameSearch prefixes and the
+ *   private-account bit needed for Follow Request behavior.
  */
 
 /// Public profile fields exposed for people search.
@@ -15,6 +16,7 @@ class PublicProfile {
     this.photoUrl,
     this.xp,
     this.level,
+    this.isPrivateAccount = false,
   });
 
   final String uid;
@@ -23,6 +25,7 @@ class PublicProfile {
   final String? photoUrl;
   final int? xp;
   final int? level;
+  final bool isPrivateAccount;
 
   factory PublicProfile.fromMap(Map<String, dynamic> map) {
     return PublicProfile(
@@ -32,6 +35,7 @@ class PublicProfile {
       photoUrl: map['photoUrl'] as String?,
       xp: (map['xp'] as num?)?.toInt(),
       level: (map['level'] as num?)?.toInt(),
+      isPrivateAccount: map['isPrivateAccount'] as bool? ?? false,
     );
   }
 
@@ -50,6 +54,7 @@ class PublicProfile {
       if (photoUrl != null && photoUrl!.isNotEmpty) 'photoUrl': photoUrl,
       if (xp != null) 'xp': xp,
       if (level != null) 'level': level,
+      'isPrivateAccount': isPrivateAccount,
     };
   }
 }

@@ -2,18 +2,19 @@
  * Author: Sanjevan Rajasegar
  * Last Updated: 8 August 2026
  * Description:
- *   Instagram-style social notifications list for public-profile Follow events.
- *   Opening marks unread notifications read. Rows support Follow Back /
- *   Following (immediate unfollow) and Remove follower without deleting
- *   history.
+ *   Social notifications list for public follows, private follow requests, and
+ *   request acceptance. Opening marks unread notifications read. Request rows
+ *   call the same FollowRequestService methods as other UI surfaces.
  */
 
 import 'package:flutter/material.dart';
+import 'package:firebase_core/firebase_core.dart';
 import 'package:provider/provider.dart';
 
 import '../../../shared/widgets/app_toast.dart';
 import '../../../theme/app_surfaces.dart';
 import '../../auth/providers/auth_provider.dart';
+import '../data/follow_request_service.dart';
 import '../data/follow_service.dart';
 import '../data/friendship_service.dart';
 import '../data/social_notification_service.dart';
@@ -28,13 +29,16 @@ class NotificationsScreen extends StatefulWidget {
     super.key,
     SocialNotificationService? notificationService,
     FollowService? followService,
+    FollowRequestService? followRequestService,
     FriendshipService? friendshipService,
   }) : _notificationService = notificationService,
        _followService = followService,
+       _followRequestService = followRequestService,
        _friendshipService = friendshipService;
 
   final SocialNotificationService? _notificationService;
   final FollowService? _followService;
+  final FollowRequestService? _followRequestService;
   final FriendshipService? _friendshipService;
 
   @override
@@ -44,6 +48,7 @@ class NotificationsScreen extends StatefulWidget {
 class _NotificationsScreenState extends State<NotificationsScreen> {
   late final SocialNotificationService _notificationService;
   late final FollowService _followService;
+  late final FollowRequestService _followRequestService;
   late final FriendshipService _friendshipService;
   var _markedRead = false;
 
@@ -53,6 +58,11 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
     _notificationService =
         widget._notificationService ?? SocialNotificationService();
     _followService = widget._followService ?? FollowService();
+    _followRequestService =
+        widget._followRequestService ??
+        (Firebase.apps.isNotEmpty
+            ? FollowRequestService()
+            : _EmptyFollowRequestService());
     _friendshipService = widget._friendshipService ?? FriendshipService();
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -119,6 +129,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                       notification: item,
                       currentUserId: uid,
                       followService: _followService,
+                      followRequestService: _followRequestService,
                       friendshipService: _friendshipService,
                     );
                   },
@@ -134,12 +145,14 @@ class _FollowNotificationRow extends StatelessWidget {
     required this.notification,
     required this.currentUserId,
     required this.followService,
+    required this.followRequestService,
     required this.friendshipService,
   });
 
   final SocialNotification notification;
   final String currentUserId;
   final FollowService followService;
+  final FollowRequestService followRequestService;
   final FriendshipService friendshipService;
 
   @override
@@ -151,6 +164,13 @@ class _FollowNotificationRow extends StatelessWidget {
         final name = profile?.displayName ?? profile?.username ?? 'Someone';
         final photoUrl = profile?.photoUrl;
         final relative = formatRelativeTimestamp(notification.createdAt);
+        final message = switch (notification.type) {
+          SocialNotificationType.follow => ' followed you · $relative',
+          SocialNotificationType.followRequest =>
+            ' requested to follow you · $relative',
+          SocialNotificationType.followRequestAccepted =>
+            ' accepted your follow request · $relative',
+        };
 
         return Container(
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
@@ -176,7 +196,7 @@ class _FollowNotificationRow extends StatelessWidget {
                         ),
                       ),
                       TextSpan(
-                        text: ' followed you · $relative',
+                        text: message,
                         style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                           fontWeight: FontWeight.w600,
                           color: AppSurfaces.textMuted(context),
@@ -189,48 +209,161 @@ class _FollowNotificationRow extends StatelessWidget {
                 ),
               ),
               const SizedBox(width: 8),
-              FollowRelationshipButton(
-                followerId: currentUserId,
-                followeeId: notification.actorId,
-                followService: followService,
-                labelMode: FollowRelationshipLabelMode.followBack,
-                compact: true,
-              ),
-              PopupMenuButton<String>(
-                tooltip: 'More',
-                icon: Icon(
-                  Icons.more_horiz_rounded,
-                  color: AppSurfaces.textMuted(context),
+              if (notification.isFollow)
+                FollowRelationshipButton(
+                  followerId: currentUserId,
+                  followeeId: notification.actorId,
+                  followService: followService,
+                  followeeProfile: profile,
+                  labelMode: FollowRelationshipLabelMode.followBack,
+                  compact: true,
                 ),
-                onSelected: (value) async {
-                  if (value != 'remove') return;
-                  try {
-                    await followService.removeFollower(
-                      followerId: notification.actorId,
-                      followeeId: currentUserId,
-                    );
-                  } catch (error) {
-                    debugPrint(
-                      '[NotificationsScreen] removeFollower failed: $error',
-                    );
-                    if (context.mounted) {
-                      AppToast.error(context, 'Could not remove follower.');
-                    }
-                  }
-                },
-                itemBuilder: (context) => const [
-                  PopupMenuItem<String>(
-                    value: 'remove',
-                    child: Text('Remove follower'),
+              if (notification.isFollowRequest)
+                _FollowRequestActions(
+                  requestId: FollowRequestService.requestIdFor(
+                    notification.actorId,
+                    currentUserId,
                   ),
-                ],
-              ),
+                  currentUserId: currentUserId,
+                  followRequestService: followRequestService,
+                ),
+              if (notification.isFollow)
+                PopupMenuButton<String>(
+                  tooltip: 'More',
+                  icon: Icon(
+                    Icons.more_horiz_rounded,
+                    color: AppSurfaces.textMuted(context),
+                  ),
+                  onSelected: (value) async {
+                    if (value != 'remove') return;
+                    try {
+                      await followService.removeFollower(
+                        followerId: notification.actorId,
+                        followeeId: currentUserId,
+                      );
+                    } catch (error) {
+                      debugPrint(
+                        '[NotificationsScreen] removeFollower failed: $error',
+                      );
+                      if (context.mounted) {
+                        AppToast.error(context, 'Could not remove follower.');
+                      }
+                    }
+                  },
+                  itemBuilder: (context) => const [
+                    PopupMenuItem<String>(
+                      value: 'remove',
+                      child: Text('Remove follower'),
+                    ),
+                  ],
+                ),
             ],
           ),
         );
       },
     );
   }
+}
+
+class _FollowRequestActions extends StatefulWidget {
+  const _FollowRequestActions({
+    required this.requestId,
+    required this.currentUserId,
+    required this.followRequestService,
+  });
+
+  final String requestId;
+  final String currentUserId;
+  final FollowRequestService followRequestService;
+
+  @override
+  State<_FollowRequestActions> createState() => _FollowRequestActionsState();
+}
+
+class _FollowRequestActionsState extends State<_FollowRequestActions> {
+  var _busy = false;
+
+  Future<void> _accept() async {
+    await _run(() {
+      return widget.followRequestService.acceptFollowRequest(
+        requestId: widget.requestId,
+        currentUserId: widget.currentUserId,
+      );
+    });
+  }
+
+  Future<void> _decline() async {
+    await _run(() {
+      return widget.followRequestService.declineFollowRequest(
+        requestId: widget.requestId,
+        currentUserId: widget.currentUserId,
+      );
+    });
+  }
+
+  Future<void> _run(Future<void> Function() action) async {
+    if (_busy) return;
+    setState(() => _busy = true);
+    try {
+      await action();
+    } catch (error) {
+      debugPrint('[NotificationsScreen] follow request action failed: $error');
+      if (mounted) {
+        AppToast.error(context, 'Could not update follow request.');
+      }
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        OutlinedButton(
+          onPressed: _busy ? null : _decline,
+          style: OutlinedButton.styleFrom(
+            shape: const StadiumBorder(),
+            visualDensity: VisualDensity.compact,
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+          ),
+          child: const Text('Decline'),
+        ),
+        const SizedBox(width: 6),
+        FilledButton(
+          onPressed: _busy ? null : _accept,
+          style: FilledButton.styleFrom(
+            shape: const StadiumBorder(),
+            visualDensity: VisualDensity.compact,
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+          ),
+          child: const Text('Accept'),
+        ),
+      ],
+    );
+  }
+}
+
+class _EmptyFollowRequestService implements FollowRequestService {
+  @override
+  Future<void> acceptFollowRequest({
+    required String requestId,
+    required String currentUserId,
+  }) {
+    return Future<void>.value();
+  }
+
+  @override
+  Future<void> declineFollowRequest({
+    required String requestId,
+    required String currentUserId,
+  }) {
+    return Future<void>.value();
+  }
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
 }
 
 class _ActorAvatar extends StatelessWidget {

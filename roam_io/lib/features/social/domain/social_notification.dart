@@ -2,13 +2,14 @@
  * Author: Sanjevan Rajasegar
  * Last Updated: 8 August 2026
  * Description:
- *   Persistent social inbox notification for public-profile Follow events.
+ *   Persistent social inbox notifications for public follows, private follow
+ *   requests, and request acceptance.
  *   Stored at profiles/{recipientId}/notifications/{id} where id matches the
  *   follows/{followerId_followeeId} document for dedupe.
  */
 
 /// Social inbox notification types currently supported.
-enum SocialNotificationType { follow }
+enum SocialNotificationType { follow, followRequest, followRequestAccepted }
 
 /// One persisted social notification row for a recipient.
 class SocialNotification {
@@ -30,6 +31,9 @@ class SocialNotification {
 
   bool get isRead => readAt != null;
   bool get isFollow => type == SocialNotificationType.follow;
+  bool get isFollowRequest => type == SocialNotificationType.followRequest;
+  bool get isFollowRequestAccepted =>
+      type == SocialNotificationType.followRequestAccepted;
 
   factory SocialNotification.fromMap(String id, Map<String, dynamic> data) {
     return SocialNotification(
@@ -55,6 +59,8 @@ class SocialNotification {
   static SocialNotificationType _typeFromString(String? raw) {
     return switch (raw) {
       'follow' => SocialNotificationType.follow,
+      'followRequest' => SocialNotificationType.followRequest,
+      'followRequestAccepted' => SocialNotificationType.followRequestAccepted,
       _ => SocialNotificationType.follow,
     };
   }

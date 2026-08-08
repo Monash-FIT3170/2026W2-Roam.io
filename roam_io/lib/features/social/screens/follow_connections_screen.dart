@@ -225,6 +225,7 @@ class _ConnectionRow extends StatelessWidget {
                   followerId: authUid!,
                   followeeId: listedUserId,
                   followService: followService,
+                  followeeProfile: profile,
                   compact: true,
                 ),
               ],

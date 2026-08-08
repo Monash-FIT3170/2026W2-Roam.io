@@ -31,10 +31,13 @@ import '../../map/data/visit_service.dart';
 import '../../map/data/visited_region_service.dart';
 import '../../profile/domain/profile_stats.dart';
 import '../../profile/domain/visited_polygon_record.dart';
+import '../../profile/widgets/profile_identity_header.dart';
 import '../../profile/widgets/profile_dashboard.dart';
 import '../../you/providers/you_analytics_provider.dart';
 import '../data/follow_service.dart';
 import '../data/friendship_service.dart';
+import '../data/social_privacy_service.dart';
+import '../domain/follow_relationship_state.dart';
 import '../domain/public_profile.dart';
 import '../widgets/follow_relationship_button.dart';
 import 'follow_connections_screen.dart';
@@ -49,6 +52,7 @@ class OtherUserProfileScreen extends StatefulWidget {
     VisitedRegionService? visitedRegionService,
     ProfileService? profileService,
     FollowService? followService,
+    SocialPrivacyService? privacyService,
     ActivityFeedService? activityFeedService,
     CommentService? commentService,
   }) : _friendshipService = friendshipService,
@@ -56,6 +60,7 @@ class OtherUserProfileScreen extends StatefulWidget {
        _visitedRegionService = visitedRegionService,
        _profileService = profileService,
        _followService = followService,
+       _privacyService = privacyService,
        _activityFeedService = activityFeedService,
        _commentService = commentService;
 
@@ -65,6 +70,7 @@ class OtherUserProfileScreen extends StatefulWidget {
   final VisitedRegionService? _visitedRegionService;
   final ProfileService? _profileService;
   final FollowService? _followService;
+  final SocialPrivacyService? _privacyService;
   final ActivityFeedService? _activityFeedService;
   final CommentService? _commentService;
 
@@ -77,6 +83,7 @@ class _OtherUserProfileScreenState extends State<OtherUserProfileScreen>
   late final TabController _tabController;
   late final FriendshipService _friendshipService;
   late final FollowService _followService;
+  late final SocialPrivacyService _privacyService;
   late final ActivityFeedService _activityFeedService;
   late final CommentService? _commentService;
   late final YouAnalyticsProvider _analytics;
@@ -91,6 +98,9 @@ class _OtherUserProfileScreenState extends State<OtherUserProfileScreen>
     _followService =
         widget._followService ??
         (hasFirebase ? FollowService() : _EmptyFollowService());
+    _privacyService =
+        widget._privacyService ??
+        (hasFirebase ? SocialPrivacyService() : _EmptySocialPrivacyService());
     _activityFeedService =
         widget._activityFeedService ??
         (hasFirebase ? ActivityFeedService() : _EmptyActivityFeedService());
@@ -157,32 +167,64 @@ class _OtherUserProfileScreenState extends State<OtherUserProfileScreen>
                 );
               }
 
-              _bindAnalytics(widget.selectedUserId);
-              return Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  _ExternalProfileTabBar(controller: _tabController),
-                  Expanded(
-                    child: TabBarView(
-                      controller: _tabController,
-                      children: [
-                        _ExternalProfileDashboard(
-                          profile: profile,
-                          currentUserId: currentUserId,
-                          followService: _followService,
-                          friendshipService: _friendshipService,
-                          selectedMetric: _selectedGraphMetric,
-                          onMetricSelected: _selectGraphMetric,
+              return StreamBuilder<SocialAccessPermissions>(
+                stream: _privacyService.watchProfileActivityAccess(
+                  viewerId: currentUserId,
+                  profileId: widget.selectedUserId,
+                ),
+                builder: (context, accessSnapshot) {
+                  if (accessSnapshot.connectionState ==
+                          ConnectionState.waiting &&
+                      !accessSnapshot.hasData) {
+                    return const Center(child: CircularProgressIndicator());
+                  }
+                  final access =
+                      accessSnapshot.data ??
+                      SocialAccessPermissions(
+                        canViewProfileActivity: !profile.isPrivateAccount,
+                        isPrivateAccount: profile.isPrivateAccount,
+                      );
+                  _bindAnalytics(
+                    access.canViewProfileActivity
+                        ? widget.selectedUserId
+                        : null,
+                  );
+                  return Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      _ExternalProfileTabBar(controller: _tabController),
+                      Expanded(
+                        child: TabBarView(
+                          controller: _tabController,
+                          children: [
+                            access.canViewProfileActivity
+                                ? _ExternalProfileDashboard(
+                                    profile: profile,
+                                    currentUserId: currentUserId,
+                                    followService: _followService,
+                                    friendshipService: _friendshipService,
+                                    selectedMetric: _selectedGraphMetric,
+                                    onMetricSelected: _selectGraphMetric,
+                                  )
+                                : _PrivateProfileSummary(
+                                    profile: profile,
+                                    currentUserId: currentUserId,
+                                    followService: _followService,
+                                    friendshipService: _friendshipService,
+                                  ),
+                            access.canViewProfileActivity
+                                ? _ExternalActivitiesTab(
+                                    selectedUserId: widget.selectedUserId,
+                                    activityFeedService: _activityFeedService,
+                                    commentService: _commentService,
+                                  )
+                                : const _PrivateActivitiesTab(),
+                          ],
                         ),
-                        _ExternalActivitiesTab(
-                          selectedUserId: widget.selectedUserId,
-                          activityFeedService: _activityFeedService,
-                          commentService: _commentService,
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
+                      ),
+                    ],
+                  );
+                },
               );
             },
           ),
@@ -280,6 +322,7 @@ class _ExternalProfileDashboard extends StatelessWidget {
               followerId: currentUserId!,
               followeeId: profile.uid,
               followService: followService,
+              followeeProfile: profile,
               expandWidth: true,
             ),
       stats: ProfileStats(
@@ -326,6 +369,185 @@ class _ExternalProfileDashboard extends StatelessWidget {
       bottomPadding: AppBottomNavBar.clearanceFromScreenBottom(context) + 12,
     );
   }
+}
+
+class _PrivateProfileSummary extends StatelessWidget {
+  const _PrivateProfileSummary({
+    required this.profile,
+    required this.currentUserId,
+    required this.followService,
+    required this.friendshipService,
+  });
+
+  final PublicProfile profile;
+  final String? currentUserId;
+  final FollowService followService;
+  final FriendshipService friendshipService;
+
+  @override
+  Widget build(BuildContext context) {
+    final bottomPadding =
+        AppBottomNavBar.clearanceFromScreenBottom(context) + 12;
+    return SingleChildScrollView(
+      padding: EdgeInsets.only(bottom: bottomPadding),
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(24, 14, 24, 0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _FollowCountHeader(
+              profile: profile,
+              currentUserId: currentUserId,
+              followService: followService,
+              friendshipService: friendshipService,
+            ),
+            const SizedBox(height: 18),
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+              decoration: BoxDecoration(
+                color: AppSurfaces.card(context),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: AppSurfaces.border(context)),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Private account',
+                    style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                      color: AppSurfaces.textPrimary(context),
+                      fontWeight: FontWeight.w900,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    'Follow this account to see their activity',
+                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                      color: AppSurfaces.textMuted(context),
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _FollowCountHeader extends StatelessWidget {
+  const _FollowCountHeader({
+    required this.profile,
+    required this.currentUserId,
+    required this.followService,
+    required this.friendshipService,
+  });
+
+  final PublicProfile profile;
+  final String? currentUserId;
+  final FollowService followService;
+  final FriendshipService friendshipService;
+
+  @override
+  Widget build(BuildContext context) {
+    return StreamBuilder<int>(
+      stream: followService.watchFollowingCount(profile.uid),
+      builder: (context, followingSnapshot) {
+        return StreamBuilder<int>(
+          stream: followService.watchFollowerCount(profile.uid),
+          builder: (context, followerSnapshot) {
+            return ProfileIdentityHeader(
+              displayName: profile.displayName,
+              username: profile.username,
+              photoUrl: profile.photoUrl,
+              level: profile.level,
+              xp: profile.xp,
+              stats: [
+                ProfileStatItem(
+                  label: 'Following',
+                  value: _formatCount(followingSnapshot.data ?? 0),
+                  onTap: () {
+                    Navigator.of(context).push(
+                      MaterialPageRoute<void>(
+                        builder: (_) => FollowConnectionsScreen(
+                          selectedUserId: profile.uid,
+                          mode: FollowConnectionsMode.following,
+                          followService: followService,
+                          friendshipService: friendshipService,
+                        ),
+                      ),
+                    );
+                  },
+                ),
+                ProfileStatItem(
+                  label: 'Followers',
+                  value: _formatCount(followerSnapshot.data ?? 0),
+                  onTap: () {
+                    Navigator.of(context).push(
+                      MaterialPageRoute<void>(
+                        builder: (_) => FollowConnectionsScreen(
+                          selectedUserId: profile.uid,
+                          mode: FollowConnectionsMode.followers,
+                          followService: followService,
+                          friendshipService: friendshipService,
+                        ),
+                      ),
+                    );
+                  },
+                ),
+              ],
+              action: currentUserId == null || currentUserId == profile.uid
+                  ? null
+                  : FollowRelationshipButton(
+                      followerId: currentUserId!,
+                      followeeId: profile.uid,
+                      followService: followService,
+                      followeeProfile: profile,
+                      expandWidth: true,
+                    ),
+            );
+          },
+        );
+      },
+    );
+  }
+}
+
+class _PrivateActivitiesTab extends StatelessWidget {
+  const _PrivateActivitiesTab();
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(24),
+        child: Text(
+          'Follow this account to see their activity',
+          textAlign: TextAlign.center,
+          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+            color: AppSurfaces.textMuted(context),
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+String _formatCount(int value) {
+  final raw = value.toString();
+  final buffer = StringBuffer();
+  for (var index = 0; index < raw.length; index += 1) {
+    final fromEnd = raw.length - index;
+    buffer.write(raw[index]);
+    if (fromEnd > 1 && fromEnd % 3 == 1) {
+      buffer.write(',');
+    }
+  }
+  return buffer.toString();
 }
 
 class _ExternalActivitiesTab extends StatelessWidget {
@@ -447,6 +669,19 @@ class _EmptyFollowService implements FollowService {
   }
 
   @override
+  Stream<FollowRelationshipState> watchFollowState({
+    required String followerId,
+    required String followeeId,
+  }) {
+    return Stream<FollowRelationshipState>.value(
+      const FollowRelationshipState(
+        status: FollowRelationshipStatus.notFollowing,
+        isTargetPrivate: false,
+      ),
+    );
+  }
+
+  @override
   Stream<int> watchFollowingCount(String uid) {
     return Stream<int>.value(0);
   }
@@ -475,11 +710,45 @@ class _EmptyFollowService implements FollowService {
   }
 
   @override
+  Future<void> followOrRequest({
+    required String followerId,
+    required String followeeId,
+  }) {
+    return Future<void>.value();
+  }
+
+  @override
   Future<void> unfollow({
     required String followerId,
     required String followeeId,
   }) {
     return Future<void>.value();
+  }
+
+  @override
+  Future<void> cancelFollowRequest({
+    required String requesterId,
+    required String targetId,
+  }) {
+    return Future<void>.value();
+  }
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+}
+
+class _EmptySocialPrivacyService implements SocialPrivacyService {
+  @override
+  Stream<SocialAccessPermissions> watchProfileActivityAccess({
+    required String? viewerId,
+    required String profileId,
+  }) {
+    return Stream<SocialAccessPermissions>.value(
+      const SocialAccessPermissions(
+        canViewProfileActivity: true,
+        isPrivateAccount: false,
+      ),
+    );
   }
 
   @override

@@ -43,6 +43,7 @@ async function seed(testEnv) {
       displayNameSearch: 'owner',
       xp: 10,
       level: 1,
+      isPrivateAccount: false,
       createdAt: '2026-08-07T00:00:00.000Z',
       updatedAt: '2026-08-07T00:00:00.000Z',
     });
@@ -299,12 +300,110 @@ async function runNotificationRulesTests() {
   }
 }
 
+async function runPrivateAccountRulesTests() {
+  const testEnv = await initializeTestEnvironment({ projectId, firestore: { rules } });
+  try {
+    await seed(testEnv);
+    await testEnv.withSecurityRulesDisabled(async (context) => {
+      const db = context.firestore();
+      await db.collection('public_profiles').doc('owner').set(
+        {
+          isPrivateAccount: true,
+          updatedAt: '2026-08-07T02:00:00.000Z',
+        },
+        { merge: true },
+      );
+    });
+
+    const ownerDb = testEnv.authenticatedContext('owner').firestore();
+    const viewerDb = testEnv.authenticatedContext('viewer').firestore();
+    const requesterDb = testEnv.authenticatedContext('requester').firestore();
+    const followerDb = testEnv.authenticatedContext('follower').firestore();
+    const otherDb = testEnv.authenticatedContext('other').firestore();
+
+    await assertSucceeds(ownerDb.collection('profiles').doc('owner').collection('visits').doc('1').get());
+    await assertSucceeds(ownerDb.collection('profiles').doc('owner').collection('xp_events').doc('xp-1').get());
+    await assertSucceeds(ownerDb.collection('polygons_visited').doc('owner').get());
+    await assertSucceeds(ownerDb.collection('activities').doc('activity-1').get());
+
+    await assertSucceeds(viewerDb.collection('public_profiles').doc('owner').get());
+    await assertFails(viewerDb.collection('profiles').doc('owner').collection('visits').doc('1').get());
+    await assertFails(viewerDb.collection('profiles').doc('owner').collection('xp_events').doc('xp-1').get());
+    await assertFails(viewerDb.collection('polygons_visited').doc('owner').get());
+    await assertFails(viewerDb.collection('activities').doc('activity-1').get());
+
+    await assertFails(
+      requesterDb.collection('follows').doc(followId('requester', 'owner')).set({
+        followerId: 'requester',
+        followeeId: 'owner',
+        createdAt: '2026-08-07T02:00:00.000Z',
+      }),
+    );
+
+    await assertSucceeds(
+      requesterDb.collection('follow_requests').doc(followId('requester', 'owner')).set({
+        requesterId: 'requester',
+        targetId: 'owner',
+        status: 'pending',
+        createdAt: '2026-08-07T02:00:00.000Z',
+        updatedAt: '2026-08-07T02:00:00.000Z',
+      }),
+    );
+    await assertFails(requesterDb.collection('profiles').doc('owner').collection('visits').doc('1').get());
+    await assertFails(
+      requesterDb.collection('follow_requests').doc(followId('owner', 'owner')).set({
+        requesterId: 'owner',
+        targetId: 'owner',
+        status: 'pending',
+        createdAt: '2026-08-07T02:00:00.000Z',
+        updatedAt: '2026-08-07T02:00:00.000Z',
+      }),
+    );
+    await assertFails(
+      otherDb.collection('follow_requests').doc(followId('requester', 'owner')).delete(),
+    );
+
+    const acceptBatch = ownerDb.batch();
+    acceptBatch.set(ownerDb.collection('follows').doc(followId('requester', 'owner')), {
+      followerId: 'requester',
+      followeeId: 'owner',
+      createdAt: '2026-08-07T02:01:00.000Z',
+      source: 'follow_request_acceptance',
+      acceptedRequestId: followId('requester', 'owner'),
+    });
+    acceptBatch.delete(ownerDb.collection('follow_requests').doc(followId('requester', 'owner')));
+    await assertSucceeds(acceptBatch.commit());
+    await assertSucceeds(requesterDb.collection('profiles').doc('owner').collection('visits').doc('1').get());
+
+    await testEnv.withSecurityRulesDisabled(async (context) => {
+      await context.firestore().collection('follows').doc(followId('follower', 'owner')).set({
+        followerId: 'follower',
+        followeeId: 'owner',
+        createdAt: '2026-08-07T02:02:00.000Z',
+      });
+    });
+    await assertSucceeds(followerDb.collection('profiles').doc('owner').collection('xp_events').doc('xp-1').get());
+    await assertFails(
+      otherDb.collection('follows').doc(followId('follower', 'owner')).set({
+        followerId: 'follower',
+        followeeId: 'owner',
+        createdAt: '2026-08-07T02:03:00.000Z',
+      }),
+    );
+
+    console.log('passed: private account access and follow request rules');
+  } finally {
+    await testEnv.cleanup();
+  }
+}
+
 (async () => {
   await runScenario('owner public dashboard reads', 'owner', assertSucceeds);
   await runScenario('authenticated public dashboard reads', 'viewer', assertSucceeds);
   await runScenario('unauthenticated public dashboard denied', null, assertFails);
   await runFollowWriteTests();
   await runNotificationRulesTests();
+  await runPrivateAccountRulesTests();
   console.log('firestore public profile and follow rules passed');
 })().catch((error) => {
   console.error(error);

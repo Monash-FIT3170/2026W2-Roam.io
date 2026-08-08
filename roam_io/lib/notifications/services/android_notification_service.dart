@@ -179,6 +179,8 @@ class AndroidNotificationService {
       case NotificationType.friendRequest:
       case NotificationType.friendAccepted:
       case NotificationType.follow:
+      case NotificationType.followRequest:
+      case NotificationType.followRequestAccepted:
         return _socialChannel;
     }
   }
@@ -191,6 +193,8 @@ class AndroidNotificationService {
       case NotificationType.friendRequest:
       case NotificationType.friendAccepted:
       case NotificationType.follow:
+      case NotificationType.followRequest:
+      case NotificationType.followRequestAccepted:
         return AndroidNotificationCategory.social;
 
       case NotificationType.activity:

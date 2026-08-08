@@ -2,11 +2,11 @@
  * Author: Sanjevan Rajasegar
  * Last Updated: 8 August 2026
  * Description:
- *   Session coordinator that turns persisted follow inbox documents into
- *   ART2-96 in-app banners. Handles cold-start unread summary (one banner),
- *   live single-follow banners, and per-UID session dedupe so rebuilds and
- *   account switches do not replay or leak banners. Does not mark
- *   notifications read — that happens on Notifications screen.
+ *   Session coordinator that turns persisted social inbox documents into
+ *   in-app banners. Handles cold-start unread summary, live notifications, and
+ *   per-UID session dedupe so rebuilds and account switches do not replay or
+ *   leak banners. Does not mark notifications read — that happens on
+ *   Notifications screen.
  */
 
 import 'dart:async';
@@ -117,65 +117,86 @@ class SocialNotificationCoordinator extends ChangeNotifier {
   }) async {
     if (!_isCurrentBind(expectedUid, generation)) return;
 
-    final followItems = items.where((item) => item.isFollow).toList();
-    final unreadFollows = followItems
+    final unreadItems = items
         .where((item) => !item.isRead)
         .toList(growable: false);
 
     if (!_coldStartHandled) {
       // Skip provisional empty cache emits so cold-start summary still works
       // when server data arrives after login / account switch.
-      if (isFromCache && unreadFollows.isEmpty) {
+      if (isFromCache && unreadItems.isEmpty) {
         return;
       }
 
       _coldStartHandled = true;
-      if (unreadFollows.isEmpty) {
-        _surfacedBannerIds.addAll(followItems.map((item) => item.id));
+      if (unreadItems.isEmpty) {
+        _surfacedBannerIds.addAll(items.map((item) => item.id));
         return;
       }
 
-      _surfacedBannerIds.addAll(unreadFollows.map((item) => item.id));
+      _surfacedBannerIds.addAll(unreadItems.map((item) => item.id));
       _surfacedBannerIds.addAll(
-        followItems.where((item) => item.isRead).map((item) => item.id),
+        items.where((item) => item.isRead).map((item) => item.id),
       );
 
-      if (unreadFollows.length == 1) {
-        final only = unreadFollows.first;
-        final actor = await _friendshipService.getPublicProfile(only.actorId);
-        if (!_isCurrentBind(expectedUid, generation)) return;
-        final name = actor?.displayName ?? actor?.username ?? 'Someone';
-        await _bannerService.show(
-          NotificationTemplates.followedYou(
-            name,
-            notificationId: only.id,
-            actorId: only.actorId,
-          ),
+      if (unreadItems.length == 1) {
+        await _showBannerFor(
+          unreadItems.first,
+          expectedUid: expectedUid,
+          generation: generation,
         );
       } else {
         if (!_isCurrentBind(expectedUid, generation)) return;
         await _bannerService.show(
-          NotificationTemplates.followSummary(unreadFollows.length),
+          NotificationTemplates.followSummary(unreadItems.length),
         );
       }
       return;
     }
 
-    for (final item in followItems) {
+    for (final item in items) {
       if (!_isCurrentBind(expectedUid, generation)) return;
       if (!_surfacedBannerIds.add(item.id)) continue;
       if (item.isRead) continue;
-      final actor = await _friendshipService.getPublicProfile(item.actorId);
-      if (!_isCurrentBind(expectedUid, generation)) return;
-      final name = actor?.displayName ?? actor?.username ?? 'Someone';
-      await _bannerService.show(
-        NotificationTemplates.followedYou(
+      await _showBannerFor(
+        item,
+        expectedUid: expectedUid,
+        generation: generation,
+      );
+    }
+  }
+
+  Future<void> _showBannerFor(
+    SocialNotification item, {
+    required String expectedUid,
+    required int generation,
+  }) async {
+    final actor = await _friendshipService.getPublicProfile(item.actorId);
+    if (!_isCurrentBind(expectedUid, generation)) return;
+    final name = actor?.displayName ?? actor?.username ?? 'Someone';
+    final banner = switch (item.type) {
+      SocialNotificationType.follow => NotificationTemplates.followedYou(
+        name,
+        notificationId: item.id,
+        actorId: item.actorId,
+      ),
+      SocialNotificationType.followRequest =>
+        NotificationTemplates.followRequest(
+          name,
+          notificationId: item.id,
+          requestId: item.actorId.isEmpty
+              ? null
+              : '${item.actorId}_$expectedUid',
+          requesterId: item.actorId,
+        ),
+      SocialNotificationType.followRequestAccepted =>
+        NotificationTemplates.followRequestAccepted(
           name,
           notificationId: item.id,
           actorId: item.actorId,
         ),
-      );
-    }
+    };
+    await _bannerService.show(banner);
   }
 
   bool _isCurrentBind(String expectedUid, int generation) {

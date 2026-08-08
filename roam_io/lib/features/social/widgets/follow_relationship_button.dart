@@ -2,12 +2,9 @@
  * Author: Sanjevan Rajasegar
  * Last Updated: 8 August 2026
  * Description:
- *   Shared public-profile Follow / Following control driven by Firestore
- *   follows/{followerId_followeeId}. Both states render as stadium buttons in
- *   the same slot (filled Follow, outlined Following). Tap Following to
- *   unfollow immediately and silently. Follow Back mode is used on the
- *   Notifications inbox. UI derives from watchIsFollowing, not local-only
- *   optimistic state.
+ *   Shared Follow / Requested / Following control driven by derived Firestore
+ *   relationship state. Public targets follow immediately; private targets
+ *   create cancellable requests and require confirmation before unfollow.
  */
 
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -16,6 +13,8 @@ import 'package:flutter/material.dart';
 import '../../../shared/widgets/app_toast.dart';
 import '../../../theme/app_surfaces.dart';
 import '../data/follow_service.dart';
+import '../domain/follow_relationship_state.dart';
+import '../domain/public_profile.dart';
 
 /// Label modes for the public Follow relationship button.
 enum FollowRelationshipLabelMode {
@@ -36,6 +35,7 @@ class FollowRelationshipButton extends StatefulWidget {
     this.labelMode = FollowRelationshipLabelMode.follow,
     this.compact = false,
     this.expandWidth = false,
+    this.followeeProfile,
   });
 
   final String followerId;
@@ -44,6 +44,7 @@ class FollowRelationshipButton extends StatefulWidget {
   final FollowRelationshipLabelMode labelMode;
   final bool compact;
   final bool expandWidth;
+  final PublicProfile? followeeProfile;
 
   @override
   State<FollowRelationshipButton> createState() =>
@@ -51,13 +52,13 @@ class FollowRelationshipButton extends StatefulWidget {
 }
 
 class _FollowRelationshipButtonState extends State<FollowRelationshipButton> {
-  late Stream<bool> _isFollowingStream;
+  late Stream<FollowRelationshipState> _stateStream;
   var _busy = false;
 
   @override
   void initState() {
     super.initState();
-    _isFollowingStream = widget.followService.watchIsFollowing(
+    _stateStream = widget.followService.watchFollowState(
       followerId: widget.followerId,
       followeeId: widget.followeeId,
     );
@@ -69,24 +70,36 @@ class _FollowRelationshipButtonState extends State<FollowRelationshipButton> {
     if (oldWidget.followerId != widget.followerId ||
         oldWidget.followeeId != widget.followeeId ||
         oldWidget.followService != widget.followService) {
-      _isFollowingStream = widget.followService.watchIsFollowing(
+      _stateStream = widget.followService.watchFollowState(
         followerId: widget.followerId,
         followeeId: widget.followeeId,
       );
     }
   }
 
-  Future<void> _toggle(bool isFollowing) async {
+  Future<void> _toggle(FollowRelationshipState state) async {
     if (_busy) return;
+    final shouldUnfollow = state.status == FollowRelationshipStatus.following;
+    final shouldCancel = state.status == FollowRelationshipStatus.requested;
+    if (shouldUnfollow && state.isTargetPrivate) {
+      final confirmed = await _confirmPrivateUnfollow();
+      if (!confirmed) return;
+    }
+
     setState(() => _busy = true);
     try {
-      if (isFollowing) {
+      if (shouldUnfollow) {
         await widget.followService.unfollow(
           followerId: widget.followerId,
           followeeId: widget.followeeId,
         );
+      } else if (shouldCancel) {
+        await widget.followService.cancelFollowRequest(
+          requesterId: widget.followerId,
+          targetId: widget.followeeId,
+        );
       } else {
-        await widget.followService.follow(
+        await widget.followService.followOrRequest(
           followerId: widget.followerId,
           followeeId: widget.followeeId,
         );
@@ -96,14 +109,20 @@ class _FollowRelationshipButtonState extends State<FollowRelationshipButton> {
       debugPrint(
         '[FollowRelationshipButton] followerId=${widget.followerId} '
         'followeeId=${widget.followeeId} '
-        'op=${isFollowing ? 'unfollow' : 'follow'} '
+        'op=${shouldUnfollow
+            ? 'unfollow'
+            : shouldCancel
+            ? 'cancel-request'
+            : 'follow'} '
         'code=$code error=$error',
       );
       if (mounted) {
         AppToast.error(
           context,
-          isFollowing
+          shouldUnfollow
               ? 'Could not unfollow right now.'
+              : shouldCancel
+              ? 'Could not cancel request right now.'
               : 'Could not follow right now.',
         );
       }
@@ -112,8 +131,38 @@ class _FollowRelationshipButtonState extends State<FollowRelationshipButton> {
     }
   }
 
-  String _idleLabel(bool isFollowing) {
-    if (isFollowing) return 'Following';
+  Future<bool> _confirmPrivateUnfollow() async {
+    final username = widget.followeeProfile?.username;
+    final title = username == null || username.isEmpty
+        ? 'Unfollow this account?'
+        : 'Unfollow @$username?';
+    final result = await showDialog<bool>(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: Text(title),
+          content: const Text(
+            'You will need to request to follow again to see this private account\'s activity.',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(false),
+              child: const Text('Cancel'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.of(context).pop(true),
+              child: const Text('Unfollow'),
+            ),
+          ],
+        );
+      },
+    );
+    return result ?? false;
+  }
+
+  String _idleLabel(FollowRelationshipStatus status) {
+    if (status == FollowRelationshipStatus.following) return 'Following';
+    if (status == FollowRelationshipStatus.requested) return 'Requested';
     return switch (widget.labelMode) {
       FollowRelationshipLabelMode.follow => 'Follow',
       FollowRelationshipLabelMode.followBack => 'Follow Back',
@@ -122,19 +171,25 @@ class _FollowRelationshipButtonState extends State<FollowRelationshipButton> {
 
   @override
   Widget build(BuildContext context) {
-    return StreamBuilder<bool>(
-      stream: _isFollowingStream,
+    return StreamBuilder<FollowRelationshipState>(
+      stream: _stateStream,
       builder: (context, snapshot) {
-        final isFollowing = snapshot.data ?? false;
+        final state =
+            snapshot.data ??
+            const FollowRelationshipState(
+              status: FollowRelationshipStatus.notFollowing,
+              isTargetPrivate: false,
+            );
         final waiting =
             snapshot.connectionState == ConnectionState.waiting &&
             !snapshot.hasData;
-        final onPressed = _busy || waiting ? null : () => _toggle(isFollowing);
-        final label = Text(_idleLabel(isFollowing));
+        final onPressed = _busy || waiting ? null : () => _toggle(state);
+        final label = Text(_idleLabel(state.status));
 
         // Outlined Following stays a real button (cream softCard fill looked
         // like plain centred text on the cream profile background).
-        final Widget button = isFollowing
+        final outlined = state.status != FollowRelationshipStatus.notFollowing;
+        final Widget button = outlined
             ? OutlinedButton(
                 onPressed: onPressed,
                 style: OutlinedButton.styleFrom(

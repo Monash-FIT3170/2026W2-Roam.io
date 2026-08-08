@@ -142,6 +142,7 @@ class FriendshipService {
     DateTime? createdAt,
     int? xp,
     int? level,
+    bool isPrivateAccount = false,
   }) {
     final now = DateTime.now();
     return _publicProfiles
@@ -154,6 +155,7 @@ class FriendshipService {
             photoUrl: photoUrl,
             xp: xp,
             level: level,
+            isPrivateAccount: isPrivateAccount,
           ).toMap(createdAt: createdAt ?? now, updatedAt: now),
           SetOptions(merge: true),
         );

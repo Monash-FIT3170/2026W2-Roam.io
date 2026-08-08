@@ -12,9 +12,12 @@
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/foundation.dart';
+import 'dart:async';
 
+import '../domain/follow_relationship_state.dart';
 import '../domain/follow.dart';
 import '../domain/social_notification.dart';
+import 'follow_request_service.dart';
 
 /// Owns one-way public follow relationships.
 class FollowService {
@@ -27,6 +30,9 @@ class FollowService {
 
   CollectionReference<Map<String, dynamic>> get _follows =>
       _firestore.collection(followsCollection);
+
+  CollectionReference<Map<String, dynamic>> get _followRequests =>
+      _firestore.collection(FollowRequestService.followRequestsCollection);
 
   /// Deterministic document ID for "follower follows followee".
   static String followIdFor(String followerId, String followeeId) {
@@ -45,6 +51,84 @@ class FollowService {
         .doc(followIdFor(followerId, followeeId))
         .snapshots()
         .map((doc) => doc.exists);
+  }
+
+  /// Watches the derived Follow / Requested / Following state for a pair.
+  Stream<FollowRelationshipState> watchFollowState({
+    required String followerId,
+    required String followeeId,
+  }) {
+    if (followerId == followeeId) {
+      return Stream<FollowRelationshipState>.value(
+        const FollowRelationshipState(
+          status: FollowRelationshipStatus.notFollowing,
+          isTargetPrivate: false,
+        ),
+      );
+    }
+
+    late StreamController<FollowRelationshipState> controller;
+    StreamSubscription<DocumentSnapshot<Map<String, dynamic>>>? followSub;
+    StreamSubscription<DocumentSnapshot<Map<String, dynamic>>>? requestSub;
+    StreamSubscription<DocumentSnapshot<Map<String, dynamic>>>?
+    publicProfileSub;
+    var follows = false;
+    var hasPendingRequest = false;
+    var isPrivate = false;
+    var hasFollow = false;
+    var hasRequest = false;
+    var hasPrivacy = false;
+
+    void emit() {
+      if (controller.isClosed || !hasFollow || !hasRequest || !hasPrivacy) {
+        return;
+      }
+      final status = follows
+          ? FollowRelationshipStatus.following
+          : (hasPendingRequest && isPrivate
+                ? FollowRelationshipStatus.requested
+                : FollowRelationshipStatus.notFollowing);
+      controller.add(
+        FollowRelationshipState(status: status, isTargetPrivate: isPrivate),
+      );
+    }
+
+    controller = StreamController<FollowRelationshipState>.broadcast(
+      onListen: () {
+        followSub = _follows
+            .doc(followIdFor(followerId, followeeId))
+            .snapshots()
+            .listen((doc) {
+              follows = doc.exists;
+              hasFollow = true;
+              emit();
+            }, onError: controller.addError);
+        requestSub = _followRequests
+            .doc(FollowRequestService.requestIdFor(followerId, followeeId))
+            .snapshots()
+            .listen((doc) {
+              final data = doc.data();
+              hasPendingRequest = data?['status'] == 'pending';
+              hasRequest = true;
+              emit();
+            }, onError: controller.addError);
+        publicProfileSub = _firestore
+            .collection('public_profiles')
+            .doc(followeeId)
+            .snapshots()
+            .listen((doc) {
+              isPrivate = doc.data()?['isPrivateAccount'] as bool? ?? false;
+              hasPrivacy = true;
+              emit();
+            }, onError: controller.addError);
+      },
+      onCancel: () async {
+        await followSub?.cancel();
+        await requestSub?.cancel();
+        await publicProfileSub?.cancel();
+      },
+    );
+    return controller.stream;
   }
 
   Query<Map<String, dynamic>> _followingQuery(String uid) {
@@ -101,9 +185,43 @@ class FollowService {
     await _tryCreateFollowNotification(follow);
   }
 
+  /// Creates an immediate Follow for public targets or a request for private
+  /// targets. If a stale request remains after a target becomes public, the
+  /// public follow is created and the request is cleaned up best-effort.
+  Future<void> followOrRequest({
+    required String followerId,
+    required String followeeId,
+  }) async {
+    if (followerId == followeeId) return;
+    final publicDoc = await _firestore
+        .collection('public_profiles')
+        .doc(followeeId)
+        .get();
+    final targetData = publicDoc.data();
+    if (targetData == null) {
+      throw StateError('Target profile does not exist.');
+    }
+    final isPrivate = targetData['isPrivateAccount'] as bool? ?? false;
+    if (isPrivate) {
+      await FollowRequestService(
+        firestore: _firestore,
+      ).sendFollowRequest(requesterId: followerId, targetId: followeeId);
+      return;
+    }
+
+    await follow(followerId: followerId, followeeId: followeeId);
+    await _tryDeleteStaleRequest(
+      followerId: followerId,
+      followeeId: followeeId,
+    );
+  }
+
   /// Best-effort inbox write after follow. Failures are logged and ignored so
   /// the Follow relationship remains authoritative.
   Future<void> _tryCreateFollowNotification(Follow follow) async {
+    if (follow.source == FollowRequestService.acceptedFollowSource) {
+      return;
+    }
     try {
       final notification = SocialNotification(
         id: follow.id,
@@ -144,5 +262,31 @@ class FollowService {
     required String followeeId,
   }) async {
     await unfollow(followerId: followerId, followeeId: followeeId);
+  }
+
+  Future<void> cancelFollowRequest({
+    required String requesterId,
+    required String targetId,
+  }) {
+    return FollowRequestService(
+      firestore: _firestore,
+    ).cancelFollowRequest(requesterId: requesterId, targetId: targetId);
+  }
+
+  Future<void> _tryDeleteStaleRequest({
+    required String followerId,
+    required String followeeId,
+  }) async {
+    try {
+      await _followRequests
+          .doc(FollowRequestService.requestIdFor(followerId, followeeId))
+          .delete();
+    } catch (error) {
+      final code = error is FirebaseException ? error.code : 'unknown';
+      debugPrint(
+        '[FollowService] stale request cleanup failed followerId=$followerId '
+        'followeeId=$followeeId code=$code error=$error',
+      );
+    }
   }
 }

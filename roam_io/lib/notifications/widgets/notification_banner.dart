@@ -210,6 +210,8 @@ class _NotificationIcon extends StatelessWidget {
       NotificationType.friendRequest => Icons.person_add_alt_1,
       NotificationType.friendAccepted => Icons.people_outline,
       NotificationType.follow => Icons.person_add_alt_1,
+      NotificationType.followRequest => Icons.person_add_alt_1,
+      NotificationType.followRequestAccepted => Icons.people_outline,
       NotificationType.error => Icons.error_outline,
       NotificationType.activity => Icons.directions_walk,
     };

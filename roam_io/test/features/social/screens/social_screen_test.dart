@@ -1,8 +1,8 @@
 /*
  * Author: Sanjevan Rajasegar
- * Last Updated: 7 August 2026
+ * Last Updated: 8 August 2026
  * Description:
- *   Widget tests for the Social destination foundation.
+ *   Widget tests for the Social destination header and Follow Request entry.
  */
 
 import 'package:fake_cloud_firestore/fake_cloud_firestore.dart';
@@ -29,7 +29,7 @@ void main() {
     );
 
     expect(find.text('Social'), findsOneWidget);
-    expect(find.text('Social hub'), findsOneWidget);
+    expect(find.text('Sign in to manage follow requests.'), findsOneWidget);
     expect(find.byType(ElevatedButton), findsNothing);
     expect(find.byType(FilledButton), findsNothing);
   });

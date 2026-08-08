@@ -342,6 +342,7 @@ class _PersonResultRow extends StatelessWidget {
             followerId: currentUserId,
             followeeId: profile.uid,
             followService: followService,
+            followeeProfile: profile,
             compact: true,
           ),
         ],

@@ -20,7 +20,11 @@ const {
   TRANSPORT_TYPES,
 } = require('./placesapi');
 
-const { onFollowCreated } = require('./follow_notifications');
+const {
+  onFollowCreated,
+  onFollowRequestCreated,
+  onFollowRequestAccepted,
+} = require('./follow_notifications');
 
 const DATABASE_URL = defineSecret('DATABASE_URL');
 const GOOGLE_PLACES_API_KEY = defineSecret('GOOGLE_PLACES_API_KEY');
@@ -702,3 +706,5 @@ exports.api = onRequest(
 );
 
 exports.onFollowCreated = onFollowCreated;
+exports.onFollowRequestCreated = onFollowRequestCreated;
+exports.onFollowRequestAccepted = onFollowRequestAccepted;

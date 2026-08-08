@@ -1,9 +1,10 @@
 /*
  * Author: Sanjevan Rajasegar
- * Last Updated: 7 August 2026
+ * Last Updated: 8 August 2026
  * Description:
  *   Backfills public_profiles from authoritative private profiles for
  *   registered-user social search without exposing private account fields.
+ *   Mirrors only the safe isPrivateAccount bit needed by Follow Requests.
  */
 
 function normalizeSearchText(value) {
@@ -39,6 +40,7 @@ function publicProfileFromPrivateProfile(uid, profile, nowIso) {
     usernameSearch: normalizeUsernameSearchText(username),
     displayName,
     displayNameSearch: normalizeSearchText(displayName),
+    isPrivateAccount: profile.privacy?.isPrivateAccount === true,
     createdAt: typeof profile.createdAt === 'string'
       ? profile.createdAt
       : nowIso,
