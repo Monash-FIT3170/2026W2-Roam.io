@@ -108,6 +108,12 @@ Follow / Following is resolved per row after results render. Missing
 search fields cause empty hits, not permission errors — backfill with
 `npm run backfill:public-profiles` in `roam_io/functions` when needed.
 
+Public avatars use `public_profiles.photoUrl` (HTTPS Firebase Storage download
+URLs with `alt=media` + token). Shared `SocialAvatar` loads HTTP(S) via
+`Image.network` (same path as Settings); `gs://` / relative storage paths are
+resolved with `getDownloadURL` first. Author: Sanjevan Rajasegar,
+Last Updated: 9 August 2026.
+
 Profile headers show identity, level/XP, and six public stats:
 Following, Followers, Tiles, XP Gained, Journeys, and Sidequests. Following /
 Followers come from one-way `follows/{followerId_followeeId}` documents

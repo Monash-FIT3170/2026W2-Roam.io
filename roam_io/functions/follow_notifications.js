@@ -2,13 +2,15 @@
  * Author: Sanjevan Rajasegar
  * Last Updated: 8 August 2026
  * Description:
- *   Creates persistent social inbox notifications for immediate follows,
- *   private follow requests, and request acceptance. Accepted private requests
- *   skip the target-side "followed you" notification because the target
- *   initiated the approval.
+ *   Creates and removes persistent social inbox notifications for immediate
+ *   follows, private follow requests, and request acceptance. Recipient rows
+ *   represent current relationship state.
  */
 
-const { onDocumentCreated } = require('firebase-functions/v2/firestore');
+const {
+  onDocumentCreated,
+  onDocumentDeleted,
+} = require('firebase-functions/v2/firestore');
 const { initializeApp, getApps } = require('firebase-admin/app');
 const { getFirestore } = require('firebase-admin/firestore');
 
@@ -17,8 +19,7 @@ if (getApps().length === 0) {
 }
 
 /**
- * On follows/{followId} create, write
- * profiles/{followeeId}/notifications/{followId}.
+ * On follows/{followId} create, write the current recipient notification.
  */
 exports.onFollowCreated = onDocumentCreated(
   {
@@ -49,7 +50,7 @@ exports.onFollowCreated = onDocumentCreated(
     }
 
     if (data.source === 'follow_request_acceptance') {
-      console.log('[FollowNotif] skip accepted request follow notification', {
+      console.log('[FollowNotif] accepted request target row handled by accept trigger', {
         followId,
         followeeId,
         followerId,
@@ -67,13 +68,14 @@ exports.onFollowCreated = onDocumentCreated(
       typeof data.createdAt === 'string' && data.createdAt.length > 0
         ? data.createdAt
         : new Date().toISOString();
+    const notificationId = `follow_${followerId}_${followeeId}`;
 
     try {
       await getFirestore()
         .collection('profiles')
         .doc(followeeId)
         .collection('notifications')
-        .doc(followId)
+        .doc(notificationId)
         .set(
           {
             recipientId: followeeId,
@@ -86,6 +88,7 @@ exports.onFollowCreated = onDocumentCreated(
         );
       console.log('[FollowNotif] wrote notification', {
         followId,
+        notificationId,
         followeeId,
         followerId,
       });
@@ -101,7 +104,7 @@ exports.onFollowCreated = onDocumentCreated(
 
 /**
  * On follow_requests/{requestId} create, write a request notification for the
- * private target. Doc ID is deterministic for idempotent retries.
+ * private target. Doc ID is deterministic for this requester/target pair.
  */
 exports.onFollowRequestCreated = onDocumentCreated(
   {
@@ -135,13 +138,14 @@ exports.onFollowRequestCreated = onDocumentCreated(
       typeof data.createdAt === 'string' && data.createdAt.length > 0
         ? data.createdAt
         : new Date().toISOString();
+    const notificationId = `follow_request_${requestId}`;
 
     try {
       await getFirestore()
         .collection('profiles')
         .doc(targetId)
         .collection('notifications')
-        .doc(`follow_request_${requestId}`)
+        .doc(notificationId)
         .set(
           {
             recipientId: targetId,
@@ -154,6 +158,7 @@ exports.onFollowRequestCreated = onDocumentCreated(
         );
       console.log('[FollowRequestNotif] wrote notification', {
         requestId,
+        notificationId,
         targetId,
         requesterId,
       });
@@ -168,7 +173,7 @@ exports.onFollowRequestCreated = onDocumentCreated(
 
 /**
  * On follows/{followId} create from request acceptance, write an acceptance
- * notification to the requester.
+ * notification to the requester and promote the target's request row.
  */
 exports.onFollowRequestAccepted = onDocumentCreated(
   {
@@ -204,9 +209,53 @@ exports.onFollowRequestAccepted = onDocumentCreated(
       typeof data.createdAt === 'string' && data.createdAt.length > 0
         ? data.createdAt
         : new Date().toISOString();
+    const firestore = getFirestore();
+
+    const requestNotificationId = `follow_request_${requesterId}_${targetId}`;
+    const followNotificationId = `follow_${requesterId}_${targetId}`;
+    try {
+      const batch = firestore.batch();
+      batch.delete(
+        firestore
+          .collection('profiles')
+          .doc(targetId)
+          .collection('notifications')
+          .doc(requestNotificationId),
+      );
+      batch.set(
+        firestore
+          .collection('profiles')
+          .doc(targetId)
+          .collection('notifications')
+          .doc(followNotificationId),
+        {
+          recipientId: targetId,
+          actorId: requesterId,
+          type: 'follow',
+          createdAt,
+          readAt: null,
+        },
+        { merge: true },
+      );
+      await batch.commit();
+      console.log('[FollowAcceptNotif] replaced target request row', {
+        followId,
+        requestNotificationId,
+        followNotificationId,
+        requesterId,
+        targetId,
+      });
+    } catch (error) {
+      console.error('[FollowAcceptNotif] failed to replace target row', {
+        followId,
+        requestNotificationId,
+        followNotificationId,
+        error: error && error.message ? error.message : String(error),
+      });
+    }
 
     try {
-      await getFirestore()
+      await firestore
         .collection('profiles')
         .doc(requesterId)
         .collection('notifications')
@@ -229,6 +278,92 @@ exports.onFollowRequestAccepted = onDocumentCreated(
     } catch (error) {
       console.error('[FollowAcceptNotif] failed to write notification', {
         followId,
+        error: error && error.message ? error.message : String(error),
+      });
+    }
+  },
+);
+
+exports.onFollowDeleted = onDocumentDeleted(
+  {
+    document: 'follows/{followId}',
+    region: 'australia-southeast1',
+  },
+  async (event) => {
+    const snap = event.data;
+    if (!snap) return;
+
+    const followId = event.params.followId;
+    const data = snap.data() || {};
+    const followerId = data.followerId;
+    const followeeId = data.followeeId;
+    if (
+      typeof followerId !== 'string' ||
+      typeof followeeId !== 'string' ||
+      followId !== `${followerId}_${followeeId}`
+    ) {
+      return;
+    }
+
+    const notificationId = `follow_${followerId}_${followeeId}`;
+    try {
+      await getFirestore()
+        .collection('profiles')
+        .doc(followeeId)
+        .collection('notifications')
+        .doc(notificationId)
+        .delete();
+      console.log('[FollowNotif] deleted notification', {
+        followId,
+        notificationId,
+      });
+    } catch (error) {
+      console.error('[FollowNotif] failed to delete notification', {
+        followId,
+        notificationId,
+        error: error && error.message ? error.message : String(error),
+      });
+    }
+  },
+);
+
+exports.onFollowRequestDeleted = onDocumentDeleted(
+  {
+    document: 'follow_requests/{requestId}',
+    region: 'australia-southeast1',
+  },
+  async (event) => {
+    const snap = event.data;
+    if (!snap) return;
+
+    const requestId = event.params.requestId;
+    const data = snap.data() || {};
+    const requesterId = data.requesterId;
+    const targetId = data.targetId;
+    if (
+      typeof requesterId !== 'string' ||
+      typeof targetId !== 'string' ||
+      requestId !== `${requesterId}_${targetId}`
+    ) {
+      return;
+    }
+
+    const notificationId = `follow_request_${requestId}`;
+    try {
+      await getFirestore()
+        .collection('profiles')
+        .doc(targetId)
+        .collection('notifications')
+        .doc(notificationId)
+        .delete();
+      console.log('[FollowRequestNotif] deleted notification', {
+        requestId,
+        notificationId,
+      });
+    } catch (error) {
+      console.error('[FollowRequestNotif] failed to delete notification', {
+        requestId,
+        notificationId,
         error: error && error.message ? error.message : String(error),
       });
     }

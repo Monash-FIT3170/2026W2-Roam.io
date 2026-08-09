@@ -17,7 +17,6 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:provider/provider.dart';
 
 import '../../../services/profile_service.dart';
-import '../../../shared/widgets/app_bottom_nav_bar.dart';
 import '../../../theme/app_surfaces.dart';
 import '../../activity_feed/data/activity_feed_service.dart';
 import '../../activity_feed/data/comment_service.dart';
@@ -142,6 +141,7 @@ class _OtherUserProfileScreenState extends State<OtherUserProfileScreen>
         backgroundColor: AppSurfaces.pageBackground(context),
         appBar: AppBar(title: const Text('Profile')),
         body: SafeArea(
+          bottom: false,
           child: StreamBuilder<PublicProfile?>(
             stream: _friendshipService.watchPublicProfile(
               widget.selectedUserId,
@@ -366,7 +366,7 @@ class _ExternalProfileDashboard extends StatelessWidget {
       recentVisitsReady: analytics.recentVisitsReady,
       recentVisitsError: analytics.recentVisitsError,
       visitsError: analytics.visitsError,
-      bottomPadding: AppBottomNavBar.clearanceFromScreenBottom(context) + 12,
+      bottomPadding: _routeBottomPadding(context),
     );
   }
 }
@@ -386,8 +386,7 @@ class _PrivateProfileSummary extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final bottomPadding =
-        AppBottomNavBar.clearanceFromScreenBottom(context) + 12;
+    final bottomPadding = _routeBottomPadding(context);
     return SingleChildScrollView(
       padding: EdgeInsets.only(bottom: bottomPadding),
       child: Padding(
@@ -563,8 +562,7 @@ class _ExternalActivitiesTab extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final bottomClearance =
-        AppBottomNavBar.clearanceFromScreenBottom(context) + 12;
+    final bottomPadding = _routeBottomPadding(context);
 
     return StreamBuilder<List<ActivityFeedItem>>(
       stream: activityFeedService.watchPublicActivitiesForProfile(
@@ -593,7 +591,7 @@ class _ExternalActivitiesTab extends StatelessWidget {
         }
 
         return ListView.separated(
-          padding: EdgeInsets.fromLTRB(20, 20, 20, bottomClearance),
+          padding: EdgeInsets.fromLTRB(20, 20, 20, bottomPadding),
           itemCount: activities.length,
           separatorBuilder: (context, index) => const SizedBox(height: 14),
           itemBuilder: (context, index) {
@@ -628,6 +626,10 @@ class _ExternalActivitiesTab extends StatelessWidget {
       },
     );
   }
+}
+
+double _routeBottomPadding(BuildContext context) {
+  return MediaQuery.viewPaddingOf(context).bottom + 24;
 }
 
 class _EmptyVisitService implements VisitService {

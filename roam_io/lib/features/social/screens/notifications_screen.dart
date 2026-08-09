@@ -1,10 +1,11 @@
 /*
  * Author: Sanjevan Rajasegar
- * Last Updated: 8 August 2026
+ * Last Updated: 9 August 2026
  * Description:
  *   Social notifications list for public follows, private follow requests, and
- *   request acceptance. Opening marks unread notifications read. Request rows
- *   call the same FollowRequestService methods as other UI surfaces.
+ *   request acceptance. Opening marks unread notifications read. Private
+ *   request rows are the single incoming request management surface. Removing
+ *   a private follower confirms first.
  */
 
 import 'package:flutter/material.dart';
@@ -12,16 +13,21 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:provider/provider.dart';
 
 import '../../../shared/widgets/app_toast.dart';
+import '../../../theme/app_colours.dart';
 import '../../../theme/app_surfaces.dart';
 import '../../auth/providers/auth_provider.dart';
 import '../data/follow_request_service.dart';
 import '../data/follow_service.dart';
 import '../data/friendship_service.dart';
 import '../data/social_notification_service.dart';
+import '../domain/follow_request.dart';
 import '../domain/public_profile.dart';
 import '../domain/social_notification.dart';
 import '../utils/relative_time.dart';
 import '../widgets/follow_relationship_button.dart';
+import '../widgets/private_follow_confirm.dart';
+import '../widgets/social_avatar.dart';
+import 'other_user_profile_screen.dart';
 
 /// Dedicated Notifications screen opened from the You bell.
 class NotificationsScreen extends StatefulWidget {
@@ -182,30 +188,57 @@ class _FollowNotificationRow extends StatelessWidget {
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
-              _ActorAvatar(photoUrl: photoUrl),
-              const SizedBox(width: 10),
               Expanded(
-                child: Text.rich(
-                  TextSpan(
-                    children: [
-                      TextSpan(
-                        text: name,
-                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                          fontWeight: FontWeight.w800,
-                          color: AppSurfaces.textPrimary(context),
+                child: InkWell(
+                  borderRadius: BorderRadius.circular(12),
+                  onTap: () {
+                    Navigator.of(context).push(
+                      MaterialPageRoute<void>(
+                        builder: (_) => OtherUserProfileScreen(
+                          selectedUserId: notification.actorId,
+                          friendshipService: friendshipService,
+                          followService: followService,
                         ),
                       ),
-                      TextSpan(
-                        text: message,
-                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                          fontWeight: FontWeight.w600,
-                          color: AppSurfaces.textMuted(context),
+                    );
+                  },
+                  child: Row(
+                    children: [
+                      SocialAvatar(
+                        displayName: name,
+                        photoUrl: photoUrl,
+                        radius: 20,
+                        borderWidth: 1.5,
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Text.rich(
+                          TextSpan(
+                            children: [
+                              TextSpan(
+                                text: name,
+                                style: Theme.of(context).textTheme.bodyMedium
+                                    ?.copyWith(
+                                      fontWeight: FontWeight.w800,
+                                      color: AppSurfaces.textPrimary(context),
+                                    ),
+                              ),
+                              TextSpan(
+                                text: message,
+                                style: Theme.of(context).textTheme.bodyMedium
+                                    ?.copyWith(
+                                      fontWeight: FontWeight.w600,
+                                      color: AppSurfaces.textMuted(context),
+                                    ),
+                              ),
+                            ],
+                          ),
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
                         ),
                       ),
                     ],
                   ),
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
                 ),
               ),
               const SizedBox(width: 8),
@@ -220,10 +253,7 @@ class _FollowNotificationRow extends StatelessWidget {
                 ),
               if (notification.isFollowRequest)
                 _FollowRequestActions(
-                  requestId: FollowRequestService.requestIdFor(
-                    notification.actorId,
-                    currentUserId,
-                  ),
+                  requesterId: notification.actorId,
                   currentUserId: currentUserId,
                   followRequestService: followRequestService,
                 ),
@@ -236,6 +266,13 @@ class _FollowNotificationRow extends StatelessWidget {
                   ),
                   onSelected: (value) async {
                     if (value != 'remove') return;
+                    if (profile?.isPrivateAccount ?? false) {
+                      final confirmed = await confirmRemovePrivateFollower(
+                        context,
+                        username: profile?.username,
+                      );
+                      if (!confirmed) return;
+                    }
                     try {
                       await followService.removeFollower(
                         followerId: notification.actorId,
@@ -267,12 +304,12 @@ class _FollowNotificationRow extends StatelessWidget {
 
 class _FollowRequestActions extends StatefulWidget {
   const _FollowRequestActions({
-    required this.requestId,
+    required this.requesterId,
     required this.currentUserId,
     required this.followRequestService,
   });
 
-  final String requestId;
+  final String requesterId;
   final String currentUserId;
   final FollowRequestService followRequestService;
 
@@ -283,19 +320,24 @@ class _FollowRequestActions extends StatefulWidget {
 class _FollowRequestActionsState extends State<_FollowRequestActions> {
   var _busy = false;
 
-  Future<void> _accept() async {
+  String get _requestId => FollowRequestService.requestIdFor(
+    widget.requesterId,
+    widget.currentUserId,
+  );
+
+  Future<void> _accept(FollowRequest request) async {
     await _run(() {
       return widget.followRequestService.acceptFollowRequest(
-        requestId: widget.requestId,
+        requestId: request.id,
         currentUserId: widget.currentUserId,
       );
     });
   }
 
-  Future<void> _decline() async {
+  Future<void> _decline(FollowRequest request) async {
     await _run(() {
       return widget.followRequestService.declineFollowRequest(
-        requestId: widget.requestId,
+        requestId: request.id,
         currentUserId: widget.currentUserId,
       );
     });
@@ -318,34 +360,68 @@ class _FollowRequestActionsState extends State<_FollowRequestActions> {
 
   @override
   Widget build(BuildContext context) {
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        OutlinedButton(
-          onPressed: _busy ? null : _decline,
-          style: OutlinedButton.styleFrom(
-            shape: const StadiumBorder(),
-            visualDensity: VisualDensity.compact,
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-          ),
-          child: const Text('Decline'),
-        ),
-        const SizedBox(width: 6),
-        FilledButton(
-          onPressed: _busy ? null : _accept,
-          style: FilledButton.styleFrom(
-            shape: const StadiumBorder(),
-            visualDensity: VisualDensity.compact,
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-          ),
-          child: const Text('Accept'),
-        ),
-      ],
+    return StreamBuilder<FollowRequest?>(
+      stream: widget.followRequestService.watchPendingBetween(
+        requesterId: widget.requesterId,
+        targetId: widget.currentUserId,
+      ),
+      builder: (context, snapshot) {
+        final request = snapshot.data;
+        final isActionable =
+            request != null &&
+            request.id == _requestId &&
+            request.requesterId == widget.requesterId &&
+            request.targetId == widget.currentUserId &&
+            request.isPending;
+        if (!isActionable) return const SizedBox.shrink();
+
+        return Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            OutlinedButton(
+              onPressed: _busy ? null : () => _decline(request),
+              style: OutlinedButton.styleFrom(
+                shape: const StadiumBorder(),
+                visualDensity: VisualDensity.compact,
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 8,
+                ),
+                foregroundColor: AppSurfaces.textPrimary(context),
+                backgroundColor: AppColors.cream,
+                side: BorderSide(color: AppSurfaces.border(context)),
+              ),
+              child: const Text('Decline'),
+            ),
+            const SizedBox(width: 6),
+            FilledButton(
+              onPressed: _busy ? null : () => _accept(request),
+              style: FilledButton.styleFrom(
+                shape: const StadiumBorder(),
+                visualDensity: VisualDensity.compact,
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 8,
+                ),
+              ),
+              child: const Text('Accept'),
+            ),
+          ],
+        );
+      },
     );
   }
 }
 
 class _EmptyFollowRequestService implements FollowRequestService {
+  @override
+  Stream<FollowRequest?> watchPendingBetween({
+    required String requesterId,
+    required String targetId,
+  }) {
+    return Stream<FollowRequest?>.value(null);
+  }
+
   @override
   Future<void> acceptFollowRequest({
     required String requestId,
@@ -364,40 +440,4 @@ class _EmptyFollowRequestService implements FollowRequestService {
 
   @override
   dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
-}
-
-class _ActorAvatar extends StatelessWidget {
-  const _ActorAvatar({required this.photoUrl});
-
-  final String? photoUrl;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return Container(
-      width: 40,
-      height: 40,
-      decoration: BoxDecoration(
-        color: AppSurfaces.softCard(context),
-        shape: BoxShape.circle,
-        border: Border.all(color: theme.colorScheme.primary, width: 1.5),
-      ),
-      clipBehavior: Clip.antiAlias,
-      child: photoUrl != null && photoUrl!.isNotEmpty
-          ? Image.network(
-              photoUrl!,
-              fit: BoxFit.cover,
-              errorBuilder: (_, _, _) => Icon(
-                Icons.person_rounded,
-                color: theme.colorScheme.primary,
-                size: 22,
-              ),
-            )
-          : Icon(
-              Icons.person_rounded,
-              color: theme.colorScheme.primary,
-              size: 22,
-            ),
-    );
-  }
 }

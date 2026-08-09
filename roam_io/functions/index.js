@@ -22,7 +22,9 @@ const {
 
 const {
   onFollowCreated,
+  onFollowDeleted,
   onFollowRequestCreated,
+  onFollowRequestDeleted,
   onFollowRequestAccepted,
 } = require('./follow_notifications');
 
@@ -706,5 +708,7 @@ exports.api = onRequest(
 );
 
 exports.onFollowCreated = onFollowCreated;
+exports.onFollowDeleted = onFollowDeleted;
 exports.onFollowRequestCreated = onFollowRequestCreated;
+exports.onFollowRequestDeleted = onFollowRequestDeleted;
 exports.onFollowRequestAccepted = onFollowRequestAccepted;

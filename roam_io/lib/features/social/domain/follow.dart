@@ -16,6 +16,7 @@ class Follow {
     required this.createdAt,
     this.source,
     this.acceptedRequestId,
+    this.acceptedRequestCreatedAt,
   });
 
   final String id;
@@ -24,6 +25,7 @@ class Follow {
   final DateTime createdAt;
   final String? source;
   final String? acceptedRequestId;
+  final DateTime? acceptedRequestCreatedAt;
 
   factory Follow.fromMap(String id, Map<String, dynamic> map) {
     return Follow(
@@ -35,6 +37,9 @@ class Follow {
           DateTime.fromMillisecondsSinceEpoch(0),
       source: map['source'] as String?,
       acceptedRequestId: map['acceptedRequestId'] as String?,
+      acceptedRequestCreatedAt: map['acceptedRequestCreatedAt'] is String
+          ? DateTime.tryParse(map['acceptedRequestCreatedAt'] as String)
+          : null,
     );
   }
 
@@ -45,6 +50,8 @@ class Follow {
       'createdAt': createdAt.toIso8601String(),
       if (source != null) 'source': source,
       if (acceptedRequestId != null) 'acceptedRequestId': acceptedRequestId,
+      if (acceptedRequestCreatedAt != null)
+        'acceptedRequestCreatedAt': acceptedRequestCreatedAt!.toIso8601String(),
     };
   }
 }

@@ -4,10 +4,8 @@
  * Description:
  *   Firestore-backed one-way follow actions, reactive follow counts, and
  *   follower/following id list streams. Documents live at
- *   follows/{followerId_followeeId}. After a successful follow write,
- *   best-effort creates profiles/{followeeId}/notifications/{followId}
- *   (Cloud Function is preferred when deployed; same deterministic ID
- *   dedupes both writers). Unfollow is silent — no notification.
+ *   follows/{followerId_followeeId}. After a newly created follow write,
+ *   best-effort creates one current notification row. Unfollow removes it.
  */
 
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -175,14 +173,25 @@ class FollowService {
     required String followeeId,
   }) async {
     if (followerId == followeeId) return;
-    final follow = Follow(
-      id: followIdFor(followerId, followeeId),
-      followerId: followerId,
-      followeeId: followeeId,
-      createdAt: DateTime.now(),
-    );
-    await _follows.doc(follow.id).set(follow.toMap());
-    await _tryCreateFollowNotification(follow);
+    final followId = followIdFor(followerId, followeeId);
+    final followRef = _follows.doc(followId);
+    Follow? createdFollow;
+    await _firestore.runTransaction<void>((transaction) async {
+      final existing = await transaction.get(followRef);
+      if (existing.exists) return;
+      final follow = Follow(
+        id: followId,
+        followerId: followerId,
+        followeeId: followeeId,
+        createdAt: DateTime.now(),
+      );
+      transaction.set(followRef, follow.toMap());
+      createdFollow = follow;
+    });
+    final follow = createdFollow;
+    if (follow != null) {
+      await _tryCreateFollowNotification(follow);
+    }
   }
 
   /// Creates an immediate Follow for public targets or a request for private
@@ -202,6 +211,14 @@ class FollowService {
       throw StateError('Target profile does not exist.');
     }
     final isPrivate = targetData['isPrivateAccount'] as bool? ?? false;
+    final followId = followIdFor(followerId, followeeId);
+    final requestId = FollowRequestService.requestIdFor(followerId, followeeId);
+    debugPrint(
+      '[FollowService] followOrRequest followerId=$followerId '
+      'followeeId=$followeeId isPrivateAccount=$isPrivate '
+      'followPath=${FollowService.followsCollection}/$followId '
+      'requestPath=${FollowRequestService.followRequestsCollection}/$requestId',
+    );
     if (isPrivate) {
       await FollowRequestService(
         firestore: _firestore,
@@ -224,7 +241,10 @@ class FollowService {
     }
     try {
       final notification = SocialNotification(
-        id: follow.id,
+        id: SocialNotification.followNotificationIdFor(
+          followerId: follow.followerId,
+          followeeId: follow.followeeId,
+        ),
         recipientId: follow.followeeId,
         actorId: follow.followerId,
         type: SocialNotificationType.follow,
@@ -234,26 +254,32 @@ class FollowService {
           .collection('profiles')
           .doc(follow.followeeId)
           .collection('notifications')
-          .doc(follow.id)
+          .doc(notification.id)
           .set(notification.toMap(), SetOptions(merge: true));
     } catch (error) {
       final code = error is FirebaseException ? error.code : 'unknown';
       debugPrint(
         '[FollowService] notification write failed '
-        'followId=${follow.id} recipientId=${follow.followeeId} '
+        'followId=${follow.id} notificationId='
+        '${SocialNotification.followNotificationIdFor(followerId: follow.followerId, followeeId: follow.followeeId)} '
+        'recipientId=${follow.followeeId} '
         'actorId=${follow.followerId} code=$code error=$error',
       );
     }
   }
 
   /// Removes a one-way follow initiated by the follower. No-ops for self-follow.
-  /// Silent: does not create or delete notifications.
+  /// Silent: does not create notifications.
   Future<void> unfollow({
     required String followerId,
     required String followeeId,
   }) async {
     if (followerId == followeeId) return;
     await _follows.doc(followIdFor(followerId, followeeId)).delete();
+    await _tryDeleteFollowNotification(
+      followerId: followerId,
+      followeeId: followeeId,
+    );
   }
 
   /// Followee removes [followerId]'s follow (no notification to the follower).
@@ -286,6 +312,30 @@ class FollowService {
       debugPrint(
         '[FollowService] stale request cleanup failed followerId=$followerId '
         'followeeId=$followeeId code=$code error=$error',
+      );
+    }
+  }
+
+  Future<void> _tryDeleteFollowNotification({
+    required String followerId,
+    required String followeeId,
+  }) async {
+    final id = SocialNotification.followNotificationIdFor(
+      followerId: followerId,
+      followeeId: followeeId,
+    );
+    try {
+      await _firestore
+          .collection('profiles')
+          .doc(followeeId)
+          .collection('notifications')
+          .doc(id)
+          .delete();
+    } catch (error) {
+      final code = error is FirebaseException ? error.code : 'unknown';
+      debugPrint(
+        '[FollowService] notification cleanup failed followerId=$followerId '
+        'followeeId=$followeeId notificationId=$id code=$code error=$error',
       );
     }
   }

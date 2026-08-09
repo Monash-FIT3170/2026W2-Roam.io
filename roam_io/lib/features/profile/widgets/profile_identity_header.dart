@@ -10,6 +10,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../theme/app_surfaces.dart';
+import '../../social/widgets/social_avatar.dart';
 import '../domain/profile_model.dart';
 import '../domain/profile_stats.dart';
 
@@ -39,7 +40,6 @@ class ProfileIdentityHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final colorScheme = theme.colorScheme;
     final hasProgress = level != null && xp != null;
 
     return Column(
@@ -49,26 +49,11 @@ class ProfileIdentityHeader extends StatelessWidget {
         Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Container(
-              width: 64,
-              height: 64,
-              decoration: BoxDecoration(
-                color: AppSurfaces.softCard(context),
-                shape: BoxShape.circle,
-                border: Border.all(color: colorScheme.primary, width: 2),
-              ),
-              child: ClipOval(
-                child: photoUrl != null && photoUrl!.isNotEmpty
-                    ? Image.network(
-                        photoUrl!,
-                        fit: BoxFit.cover,
-                        errorBuilder: (context, error, stackTrace) => Icon(
-                          Icons.person_rounded,
-                          color: colorScheme.primary,
-                        ),
-                      )
-                    : Icon(Icons.person_rounded, color: colorScheme.primary),
-              ),
+            SocialAvatar(
+              displayName: displayName,
+              photoUrl: photoUrl,
+              radius: 32,
+              borderWidth: 2,
             ),
             const SizedBox(width: 12),
             Expanded(

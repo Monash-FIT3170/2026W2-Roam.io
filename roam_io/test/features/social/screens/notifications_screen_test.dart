@@ -1,9 +1,10 @@
 /*
  * Author: Sanjevan Rajasegar
- * Last Updated: 8 August 2026
+ * Last Updated: 9 August 2026
  * Description:
  *   Widget tests for NotificationsScreen list, mark-read, Follow Back /
- *   Following unfollow, Remove chrome, and empty state.
+ *   Following unfollow, follow request actions, stale request rows, and empty
+ *   state.
  */
 
 import 'package:fake_cloud_firestore/fake_cloud_firestore.dart';
@@ -14,10 +15,13 @@ import 'package:provider/provider.dart';
 import 'package:roam_io/features/auth/data/auth_repository.dart';
 import 'package:roam_io/features/auth/providers/auth_provider.dart';
 import 'package:roam_io/features/profile/domain/profile_model.dart';
+import 'package:roam_io/features/social/data/follow_request_service.dart';
 import 'package:roam_io/features/social/data/follow_service.dart';
 import 'package:roam_io/features/social/data/friendship_service.dart';
 import 'package:roam_io/features/social/data/social_notification_service.dart';
+import 'package:roam_io/features/social/domain/social_notification.dart';
 import 'package:roam_io/features/social/screens/notifications_screen.dart';
+import 'package:roam_io/features/social/screens/other_user_profile_screen.dart';
 
 import '../../../support/fake_firebase_user.dart';
 
@@ -28,6 +32,7 @@ void main() {
     required SocialNotificationService notif,
     required FollowService follow,
     required FriendshipService friendship,
+    FollowRequestService? requests,
   }) async {
     await tester.pumpWidget(
       ChangeNotifierProvider<AuthProvider>.value(
@@ -36,6 +41,7 @@ void main() {
           home: NotificationsScreen(
             notificationService: notif,
             followService: follow,
+            followRequestService: requests,
             friendshipService: friendship,
           ),
         ),
@@ -60,7 +66,10 @@ void main() {
     await notif.upsertFollowNotificationForTests(
       recipientId: 'current-user',
       actorId: 'actor',
-      notificationId: FollowService.followIdFor('actor', 'current-user'),
+      notificationId: SocialNotification.followNotificationIdFor(
+        followerId: 'actor',
+        followeeId: 'current-user',
+      ),
     );
 
     final auth = AuthProvider(authRepository: _NotifAuthRepository());
@@ -92,7 +101,10 @@ void main() {
     await notif.upsertFollowNotificationForTests(
       recipientId: 'current-user',
       actorId: 'actor',
-      notificationId: FollowService.followIdFor('actor', 'current-user'),
+      notificationId: SocialNotification.followNotificationIdFor(
+        followerId: 'actor',
+        followeeId: 'current-user',
+      ),
     );
 
     final auth = AuthProvider(authRepository: _NotifAuthRepository());
@@ -111,6 +123,81 @@ void main() {
     auth.dispose();
   });
 
+  testWidgets('tapping notification body opens actor profile', (tester) async {
+    final firestore = FakeFirebaseFirestore();
+    final friendship = FriendshipService(firestore: firestore);
+    final notif = SocialNotificationService(firestore: firestore);
+    final follow = FollowService(firestore: firestore);
+    await friendship.upsertPublicProfile(
+      uid: 'actor',
+      username: 'jacob',
+      displayName: 'Jacob',
+    );
+    await notif.upsertFollowNotificationForTests(
+      recipientId: 'current-user',
+      actorId: 'actor',
+      notificationId: SocialNotification.followNotificationIdFor(
+        followerId: 'actor',
+        followeeId: 'current-user',
+      ),
+    );
+
+    final auth = AuthProvider(authRepository: _NotifAuthRepository());
+    await pumpNotifScreen(
+      tester,
+      auth: auth,
+      notif: notif,
+      follow: follow,
+      friendship: friendship,
+    );
+
+    await tester.tap(find.textContaining('Jacob followed you'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
+
+    expect(find.byType(OtherUserProfileScreen), findsOneWidget);
+    auth.dispose();
+  });
+
+  testWidgets('notification action tap does not open actor profile', (
+    tester,
+  ) async {
+    final firestore = FakeFirebaseFirestore();
+    final friendship = FriendshipService(firestore: firestore);
+    final notif = SocialNotificationService(firestore: firestore);
+    final follow = FollowService(firestore: firestore);
+    await friendship.upsertPublicProfile(
+      uid: 'actor',
+      username: 'jacob',
+      displayName: 'Jacob',
+    );
+    await notif.upsertFollowNotificationForTests(
+      recipientId: 'current-user',
+      actorId: 'actor',
+      notificationId: SocialNotification.followNotificationIdFor(
+        followerId: 'actor',
+        followeeId: 'current-user',
+      ),
+    );
+
+    final auth = AuthProvider(authRepository: _NotifAuthRepository());
+    await pumpNotifScreen(
+      tester,
+      auth: auth,
+      notif: notif,
+      follow: follow,
+      friendship: friendship,
+    );
+
+    await tester.tap(find.widgetWithText(FilledButton, 'Follow Back'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
+
+    expect(find.byType(OtherUserProfileScreen), findsNothing);
+    expect(find.widgetWithText(OutlinedButton, 'Following'), findsOneWidget);
+    auth.dispose();
+  });
+
   testWidgets('Following on notification row unfollows immediately', (
     tester,
   ) async {
@@ -126,7 +213,10 @@ void main() {
     await notif.upsertFollowNotificationForTests(
       recipientId: 'current-user',
       actorId: 'actor',
-      notificationId: FollowService.followIdFor('actor', 'current-user'),
+      notificationId: SocialNotification.followNotificationIdFor(
+        followerId: 'actor',
+        followeeId: 'current-user',
+      ),
     );
     await follow.follow(followerId: 'current-user', followeeId: 'actor');
 
@@ -167,6 +257,210 @@ void main() {
       friendship: FriendshipService(firestore: firestore),
     );
     expect(find.text('No notifications yet'), findsOneWidget);
+    auth.dispose();
+  });
+
+  testWidgets('accepts incoming private follow request from notification row', (
+    tester,
+  ) async {
+    final firestore = FakeFirebaseFirestore();
+    final friendship = FriendshipService(firestore: firestore);
+    final notif = SocialNotificationService(firestore: firestore);
+    final follow = FollowService(firestore: firestore);
+    final requests = FollowRequestService(firestore: firestore);
+    await friendship.upsertPublicProfile(
+      uid: 'current-user',
+      username: 'current',
+      displayName: 'Current',
+      isPrivateAccount: true,
+    );
+    await friendship.upsertPublicProfile(
+      uid: 'actor',
+      username: 'jacob',
+      displayName: 'Jacob',
+    );
+    await follow.followOrRequest(
+      followerId: 'actor',
+      followeeId: 'current-user',
+    );
+
+    final auth = AuthProvider(authRepository: _NotifAuthRepository());
+    await pumpNotifScreen(
+      tester,
+      auth: auth,
+      notif: notif,
+      follow: follow,
+      friendship: friendship,
+      requests: requests,
+    );
+
+    expect(
+      find.textContaining('Jacob requested to follow you'),
+      findsOneWidget,
+    );
+    expect(find.widgetWithText(FilledButton, 'Accept'), findsOneWidget);
+    await tester.tap(find.widgetWithText(FilledButton, 'Accept'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
+
+    expect(find.widgetWithText(FilledButton, 'Accept'), findsNothing);
+    expect(find.widgetWithText(OutlinedButton, 'Decline'), findsNothing);
+    expect(find.textContaining('Jacob followed you'), findsOneWidget);
+    expect(find.text('Follow Back'), findsOneWidget);
+    expect(
+      await firestore
+          .collection(FollowService.followsCollection)
+          .doc(FollowService.followIdFor('actor', 'current-user'))
+          .get()
+          .then((doc) => doc.exists),
+      isTrue,
+    );
+    expect(
+      await firestore
+          .collection(FollowRequestService.followRequestsCollection)
+          .doc(FollowRequestService.requestIdFor('actor', 'current-user'))
+          .get()
+          .then((doc) => doc.exists),
+      isFalse,
+    );
+    expect(
+      (await notif.watchRecent('actor').first).single.type.name,
+      'followRequestAccepted',
+    );
+    final currentRows = await notif.watchRecent('current-user').first;
+    expect(currentRows, hasLength(1));
+    expect(currentRows.single.id, 'follow_actor_current-user');
+    expect(currentRows.single.type.name, 'follow');
+
+    await tester.tap(find.widgetWithText(FilledButton, 'Follow Back'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
+
+    expect(find.widgetWithText(OutlinedButton, 'Following'), findsOneWidget);
+    expect(
+      await firestore
+          .collection(FollowRequestService.followRequestsCollection)
+          .doc(FollowRequestService.requestIdFor('current-user', 'actor'))
+          .get()
+          .then((doc) => doc.exists),
+      isFalse,
+    );
+    expect(
+      await firestore
+          .collection(FollowService.followsCollection)
+          .doc(FollowService.followIdFor('current-user', 'actor'))
+          .get()
+          .then((doc) => doc.exists),
+      isTrue,
+    );
+    auth.dispose();
+  });
+
+  testWidgets(
+    'declines incoming private follow request from notification row',
+    (tester) async {
+      final firestore = FakeFirebaseFirestore();
+      final friendship = FriendshipService(firestore: firestore);
+      final notif = SocialNotificationService(firestore: firestore);
+      final follow = FollowService(firestore: firestore);
+      final requests = FollowRequestService(firestore: firestore);
+      await friendship.upsertPublicProfile(
+        uid: 'current-user',
+        username: 'current',
+        displayName: 'Current',
+        isPrivateAccount: true,
+      );
+      await friendship.upsertPublicProfile(
+        uid: 'actor',
+        username: 'jacob',
+        displayName: 'Jacob',
+      );
+      await follow.followOrRequest(
+        followerId: 'actor',
+        followeeId: 'current-user',
+      );
+
+      final auth = AuthProvider(authRepository: _NotifAuthRepository());
+      await pumpNotifScreen(
+        tester,
+        auth: auth,
+        notif: notif,
+        follow: follow,
+        friendship: friendship,
+        requests: requests,
+      );
+
+      expect(find.widgetWithText(OutlinedButton, 'Decline'), findsOneWidget);
+      await tester.tap(find.widgetWithText(OutlinedButton, 'Decline'));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 100));
+
+      expect(find.widgetWithText(FilledButton, 'Accept'), findsNothing);
+      expect(find.widgetWithText(OutlinedButton, 'Decline'), findsNothing);
+      expect(
+        await firestore
+            .collection(FollowService.followsCollection)
+            .doc(FollowService.followIdFor('actor', 'current-user'))
+            .get()
+            .then((doc) => doc.exists),
+        isFalse,
+      );
+      expect(await notif.watchRecent('actor').first, isEmpty);
+      expect(await notif.watchRecent('current-user').first, isEmpty);
+      auth.dispose();
+    },
+  );
+
+  testWidgets('stale follow request notification is non-actionable', (
+    tester,
+  ) async {
+    final firestore = FakeFirebaseFirestore();
+    final friendship = FriendshipService(firestore: firestore);
+    final notif = SocialNotificationService(firestore: firestore);
+    final follow = FollowService(firestore: firestore);
+    final requests = FollowRequestService(firestore: firestore);
+    await friendship.upsertPublicProfile(
+      uid: 'actor',
+      username: 'jacob',
+      displayName: 'Jacob',
+    );
+    await notif.upsertNotificationForTests(
+      SocialNotification(
+        id: FollowRequestService.requestNotificationIdFor(
+          'actor',
+          'current-user',
+        ),
+        recipientId: 'current-user',
+        actorId: 'actor',
+        type: SocialNotificationType.followRequest,
+        createdAt: DateTime(2026, 8, 9),
+      ),
+    );
+
+    final auth = AuthProvider(authRepository: _NotifAuthRepository());
+    await pumpNotifScreen(
+      tester,
+      auth: auth,
+      notif: notif,
+      follow: follow,
+      friendship: friendship,
+      requests: requests,
+    );
+
+    expect(
+      find.textContaining('Jacob requested to follow you'),
+      findsOneWidget,
+    );
+    expect(find.widgetWithText(FilledButton, 'Accept'), findsNothing);
+    expect(find.widgetWithText(OutlinedButton, 'Decline'), findsNothing);
+    expect(
+      await firestore
+          .collection(FollowService.followsCollection)
+          .doc(FollowService.followIdFor('actor', 'current-user'))
+          .get()
+          .then((doc) => doc.exists),
+      isFalse,
+    );
     auth.dispose();
   });
 }

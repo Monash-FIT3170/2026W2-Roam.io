@@ -37,13 +37,15 @@ function parseArgs(argv) {
 
 function publicProfileSummary(uid, data) {
   if (!data) return null;
+  const photoUrl = typeof data.photoUrl === 'string' ? data.photoUrl.trim() : '';
   return {
     uid,
     displayName: data.displayName,
     displayNameSearch: data.displayNameSearch,
     username: data.username,
     usernameSearch: data.usernameSearch,
-    hasPhotoUrl: typeof data.photoUrl === 'string' && data.photoUrl.length > 0,
+    hasPhotoUrl: photoUrl.length > 0,
+    photoUrlFormat: describePhotoUrl(photoUrl),
     xp: Number.isInteger(data.xp) ? data.xp : null,
     level: Number.isInteger(data.level) ? data.level : null,
   };
@@ -51,14 +53,29 @@ function publicProfileSummary(uid, data) {
 
 function privateProfileSummary(uid, data) {
   if (!data) return null;
+  const photoUrl = typeof data.photoUrl === 'string' ? data.photoUrl.trim() : '';
   return {
     uid,
     displayName: data.displayName,
     username: data.username,
-    hasPhotoUrl: typeof data.photoUrl === 'string' && data.photoUrl.length > 0,
+    hasPhotoUrl: photoUrl.length > 0,
+    photoUrlFormat: describePhotoUrl(photoUrl),
     xp: Number.isInteger(data.xp) ? data.xp : null,
     level: Number.isInteger(data.level) ? data.level : null,
   };
+}
+
+function describePhotoUrl(value) {
+  if (!value) return 'missing';
+  if (value.startsWith('https://')) return 'https';
+  if (value.startsWith('http://')) return 'http';
+  if (value.startsWith('gs://')) return 'gs';
+  try {
+    const parsed = new URL(value);
+    return parsed.protocol.replace(':', '') || 'malformed';
+  } catch (_) {
+    return 'storage_path';
+  }
 }
 
 async function prefixQuery(db, field, value, limit = 10) {
@@ -131,6 +148,14 @@ async function inspectPublicProfiles({
       profile,
       publicProfileExists: publicDoc.exists,
       publicProfile: publicProfileSummary(profile.uid, publicDoc.data()),
+      photoUrlProjectionMatches:
+        (profile.hasPhotoUrl === (typeof publicDoc.data()?.photoUrl === 'string' &&
+          publicDoc.data().photoUrl.trim().length > 0)) &&
+        profile.photoUrlFormat === describePhotoUrl(
+          typeof publicDoc.data()?.photoUrl === 'string'
+            ? publicDoc.data().photoUrl.trim()
+            : '',
+        ),
       usernameQueryReturnedUid: usernameQuery.some((hit) => hit.uid === profile.uid),
       displayNameQueryReturnedUid: displayQuery.some((hit) => hit.uid === profile.uid),
     });
@@ -167,6 +192,7 @@ if (require.main === module) {
 }
 
 module.exports = {
+  describePhotoUrl,
   inspectPublicProfiles,
   parseArgs,
   prefixQuery,

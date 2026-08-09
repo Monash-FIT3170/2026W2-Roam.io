@@ -9,11 +9,11 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:fake_cloud_firestore/fake_cloud_firestore.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:roam_io/features/social/data/follow_service.dart';
 import 'package:roam_io/features/social/data/friendship_service.dart';
 import 'package:roam_io/features/social/data/social_notification_coordinator.dart';
 import 'package:roam_io/features/social/data/social_notification_service.dart';
 import 'package:roam_io/features/social/domain/public_profile.dart';
+import 'package:roam_io/features/social/domain/social_notification.dart';
 import 'package:roam_io/notifications/models/app_notification.dart';
 import 'package:roam_io/notifications/models/notification_type.dart';
 import 'package:roam_io/notifications/services/notification_service.dart';
@@ -53,7 +53,10 @@ void main() {
       await notif.upsertFollowNotificationForTests(
         recipientId: 'b',
         actorId: actor,
-        notificationId: FollowService.followIdFor(actor, 'b'),
+        notificationId: SocialNotification.followNotificationIdFor(
+          followerId: actor,
+          followeeId: 'b',
+        ),
         createdAt: DateTime(2026, 8, 7, 10),
       );
     }
@@ -75,7 +78,10 @@ void main() {
     await notif.upsertFollowNotificationForTests(
       recipientId: 'b',
       actorId: 'a',
-      notificationId: FollowService.followIdFor('a', 'b'),
+      notificationId: SocialNotification.followNotificationIdFor(
+        followerId: 'a',
+        followeeId: 'b',
+      ),
       createdAt: DateTime(2026, 8, 7, 10),
     );
     await Future<void>.delayed(const Duration(milliseconds: 50));
@@ -106,7 +112,10 @@ void main() {
     await notif.upsertFollowNotificationForTests(
       recipientId: 'b',
       actorId: 'a',
-      notificationId: FollowService.followIdFor('a', 'b'),
+      notificationId: SocialNotification.followNotificationIdFor(
+        followerId: 'a',
+        followeeId: 'b',
+      ),
       createdAt: DateTime(2026, 8, 7, 11),
     );
     await Future<void>.delayed(const Duration(milliseconds: 50));
@@ -117,6 +126,60 @@ void main() {
 
     coordinator.dispose();
   });
+
+  test(
+    'refollow with same row id and fresh timestamp shows new banner',
+    () async {
+      final firestore = FakeFirebaseFirestore();
+      final friendship = FriendshipService(firestore: firestore);
+      final notif = SocialNotificationService(firestore: firestore);
+      await friendship.upsertPublicProfile(
+        uid: 'a',
+        username: 'a',
+        displayName: 'Alice',
+      );
+
+      final coordinator = SocialNotificationCoordinator(
+        notificationService: notif,
+        friendshipService: friendship,
+        bannerService: bannerService(),
+      );
+      coordinator.bindUid('b');
+      await Future<void>.delayed(const Duration(milliseconds: 50));
+
+      final id = SocialNotification.followNotificationIdFor(
+        followerId: 'a',
+        followeeId: 'b',
+      );
+      await notif.upsertFollowNotificationForTests(
+        recipientId: 'b',
+        actorId: 'a',
+        notificationId: id,
+        createdAt: DateTime(2026, 8, 7, 11),
+      );
+      await Future<void>.delayed(const Duration(milliseconds: 50));
+
+      await firestore
+          .collection('profiles')
+          .doc('b')
+          .collection('notifications')
+          .doc(id)
+          .delete();
+      await Future<void>.delayed(const Duration(milliseconds: 20));
+      await notif.upsertFollowNotificationForTests(
+        recipientId: 'b',
+        actorId: 'a',
+        notificationId: id,
+        createdAt: DateTime(2026, 8, 7, 12),
+      );
+      await Future<void>.delayed(const Duration(milliseconds: 50));
+
+      expect(shown.length, 2);
+      expect(shown.every((item) => item.body == 'Alice followed you'), isTrue);
+
+      coordinator.dispose();
+    },
+  );
 
   test('account switch disposes A and surfaces B unread summary', () async {
     final firestore = FakeFirebaseFirestore();
@@ -142,13 +205,19 @@ void main() {
     await notif.upsertFollowNotificationForTests(
       recipientId: 'bob',
       actorId: 'alice',
-      notificationId: FollowService.followIdFor('alice', 'bob'),
+      notificationId: SocialNotification.followNotificationIdFor(
+        followerId: 'alice',
+        followeeId: 'bob',
+      ),
       createdAt: DateTime(2026, 8, 7, 10),
     );
     await notif.upsertFollowNotificationForTests(
       recipientId: 'bob',
       actorId: 'cara',
-      notificationId: FollowService.followIdFor('cara', 'bob'),
+      notificationId: SocialNotification.followNotificationIdFor(
+        followerId: 'cara',
+        followeeId: 'bob',
+      ),
       createdAt: DateTime(2026, 8, 7, 11),
     );
 
@@ -212,7 +281,10 @@ void main() {
       await notif.upsertFollowNotificationForTests(
         recipientId: 'alice',
         actorId: 'peer',
-        notificationId: FollowService.followIdFor('peer', 'alice'),
+        notificationId: SocialNotification.followNotificationIdFor(
+          followerId: 'peer',
+          followeeId: 'alice',
+        ),
         createdAt: DateTime(2026, 8, 7, 12),
       );
 

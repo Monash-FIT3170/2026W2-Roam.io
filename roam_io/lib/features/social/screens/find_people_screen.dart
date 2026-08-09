@@ -1,12 +1,13 @@
 /*
  * Author: Sanjevan Rajasegar
- * Last Updated: 8 August 2026
+ * Last Updated: 9 August 2026
  * Description:
  *   Provides live user search with public-profile Follow / Following actions
  *   for the Social tab. Queries public_profiles by usernameSearch /
  *   displayNameSearch (requires deployed rules: signed-in read on
- *   public_profiles). Search is independent of Follow; Follow state loads
- *   per row after results. Search failures are shown explicitly (not blank).
+ *   public_profiles). Avatars use public_profiles.photoUrl (HTTPS download
+ *   URLs). Search is independent of Follow; Follow state loads per row after
+ *   results. Search failures are shown explicitly (not blank).
  *   Friend-request UI is intentionally not shown during the public Follow
  *   phase.
  */
@@ -23,6 +24,7 @@ import '../data/follow_service.dart';
 import '../data/friendship_service.dart';
 import '../domain/public_profile.dart';
 import '../widgets/follow_relationship_button.dart';
+import '../widgets/social_avatar.dart';
 import 'other_user_profile_screen.dart';
 
 /// Dedicated user-search screen for finding registered users.
@@ -134,6 +136,28 @@ class _FindPeopleScreenState extends State<FindPeopleScreen> {
         _hasCompletedSearch = true;
         _searchFailed = false;
       });
+      for (final profile in results.take(5)) {
+        final url = profile.photoUrl?.trim() ?? '';
+        final format = url.isEmpty
+            ? 'empty'
+            : url.startsWith('https://')
+            ? 'https'
+            : url.startsWith('http://')
+            ? 'http'
+            : url.startsWith('gs://')
+            ? 'gs'
+            : 'other';
+        final host = Uri.tryParse(url)?.host ?? '';
+        debugPrint(
+          '[FindPeopleScreen] hit uid=${profile.uid} '
+          'username=${profile.username} hasPhotoUrl=${url.isNotEmpty} '
+          'photoUrlFormat=$format host=$host length=${url.length}',
+        );
+      }
+      SocialAvatar.precachePhotoUrls(
+        context,
+        results.map((profile) => profile.photoUrl),
+      );
     } catch (error, stackTrace) {
       if (!mounted || generation != _searchGeneration) return;
       setState(() {
@@ -306,7 +330,10 @@ class _PersonResultRow extends StatelessWidget {
               },
               child: Row(
                 children: [
-                  _ProfileAvatar(profile: profile),
+                  SocialAvatar(
+                    displayName: profile.displayName,
+                    photoUrl: profile.photoUrl,
+                  ),
                   const SizedBox(width: 12),
                   Expanded(
                     child: Column(
@@ -347,28 +374,6 @@ class _PersonResultRow extends StatelessWidget {
           ),
         ],
       ),
-    );
-  }
-}
-
-class _ProfileAvatar extends StatelessWidget {
-  const _ProfileAvatar({required this.profile});
-
-  final PublicProfile profile;
-
-  @override
-  Widget build(BuildContext context) {
-    final url = profile.photoUrl;
-    final hasPhoto = url != null && url.isNotEmpty;
-    final initial = profile.displayName.trim().isEmpty
-        ? '?'
-        : profile.displayName.trim().characters.first;
-    return CircleAvatar(
-      radius: 24,
-      backgroundColor: Theme.of(context).colorScheme.primary,
-      foregroundColor: Theme.of(context).colorScheme.onPrimary,
-      backgroundImage: hasPhoto ? NetworkImage(url) : null,
-      child: hasPhoto ? null : Text(initial),
     );
   }
 }

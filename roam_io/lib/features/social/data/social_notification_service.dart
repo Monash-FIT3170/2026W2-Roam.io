@@ -5,8 +5,7 @@
  *   Firestore-backed social inbox under profiles/{uid}/notifications.
  *   Follow notification documents are created after follow persistence
  *   (client best-effort + Cloud Function when deployed) with deterministic
- *   IDs matching follows/{followerId_followeeId}. Clients read, watch unread
- *   state, and mark readAt only.
+ *   relationship-state IDs. Clients read, watch unread state, and mark readAt.
  */
 
 import 'package:cloud_firestore/cloud_firestore.dart';

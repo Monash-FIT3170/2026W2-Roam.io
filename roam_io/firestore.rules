@@ -98,7 +98,8 @@ service cloud.firestore {
         'followeeId',
         'createdAt',
         'source',
-        'acceptedRequestId'
+        'acceptedRequestId',
+        'acceptedRequestCreatedAt'
       ]) &&
       request.resource.data.followerId is string &&
       request.resource.data.followeeId is string &&
@@ -106,7 +107,9 @@ service cloud.firestore {
       (!request.resource.data.keys().hasAny(['source']) ||
         request.resource.data.source is string) &&
       (!request.resource.data.keys().hasAny(['acceptedRequestId']) ||
-        request.resource.data.acceptedRequestId is string);
+        request.resource.data.acceptedRequestId is string) &&
+      (!request.resource.data.keys().hasAny(['acceptedRequestCreatedAt']) ||
+        request.resource.data.acceptedRequestCreatedAt is string);
     }
 
     function hasFollowRequestFields() {
@@ -149,7 +152,119 @@ service cloud.firestore {
         ).data.targetId == request.resource.data.followeeId
         && get(
           /databases/$(database)/documents/follow_requests/$(followId)
-        ).data.status == 'pending';
+        ).data.status == 'pending'
+        && request.resource.data.acceptedRequestCreatedAt == get(
+          /databases/$(database)/documents/follow_requests/$(followId)
+        ).data.createdAt;
+    }
+
+    function followNotificationId(data, userId) {
+      return 'follow_' + data.actorId + '_' + userId;
+    }
+
+    function requestNotificationId(data, userId) {
+      return 'follow_request_' + data.actorId + '_' + userId;
+    }
+
+    function acceptedNotificationId(data, userId) {
+      return 'follow_request_accepted_' + data.actorId + '_' + userId;
+    }
+
+    function hasNotificationFields(data, userId) {
+      return data.keys().hasOnly([
+          'recipientId',
+          'actorId',
+          'type',
+          'createdAt',
+          'readAt'
+        ])
+        && data.recipientId == userId
+        && data.actorId is string
+        && data.actorId != userId
+        && data.type in [
+          'follow',
+          'followRequest',
+          'followRequestAccepted'
+        ]
+        && data.createdAt is string
+        && (data.readAt == null || data.readAt is string);
+    }
+
+    function isValidFollowNotificationWrite(notificationId, data, userId) {
+      return data.type == 'follow'
+        && notificationId == followNotificationId(data, userId)
+        && exists(
+          /databases/$(database)/documents/follows/$(data.actorId + '_' + userId)
+        )
+        && get(
+          /databases/$(database)/documents/follows/$(data.actorId + '_' + userId)
+        ).data.createdAt == data.createdAt
+        && (
+          (
+            request.auth.uid == data.actorId
+            && !get(
+              /databases/$(database)/documents/follows/$(data.actorId + '_' + userId)
+            ).data.keys().hasAny(['source'])
+          ) ||
+          (
+            request.auth.uid == userId
+            && get(
+              /databases/$(database)/documents/follows/$(data.actorId + '_' + userId)
+            ).data.source == 'follow_request_acceptance'
+          )
+        );
+    }
+
+    function isValidRequestNotificationWrite(notificationId, data, userId) {
+      return data.type == 'followRequest'
+        && notificationId == requestNotificationId(data, userId)
+        && request.auth.uid == data.actorId
+        && exists(
+          /databases/$(database)/documents/follow_requests/$(data.actorId + '_' + userId)
+        )
+        && get(
+          /databases/$(database)/documents/follow_requests/$(data.actorId + '_' + userId)
+        ).data.createdAt == data.createdAt;
+    }
+
+    function isValidAcceptedNotificationWrite(notificationId, data, userId) {
+      return data.type == 'followRequestAccepted'
+        && notificationId == acceptedNotificationId(data, userId)
+        && request.auth.uid == data.actorId
+        && exists(
+          /databases/$(database)/documents/follows/$(userId + '_' + data.actorId)
+        )
+        && get(
+          /databases/$(database)/documents/follows/$(userId + '_' + data.actorId)
+        ).data.source == 'follow_request_acceptance';
+    }
+
+    function isValidNotificationWrite(notificationId, data, userId) {
+      return hasNotificationFields(data, userId)
+        && (
+          isValidFollowNotificationWrite(notificationId, data, userId)
+          || isValidRequestNotificationWrite(notificationId, data, userId)
+          || isValidAcceptedNotificationWrite(notificationId, data, userId)
+        );
+    }
+
+    function canDeleteCurrentRelationshipNotification(notificationId, userId) {
+      return (
+          resource.data.type == 'follow'
+          && notificationId == followNotificationId(resource.data, userId)
+          && (
+            request.auth.uid == resource.data.actorId
+            || request.auth.uid == userId
+          )
+        ) ||
+        (
+          resource.data.type == 'followRequest'
+          && notificationId == requestNotificationId(resource.data, userId)
+          && (
+            request.auth.uid == resource.data.actorId
+            || request.auth.uid == userId
+          )
+        );
     }
 
     match /profiles/{userId} {
@@ -186,70 +301,35 @@ service cloud.firestore {
       match /notifications/{notificationId} {
         allow read: if isProfileOwner(userId);
         allow create: if isSignedIn()
-          && request.resource.data.keys().hasOnly([
-            'recipientId',
-            'actorId',
-            'type',
-            'createdAt',
-            'readAt'
-          ])
-          && request.resource.data.recipientId == userId
-          && request.resource.data.actorId == request.auth.uid
-          && request.resource.data.actorId != userId
-          && request.resource.data.type in [
-            'follow',
-            'followRequest',
-            'followRequestAccepted'
-          ]
-          && request.resource.data.createdAt is string
-          && (request.resource.data.readAt == null
-              || request.resource.data.readAt is string)
-          && (
-            (
-              request.resource.data.type == 'follow'
-              && notificationId == request.resource.data.actorId + '_' + userId
-              && exists(
-                /databases/$(database)/documents/follows/$(notificationId)
-              )
-            ) ||
-            (
-              request.resource.data.type == 'followRequest'
-              && notificationId == 'follow_request_' +
-                request.resource.data.actorId + '_' + userId
-              && exists(
-                /databases/$(database)/documents/follow_requests/$(
-                  request.resource.data.actorId + '_' + userId
-                )
-              )
-            ) ||
-            (
-              request.resource.data.type == 'followRequestAccepted'
-              && notificationId == 'follow_request_accepted_' +
-                request.resource.data.actorId + '_' + userId
-              && exists(
-                /databases/$(database)/documents/follows/$(
-                  userId + '_' + request.resource.data.actorId
-                )
-              )
-              && get(
-                /databases/$(database)/documents/follows/$(
-                  userId + '_' + request.resource.data.actorId
-                )
-              ).data.source == 'follow_request_acceptance'
-            )
+          && isValidNotificationWrite(
+            notificationId,
+            request.resource.data,
+            userId
           );
         allow update: if isProfileOwner(userId)
-          && request.resource.data.diff(resource.data).affectedKeys()
-            .hasOnly(['readAt'])
-          && request.resource.data.recipientId == resource.data.recipientId
-          && request.resource.data.actorId == resource.data.actorId
-          && request.resource.data.type == resource.data.type
-          && request.resource.data.createdAt == resource.data.createdAt
           && (
-            request.resource.data.readAt == null
-            || request.resource.data.readAt is string
+            (
+              request.resource.data.diff(resource.data).affectedKeys()
+                .hasOnly(['readAt'])
+              && request.resource.data.recipientId == resource.data.recipientId
+              && request.resource.data.actorId == resource.data.actorId
+              && request.resource.data.type == resource.data.type
+              && request.resource.data.createdAt == resource.data.createdAt
+              && (
+                request.resource.data.readAt == null
+                || request.resource.data.readAt is string
+              )
+            ) ||
+            (
+              isValidNotificationWrite(
+                notificationId,
+                request.resource.data,
+                userId
+              )
+            )
           );
-        allow delete: if false;
+        allow delete: if isSignedIn()
+          && canDeleteCurrentRelationshipNotification(notificationId, userId);
       }
     }
 
@@ -357,7 +437,15 @@ service cloud.firestore {
     }
 
     match /follow_requests/{requestId} {
-      allow read: if isSignedIn()
+      allow get: if isSignedIn()
+        && (
+          !exists(
+            /databases/$(database)/documents/follow_requests/$(requestId)
+          )
+          || request.auth.uid == resource.data.requesterId
+          || request.auth.uid == resource.data.targetId
+        );
+      allow list: if isSignedIn()
         && (
           request.auth.uid == resource.data.requesterId
           || request.auth.uid == resource.data.targetId

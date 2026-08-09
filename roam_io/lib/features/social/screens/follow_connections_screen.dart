@@ -1,12 +1,12 @@
 /*
  * Author: Sanjevan Rajasegar
- * Last Updated: 8 August 2026
+ * Last Updated: 9 August 2026
  * Description:
  *   Reactive Following / Followers list for a selected profile. Membership
  *   comes from selectedUserId follow relationships; each row's Follow /
  *   Following button reflects the authenticated user's relationship with the
- *   listed person. Own Followers rows also show a capsule Remove action.
- *   Tapping Following unfollows silently. Row body opens
+ *   listed person. Own Followers rows also show a capsule Remove action
+ *   (private accounts confirm before removal). Row body opens
  *   OtherUserProfileScreen.
  */
 
@@ -14,12 +14,15 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../../shared/widgets/app_toast.dart';
+import '../../../theme/app_colours.dart';
 import '../../../theme/app_surfaces.dart';
 import '../../auth/providers/auth_provider.dart';
 import '../data/follow_service.dart';
 import '../data/friendship_service.dart';
 import '../domain/public_profile.dart';
 import '../widgets/follow_relationship_button.dart';
+import '../widgets/private_follow_confirm.dart';
+import '../widgets/social_avatar.dart';
 import 'other_user_profile_screen.dart';
 
 /// Whether the screen lists people the selected user follows or their followers.
@@ -178,7 +181,10 @@ class _ConnectionRow extends StatelessWidget {
                   },
                   child: Row(
                     children: [
-                      _Avatar(displayName: displayName, photoUrl: photoUrl),
+                      SocialAvatar(
+                        displayName: displayName,
+                        photoUrl: photoUrl,
+                      ),
                       const SizedBox(width: 12),
                       Expanded(
                         child: Column(
@@ -218,6 +224,8 @@ class _ConnectionRow extends StatelessWidget {
                     followerId: listedUserId,
                     followeeId: authUid!,
                     followService: followService,
+                    username: username,
+                    isPrivateAccount: profile?.isPrivateAccount ?? false,
                   ),
                   const SizedBox(width: 8),
                 ],
@@ -242,11 +250,15 @@ class _RemoveFollowerButton extends StatefulWidget {
     required this.followerId,
     required this.followeeId,
     required this.followService,
+    required this.username,
+    required this.isPrivateAccount,
   });
 
   final String followerId;
   final String followeeId;
   final FollowService followService;
+  final String username;
+  final bool isPrivateAccount;
 
   @override
   State<_RemoveFollowerButton> createState() => _RemoveFollowerButtonState();
@@ -257,6 +269,13 @@ class _RemoveFollowerButtonState extends State<_RemoveFollowerButton> {
 
   Future<void> _remove() async {
     if (_busy) return;
+    if (widget.isPrivateAccount) {
+      final confirmed = await confirmRemovePrivateFollower(
+        context,
+        username: widget.username,
+      );
+      if (!confirmed) return;
+    }
     setState(() => _busy = true);
     try {
       await widget.followService.removeFollower(
@@ -282,32 +301,10 @@ class _RemoveFollowerButtonState extends State<_RemoveFollowerButton> {
         visualDensity: VisualDensity.compact,
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
         foregroundColor: AppSurfaces.textPrimary(context),
+        backgroundColor: AppColors.cream,
         side: BorderSide(color: AppSurfaces.border(context)),
       ),
       child: const Text('Remove'),
-    );
-  }
-}
-
-class _Avatar extends StatelessWidget {
-  const _Avatar({required this.displayName, required this.photoUrl});
-
-  final String displayName;
-  final String? photoUrl;
-
-  @override
-  Widget build(BuildContext context) {
-    final initial = displayName.trim().isEmpty
-        ? '?'
-        : displayName.trim().characters.first;
-    final url = photoUrl;
-    final hasPhoto = url != null && url.isNotEmpty;
-    return CircleAvatar(
-      radius: 24,
-      backgroundColor: Theme.of(context).colorScheme.primary,
-      foregroundColor: Theme.of(context).colorScheme.onPrimary,
-      backgroundImage: hasPhoto ? NetworkImage(url) : null,
-      child: hasPhoto ? null : Text(initial),
     );
   }
 }

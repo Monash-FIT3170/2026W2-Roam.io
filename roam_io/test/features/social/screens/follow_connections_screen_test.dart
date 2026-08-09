@@ -1,10 +1,10 @@
 /*
  * Author: Sanjevan Rajasegar
- * Last Updated: 8 August 2026
+ * Last Updated: 9 August 2026
  * Description:
  *   Widget tests for FollowConnectionsScreen list membership, auth-user
- *   Follow / Following actions, own-followers Remove, unfollow disappearance,
- *   and row navigation.
+ *   Follow / Following actions, own-followers Remove (including private
+ *   confirm), unfollow disappearance, and row navigation.
  */
 
 import 'package:fake_cloud_firestore/fake_cloud_firestore.dart';
@@ -240,6 +240,8 @@ void main() {
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 50));
 
+    // Public follower: no confirm dialog.
+    expect(find.text('Remove @jacob?'), findsNothing);
     expect(find.text('Jacob'), findsNothing);
     expect(find.text('No followers yet'), findsOneWidget);
     expect(
@@ -251,6 +253,67 @@ void main() {
       isFalse,
     );
   });
+
+  testWidgets(
+    'own followers private Remove cancel keeps follower; confirm removes',
+    (tester) async {
+      final firestore = FakeFirebaseFirestore();
+      final friendship = FriendshipService(firestore: firestore);
+      final follow = FollowService(firestore: firestore);
+      await friendship.upsertPublicProfile(
+        uid: 'private-jacob',
+        username: 'private_jacob',
+        displayName: 'Private Jacob',
+        isPrivateAccount: true,
+      );
+      await follow.follow(
+        followerId: 'private-jacob',
+        followeeId: 'current-user',
+      );
+
+      await pumpList(
+        tester,
+        mode: FollowConnectionsMode.followers,
+        selectedUserId: 'current-user',
+        follow: follow,
+        friendship: friendship,
+      );
+
+      expect(find.text('Private Jacob'), findsOneWidget);
+      await tester.tap(find.widgetWithText(OutlinedButton, 'Remove'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Remove @private_jacob?'), findsOneWidget);
+      await tester.tap(find.widgetWithText(TextButton, 'Cancel'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Private Jacob'), findsOneWidget);
+      expect(
+        await firestore
+            .collection(FollowService.followsCollection)
+            .doc(FollowService.followIdFor('private-jacob', 'current-user'))
+            .get()
+            .then((doc) => doc.exists),
+        isTrue,
+      );
+
+      await tester.tap(find.widgetWithText(OutlinedButton, 'Remove'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.widgetWithText(FilledButton, 'Remove'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Private Jacob'), findsNothing);
+      expect(find.text('No followers yet'), findsOneWidget);
+      expect(
+        await firestore
+            .collection(FollowService.followsCollection)
+            .doc(FollowService.followIdFor('private-jacob', 'current-user'))
+            .get()
+            .then((doc) => doc.exists),
+        isFalse,
+      );
+    },
+  );
 
   testWidgets(
     'unfollow from opened profile empties underlying Following list',

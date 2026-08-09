@@ -60,6 +60,10 @@ function publicProfileFromPrivateProfile(uid, profile, nowIso) {
   return { publicProfile, skipReason: null };
 }
 
+function hasPhotoUrl(data) {
+  return typeof data?.photoUrl === 'string' && data.photoUrl.trim().length > 0;
+}
+
 function hasPublicProfileChanged(existing, next) {
   const keys = new Set([...Object.keys(existing || {}), ...Object.keys(next)]);
   for (const key of keys) {
@@ -92,6 +96,9 @@ async function backfillPublicProfiles({ projectId, dryRun = false } = {}) {
     unchanged: 0,
     skipped: 0,
     skippedByReason: {},
+    privateProfilesWithPhotoUrl: 0,
+    publicProfilesMissingPhotoUrl: 0,
+    publicProfilesMismatchedPhotoUrl: 0,
   };
 
   let batch = db.batch();
@@ -108,9 +115,14 @@ async function backfillPublicProfiles({ projectId, dryRun = false } = {}) {
 
   for (const doc of profiles.docs) {
     stats.inspected += 1;
+    const privateProfile = doc.data();
+    if (hasPhotoUrl(privateProfile)) {
+      stats.privateProfilesWithPhotoUrl += 1;
+    }
+
     const { publicProfile, skipReason } = publicProfileFromPrivateProfile(
       doc.id,
-      doc.data(),
+      privateProfile,
       nowIso,
     );
 
@@ -124,6 +136,15 @@ async function backfillPublicProfiles({ projectId, dryRun = false } = {}) {
 
     const publicRef = db.collection('public_profiles').doc(doc.id);
     const publicDoc = await publicRef.get();
+    const existingPublicProfile = publicDoc.data();
+
+    if (hasPhotoUrl(publicProfile)) {
+      if (!hasPhotoUrl(existingPublicProfile)) {
+        stats.publicProfilesMissingPhotoUrl += 1;
+      } else if (existingPublicProfile.photoUrl !== publicProfile.photoUrl) {
+        stats.publicProfilesMismatchedPhotoUrl += 1;
+      }
+    }
 
     if (!publicDoc.exists) {
       stats.created += 1;
@@ -133,7 +154,7 @@ async function backfillPublicProfiles({ projectId, dryRun = false } = {}) {
       continue;
     }
 
-    if (hasPublicProfileChanged(publicDoc.data(), publicProfile)) {
+    if (hasPublicProfileChanged(existingPublicProfile, publicProfile)) {
       stats.updated += 1;
       batch.set(publicRef, publicProfile, { merge: true });
       pendingWrites += 1;

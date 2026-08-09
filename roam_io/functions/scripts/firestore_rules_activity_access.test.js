@@ -23,6 +23,14 @@ function followId(followerId, followeeId) {
   return `${followerId}_${followeeId}`;
 }
 
+function followNotificationId(followerId, followeeId) {
+  return `follow_${followerId}_${followeeId}`;
+}
+
+function followRequestNotificationId(requesterId, targetId) {
+  return `follow_request_${requesterId}_${targetId}`;
+}
+
 async function seed(testEnv) {
   await testEnv.withSecurityRulesDisabled(async (context) => {
     const db = context.firestore();
@@ -196,7 +204,7 @@ async function runNotificationRulesTests() {
         .collection('profiles')
         .doc('owner')
         .collection('notifications')
-        .doc('follower_owner')
+        .doc(followNotificationId('follower', 'owner'))
         .set({
           recipientId: 'owner',
           actorId: 'follower',
@@ -215,7 +223,7 @@ async function runNotificationRulesTests() {
         .collection('profiles')
         .doc('owner')
         .collection('notifications')
-        .doc('follower_owner')
+        .doc(followNotificationId('follower', 'owner'))
         .get(),
     );
     await assertFails(
@@ -223,7 +231,7 @@ async function runNotificationRulesTests() {
         .collection('profiles')
         .doc('owner')
         .collection('notifications')
-        .doc('follower_owner')
+        .doc(followNotificationId('follower', 'owner'))
         .get(),
     );
     await assertFails(
@@ -254,7 +262,7 @@ async function runNotificationRulesTests() {
         .collection('profiles')
         .doc('owner2')
         .collection('notifications')
-        .doc(actorCreateId)
+        .doc(followNotificationId('follower', 'owner2'))
         .set({
           recipientId: 'owner2',
           actorId: 'follower',
@@ -283,7 +291,7 @@ async function runNotificationRulesTests() {
         .collection('profiles')
         .doc('owner')
         .collection('notifications')
-        .doc('follower_owner')
+        .doc(followNotificationId('follower', 'owner'))
         .update({ readAt: '2026-08-07T01:00:00.000Z' }),
     );
     await assertFails(
@@ -291,8 +299,24 @@ async function runNotificationRulesTests() {
         .collection('profiles')
         .doc('owner')
         .collection('notifications')
-        .doc('follower_owner')
+        .doc(followNotificationId('follower', 'owner'))
         .update({ actorId: 'someone-else' }),
+    );
+    await assertFails(
+      viewerDb
+        .collection('profiles')
+        .doc('owner2')
+        .collection('notifications')
+        .doc(followNotificationId('follower', 'owner2'))
+        .delete(),
+    );
+    await assertSucceeds(
+      followerDb
+        .collection('profiles')
+        .doc('owner2')
+        .collection('notifications')
+        .doc(followNotificationId('follower', 'owner2'))
+        .delete(),
     );
     console.log('passed: social notification rules');
   } finally {
@@ -313,6 +337,16 @@ async function runPrivateAccountRulesTests() {
         },
         { merge: true },
       );
+      await db.collection('public_profiles').doc('public-target').set({
+        uid: 'public-target',
+        username: 'public_target',
+        usernameSearch: 'public_target',
+        displayName: 'Public Target',
+        displayNameSearch: 'public target',
+        isPrivateAccount: false,
+        createdAt: '2026-08-07T00:00:00.000Z',
+        updatedAt: '2026-08-07T02:00:00.000Z',
+      });
     });
 
     const ownerDb = testEnv.authenticatedContext('owner').firestore();
@@ -341,6 +375,57 @@ async function runPrivateAccountRulesTests() {
     );
 
     await assertSucceeds(
+      requesterDb.collection('follow_requests').doc(followId('requester', 'owner')).get(),
+    );
+
+    await assertSucceeds(
+      requesterDb.collection('follow_requests').doc(followId('requester', 'owner')).set({
+        requesterId: 'requester',
+        targetId: 'owner',
+        status: 'pending',
+        createdAt: '2026-08-07T02:00:00.000Z',
+        updatedAt: '2026-08-07T02:00:00.000Z',
+      }),
+    );
+    const requestNotificationId = followRequestNotificationId('requester', 'owner');
+    await assertSucceeds(
+      requesterDb
+        .collection('profiles')
+        .doc('owner')
+        .collection('notifications')
+        .doc(requestNotificationId)
+        .set({
+          recipientId: 'owner',
+          actorId: 'requester',
+          type: 'followRequest',
+          createdAt: '2026-08-07T02:00:00.000Z',
+          readAt: null,
+        }),
+    );
+    await assertFails(
+      requesterDb
+        .collection('profiles')
+        .doc('owner')
+        .collection('notifications')
+        .doc('follow_request_requester_owner_wrong')
+        .set({
+          recipientId: 'owner',
+          actorId: 'requester',
+          type: 'followRequest',
+          createdAt: 'wrong-time',
+          readAt: null,
+        }),
+    );
+    await assertSucceeds(
+      requesterDb.collection('follow_requests').doc(followId('requester', 'owner')).get(),
+    );
+    await assertSucceeds(
+      ownerDb.collection('follow_requests').doc(followId('requester', 'owner')).get(),
+    );
+    await assertFails(
+      otherDb.collection('follow_requests').doc(followId('requester', 'owner')).get(),
+    );
+    await assertFails(
       requesterDb.collection('follow_requests').doc(followId('requester', 'owner')).set({
         requesterId: 'requester',
         targetId: 'owner',
@@ -360,7 +445,79 @@ async function runPrivateAccountRulesTests() {
       }),
     );
     await assertFails(
+      requesterDb.collection('follow_requests').doc('wrong-id').set({
+        requesterId: 'requester',
+        targetId: 'owner',
+        status: 'pending',
+        createdAt: '2026-08-07T02:00:00.000Z',
+        updatedAt: '2026-08-07T02:00:00.000Z',
+      }),
+    );
+    await assertFails(
+      requesterDb.collection('follow_requests').doc(followId('requester', 'owner')).set({
+        requesterId: 'requester',
+        targetId: 'owner',
+        status: 'pending',
+        createdAt: '2026-08-07T02:00:00.000Z',
+      }),
+    );
+    await assertFails(
+      requesterDb.collection('follow_requests').doc(followId('requester', 'public-target')).set({
+        requesterId: 'requester',
+        targetId: 'public-target',
+        status: 'pending',
+        createdAt: '2026-08-07T02:00:00.000Z',
+        updatedAt: '2026-08-07T02:00:00.000Z',
+      }),
+    );
+    await assertFails(
       otherDb.collection('follow_requests').doc(followId('requester', 'owner')).delete(),
+    );
+    const requesterAcceptBatch = requesterDb.batch();
+    requesterAcceptBatch.set(requesterDb.collection('follows').doc(followId('requester', 'owner')), {
+      followerId: 'requester',
+      followeeId: 'owner',
+      createdAt: '2026-08-07T02:01:00.000Z',
+      source: 'follow_request_acceptance',
+      acceptedRequestId: followId('requester', 'owner'),
+      acceptedRequestCreatedAt: '2026-08-07T02:00:00.000Z',
+    });
+    requesterAcceptBatch.delete(
+      requesterDb.collection('follow_requests').doc(followId('requester', 'owner')),
+    );
+    await assertFails(requesterAcceptBatch.commit());
+    const unrelatedAcceptBatch = otherDb.batch();
+    unrelatedAcceptBatch.set(otherDb.collection('follows').doc(followId('requester', 'owner')), {
+      followerId: 'requester',
+      followeeId: 'owner',
+      createdAt: '2026-08-07T02:01:00.000Z',
+      source: 'follow_request_acceptance',
+      acceptedRequestId: followId('requester', 'owner'),
+      acceptedRequestCreatedAt: '2026-08-07T02:00:00.000Z',
+    });
+    unrelatedAcceptBatch.delete(
+      otherDb.collection('follow_requests').doc(followId('requester', 'owner')),
+    );
+    await assertFails(unrelatedAcceptBatch.commit());
+    await assertFails(
+      ownerDb.collection('follows').doc('wrong-id').set({
+        followerId: 'requester',
+        followeeId: 'owner',
+        createdAt: '2026-08-07T02:01:00.000Z',
+        source: 'follow_request_acceptance',
+        acceptedRequestId: followId('requester', 'owner'),
+        acceptedRequestCreatedAt: '2026-08-07T02:00:00.000Z',
+      }),
+    );
+    await assertFails(
+      ownerDb.collection('follows').doc(followId('other', 'owner')).set({
+        followerId: 'other',
+        followeeId: 'owner',
+        createdAt: '2026-08-07T02:01:00.000Z',
+        source: 'follow_request_acceptance',
+        acceptedRequestId: followId('other', 'owner'),
+        acceptedRequestCreatedAt: '2026-08-07T02:00:00.000Z',
+      }),
     );
 
     const acceptBatch = ownerDb.batch();
@@ -370,10 +527,71 @@ async function runPrivateAccountRulesTests() {
       createdAt: '2026-08-07T02:01:00.000Z',
       source: 'follow_request_acceptance',
       acceptedRequestId: followId('requester', 'owner'),
+      acceptedRequestCreatedAt: '2026-08-07T02:00:00.000Z',
     });
     acceptBatch.delete(ownerDb.collection('follow_requests').doc(followId('requester', 'owner')));
     await assertSucceeds(acceptBatch.commit());
+    await assertSucceeds(
+      ownerDb
+        .collection('profiles')
+        .doc('owner')
+        .collection('notifications')
+        .doc(requestNotificationId)
+        .delete(),
+    );
+    await assertSucceeds(
+      ownerDb
+        .collection('profiles')
+        .doc('owner')
+        .collection('notifications')
+        .doc(followNotificationId('requester', 'owner'))
+        .set({
+          recipientId: 'owner',
+          actorId: 'requester',
+          type: 'follow',
+          createdAt: '2026-08-07T02:01:00.000Z',
+          readAt: null,
+        }),
+    );
     await assertSucceeds(requesterDb.collection('profiles').doc('owner').collection('visits').doc('1').get());
+    await assertFails(
+      ownerDb.collection('follows').doc(followId('requester', 'owner')).set({
+        followerId: 'requester',
+        followeeId: 'owner',
+        createdAt: '2026-08-07T02:01:01.000Z',
+        source: 'follow_request_acceptance',
+        acceptedRequestId: followId('requester', 'owner'),
+        acceptedRequestCreatedAt: '2026-08-07T02:00:00.000Z',
+      }),
+    );
+
+    await testEnv.withSecurityRulesDisabled(async (context) => {
+      await context.firestore().collection('follow_requests').doc(followId('other', 'owner')).set({
+        requesterId: 'other',
+        targetId: 'owner',
+        status: 'pending',
+        createdAt: '2026-08-07T02:04:00.000Z',
+        updatedAt: '2026-08-07T02:04:00.000Z',
+      });
+      await context.firestore().collection('follow_requests').doc(followId('viewer', 'owner')).set({
+        requesterId: 'viewer',
+        targetId: 'owner',
+        status: 'pending',
+        createdAt: '2026-08-07T02:05:00.000Z',
+        updatedAt: '2026-08-07T02:05:00.000Z',
+      });
+    });
+    await assertSucceeds(
+      ownerDb.collection('follow_requests').doc(followId('other', 'owner')).delete(),
+    );
+    await assertSucceeds(
+      otherDb.collection('follows').doc(followId('other', 'owner')).get().then((doc) => {
+        if (doc.exists) throw new Error('decline created an unexpected follow');
+      }),
+    );
+    await assertSucceeds(
+      viewerDb.collection('follow_requests').doc(followId('viewer', 'owner')).delete(),
+    );
 
     await testEnv.withSecurityRulesDisabled(async (context) => {
       await context.firestore().collection('follows').doc(followId('follower', 'owner')).set({

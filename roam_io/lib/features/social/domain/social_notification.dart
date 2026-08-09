@@ -4,8 +4,8 @@
  * Description:
  *   Persistent social inbox notifications for public follows, private follow
  *   requests, and request acceptance.
- *   Stored at profiles/{recipientId}/notifications/{id} where id matches the
- *   follows/{followerId_followeeId} document for dedupe.
+ *   Stored at profiles/{recipientId}/notifications/{id}. Recipient follow and
+ *   request rows represent current relationship state, not history.
  */
 
 /// Social inbox notification types currently supported.
@@ -34,6 +34,13 @@ class SocialNotification {
   bool get isFollowRequest => type == SocialNotificationType.followRequest;
   bool get isFollowRequestAccepted =>
       type == SocialNotificationType.followRequestAccepted;
+
+  static String followNotificationIdFor({
+    required String followerId,
+    required String followeeId,
+  }) {
+    return 'follow_${followerId}_$followeeId';
+  }
 
   factory SocialNotification.fromMap(String id, Map<String, dynamic> data) {
     return SocialNotification(

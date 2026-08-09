@@ -37,6 +37,7 @@ assert.equal(profile.usernameSearch, 'sanjevanr_test');
 assert.equal(profile.displayNameSearch, 'sanjevan rajasegar');
 assert.equal(profile.xp, 140);
 assert.equal(profile.level, 2);
+assert.equal(profile.photoUrl, 'https://example.com/photo.jpg');
 assert.equal(profile.email, undefined);
 assert.equal(profile.darkModeEnabled, undefined);
 
@@ -69,6 +70,10 @@ assert.deepEqual(
 assert.equal(hasPublicProfileChanged(profile, { ...profile }), false);
 assert.equal(
   hasPublicProfileChanged(profile, { ...profile, displayName: 'Changed' }),
+  true,
+);
+assert.equal(
+  hasPublicProfileChanged({ ...profile, photoUrl: undefined }, profile),
   true,
 );
 

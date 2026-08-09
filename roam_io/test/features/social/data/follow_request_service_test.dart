@@ -31,6 +31,7 @@ void main() {
       );
 
       await follow.followOrRequest(followerId: 'viewer', followeeId: 'target');
+      await follow.followOrRequest(followerId: 'viewer', followeeId: 'target');
 
       expect(await follow.watchFollowingCount('viewer').first, 0);
       expect(await follow.watchFollowerCount('target').first, 0);
@@ -42,6 +43,7 @@ void main() {
         (await notifications.watchRecent('target').first).single.type.name,
         'followRequest',
       );
+      expect(await notifications.watchRecent('target').first, hasLength(1));
       expect(
         (await follow
                 .watchFollowState(followerId: 'viewer', followeeId: 'target')
@@ -72,6 +74,9 @@ void main() {
         (await notifications.watchRecent('viewer').first).single.type.name,
         'followRequestAccepted',
       );
+      final targetRows = await notifications.watchRecent('target').first;
+      expect(targetRows, hasLength(1));
+      expect(targetRows.single.type.name, 'follow');
     },
   );
 
@@ -101,6 +106,7 @@ void main() {
         isEmpty,
       );
       expect(await notifications.watchRecent('viewer').first, isEmpty);
+      expect(await notifications.watchRecent('target').first, isEmpty);
 
       await follow.followOrRequest(followerId: 'viewer', followeeId: 'target');
       await requests.declineFollowRequest(
@@ -113,6 +119,7 @@ void main() {
       );
       expect(await follow.watchFollowerCount('target').first, 0);
       expect(await notifications.watchRecent('viewer').first, isEmpty);
+      expect(await notifications.watchRecent('target').first, isEmpty);
     },
   );
 
@@ -148,6 +155,217 @@ void main() {
 
       await follow.followOrRequest(followerId: 'viewer', followeeId: 'target');
       expect(await follow.watchFollowingCount('viewer').first, 1);
+    },
+  );
+
+  test(
+    'public re-follow recreates one fresh relationship notification',
+    () async {
+      final firestore = FakeFirebaseFirestore();
+      final profiles = FriendshipService(firestore: firestore);
+      final follow = FollowService(firestore: firestore);
+      final notifications = SocialNotificationService(firestore: firestore);
+
+      await profiles.upsertPublicProfile(
+        uid: 'target',
+        username: 'target',
+        displayName: 'Target',
+      );
+
+      await follow.follow(followerId: 'viewer', followeeId: 'target');
+      await follow.follow(followerId: 'viewer', followeeId: 'target');
+      final firstRows = await notifications.watchRecent('target').first;
+      expect(firstRows, hasLength(1));
+      expect(firstRows.single.id, 'follow_viewer_target');
+      final firstCreatedAt = firstRows.single.createdAt;
+
+      await follow.unfollow(followerId: 'viewer', followeeId: 'target');
+      expect(await notifications.watchRecent('target').first, isEmpty);
+      await Future<void>.delayed(const Duration(milliseconds: 1));
+      await follow.follow(followerId: 'viewer', followeeId: 'target');
+
+      final rows = await notifications.watchRecent('target').first;
+      expect(rows, hasLength(1));
+      expect(rows.single.id, 'follow_viewer_target');
+      expect(rows.single.type.name, 'follow');
+      expect(rows.single.createdAt.isAfter(firstCreatedAt), isTrue);
+    },
+  );
+
+  test(
+    'private re-request after unfollow recreates one relationship row',
+    () async {
+      final firestore = FakeFirebaseFirestore();
+      final profiles = FriendshipService(firestore: firestore);
+      final follow = FollowService(firestore: firestore);
+      final requests = FollowRequestService(firestore: firestore);
+      final notifications = SocialNotificationService(firestore: firestore);
+
+      await profiles.upsertPublicProfile(
+        uid: 'target',
+        username: 'target',
+        displayName: 'Target',
+        isPrivateAccount: true,
+      );
+
+      await follow.followOrRequest(followerId: 'viewer', followeeId: 'target');
+      await requests.acceptFollowRequest(
+        requestId: FollowRequestService.requestIdFor('viewer', 'target'),
+        currentUserId: 'target',
+      );
+      final acceptedRows = await notifications.watchRecent('target').first;
+      expect(acceptedRows, hasLength(1));
+      expect(acceptedRows.single.id, 'follow_viewer_target');
+      await follow.unfollow(followerId: 'viewer', followeeId: 'target');
+      expect(await notifications.watchRecent('target').first, isEmpty);
+      await Future<void>.delayed(const Duration(milliseconds: 1));
+      await follow.followOrRequest(followerId: 'viewer', followeeId: 'target');
+      final requestRows = await notifications.watchRecent('target').first;
+      expect(requestRows, hasLength(1));
+      expect(requestRows.single.id, 'follow_request_viewer_target');
+      await requests.acceptFollowRequest(
+        requestId: FollowRequestService.requestIdFor('viewer', 'target'),
+        currentUserId: 'target',
+      );
+
+      final rows = await notifications.watchRecent('target').first;
+      expect(rows, hasLength(1));
+      expect(rows.single.id, 'follow_viewer_target');
+      expect(rows.single.type.name, 'follow');
+    },
+  );
+
+  test(
+    'accepted private request follow back to public requester is immediate',
+    () async {
+      final firestore = FakeFirebaseFirestore();
+      final profiles = FriendshipService(firestore: firestore);
+      final follow = FollowService(firestore: firestore);
+      final requests = FollowRequestService(firestore: firestore);
+
+      await profiles.upsertPublicProfile(
+        uid: 'public-requester',
+        username: 'public',
+        displayName: 'Public Requester',
+        isPrivateAccount: false,
+      );
+      await profiles.upsertPublicProfile(
+        uid: 'private-target',
+        username: 'private',
+        displayName: 'Private Target',
+        isPrivateAccount: true,
+      );
+
+      await follow.followOrRequest(
+        followerId: 'public-requester',
+        followeeId: 'private-target',
+      );
+      expect(
+        (await follow
+                .watchFollowState(
+                  followerId: 'public-requester',
+                  followeeId: 'private-target',
+                )
+                .first)
+            .status,
+        FollowRelationshipStatus.requested,
+      );
+
+      await requests.acceptFollowRequest(
+        requestId: FollowRequestService.requestIdFor(
+          'public-requester',
+          'private-target',
+        ),
+        currentUserId: 'private-target',
+      );
+      await follow.followOrRequest(
+        followerId: 'private-target',
+        followeeId: 'public-requester',
+      );
+
+      expect(await follow.watchFollowingCount('public-requester').first, 1);
+      expect(await follow.watchFollowerCount('private-target').first, 1);
+      expect(await follow.watchFollowingCount('private-target').first, 1);
+      expect(await follow.watchFollowerCount('public-requester').first, 1);
+      expect(
+        await requests
+            .watchPendingBetween(
+              requesterId: 'private-target',
+              targetId: 'public-requester',
+            )
+            .first,
+        isNull,
+      );
+      expect(
+        (await follow
+                .watchFollowState(
+                  followerId: 'private-target',
+                  followeeId: 'public-requester',
+                )
+                .first)
+            .status,
+        FollowRelationshipStatus.following,
+      );
+    },
+  );
+
+  test(
+    'accepted private request follow back to private requester becomes requested',
+    () async {
+      final firestore = FakeFirebaseFirestore();
+      final profiles = FriendshipService(firestore: firestore);
+      final follow = FollowService(firestore: firestore);
+      final requests = FollowRequestService(firestore: firestore);
+
+      await profiles.upsertPublicProfile(
+        uid: 'private-requester',
+        username: 'requester',
+        displayName: 'Private Requester',
+        isPrivateAccount: true,
+      );
+      await profiles.upsertPublicProfile(
+        uid: 'private-target',
+        username: 'target',
+        displayName: 'Private Target',
+        isPrivateAccount: true,
+      );
+
+      await follow.followOrRequest(
+        followerId: 'private-requester',
+        followeeId: 'private-target',
+      );
+      await requests.acceptFollowRequest(
+        requestId: FollowRequestService.requestIdFor(
+          'private-requester',
+          'private-target',
+        ),
+        currentUserId: 'private-target',
+      );
+      await follow.followOrRequest(
+        followerId: 'private-target',
+        followeeId: 'private-requester',
+      );
+
+      expect(
+        (await follow
+                .watchFollowState(
+                  followerId: 'private-target',
+                  followeeId: 'private-requester',
+                )
+                .first)
+            .status,
+        FollowRelationshipStatus.requested,
+      );
+      expect(await follow.watchFollowingCount('private-target').first, 0);
+      expect(
+        await requests
+            .watchPendingBetween(
+              requesterId: 'private-target',
+              targetId: 'private-requester',
+            )
+            .first,
+        isNotNull,
+      );
     },
   );
 }

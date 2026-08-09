@@ -1,20 +1,23 @@
 /*
  * Author: Sanjevan Rajasegar
- * Last Updated: 8 August 2026
+ * Last Updated: 9 August 2026
  * Description:
  *   Shared Follow / Requested / Following control driven by derived Firestore
- *   relationship state. Public targets follow immediately; private targets
- *   create cancellable requests and require confirmation before unfollow.
+ *   relationship state. Follow is sage; Following and Requested are cream.
+ *   Unfollowing a private account confirms via shared dialog. Public targets
+ *   follow immediately; private targets create cancellable requests.
  */
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 
 import '../../../shared/widgets/app_toast.dart';
+import '../../../theme/app_colours.dart';
 import '../../../theme/app_surfaces.dart';
 import '../data/follow_service.dart';
 import '../domain/follow_relationship_state.dart';
 import '../domain/public_profile.dart';
+import 'private_follow_confirm.dart';
 
 /// Label modes for the public Follow relationship button.
 enum FollowRelationshipLabelMode {
@@ -82,7 +85,10 @@ class _FollowRelationshipButtonState extends State<FollowRelationshipButton> {
     final shouldUnfollow = state.status == FollowRelationshipStatus.following;
     final shouldCancel = state.status == FollowRelationshipStatus.requested;
     if (shouldUnfollow && state.isTargetPrivate) {
-      final confirmed = await _confirmPrivateUnfollow();
+      final confirmed = await confirmPrivateUnfollow(
+        context,
+        username: widget.followeeProfile?.username,
+      );
       if (!confirmed) return;
     }
 
@@ -131,35 +137,6 @@ class _FollowRelationshipButtonState extends State<FollowRelationshipButton> {
     }
   }
 
-  Future<bool> _confirmPrivateUnfollow() async {
-    final username = widget.followeeProfile?.username;
-    final title = username == null || username.isEmpty
-        ? 'Unfollow this account?'
-        : 'Unfollow @$username?';
-    final result = await showDialog<bool>(
-      context: context,
-      builder: (context) {
-        return AlertDialog(
-          title: Text(title),
-          content: const Text(
-            'You will need to request to follow again to see this private account\'s activity.',
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(false),
-              child: const Text('Cancel'),
-            ),
-            FilledButton(
-              onPressed: () => Navigator.of(context).pop(true),
-              child: const Text('Unfollow'),
-            ),
-          ],
-        );
-      },
-    );
-    return result ?? false;
-  }
-
   String _idleLabel(FollowRelationshipStatus status) {
     if (status == FollowRelationshipStatus.following) return 'Following';
     if (status == FollowRelationshipStatus.requested) return 'Requested';
@@ -185,37 +162,36 @@ class _FollowRelationshipButtonState extends State<FollowRelationshipButton> {
             !snapshot.hasData;
         final onPressed = _busy || waiting ? null : () => _toggle(state);
         final label = Text(_idleLabel(state.status));
+        final compactPadding = widget.compact
+            ? const EdgeInsets.symmetric(horizontal: 12, vertical: 8)
+            : null;
+        final compactDensity = widget.compact
+            ? VisualDensity.compact
+            : VisualDensity.standard;
 
-        // Outlined Following stays a real button (cream softCard fill looked
-        // like plain centred text on the cream profile background).
-        final outlined = state.status != FollowRelationshipStatus.notFollowing;
-        final Widget button = outlined
-            ? OutlinedButton(
-                onPressed: onPressed,
-                style: OutlinedButton.styleFrom(
-                  shape: const StadiumBorder(),
-                  visualDensity: widget.compact
-                      ? VisualDensity.compact
-                      : VisualDensity.standard,
-                  padding: widget.compact
-                      ? const EdgeInsets.symmetric(horizontal: 12, vertical: 8)
-                      : null,
-                  foregroundColor: AppSurfaces.textPrimary(context),
-                  backgroundColor: AppSurfaces.card(context),
-                  side: BorderSide(color: AppSurfaces.border(context)),
-                ),
-                child: label,
-              )
-            : FilledButton(
+        // Follow = sage filled; Following / Requested = cream outlined.
+        final Widget button =
+            state.status == FollowRelationshipStatus.notFollowing
+            ? FilledButton(
                 onPressed: onPressed,
                 style: FilledButton.styleFrom(
                   shape: const StadiumBorder(),
-                  visualDensity: widget.compact
-                      ? VisualDensity.compact
-                      : VisualDensity.standard,
-                  padding: widget.compact
-                      ? const EdgeInsets.symmetric(horizontal: 12, vertical: 8)
-                      : null,
+                  visualDensity: compactDensity,
+                  padding: compactPadding,
+                  backgroundColor: AppColors.sage,
+                  foregroundColor: Colors.white,
+                ),
+                child: label,
+              )
+            : OutlinedButton(
+                onPressed: onPressed,
+                style: OutlinedButton.styleFrom(
+                  shape: const StadiumBorder(),
+                  visualDensity: compactDensity,
+                  padding: compactPadding,
+                  foregroundColor: AppSurfaces.textPrimary(context),
+                  backgroundColor: AppColors.cream,
+                  side: BorderSide(color: AppSurfaces.border(context)),
                 ),
                 child: label,
               );

@@ -9,6 +9,7 @@ import 'package:fake_cloud_firestore/fake_cloud_firestore.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:roam_io/features/social/data/follow_service.dart';
 import 'package:roam_io/features/social/data/social_notification_service.dart';
+import 'package:roam_io/features/social/domain/social_notification.dart';
 
 void main() {
   test('watchRecent returns newest first and unread count updates', () async {
@@ -18,13 +19,19 @@ void main() {
     await service.upsertFollowNotificationForTests(
       recipientId: 'user-b',
       actorId: 'user-a',
-      notificationId: FollowService.followIdFor('user-a', 'user-b'),
+      notificationId: SocialNotification.followNotificationIdFor(
+        followerId: 'user-a',
+        followeeId: 'user-b',
+      ),
       createdAt: DateTime(2026, 8, 7, 10),
     );
     await service.upsertFollowNotificationForTests(
       recipientId: 'user-b',
       actorId: 'user-c',
-      notificationId: FollowService.followIdFor('user-c', 'user-b'),
+      notificationId: SocialNotification.followNotificationIdFor(
+        followerId: 'user-c',
+        followeeId: 'user-b',
+      ),
       createdAt: DateTime(2026, 8, 7, 12),
     );
 
@@ -71,7 +78,7 @@ void main() {
         (await notificationService.watchRecent('user-a').first).length,
         aCountBeforeRemove,
       );
-      expect((await notificationService.watchRecent('user-b').first).length, 1);
+      expect(await notificationService.watchRecent('user-b').first, isEmpty);
     },
   );
 }
