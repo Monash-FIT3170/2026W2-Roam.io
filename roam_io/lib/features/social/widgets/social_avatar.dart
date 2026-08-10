@@ -200,7 +200,10 @@ class _SocialAvatarState extends State<SocialAvatar> {
         ? _rawPhotoUrl
         : null;
     if (_directNetworkUrl != null) {
-      SocialAvatar._logAvatarOnce(url: _directNetworkUrl!, phase: 'paint-https');
+      SocialAvatar._logAvatarOnce(
+        url: _directNetworkUrl!,
+        phase: 'paint-https',
+      );
     }
     _resolvedUrlFuture = _directNetworkUrl == null
         ? SocialAvatar._resolvePhotoUrl(_rawPhotoUrl)
