@@ -1,9 +1,9 @@
 /*
  * Author: Sanjevan Rajasegar
- * Last Updated: 7 August 2026
+ * Last Updated: 10 August 2026
  * Description:
  *   Regression tests for You screen tabs, profile identity XP progress,
- *   full-width social/exploration stats, metric line graphs, activities stub
+ *   full-width social/exploration stats, metric line graphs, owned activities
  *   (Kudos + comments + Share on the card; no engagement on detail), and
  *   location states.
  */
@@ -15,8 +15,10 @@ import 'package:firebase_auth/firebase_auth.dart' as firebase_auth;
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:provider/provider.dart';
+import 'package:roam_io/features/activity_feed/data/activity_feed_service.dart';
 import 'package:roam_io/features/activity_feed/data/comment_service.dart';
 import 'package:roam_io/features/activity_feed/models/activity_comment.dart';
+import 'package:roam_io/features/activity_feed/models/activity_feed_item.dart';
 import 'package:roam_io/features/activity_feed/screens/comments_screen.dart';
 import 'package:roam_io/features/you/screens/you_screen.dart';
 import 'package:roam_io/features/auth/data/auth_repository.dart';
@@ -319,7 +321,7 @@ void main() {
     },
   );
 
-  testWidgets('opens Activities tab and shows placeholder activity card', (
+  testWidgets('opens Activities tab and shows owned persisted activity card', (
     tester,
   ) async {
     await tester.binding.setSurfaceSize(const Size(400, 1400));
@@ -330,6 +332,19 @@ void main() {
     );
     await provider.refreshCurrentUser();
     final comments = _FakeYouCommentService();
+    final firestore = FakeFirebaseFirestore();
+    await _seedYouActivity(
+      firestore,
+      activityId: 'sanjevan-test-activity',
+      ownerId: 'user-1',
+      title: "Sanjevan's Test Activity",
+    );
+    await _seedYouActivity(
+      firestore,
+      activityId: 'other-activity',
+      ownerId: 'someone-else',
+      title: 'Other user activity',
+    );
 
     await tester.pumpWidget(
       ChangeNotifierProvider<AuthProvider>.value(
@@ -340,6 +355,7 @@ void main() {
               visitService: _FakeVisitService(totalVisitCount: 0),
               visitedRegionService: _FakeVisitedRegionService(<String>{}),
               commentService: comments,
+              activityFeedService: ActivityFeedService(firestore: firestore),
             ),
           ),
         ),
@@ -350,12 +366,13 @@ void main() {
     await tester.tap(find.text('Activities'));
     await tester.pumpAndSettle();
     expect(find.text('No activities yet'), findsNothing);
-    expect(find.text('Journey to Coles'), findsOneWidget);
-    expect(find.text('August 3, 2026 at 10:07 AM'), findsOneWidget);
-    expect(find.text('47m 51s'), findsOneWidget);
+    expect(find.text("Sanjevan's Test Activity"), findsOneWidget);
+    expect(find.text('Other user activity'), findsNothing);
+    expect(find.text('10/8/2026 at 0:00'), findsOneWidget);
+    expect(find.text('12m 34s'), findsOneWidget);
     expect(find.text('Locations Visited'), findsOneWidget);
-    expect(find.text('4'), findsOneWidget);
-    expect(find.text('+200 XP'), findsOneWidget);
+    expect(find.text('3'), findsOneWidget);
+    expect(find.text('+120 XP'), findsOneWidget);
     expect(find.text('Map preview'), findsOneWidget);
     expect(find.text('Morning Weight Training'), findsNothing);
     expect(find.text('Traveller'), findsOneWidget);
@@ -365,12 +382,11 @@ void main() {
 
     await tester.tap(find.byIcon(Icons.more_horiz_rounded));
     await tester.pumpAndSettle();
-    expect(find.text('Journey to Coles'), findsOneWidget);
+    expect(find.text("Sanjevan's Test Activity"), findsOneWidget);
     expect(find.text('Journey route map'), findsOneWidget);
-    expect(find.text('Kudos'), findsNothing);
-    expect(find.text('Comment'), findsNothing);
-    expect(find.text('0 comments'), findsNothing);
-    expect(find.text('Share'), findsNothing);
+    expect(find.text('Kudos'), findsOneWidget);
+    expect(find.text('0 comments'), findsOneWidget);
+    expect(find.text('Share'), findsOneWidget);
     await tester.pageBack();
     await tester.pumpAndSettle();
 
@@ -395,6 +411,225 @@ void main() {
     provider.dispose();
   });
 
+  testWidgets('Activities tab reacts to newly inserted own activities', (
+    tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(400, 1400));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+
+    final provider = AuthProvider(
+      authRepository: _FakeAuthRepository(_buildProfile(xp: 75)),
+    );
+    await provider.refreshCurrentUser();
+    final comments = _FakeYouCommentService();
+    final firestore = FakeFirebaseFirestore();
+
+    await tester.pumpWidget(
+      ChangeNotifierProvider<AuthProvider>.value(
+        value: provider,
+        child: MaterialApp(
+          home: Scaffold(
+            body: YouScreen(
+              visitService: _FakeVisitService(totalVisitCount: 0),
+              visitedRegionService: _FakeVisitedRegionService(<String>{}),
+              commentService: comments,
+              activityFeedService: ActivityFeedService(firestore: firestore),
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Activities'));
+    await tester.pumpAndSettle();
+    expect(find.text('No activities yet'), findsOneWidget);
+
+    await _seedYouActivity(
+      firestore,
+      activityId: 'activity-1',
+      ownerId: 'user-1',
+      title: 'Traveller Activity 1',
+      createdAt: DateTime(2026, 8, 10),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Traveller Activity 1'), findsOneWidget);
+
+    await _seedYouActivity(
+      firestore,
+      activityId: 'activity-2',
+      ownerId: 'user-1',
+      title: 'Traveller Activity 2',
+      createdAt: DateTime(2026, 8, 11),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Traveller Activity 2'), findsOneWidget);
+    expect(find.text('Traveller Activity 1'), findsOneWidget);
+    expect(
+      tester.getTopLeft(find.text('Traveller Activity 2')).dy,
+      lessThan(tester.getTopLeft(find.text('Traveller Activity 1')).dy),
+    );
+
+    await comments.dispose();
+    provider.dispose();
+  });
+
+  testWidgets(
+    'Activities tab does not recreate owned activity stream on rebuild',
+    (tester) async {
+      await tester.binding.setSurfaceSize(const Size(400, 1400));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+
+      final provider = AuthProvider(
+        authRepository: _FakeAuthRepository(_buildProfile(xp: 75)),
+      );
+      await provider.refreshCurrentUser();
+      final comments = _FakeYouCommentService();
+      final activityFeedService = _CountingYouActivityFeedService();
+
+      Widget widget() {
+        return ChangeNotifierProvider<AuthProvider>.value(
+          value: provider,
+          child: MaterialApp(
+            home: Scaffold(
+              body: YouScreen(
+                visitService: _FakeVisitService(totalVisitCount: 0),
+                visitedRegionService: _FakeVisitedRegionService(<String>{}),
+                commentService: comments,
+                activityFeedService: activityFeedService,
+              ),
+            ),
+          ),
+        );
+      }
+
+      await tester.pumpWidget(widget());
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Activities'));
+      await tester.pumpAndSettle();
+
+      expect(activityFeedService.watchOwnedCalls, 1);
+
+      await tester.pumpWidget(widget());
+      await tester.pumpAndSettle();
+
+      expect(activityFeedService.watchOwnedCalls, 1);
+
+      await comments.dispose();
+      provider.dispose();
+    },
+  );
+
+  testWidgets('Amar723 Activities tab excludes Sanjevan-owned test activity', (
+    tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(400, 1400));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+
+    const amarUid = 'amar-uid';
+    const sanjevanUid = 'sanjevan-uid';
+    final provider = AuthProvider(
+      authRepository: _FakeAuthRepository(
+        _buildProfile(
+          xp: 75,
+          uid: amarUid,
+          username: 'Amar723',
+          displayName: 'Amar',
+        ),
+      ),
+    );
+    await provider.refreshCurrentUser();
+    final comments = _FakeYouCommentService();
+    final firestore = FakeFirebaseFirestore();
+    await _seedYouActivity(
+      firestore,
+      activityId: 'sanjevan-test-activity',
+      ownerId: sanjevanUid,
+      title: "Sanjevan's Test Activity",
+    );
+    await _seedYouActivity(
+      firestore,
+      activityId: 'amar-activity',
+      ownerId: amarUid,
+      title: "Amar's Activity",
+    );
+
+    await tester.pumpWidget(
+      ChangeNotifierProvider<AuthProvider>.value(
+        value: provider,
+        child: MaterialApp(
+          home: Scaffold(
+            body: YouScreen(
+              visitService: _FakeVisitService(totalVisitCount: 0),
+              visitedRegionService: _FakeVisitedRegionService(<String>{}),
+              commentService: comments,
+              activityFeedService: ActivityFeedService(firestore: firestore),
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Activities'));
+    await tester.pumpAndSettle();
+
+    expect(find.text("Amar's Activity"), findsOneWidget);
+    expect(find.text("Sanjevan's Test Activity"), findsNothing);
+
+    await comments.dispose();
+    provider.dispose();
+  });
+
+  testWidgets('Activities tab does not inject Amar-only stub activities', (
+    tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(400, 1400));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+
+    const amarUid = 'amar-uid';
+    final provider = AuthProvider(
+      authRepository: _FakeAuthRepository(
+        _buildProfile(
+          xp: 75,
+          uid: amarUid,
+          username: 'Amar723',
+          displayName: 'Amar',
+        ),
+      ),
+    );
+    await provider.refreshCurrentUser();
+    final comments = _FakeYouCommentService();
+    final firestore = FakeFirebaseFirestore();
+
+    await tester.pumpWidget(
+      ChangeNotifierProvider<AuthProvider>.value(
+        value: provider,
+        child: MaterialApp(
+          home: Scaffold(
+            body: YouScreen(
+              visitService: _FakeVisitService(totalVisitCount: 0),
+              visitedRegionService: _FakeVisitedRegionService(<String>{}),
+              commentService: comments,
+              activityFeedService: ActivityFeedService(firestore: firestore),
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Activities'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('No activities yet'), findsOneWidget);
+
+    await comments.dispose();
+    provider.dispose();
+  });
+
   testWidgets('Activities Comment posts and updates personal card count', (
     tester,
   ) async {
@@ -406,6 +641,13 @@ void main() {
     );
     await provider.refreshCurrentUser();
     final comments = _FakeYouCommentService();
+    final firestore = FakeFirebaseFirestore();
+    await _seedYouActivity(
+      firestore,
+      activityId: 'sanjevan-test-activity',
+      ownerId: 'user-1',
+      title: "Sanjevan's Test Activity",
+    );
 
     await tester.pumpWidget(
       ChangeNotifierProvider<AuthProvider>.value(
@@ -416,6 +658,7 @@ void main() {
               visitService: _FakeVisitService(totalVisitCount: 0),
               visitedRegionService: _FakeVisitedRegionService(<String>{}),
               commentService: comments,
+              activityFeedService: ActivityFeedService(firestore: firestore),
             ),
           ),
         ),
@@ -701,6 +944,13 @@ void main() {
         authRepository: _FakeAuthRepository(_buildProfile(xp: 250)),
       );
       await provider.refreshCurrentUser();
+      final firestore = FakeFirebaseFirestore();
+      await _seedYouActivity(
+        firestore,
+        activityId: 'sanjevan-test-activity',
+        ownerId: 'user-1',
+        title: "Sanjevan's Test Activity",
+      );
 
       await tester.pumpWidget(
         ChangeNotifierProvider<AuthProvider>.value(
@@ -711,6 +961,7 @@ void main() {
                 visitService: visitService,
                 visitedRegionService: regionService,
                 xpEventsStream: xpController.stream,
+                activityFeedService: ActivityFeedService(firestore: firestore),
               ),
             ),
           ),
@@ -737,14 +988,14 @@ void main() {
 
       await tester.tap(find.text('Activities'));
       await tester.pumpAndSettle();
-      expect(find.text('Journey to Coles'), findsOneWidget);
+      expect(find.text("Sanjevan's Test Activity"), findsOneWidget);
 
       await tester.tap(find.byIcon(Icons.more_horiz_rounded));
       await tester.pumpAndSettle();
       expect(find.text('Journey route map'), findsOneWidget);
-      expect(find.text('Kudos'), findsNothing);
-      expect(find.text('0 comments'), findsNothing);
-      expect(find.text('Share'), findsNothing);
+      expect(find.text('Kudos'), findsOneWidget);
+      expect(find.text('Comments'), findsOneWidget);
+      expect(find.text('Share'), findsOneWidget);
 
       await tester.pageBack();
       await tester.pumpAndSettle();
@@ -819,12 +1070,17 @@ DateTime _mondayOnOrBefore(DateTime date) {
   return day.subtract(Duration(days: day.weekday - DateTime.monday));
 }
 
-ProfileModel _buildProfile({required int xp}) {
+ProfileModel _buildProfile({
+  required int xp,
+  String uid = 'user-1',
+  String username = 'traveller',
+  String displayName = 'Traveller',
+}) {
   return ProfileModel(
-    uid: 'user-1',
-    username: 'traveller',
-    displayName: 'Traveller',
-    email: 'traveller@example.com',
+    uid: uid,
+    username: username,
+    displayName: displayName,
+    email: '$username@example.com',
     createdAt: DateTime(2026, 5, 1, 10),
     updatedAt: DateTime(2026, 5, 1, 11),
     xp: xp,
@@ -832,14 +1088,37 @@ ProfileModel _buildProfile({required int xp}) {
   );
 }
 
+Future<void> _seedYouActivity(
+  FakeFirebaseFirestore firestore, {
+  required String activityId,
+  required String ownerId,
+  required String title,
+  DateTime? createdAt,
+}) {
+  return firestore.collection('activities').doc(activityId).set({
+    'activityId': activityId,
+    'ownerId': ownerId,
+    'profileId': ownerId,
+    'displayName': ownerId == 'user-1' ? 'Traveller' : 'Other Traveller',
+    'username': ownerId == 'user-1' ? 'traveller' : 'other',
+    'title': title,
+    'kind': 'exploration',
+    'showMapPreview': true,
+    'createdAt': (createdAt ?? DateTime(2026, 8, 10)).toIso8601String(),
+    'metrics': [
+      {'label': 'Time', 'value': '12m 34s'},
+      {'label': 'Locations Visited', 'value': '3'},
+      {'label': 'XP Gained', 'value': '+120 XP'},
+    ],
+  });
+}
+
 class _FakeAuthRepository implements AuthRepository {
-  _FakeAuthRepository(this._profile);
+  _FakeAuthRepository(this._profile)
+    : _user = _FakeUser(uid: _profile.uid, email: _profile.email);
 
   final ProfileModel _profile;
-  final _FakeUser _user = _FakeUser(
-    uid: 'user-1',
-    email: 'traveller@example.com',
-  );
+  final _FakeUser _user;
 
   @override
   Stream<firebase_auth.User?> authStateChanges() =>
@@ -1037,6 +1316,7 @@ class _FakeYouCommentService implements CommentService {
   @override
   Future<ActivityComment> addComment({
     required String activityId,
+    required String activityOwnerId,
     required String authorId,
     required String authorDisplayName,
     required String text,
@@ -1056,7 +1336,41 @@ class _FakeYouCommentService implements CommentService {
     return comment;
   }
 
+  @override
+  Future<ActivityComment> replyToComment({
+    required String activityId,
+    required String activityOwnerId,
+    required ActivityComment parentComment,
+    required String authorId,
+    required String authorDisplayName,
+    required String text,
+    String? authorUsername,
+    String? authorPhotoUrl,
+  }) {
+    return addComment(
+      activityId: activityId,
+      activityOwnerId: activityOwnerId,
+      authorId: authorId,
+      authorDisplayName: authorDisplayName,
+      text: text,
+      authorUsername: authorUsername,
+      authorPhotoUrl: authorPhotoUrl,
+    );
+  }
+
   Future<void> dispose() => _controller.close();
+}
+
+class _CountingYouActivityFeedService extends ActivityFeedService {
+  _CountingYouActivityFeedService() : super(firestore: FakeFirebaseFirestore());
+
+  var watchOwnedCalls = 0;
+
+  @override
+  Stream<List<ActivityFeedItem>> watchActivitiesOwnedBy(String ownerId) {
+    watchOwnedCalls += 1;
+    return Stream<List<ActivityFeedItem>>.value(const <ActivityFeedItem>[]);
+  }
 }
 
 class _FakeUser implements firebase_auth.User {

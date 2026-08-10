@@ -68,6 +68,30 @@ class NotificationTemplates {
     );
   }
 
+  static AppNotification activityKudos(
+    String username, {
+    String? notificationId,
+    String? actorId,
+    String? activityId,
+  }) {
+    final now = DateTime.now();
+
+    return AppNotification(
+      id: notificationId ?? now.microsecondsSinceEpoch.toString(),
+      type: NotificationType.kudos,
+      title: 'Kudos Received',
+      body: '$username gave Kudos to your activity',
+      timestamp: now,
+      showOnDevice: false,
+      displayDuration: const Duration(seconds: 5),
+      data: {
+        'notificationId': ?notificationId,
+        'actorId': ?actorId,
+        'activityId': ?activityId,
+      },
+    );
+  }
+
   /// Creates a notification indicating that [username] commented on an activity.
   static AppNotification comment(String username) {
     return AppNotification(
@@ -76,6 +100,106 @@ class NotificationTemplates {
       title: 'New Comment',
       body: '$username commented on your activity.',
       timestamp: DateTime.now(),
+    );
+  }
+
+  static AppNotification activityComment(
+    String username, {
+    String? notificationId,
+    String? actorId,
+    String? activityId,
+    String? commentId,
+  }) {
+    final now = DateTime.now();
+    return AppNotification(
+      id: notificationId ?? now.microsecondsSinceEpoch.toString(),
+      type: NotificationType.comment,
+      title: 'New Comment',
+      body: '$username commented on your activity',
+      timestamp: now,
+      showOnDevice: false,
+      displayDuration: const Duration(seconds: 5),
+      data: {
+        'notificationId': ?notificationId,
+        'actorId': ?actorId,
+        'activityId': ?activityId,
+        'commentId': ?commentId,
+      },
+    );
+  }
+
+  static AppNotification activityThreadReply(
+    String username, {
+    String? notificationId,
+    String? actorId,
+    String? activityId,
+    String? commentId,
+  }) {
+    final now = DateTime.now();
+    return AppNotification(
+      id: notificationId ?? now.microsecondsSinceEpoch.toString(),
+      type: NotificationType.commentReply,
+      title: 'New Reply',
+      body: '$username replied to a comment on your activity',
+      timestamp: now,
+      showOnDevice: false,
+      displayDuration: const Duration(seconds: 5),
+      data: {
+        'notificationId': ?notificationId,
+        'actorId': ?actorId,
+        'activityId': ?activityId,
+        'commentId': ?commentId,
+      },
+    );
+  }
+
+  static AppNotification commentReply(
+    String username, {
+    String? notificationId,
+    String? actorId,
+    String? activityId,
+    String? commentId,
+  }) {
+    final now = DateTime.now();
+    return AppNotification(
+      id: notificationId ?? now.microsecondsSinceEpoch.toString(),
+      type: NotificationType.commentReply,
+      title: 'New Reply',
+      body: '$username replied to your comment',
+      timestamp: now,
+      showOnDevice: false,
+      displayDuration: const Duration(seconds: 5),
+      data: {
+        'notificationId': ?notificationId,
+        'actorId': ?actorId,
+        'activityId': ?activityId,
+        'commentId': ?commentId,
+      },
+    );
+  }
+
+  static AppNotification commentLike(
+    String username, {
+    String? notificationId,
+    String? actorId,
+    String? activityId,
+    String? commentId,
+  }) {
+    final now = DateTime.now();
+    return AppNotification(
+      id: notificationId ?? now.microsecondsSinceEpoch.toString(),
+      type: NotificationType.commentLike,
+      title: 'Comment Liked',
+      body: '$username liked your comment',
+      timestamp: now,
+      showOnDevice: false,
+      displayDuration: const Duration(seconds: 5),
+      data: {
+        'notificationId': ?notificationId,
+        'actorId': ?actorId,
+        'activityId': ?activityId,
+        'commentId': ?commentId,
+      },
     );
   }
 

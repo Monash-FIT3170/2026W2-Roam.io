@@ -207,6 +207,8 @@ class _NotificationIcon extends StatelessWidget {
     return switch (type) {
       NotificationType.kudos => Icons.favorite_outline,
       NotificationType.comment => Icons.chat_bubble_outline,
+      NotificationType.commentReply => Icons.reply_rounded,
+      NotificationType.commentLike => Icons.thumb_up_alt_outlined,
       NotificationType.friendRequest => Icons.person_add_alt_1,
       NotificationType.friendAccepted => Icons.people_outline,
       NotificationType.follow => Icons.person_add_alt_1,

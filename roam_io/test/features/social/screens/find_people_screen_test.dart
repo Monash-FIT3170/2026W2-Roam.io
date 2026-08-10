@@ -630,6 +630,7 @@ void main() {
       level: 2,
     );
     await firestore.collection('activities').doc('real-activity').set({
+      'ownerId': 'other-user',
       'profileId': 'other-user',
       'displayName': 'Nathan Nunes',
       'username': 'nathan',
@@ -641,6 +642,7 @@ void main() {
       ],
     });
     await firestore.collection('activities').doc('other-activity').set({
+      'ownerId': 'someone-else',
       'profileId': 'someone-else',
       'displayName': 'Someone Else',
       'title': 'Should not show',
@@ -664,7 +666,6 @@ void main() {
     expect(find.text('Real campus walk'), findsOneWidget);
     expect(find.text('Should not show'), findsNothing);
     expect(find.text('Share'), findsNothing);
-    expect(find.text('Journey to Coles'), findsNothing);
     expect(find.text('No activities yet'), findsNothing);
   });
 
@@ -695,7 +696,6 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('No activities yet'), findsOneWidget);
-    expect(find.text('Journey to Coles'), findsNothing);
   });
 
   testWidgets('private external profile shrink-wraps without nav blank space', (
@@ -769,6 +769,7 @@ void main() {
           );
     }
     await firestore.collection('activities').doc('real-activity').set({
+      'ownerId': 'other-user',
       'profileId': 'other-user',
       'displayName': 'Nathan Nunes',
       'username': 'nathan',

@@ -127,6 +127,73 @@ service cloud.firestore {
       request.resource.data.updatedAt is string;
     }
 
+    function hasActivityFields(activityId) {
+      return request.resource.data.keys().hasOnly([
+        'ownerId',
+        'activityId',
+        'profileId',
+        'displayName',
+        'username',
+        'photoUrl',
+        'title',
+        'kind',
+        'metrics',
+        'showMapPreview',
+        'createdAt'
+      ]) &&
+      request.resource.data.keys().hasAll([
+        'ownerId',
+        'activityId',
+        'profileId',
+        'displayName',
+        'username',
+        'title',
+        'kind',
+        'metrics',
+        'showMapPreview',
+        'createdAt'
+      ]) &&
+      request.resource.data.activityId == activityId &&
+      request.resource.data.ownerId == request.auth.uid &&
+      request.resource.data.profileId == request.auth.uid &&
+      request.resource.data.displayName is string &&
+      request.resource.data.username is string &&
+      (!request.resource.data.keys().hasAny(['photoUrl']) ||
+        request.resource.data.photoUrl is string) &&
+      request.resource.data.title is string &&
+      request.resource.data.kind is string &&
+      request.resource.data.metrics is list &&
+      request.resource.data.showMapPreview is bool &&
+      request.resource.data.createdAt is string;
+    }
+
+    function hasActivityCounterFields(userId) {
+      return request.resource.data.keys().hasOnly([
+        'ownerId',
+        'lastTestActivityNumber',
+        'createdAt',
+        'updatedAt'
+      ]) &&
+      request.resource.data.ownerId == userId &&
+      request.resource.data.lastTestActivityNumber is int &&
+      request.resource.data.createdAt is string &&
+      request.resource.data.updatedAt is string;
+    }
+
+    function canReadActivity(data) {
+      return isSignedIn()
+        && (
+          (
+            data.ownerId is string
+            && canViewProfileActivity(data.ownerId)
+          ) ||
+          (
+            data.profileId is string
+            && canViewProfileActivity(data.profileId)
+          )
+        );
+    }
+
     function isImmediatePublicFollow(followId) {
       return request.auth.uid == request.resource.data.followerId
         && !isPrivateAccount(request.resource.data.followeeId)
@@ -170,13 +237,35 @@ service cloud.firestore {
       return 'follow_request_accepted_' + data.actorId + '_' + userId;
     }
 
+    function activityKudosNotificationId(data) {
+      return 'activity_kudos_' + data.activityId + '_' + data.actorId;
+    }
+
+    function activityCommentNotificationId(data) {
+      return 'activity_comment_' + data.activityId + '_' + data.commentId;
+    }
+
+    function commentReplyNotificationId(data, userId) {
+      return 'comment_reply_' + data.activityId + '_' + data.commentId + '_' + userId;
+    }
+
+    function activityReplyNotificationId(data, userId) {
+      return 'activity_reply_' + data.activityId + '_' + data.commentId + '_' + userId;
+    }
+
+    function commentLikeNotificationId(data) {
+      return 'comment_like_' + data.activityId + '_' + data.commentId + '_' + data.actorId;
+    }
+
     function hasNotificationFields(data, userId) {
       return data.keys().hasOnly([
           'recipientId',
           'actorId',
           'type',
           'createdAt',
-          'readAt'
+          'readAt',
+          'activityId',
+          'commentId'
         ])
         && data.recipientId == userId
         && data.actorId is string
@@ -184,10 +273,16 @@ service cloud.firestore {
         && data.type in [
           'follow',
           'followRequest',
-          'followRequestAccepted'
+          'followRequestAccepted',
+          'activityKudos',
+          'activityComment',
+          'commentReply',
+          'commentLike'
         ]
         && data.createdAt is string
-        && (data.readAt == null || data.readAt is string);
+        && (data.readAt == null || data.readAt is string)
+        && (!data.keys().hasAny(['activityId']) || data.activityId is string)
+        && (!data.keys().hasAny(['commentId']) || data.commentId is string);
     }
 
     function isValidFollowNotificationWrite(notificationId, data, userId) {
@@ -245,6 +340,107 @@ service cloud.firestore {
           isValidFollowNotificationWrite(notificationId, data, userId)
           || isValidRequestNotificationWrite(notificationId, data, userId)
           || isValidAcceptedNotificationWrite(notificationId, data, userId)
+          || isValidActivityNotificationWrite(notificationId, data, userId)
+        );
+    }
+
+    function canInteractWithActivity(activityId) {
+      return isSignedIn()
+        && exists(/databases/$(database)/documents/activities/$(activityId))
+        && (
+          (
+            get(/databases/$(database)/documents/activities/$(activityId)).data.ownerId is string
+            && canViewProfileActivity(
+              get(/databases/$(database)/documents/activities/$(activityId)).data.ownerId
+            )
+          ) ||
+          (
+            get(/databases/$(database)/documents/activities/$(activityId)).data.profileId is string
+            && canViewProfileActivity(
+              get(/databases/$(database)/documents/activities/$(activityId)).data.profileId
+            )
+          )
+        );
+    }
+
+    function isValidActivityNotificationWrite(notificationId, data, userId) {
+      return data.keys().hasAll(['activityId'])
+        && request.auth.uid == data.actorId
+        && (
+          (
+            data.type == 'activityKudos'
+            && notificationId == activityKudosNotificationId(data)
+            && exists(
+              /databases/$(database)/documents/activities/$(data.activityId)/kudos/$(data.actorId)
+            )
+            && get(
+              /databases/$(database)/documents/activities/$(data.activityId)/kudos/$(data.actorId)
+            ).data.createdAt == data.createdAt
+            && (
+              get(
+                /databases/$(database)/documents/activities/$(data.activityId)
+              ).data.ownerId == userId
+              || get(
+                /databases/$(database)/documents/activities/$(data.activityId)
+              ).data.profileId == userId
+            )
+          ) ||
+          (
+            data.type == 'activityComment'
+            && data.keys().hasAll(['commentId'])
+            && (
+              notificationId == activityCommentNotificationId(data)
+              || notificationId == activityReplyNotificationId(data, userId)
+            )
+            && exists(
+              /databases/$(database)/documents/activities/$(data.activityId)/comments/$(data.commentId)
+            )
+            && get(
+              /databases/$(database)/documents/activities/$(data.activityId)/comments/$(data.commentId)
+            ).data.authorId == data.actorId
+            && get(
+              /databases/$(database)/documents/activities/$(data.activityId)/comments/$(data.commentId)
+            ).data.createdAt == data.createdAt
+            && (
+              get(
+                /databases/$(database)/documents/activities/$(data.activityId)
+              ).data.ownerId == userId
+              || get(
+                /databases/$(database)/documents/activities/$(data.activityId)
+              ).data.profileId == userId
+            )
+          ) ||
+          (
+            data.type == 'commentReply'
+            && data.keys().hasAll(['commentId'])
+            && notificationId == commentReplyNotificationId(data, userId)
+            && exists(
+              /databases/$(database)/documents/activities/$(data.activityId)/comments/$(data.commentId)
+            )
+            && get(
+              /databases/$(database)/documents/activities/$(data.activityId)/comments/$(data.commentId)
+            ).data.authorId == data.actorId
+            && get(
+              /databases/$(database)/documents/activities/$(data.activityId)/comments/$(data.commentId)
+            ).data.replyToUserId == userId
+            && get(
+              /databases/$(database)/documents/activities/$(data.activityId)/comments/$(data.commentId)
+            ).data.createdAt == data.createdAt
+          ) ||
+          (
+            data.type == 'commentLike'
+            && data.keys().hasAll(['commentId'])
+            && notificationId == commentLikeNotificationId(data)
+            && exists(
+              /databases/$(database)/documents/activities/$(data.activityId)/comments/$(data.commentId)/likes/$(data.actorId)
+            )
+            && get(
+              /databases/$(database)/documents/activities/$(data.activityId)/comments/$(data.commentId)/likes/$(data.actorId)
+            ).data.createdAt == data.createdAt
+            && get(
+              /databases/$(database)/documents/activities/$(data.activityId)/comments/$(data.commentId)
+            ).data.authorId == userId
+          )
         );
     }
 
@@ -491,35 +687,107 @@ service cloud.firestore {
       allow delete: if false;
     }
 
-    // Deny all other collections/documents by default for MVP safety.
-    // Activity comments (notifications for comments deferred).
-    match /activities/{activityId} {
-      allow read: if request.auth != null
-        && resource.data.profileId is string
-        && canViewProfileActivity(resource.data.profileId);
-      allow write: if false;
+    match /activity_counters/{userId} {
+      allow read: if isProfileOwner(userId);
+      allow create, update: if isProfileOwner(userId)
+        && hasActivityCounterFields(userId)
+        && (
+          !exists(/databases/$(database)/documents/activity_counters/$(userId))
+          || request.resource.data.createdAt == resource.data.createdAt
+        );
+      allow delete: if false;
+    }
 
-      match /comments/{commentId} {
-        allow read: if request.auth != null
-          && get(
-            /databases/$(database)/documents/activities/$(activityId)
-          ).data.profileId is string
-          && canViewProfileActivity(
-            get(
+    // Deny all other collections/documents by default for MVP safety.
+    match /activities/{activityId} {
+      allow get, list: if canReadActivity(resource.data);
+      allow create: if isSignedIn()
+        && hasActivityFields(activityId);
+      allow update, delete: if false;
+
+      match /kudos/{userId} {
+        allow read: if canInteractWithActivity(activityId);
+        allow create: if canInteractWithActivity(activityId)
+          && userId == request.auth.uid
+          && request.resource.data.keys().hasOnly([
+            'activityId',
+            'activityOwnerId',
+            'userId',
+            'createdAt'
+          ])
+          && request.resource.data.activityId == activityId
+          && request.resource.data.userId == request.auth.uid
+          && (
+            request.resource.data.activityOwnerId == get(
+              /databases/$(database)/documents/activities/$(activityId)
+            ).data.ownerId
+            || request.resource.data.activityOwnerId == get(
               /databases/$(database)/documents/activities/$(activityId)
             ).data.profileId
-          );
-        allow create: if request.auth != null
+          )
+          && request.resource.data.createdAt is string;
+        allow delete: if canInteractWithActivity(activityId)
+          && userId == request.auth.uid
+          && resource.data.userId == request.auth.uid;
+        allow update: if false;
+      }
+
+      match /comments/{commentId} {
+        allow read: if canInteractWithActivity(activityId);
+        allow create: if canInteractWithActivity(activityId)
           && request.resource.data.authorId == request.auth.uid
+          && request.resource.data.activityId == activityId
           && request.resource.data.text is string
           && request.resource.data.text.size() > 0
-          && request.resource.data.keys().hasAll([
+          && request.resource.data.keys().hasOnly([
+            'activityId',
             'authorId',
             'authorDisplayName',
+            'authorUsername',
+            'authorPhotoUrl',
             'text',
-            'createdAt'
-          ]);
+            'createdAt',
+            'updatedAt',
+            'parentCommentId',
+            'replyToUserId',
+            'replyToDisplayName'
+          ])
+          && request.resource.data.createdAt is string
+          && request.resource.data.updatedAt is string
+          && (
+            request.resource.data.parentCommentId == null ||
+            (
+              request.resource.data.parentCommentId is string
+              && exists(
+                /databases/$(database)/documents/activities/$(activityId)/comments/$(request.resource.data.parentCommentId)
+              )
+            )
+          );
         allow update, delete: if false;
+
+        match /likes/{userId} {
+          allow read: if canInteractWithActivity(activityId);
+          allow create: if canInteractWithActivity(activityId)
+            && userId == request.auth.uid
+            && request.resource.data.keys().hasOnly([
+              'activityId',
+              'commentId',
+              'commentAuthorId',
+              'userId',
+              'createdAt'
+            ])
+            && request.resource.data.activityId == activityId
+            && request.resource.data.commentId == commentId
+            && request.resource.data.userId == request.auth.uid
+            && request.resource.data.commentAuthorId == get(
+              /databases/$(database)/documents/activities/$(activityId)/comments/$(commentId)
+            ).data.authorId
+            && request.resource.data.createdAt is string;
+          allow delete: if canInteractWithActivity(activityId)
+            && userId == request.auth.uid
+            && resource.data.userId == request.auth.uid;
+          allow update: if false;
+        }
       }
     }
 

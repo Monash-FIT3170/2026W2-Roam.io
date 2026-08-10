@@ -11,20 +11,20 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:roam_io/features/activity_feed/data/stub_activity_feed_data.dart';
 import 'package:roam_io/features/activity_feed/models/activity_comment.dart';
+import 'package:roam_io/features/activity_feed/models/activity_feed_item.dart';
 import 'package:roam_io/features/activity_feed/screens/activity_detail_screen.dart';
 import 'package:roam_io/features/activity_feed/widgets/activity_feed_card.dart';
 import 'package:roam_io/features/activity_feed/widgets/activity_map_preview.dart';
 
 void main() {
-  testWidgets('personal stub card shows journey metrics and map preview', (
+  testWidgets('persisted activity card shows metrics and map preview', (
     tester,
   ) async {
     await tester.binding.setSurfaceSize(const Size(400, 1200));
     addTearDown(() => tester.binding.setSurfaceSize(null));
 
-    final activity = StubActivityFeedData.personalJourney;
+    final activity = _testActivity();
 
     await tester.pumpWidget(
       MaterialApp(
@@ -43,7 +43,7 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    expect(find.text('Journey to Coles'), findsOneWidget);
+    expect(find.text('Traveller Activity 1'), findsOneWidget);
     expect(find.text('August 3, 2026 at 10:07 AM'), findsOneWidget);
     expect(find.text('47m 51s'), findsOneWidget);
     expect(find.text('Locations Visited'), findsOneWidget);
@@ -66,11 +66,17 @@ void main() {
     expect(label.textAlign, TextAlign.center);
   });
 
-  testWidgets('sidequest stub uses Locations Visited and comment counts', (
+  testWidgets('activity card uses Locations Visited and comment counts', (
     tester,
   ) async {
-    final amar = StubActivityFeedData.friendActivities.firstWhere(
-      (item) => item.displayName == 'Amar',
+    final activity = _testActivity(
+      id: 'activity-2',
+      title: 'Traveller Activity 2',
+      metrics: const [
+        ActivityFeedMetric(label: 'Time', value: '1h 12m'),
+        ActivityFeedMetric(label: 'Locations Visited', value: '3'),
+        ActivityFeedMetric(label: 'XP Gained', value: '+150 XP'),
+      ],
     );
     final counts = StreamController<int>.broadcast();
 
@@ -79,7 +85,7 @@ void main() {
         home: Scaffold(
           body: SingleChildScrollView(
             child: ActivityFeedCard.fromItem(
-              amar,
+              activity,
               showShare: false,
               commentCountStream: counts.stream,
             ),
@@ -122,13 +128,13 @@ void main() {
       await tester.binding.setSurfaceSize(const Size(400, 1400));
       addTearDown(() => tester.binding.setSurfaceSize(null));
 
-      final activity = StubActivityFeedData.personalJourney;
+      final activity = _testActivity();
 
       await tester.pumpWidget(
         MaterialApp(home: ActivityDetailScreen(activity: activity)),
       );
 
-      expect(find.text('Journey to Coles'), findsOneWidget);
+      expect(find.text('Traveller Activity 1'), findsOneWidget);
       expect(find.text('August 3, 2026 at 10:07 AM'), findsOneWidget);
       expect(find.text('Journey route map'), findsOneWidget);
 
@@ -145,5 +151,27 @@ void main() {
       expect(find.text('0 comments'), findsNothing);
       expect(find.text('Share'), findsNothing);
     },
+  );
+}
+
+ActivityFeedItem _testActivity({
+  String id = 'activity-1',
+  String title = 'Traveller Activity 1',
+  List<ActivityFeedMetric> metrics = const [
+    ActivityFeedMetric(label: 'Time', value: '47m 51s'),
+    ActivityFeedMetric(label: 'Locations Visited', value: '4'),
+    ActivityFeedMetric(label: 'XP Gained', value: '+200 XP'),
+  ],
+}) {
+  return ActivityFeedItem(
+    id: id,
+    ownerId: 'user-1',
+    displayName: 'Traveller',
+    username: 'traveller',
+    timestampLabel: 'August 3, 2026 at 10:07 AM',
+    title: title,
+    kind: ActivityFeedKind.journey,
+    showMapPreview: true,
+    metrics: metrics,
   );
 }

@@ -1,6 +1,6 @@
 /*
  * Author: Sanjevan Rajasegar
- * Last Updated: 8 August 2026
+ * Last Updated: 10 August 2026
  * Description:
  *   Displays a read-only public profile for another registered user loaded
  *   from public_profiles/{selectedUserId}. Analytics bind exclusively to
@@ -19,7 +19,9 @@ import 'package:provider/provider.dart';
 import '../../../services/profile_service.dart';
 import '../../../theme/app_surfaces.dart';
 import '../../activity_feed/data/activity_feed_service.dart';
+import '../../activity_feed/data/comment_like_service.dart';
 import '../../activity_feed/data/comment_service.dart';
+import '../../activity_feed/data/kudos_service.dart';
 import '../../activity_feed/models/activity_feed_item.dart';
 import '../../activity_feed/screens/activity_detail_screen.dart';
 import '../../activity_feed/screens/comments_screen.dart';
@@ -54,6 +56,8 @@ class OtherUserProfileScreen extends StatefulWidget {
     SocialPrivacyService? privacyService,
     ActivityFeedService? activityFeedService,
     CommentService? commentService,
+    CommentLikeService? commentLikeService,
+    KudosService? kudosService,
   }) : _friendshipService = friendshipService,
        _visitService = visitService,
        _visitedRegionService = visitedRegionService,
@@ -61,7 +65,9 @@ class OtherUserProfileScreen extends StatefulWidget {
        _followService = followService,
        _privacyService = privacyService,
        _activityFeedService = activityFeedService,
-       _commentService = commentService;
+       _commentService = commentService,
+       _commentLikeService = commentLikeService,
+       _kudosService = kudosService;
 
   final String selectedUserId;
   final FriendshipService? _friendshipService;
@@ -72,6 +78,8 @@ class OtherUserProfileScreen extends StatefulWidget {
   final SocialPrivacyService? _privacyService;
   final ActivityFeedService? _activityFeedService;
   final CommentService? _commentService;
+  final CommentLikeService? _commentLikeService;
+  final KudosService? _kudosService;
 
   @override
   State<OtherUserProfileScreen> createState() => _OtherUserProfileScreenState();
@@ -85,6 +93,8 @@ class _OtherUserProfileScreenState extends State<OtherUserProfileScreen>
   late final SocialPrivacyService _privacyService;
   late final ActivityFeedService _activityFeedService;
   late final CommentService? _commentService;
+  late final CommentLikeService? _commentLikeService;
+  late final KudosService? _kudosService;
   late final YouAnalyticsProvider _analytics;
   ProfileGraphMetric _selectedGraphMetric = ProfileGraphMetric.locationsVisited;
 
@@ -105,6 +115,11 @@ class _OtherUserProfileScreenState extends State<OtherUserProfileScreen>
         (hasFirebase ? ActivityFeedService() : _EmptyActivityFeedService());
     _commentService =
         widget._commentService ?? (hasFirebase ? CommentService() : null);
+    _commentLikeService =
+        widget._commentLikeService ??
+        (hasFirebase ? CommentLikeService() : null);
+    _kudosService =
+        widget._kudosService ?? (hasFirebase ? KudosService() : null);
     _analytics = YouAnalyticsProvider(
       visitService:
           widget._visitService ?? (hasFirebase ? null : _EmptyVisitService()),
@@ -215,8 +230,11 @@ class _OtherUserProfileScreenState extends State<OtherUserProfileScreen>
                             access.canViewProfileActivity
                                 ? _ExternalActivitiesTab(
                                     selectedUserId: widget.selectedUserId,
+                                    currentUserId: currentUserId,
                                     activityFeedService: _activityFeedService,
                                     commentService: _commentService,
+                                    commentLikeService: _commentLikeService,
+                                    kudosService: _kudosService,
                                   )
                                 : const _PrivateActivitiesTab(),
                           ],
@@ -552,13 +570,19 @@ String _formatCount(int value) {
 class _ExternalActivitiesTab extends StatelessWidget {
   const _ExternalActivitiesTab({
     required this.selectedUserId,
+    required this.currentUserId,
     required this.activityFeedService,
     required this.commentService,
+    required this.commentLikeService,
+    required this.kudosService,
   });
 
   final String selectedUserId;
+  final String? currentUserId;
   final ActivityFeedService activityFeedService;
   final CommentService? commentService;
+  final CommentLikeService? commentLikeService;
+  final KudosService? kudosService;
 
   @override
   Widget build(BuildContext context) {
@@ -599,23 +623,33 @@ class _ExternalActivitiesTab extends StatelessWidget {
             return ActivityFeedCard.fromItem(
               activity,
               commentService: commentService,
+              kudosService: kudosService,
+              currentUserId: currentUserId,
               showKudos: true,
               showComments: true,
               showShare: false,
               onOverflowTap: () {
                 Navigator.of(context).push(
                   MaterialPageRoute<void>(
-                    builder: (_) => ActivityDetailScreen(activity: activity),
+                    builder: (_) => ActivityDetailScreen(
+                      activity: activity,
+                      showEngagementActions: true,
+                      currentUserId: currentUserId,
+                      commentService: commentService,
+                      commentLikeService: commentLikeService,
+                      kudosService: kudosService,
+                    ),
                   ),
                 );
               },
-              onKudosTap: () {},
               onCommentTap: () {
                 Navigator.of(context).push(
                   MaterialPageRoute<void>(
                     builder: (_) => CommentsScreen(
                       activityId: activity.id,
+                      activityOwnerId: activity.ownerId,
                       commentService: commentService,
+                      commentLikeService: commentLikeService,
                     ),
                   ),
                 );

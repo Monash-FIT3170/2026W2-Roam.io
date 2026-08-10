@@ -176,6 +176,8 @@ class AndroidNotificationService {
 
       case NotificationType.kudos:
       case NotificationType.comment:
+      case NotificationType.commentReply:
+      case NotificationType.commentLike:
       case NotificationType.friendRequest:
       case NotificationType.friendAccepted:
       case NotificationType.follow:
@@ -188,6 +190,7 @@ class AndroidNotificationService {
   AndroidNotificationCategory? _categoryFor(NotificationType type) {
     switch (type) {
       case NotificationType.comment:
+      case NotificationType.commentReply:
         return AndroidNotificationCategory.message;
 
       case NotificationType.friendRequest:
@@ -204,6 +207,7 @@ class AndroidNotificationService {
         return AndroidNotificationCategory.error;
 
       case NotificationType.kudos:
+      case NotificationType.commentLike:
         return AndroidNotificationCategory.social;
     }
   }

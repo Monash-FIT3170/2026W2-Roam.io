@@ -49,7 +49,7 @@ void main() {
     final image = tester.widget<Image>(find.byType(Image));
     expect(image.image, isA<NetworkImage>());
     expect(
-      (image.image! as NetworkImage).url,
+      (image.image as NetworkImage).url,
       'https://firebasestorage.googleapis.com/avatar.jpg',
     );
     expect(resolverCalls, 0);

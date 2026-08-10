@@ -1,6 +1,6 @@
 /*
  * Author: Sanjevan Rajasegar
- * Last Updated: 8 August 2026
+ * Last Updated: 10 August 2026
  * Description:
  *   Session coordinator that turns persisted social inbox documents into
  *   in-app banners. Handles cold-start unread summary, live notifications, and
@@ -195,6 +195,43 @@ class SocialNotificationCoordinator extends ChangeNotifier {
           notificationId: item.id,
           actorId: item.actorId,
         ),
+      SocialNotificationType.activityKudos =>
+        NotificationTemplates.activityKudos(
+          name,
+          notificationId: item.id,
+          actorId: item.actorId,
+          activityId: item.activityId,
+        ),
+      SocialNotificationType.activityComment =>
+        item.isActivityReplyOnOwnedActivity
+            ? NotificationTemplates.activityThreadReply(
+                name,
+                notificationId: item.id,
+                actorId: item.actorId,
+                activityId: item.activityId,
+                commentId: item.commentId,
+              )
+            : NotificationTemplates.activityComment(
+                name,
+                notificationId: item.id,
+                actorId: item.actorId,
+                activityId: item.activityId,
+                commentId: item.commentId,
+              ),
+      SocialNotificationType.commentReply => NotificationTemplates.commentReply(
+        name,
+        notificationId: item.id,
+        actorId: item.actorId,
+        activityId: item.activityId,
+        commentId: item.commentId,
+      ),
+      SocialNotificationType.commentLike => NotificationTemplates.commentLike(
+        name,
+        notificationId: item.id,
+        actorId: item.actorId,
+        activityId: item.activityId,
+        commentId: item.commentId,
+      ),
     };
     await _bannerService.show(banner);
   }

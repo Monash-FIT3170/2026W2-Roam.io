@@ -1,15 +1,23 @@
 /*
  * Author: Sanjevan Rajasegar
- * Last Updated: 8 August 2026
+ * Last Updated: 10 August 2026
  * Description:
  *   Persistent social inbox notifications for public follows, private follow
- *   requests, and request acceptance.
+ *   requests, request acceptance, and activity interactions.
  *   Stored at profiles/{recipientId}/notifications/{id}. Recipient follow and
  *   request rows represent current relationship state, not history.
  */
 
 /// Social inbox notification types currently supported.
-enum SocialNotificationType { follow, followRequest, followRequestAccepted }
+enum SocialNotificationType {
+  follow,
+  followRequest,
+  followRequestAccepted,
+  activityKudos,
+  activityComment,
+  commentReply,
+  commentLike,
+}
 
 /// One persisted social notification row for a recipient.
 class SocialNotification {
@@ -20,6 +28,8 @@ class SocialNotification {
     required this.type,
     required this.createdAt,
     this.readAt,
+    this.activityId,
+    this.commentId,
   });
 
   final String id;
@@ -28,18 +38,66 @@ class SocialNotification {
   final SocialNotificationType type;
   final DateTime createdAt;
   final DateTime? readAt;
+  final String? activityId;
+  final String? commentId;
 
   bool get isRead => readAt != null;
   bool get isFollow => type == SocialNotificationType.follow;
   bool get isFollowRequest => type == SocialNotificationType.followRequest;
   bool get isFollowRequestAccepted =>
       type == SocialNotificationType.followRequestAccepted;
+  bool get isActivityInteraction =>
+      type == SocialNotificationType.activityKudos ||
+      type == SocialNotificationType.activityComment ||
+      type == SocialNotificationType.commentReply ||
+      type == SocialNotificationType.commentLike;
+  bool get isActivityReplyOnOwnedActivity =>
+      type == SocialNotificationType.activityComment &&
+      id.startsWith('activity_reply_');
 
   static String followNotificationIdFor({
     required String followerId,
     required String followeeId,
   }) {
     return 'follow_${followerId}_$followeeId';
+  }
+
+  static String activityKudosNotificationIdFor({
+    required String activityId,
+    required String actorId,
+  }) {
+    return 'activity_kudos_${_safeId(activityId)}_$actorId';
+  }
+
+  static String activityCommentNotificationIdFor({
+    required String activityId,
+    required String commentId,
+  }) {
+    return 'activity_comment_${_safeId(activityId)}_$commentId';
+  }
+
+  static String commentReplyNotificationIdFor({
+    required String activityId,
+    required String replyId,
+    required String recipientId,
+  }) {
+    return 'comment_reply_${_safeId(activityId)}_${replyId}_$recipientId';
+  }
+
+  static String activityReplyNotificationIdFor({
+    required String activityId,
+    required String replyId,
+    required String ownerId,
+  }) {
+    return 'activity_reply_${_safeId(activityId)}_${replyId}_$ownerId';
+  }
+
+  static String commentLikeNotificationIdFor({
+    required String activityId,
+    required String commentId,
+    required String actorId,
+  }) {
+    return 'comment_like_${_safeId(activityId)}_${commentId}_$actorId';
   }
 
   factory SocialNotification.fromMap(String id, Map<String, dynamic> data) {
@@ -50,6 +108,8 @@ class SocialNotification {
       type: _typeFromString(data['type'] as String?),
       createdAt: _parseDate(data['createdAt']) ?? DateTime.now(),
       readAt: _parseDate(data['readAt']),
+      activityId: data['activityId'] as String?,
+      commentId: data['commentId'] as String?,
     );
   }
 
@@ -60,6 +120,8 @@ class SocialNotification {
       'type': type.name,
       'createdAt': createdAt.toIso8601String(),
       'readAt': readAt?.toIso8601String(),
+      if (activityId != null) 'activityId': activityId,
+      if (commentId != null) 'commentId': commentId,
     };
   }
 
@@ -68,6 +130,10 @@ class SocialNotification {
       'follow' => SocialNotificationType.follow,
       'followRequest' => SocialNotificationType.followRequest,
       'followRequestAccepted' => SocialNotificationType.followRequestAccepted,
+      'activityKudos' => SocialNotificationType.activityKudos,
+      'activityComment' => SocialNotificationType.activityComment,
+      'commentReply' => SocialNotificationType.commentReply,
+      'commentLike' => SocialNotificationType.commentLike,
       _ => SocialNotificationType.follow,
     };
   }
@@ -79,3 +145,5 @@ class SocialNotification {
     return null;
   }
 }
+
+String _safeId(String value) => value.replaceAll('/', '_');

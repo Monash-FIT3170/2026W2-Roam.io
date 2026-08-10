@@ -1,8 +1,9 @@
 /*
  * Author: Sanjevan Rajasegar
- * Last Updated: 7 August 2026
+ * Last Updated: 10 August 2026
  * Description:
- *   Firestore rules tests for public profile dashboard reads and follow writes.
+ *   Firestore rules tests for profile activity reads, follows, activity
+ *   creation, counters, and interaction subcollections.
  */
 
 const fs = require('node:fs');
@@ -81,6 +82,8 @@ async function seed(testEnv) {
       },
     });
     await db.collection('activities').doc('activity-1').set({
+      activityId: 'activity-1',
+      ownerId: 'owner',
       profileId: 'owner',
       displayName: 'Owner',
       username: 'owner',
@@ -319,6 +322,270 @@ async function runNotificationRulesTests() {
         .delete(),
     );
     console.log('passed: social notification rules');
+  } finally {
+    await testEnv.cleanup();
+  }
+}
+
+function testActivityData(activityId, ownerId, overrides = {}) {
+  return {
+    activityId,
+    ownerId,
+    profileId: ownerId,
+    displayName: 'Owner',
+    username: 'owner',
+    title: 'Owner Activity 1',
+    kind: 'exploration',
+    metrics: [{ label: 'XP Gained', value: '+120 XP' }],
+    showMapPreview: true,
+    createdAt: '2026-08-10T00:00:00.000Z',
+    ...overrides,
+  };
+}
+
+function activityOwnerQuery(db, ownerId) {
+  return db
+    .collection('activities')
+    .where('ownerId', '==', ownerId)
+    .orderBy('createdAt', 'desc')
+    .limit(20)
+    .get();
+}
+
+async function runActivityCreateRulesTests() {
+  const testEnv = await initializeTestEnvironment({ projectId, firestore: { rules } });
+  try {
+    await seed(testEnv);
+    const ownerDb = testEnv.authenticatedContext('owner').firestore();
+    const viewerDb = testEnv.authenticatedContext('viewer').firestore();
+    const anonDb = testEnv.unauthenticatedContext().firestore();
+
+    await assertSucceeds(
+      ownerDb
+        .collection('activities')
+        .doc('owner-generated-1')
+        .set(testActivityData('owner-generated-1', 'owner')),
+    );
+    await assertFails(
+      ownerDb
+        .collection('activities')
+        .doc('wrong-doc-id')
+        .set(testActivityData('owner-generated-1', 'owner')),
+    );
+    await assertFails(
+      ownerDb
+        .collection('activities')
+        .doc('wrong-owner')
+        .set(testActivityData('wrong-owner', 'viewer')),
+    );
+    await assertFails(
+      anonDb
+        .collection('activities')
+        .doc('anon-generated')
+        .set(testActivityData('anon-generated', 'owner')),
+    );
+
+    await assertSucceeds(
+      ownerDb.collection('activity_counters').doc('owner').set({
+        ownerId: 'owner',
+        lastTestActivityNumber: 1,
+        createdAt: '2026-08-10T00:00:00.000Z',
+        updatedAt: '2026-08-10T00:00:00.000Z',
+      }),
+    );
+    await assertSucceeds(
+      ownerDb.collection('activity_counters').doc('owner').set({
+        ownerId: 'owner',
+        lastTestActivityNumber: 2,
+        createdAt: '2026-08-10T00:00:00.000Z',
+        updatedAt: '2026-08-10T00:01:00.000Z',
+      }),
+    );
+    await assertFails(
+      ownerDb.collection('activity_counters').doc('owner').set({
+        ownerId: 'owner',
+        lastTestActivityNumber: 3,
+        createdAt: 'changed',
+        updatedAt: '2026-08-10T00:02:00.000Z',
+      }),
+    );
+    await assertFails(
+      viewerDb.collection('activity_counters').doc('owner').get(),
+    );
+    await assertFails(
+      viewerDb.collection('activity_counters').doc('owner').set({
+        ownerId: 'owner',
+        lastTestActivityNumber: 1,
+        createdAt: '2026-08-10T00:00:00.000Z',
+        updatedAt: '2026-08-10T00:00:00.000Z',
+      }),
+    );
+    console.log('passed: activity create and counter rules');
+  } finally {
+    await testEnv.cleanup();
+  }
+}
+
+async function runActivityQueryRulesTests() {
+  const testEnv = await initializeTestEnvironment({ projectId, firestore: { rules } });
+  try {
+    await seed(testEnv);
+    await testEnv.withSecurityRulesDisabled(async (context) => {
+      const db = context.firestore();
+      await db.collection('public_profiles').doc('public-owner').set({
+        uid: 'public-owner',
+        username: 'public_owner',
+        usernameSearch: 'public_owner',
+        displayName: 'Public Owner',
+        displayNameSearch: 'public owner',
+        isPrivateAccount: false,
+        createdAt: '2026-08-10T00:00:00.000Z',
+        updatedAt: '2026-08-10T00:00:00.000Z',
+      });
+      await db.collection('public_profiles').doc('private-owner').set({
+        uid: 'private-owner',
+        username: 'private_owner',
+        usernameSearch: 'private_owner',
+        displayName: 'Private Owner',
+        displayNameSearch: 'private owner',
+        isPrivateAccount: true,
+        createdAt: '2026-08-10T00:00:00.000Z',
+        updatedAt: '2026-08-10T00:00:00.000Z',
+      });
+      await db.collection('activities').doc('public-activity').set(
+        testActivityData('public-activity', 'public-owner', {
+          title: 'Public Activity',
+        }),
+      );
+      await db.collection('activities').doc('private-activity').set(
+        testActivityData('private-activity', 'private-owner', {
+          title: 'Private Activity',
+        }),
+      );
+      await db.collection('follows').doc(followId('approved-follower', 'private-owner')).set({
+        followerId: 'approved-follower',
+        followeeId: 'private-owner',
+        createdAt: '2026-08-10T00:00:00.000Z',
+        source: 'follow_request_acceptance',
+      });
+      await db.collection('follow_requests').doc(followId('pending-user', 'private-owner')).set({
+        requesterId: 'pending-user',
+        targetId: 'private-owner',
+        status: 'pending',
+        createdAt: '2026-08-10T00:00:00.000Z',
+        updatedAt: '2026-08-10T00:00:00.000Z',
+      });
+    });
+
+    const ownerDb = testEnv.authenticatedContext('owner').firestore();
+    const viewerDb = testEnv.authenticatedContext('viewer').firestore();
+    const publicOwnerDb = testEnv.authenticatedContext('public-owner').firestore();
+    const privateOwnerDb = testEnv.authenticatedContext('private-owner').firestore();
+    const approvedFollowerDb = testEnv.authenticatedContext('approved-follower').firestore();
+    const pendingUserDb = testEnv.authenticatedContext('pending-user').firestore();
+    const anonDb = testEnv.unauthenticatedContext().firestore();
+
+    await assertSucceeds(activityOwnerQuery(ownerDb, 'owner'));
+    await assertSucceeds(activityOwnerQuery(publicOwnerDb, 'public-owner'));
+    await assertSucceeds(activityOwnerQuery(viewerDb, 'public-owner'));
+    await assertSucceeds(activityOwnerQuery(privateOwnerDb, 'private-owner'));
+    await assertSucceeds(activityOwnerQuery(approvedFollowerDb, 'private-owner'));
+    await assertFails(activityOwnerQuery(viewerDb, 'private-owner'));
+    await assertFails(activityOwnerQuery(pendingUserDb, 'private-owner'));
+    await assertFails(activityOwnerQuery(anonDb, 'public-owner'));
+    console.log('passed: activity owner query privacy rules');
+  } finally {
+    await testEnv.cleanup();
+  }
+}
+
+async function runActivityInteractionRulesTests() {
+  const testEnv = await initializeTestEnvironment({ projectId, firestore: { rules } });
+  try {
+    await seed(testEnv);
+    await testEnv.withSecurityRulesDisabled(async (context) => {
+      const db = context.firestore();
+      await db.collection('public_profiles').doc('private-owner').set({
+        uid: 'private-owner',
+        username: 'private_owner',
+        usernameSearch: 'private_owner',
+        displayName: 'Private Owner',
+        displayNameSearch: 'private owner',
+        isPrivateAccount: true,
+        createdAt: '2026-08-10T00:00:00.000Z',
+        updatedAt: '2026-08-10T00:00:00.000Z',
+      });
+      await db.collection('activities').doc('private-activity').set(
+        testActivityData('private-activity', 'private-owner'),
+      );
+      await db.collection('follows').doc(followId('approved-follower', 'private-owner')).set({
+        followerId: 'approved-follower',
+        followeeId: 'private-owner',
+        createdAt: '2026-08-10T00:00:00.000Z',
+        source: 'follow_request_acceptance',
+      });
+    });
+
+    const viewerDb = testEnv.authenticatedContext('viewer').firestore();
+    const approvedFollowerDb = testEnv.authenticatedContext('approved-follower').firestore();
+    const createdAt = '2026-08-10T00:01:00.000Z';
+
+    await assertSucceeds(
+      viewerDb.collection('activities').doc('activity-1').collection('kudos').doc('viewer').set({
+        activityId: 'activity-1',
+        activityOwnerId: 'owner',
+        userId: 'viewer',
+        createdAt,
+      }),
+    );
+    await assertSucceeds(
+      viewerDb.collection('activities').doc('activity-1').collection('comments').doc('comment-1').set({
+        activityId: 'activity-1',
+        authorId: 'viewer',
+        authorDisplayName: 'Viewer',
+        text: 'Great activity',
+        createdAt,
+        updatedAt: createdAt,
+        parentCommentId: null,
+        replyToUserId: null,
+        replyToDisplayName: null,
+      }),
+    );
+    await assertSucceeds(
+      approvedFollowerDb
+        .collection('activities')
+        .doc('private-activity')
+        .collection('kudos')
+        .doc('approved-follower')
+        .set({
+          activityId: 'private-activity',
+          activityOwnerId: 'private-owner',
+          userId: 'approved-follower',
+          createdAt,
+        }),
+    );
+    await assertFails(
+      viewerDb
+        .collection('activities')
+        .doc('private-activity')
+        .collection('kudos')
+        .doc('viewer')
+        .set({
+          activityId: 'private-activity',
+          activityOwnerId: 'private-owner',
+          userId: 'viewer',
+          createdAt,
+        }),
+    );
+    await assertFails(
+      viewerDb.collection('activities').doc('missing-activity').collection('kudos').doc('viewer').set({
+        activityId: 'missing-activity',
+        activityOwnerId: 'viewer',
+        userId: 'viewer',
+        createdAt,
+      }),
+    );
+    console.log('passed: activity interaction subcollection rules');
   } finally {
     await testEnv.cleanup();
   }
@@ -621,6 +888,9 @@ async function runPrivateAccountRulesTests() {
   await runScenario('unauthenticated public dashboard denied', null, assertFails);
   await runFollowWriteTests();
   await runNotificationRulesTests();
+  await runActivityCreateRulesTests();
+  await runActivityQueryRulesTests();
+  await runActivityInteractionRulesTests();
   await runPrivateAccountRulesTests();
   console.log('firestore public profile and follow rules passed');
 })().catch((error) => {

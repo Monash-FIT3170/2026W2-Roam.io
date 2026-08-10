@@ -1,6 +1,6 @@
 /*
  * Author: Sanjevan Rajasegar
- * Last Updated: 8 August 2026
+ * Last Updated: 10 August 2026
  * Description:
  *   Provides the authenticated app shell with persistent bottom navigation
  *   across the main feature tabs and production notification action feedback.
@@ -19,12 +19,17 @@ import 'package:roam_io/notifications/notification.dart';
 
 import '../../../shared/widgets/app_bottom_nav_bar.dart';
 import '../../../shared/widgets/app_toast.dart';
+import '../../activity_feed/data/activity_feed_service.dart';
+import '../../activity_feed/data/activity_creation_service.dart';
 import '../../activity_feed/data/comment_service.dart';
+import '../../activity_feed/data/comment_like_service.dart';
+import '../../activity_feed/data/kudos_service.dart';
 import '../../auth/providers/auth_provider.dart';
 import '../../home/screens/home_screen.dart';
 import '../../map/data/map_page.dart';
 import '../../settings/screens/settings_screen.dart';
 import '../../social/data/follow_request_service.dart';
+import '../../social/data/follow_service.dart';
 import '../../social/data/friendship_service.dart';
 import '../../social/data/social_notification_coordinator.dart';
 import '../../social/data/social_notification_service.dart';
@@ -37,6 +42,11 @@ class MainShellScreen extends StatefulWidget {
 
   /// Injected for tests; production uses the default [CommentService].
   final CommentService? commentService;
+  final CommentLikeService? commentLikeService;
+  final KudosService? kudosService;
+  final ActivityFeedService? activityFeedService;
+  final ActivityCreationService? activityCreationService;
+  final FollowService? followService;
 
   /// Injected for tests; production uses the default [FriendshipService].
   final FriendshipService? friendshipService;
@@ -51,6 +61,11 @@ class MainShellScreen extends StatefulWidget {
     super.key,
     this.requestNotificationPermission = true,
     this.commentService,
+    this.commentLikeService,
+    this.kudosService,
+    this.activityFeedService,
+    this.activityCreationService,
+    this.followService,
     this.friendshipService,
     this.followRequestService,
     this.socialNotificationCoordinator,
@@ -65,6 +80,11 @@ class _MainShellScreenState extends State<MainShellScreen> {
 
   StreamSubscription<NotificationActionEvent>? _actionSubscription;
   late final CommentService _commentService;
+  late final CommentLikeService _commentLikeService;
+  late final KudosService _kudosService;
+  late final ActivityFeedService _activityFeedService;
+  late final ActivityCreationService _activityCreationService;
+  late final FollowService _followService;
   late final FriendshipService _friendshipService;
   late final FollowRequestService _followRequestService;
   late final SocialNotificationCoordinator _socialNotificationCoordinator;
@@ -76,6 +96,12 @@ class _MainShellScreenState extends State<MainShellScreen> {
     super.initState();
 
     _commentService = widget.commentService ?? CommentService();
+    _commentLikeService = widget.commentLikeService ?? CommentLikeService();
+    _kudosService = widget.kudosService ?? KudosService();
+    _activityFeedService = widget.activityFeedService ?? ActivityFeedService();
+    _activityCreationService =
+        widget.activityCreationService ?? ActivityCreationService();
+    _followService = widget.followService ?? FollowService();
     _friendshipService = widget.friendshipService ?? FriendshipService();
     _followRequestService =
         widget.followRequestService ?? FollowRequestService();
@@ -90,10 +116,23 @@ class _MainShellScreenState extends State<MainShellScreen> {
       _ownsCoordinator = true;
     }
     pages = [
-      HomeScreen(commentService: _commentService),
+      HomeScreen(
+        commentService: _commentService,
+        commentLikeService: _commentLikeService,
+        kudosService: _kudosService,
+        activityFeedService: _activityFeedService,
+        activityCreationService: _activityCreationService,
+        followService: _followService,
+      ),
       SocialScreen(friendshipService: _friendshipService),
       const MapPage(),
-      YouScreen(commentService: _commentService),
+      YouScreen(
+        commentService: _commentService,
+        commentLikeService: _commentLikeService,
+        kudosService: _kudosService,
+        activityFeedService: _activityFeedService,
+        followService: _followService,
+      ),
       const SettingsScreen(),
     ];
 

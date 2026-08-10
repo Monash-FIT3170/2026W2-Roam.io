@@ -1,6 +1,6 @@
 /*
  * Author: Sanjevan Rajasegar
- * Last Updated: 8 August 2026
+ * Last Updated: 10 August 2026
  * Description:
  *   Provides the You destination with Profile and Activities tabs. Profile
  *   analytics are owned by YouAnalyticsProvider bound to the authenticated
@@ -17,8 +17,11 @@ import 'package:provider/provider.dart';
 import '../../../services/profile_service.dart';
 import '../../../shared/widgets/app_bottom_nav_bar.dart';
 import '../../../theme/app_surfaces.dart';
+import '../../activity_feed/data/activity_feed_service.dart';
 import '../../activity_feed/data/comment_service.dart';
-import '../../activity_feed/data/stub_activity_feed_data.dart';
+import '../../activity_feed/data/comment_like_service.dart';
+import '../../activity_feed/data/kudos_service.dart';
+import '../../activity_feed/models/activity_feed_item.dart';
 import '../../activity_feed/screens/activity_detail_screen.dart';
 import '../../activity_feed/screens/comments_screen.dart';
 import '../../activity_feed/widgets/activity_feed_card.dart';
@@ -45,6 +48,9 @@ class YouScreen extends StatefulWidget {
     this.followService,
     this.xpEventsStream,
     this.commentService,
+    this.commentLikeService,
+    this.kudosService,
+    this.activityFeedService,
   });
 
   /// Injected for tests; production uses the default [VisitService].
@@ -64,6 +70,9 @@ class YouScreen extends StatefulWidget {
 
   /// Injected for tests; production receives a shared instance from MainShell.
   final CommentService? commentService;
+  final CommentLikeService? commentLikeService;
+  final KudosService? kudosService;
+  final ActivityFeedService? activityFeedService;
 
   @override
   State<YouScreen> createState() => _YouScreenState();
@@ -74,6 +83,7 @@ class _YouScreenState extends State<YouScreen>
   late final TabController _tabController;
   late final YouAnalyticsProvider _analytics;
   late final FollowService _followService;
+  late final ActivityFeedService? _activityFeedService;
   ProfileGraphMetric _selectedGraphMetric = ProfileGraphMetric.locationsVisited;
 
   @override
@@ -87,6 +97,7 @@ class _YouScreenState extends State<YouScreen>
     _followService =
         widget.followService ??
         (widget.visitService != null ? _EmptyFollowService() : FollowService());
+    _activityFeedService = widget.activityFeedService;
     _analytics = YouAnalyticsProvider(
       visitService: widget.visitService,
       visitedRegionService: widget.visitedRegionService,
@@ -145,8 +156,11 @@ class _YouScreenState extends State<YouScreen>
                           onGraphMetricSelected: _selectGraphMetric,
                         ),
                         _ActivitiesTab(
-                          profile: profile,
+                          activityFeedService: _activityFeedService,
+                          currentUserId: uid,
                           commentService: widget.commentService,
+                          commentLikeService: widget.commentLikeService,
+                          kudosService: widget.kudosService,
                         ),
                       ],
                     ),
@@ -356,55 +370,179 @@ class _EmptyFollowService implements FollowService {
   dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
 }
 
-class _ActivitiesTab extends StatelessWidget {
-  const _ActivitiesTab({required this.profile, this.commentService});
+class _ActivitiesTab extends StatefulWidget {
+  const _ActivitiesTab({
+    required this.activityFeedService,
+    required this.currentUserId,
+    this.commentService,
+    this.commentLikeService,
+    this.kudosService,
+  });
 
-  final ProfileModel? profile;
+  final ActivityFeedService? activityFeedService;
+  final String? currentUserId;
   final CommentService? commentService;
+  final CommentLikeService? commentLikeService;
+  final KudosService? kudosService;
+
+  @override
+  State<_ActivitiesTab> createState() => _ActivitiesTabState();
+}
+
+class _ActivitiesTabState extends State<_ActivitiesTab> {
+  Stream<List<ActivityFeedItem>>? _activitiesStream;
+  String? _activitiesStreamUserId;
+  ActivityFeedService? _activitiesStreamService;
+
+  Stream<List<ActivityFeedItem>> _ownedActivitiesStream() {
+    final currentUserId = widget.currentUserId;
+    final activityFeedService = widget.activityFeedService;
+    if (currentUserId == null || activityFeedService == null) {
+      if (_activitiesStream != null ||
+          _activitiesStreamUserId != null ||
+          _activitiesStreamService != null) {
+        debugPrint(
+          '[YouScreen] activities stream cleared currentUserId=$currentUserId '
+          'hasActivityFeedService=${activityFeedService != null}',
+        );
+      }
+      _activitiesStream = Stream<List<ActivityFeedItem>>.value(
+        const <ActivityFeedItem>[],
+      );
+      _activitiesStreamUserId = null;
+      _activitiesStreamService = null;
+      return _activitiesStream!;
+    }
+
+    final hasCachedStream =
+        _activitiesStream != null &&
+        _activitiesStreamUserId == currentUserId &&
+        identical(_activitiesStreamService, activityFeedService);
+    if (hasCachedStream) return _activitiesStream!;
+
+    debugPrint(
+      '[YouScreen] activities stream created currentUserId=$currentUserId '
+      'query=ownerId==$currentUserId',
+    );
+    _activitiesStream = activityFeedService.watchActivitiesOwnedBy(
+      currentUserId,
+    );
+    _activitiesStreamUserId = currentUserId;
+    _activitiesStreamService = activityFeedService;
+    return _activitiesStream!;
+  }
 
   @override
   Widget build(BuildContext context) {
     final bottomClearance =
         AppBottomNavBar.clearanceFromScreenBottom(context) + 12;
-    final activity = StubActivityFeedData.personalJourney.copyWith(
-      displayName: profile?.displayName ?? 'Traveller',
-      username: profile?.username,
-      photoUrl: profile?.photoUrl,
-    );
-    final comments = commentService;
+    final comments = widget.commentService;
+    final stream = _ownedActivitiesStream();
 
-    return SingleChildScrollView(
-      padding: EdgeInsets.fromLTRB(24, 20, 24, bottomClearance),
-      child: ActivityFeedCard.fromItem(
-        activity,
-        commentService: comments,
-        showKudos: true,
-        showComments: true,
-        showShare: true,
-        onOverflowTap: () {
-          Navigator.of(context).push(
-            MaterialPageRoute<void>(
-              builder: (_) => ActivityDetailScreen(activity: activity),
-            ),
-          );
-        },
-        onKudosTap: () {
-          // Kudos persistence is not wired yet; keep the action visible.
-        },
-        onCommentTap: () {
-          Navigator.of(context).push(
-            MaterialPageRoute<void>(
-              builder: (_) => CommentsScreen(
-                activityId: activity.id,
-                commentService: comments,
+    return StreamBuilder<List<ActivityFeedItem>>(
+      stream: stream,
+      builder: (context, snapshot) {
+        debugPrint(
+          '[YouScreen] activities builder currentUserId=${widget.currentUserId} '
+          'hasActivityFeedService=${widget.activityFeedService != null} '
+          'query=ownerId==${widget.currentUserId} '
+          'connectionState=${snapshot.connectionState} '
+          'hasError=${snapshot.hasError} hasData=${snapshot.hasData} '
+          'renderedCount=${snapshot.data?.length ?? 0} '
+          'titles=${_activityTitles(snapshot.data)}',
+        );
+        if (snapshot.hasError) {
+          debugPrint('[YouScreen] activities failed ${snapshot.error}');
+          return Center(
+            child: Padding(
+              padding: const EdgeInsets.all(24),
+              child: Text(
+                'Could not load activities. Try again.',
+                textAlign: TextAlign.center,
+                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                  color: AppSurfaces.textMuted(context),
+                  fontWeight: FontWeight.w700,
+                ),
               ),
             ),
           );
-        },
-        onShareTap: () {
-          // Activity sharing backend is deferred; preserve the Share action.
-        },
-      ),
+        }
+        if (snapshot.connectionState == ConnectionState.waiting &&
+            !snapshot.hasData) {
+          return const Center(child: CircularProgressIndicator());
+        }
+        final activities = snapshot.data ?? const <ActivityFeedItem>[];
+        if (activities.isEmpty) {
+          return Center(
+            child: Padding(
+              padding: const EdgeInsets.all(24),
+              child: Text(
+                'No activities yet',
+                textAlign: TextAlign.center,
+                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                  color: AppSurfaces.textMuted(context),
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ),
+          );
+        }
+
+        return ListView.separated(
+          padding: EdgeInsets.fromLTRB(24, 20, 24, bottomClearance),
+          itemCount: activities.length,
+          separatorBuilder: (context, index) => const SizedBox(height: 14),
+          itemBuilder: (context, index) {
+            final activity = activities[index];
+            return ActivityFeedCard.fromItem(
+              activity,
+              commentService: comments,
+              kudosService: widget.kudosService,
+              currentUserId: widget.currentUserId,
+              showKudos: true,
+              showComments: true,
+              showShare: true,
+              onOverflowTap: () {
+                Navigator.of(context).push(
+                  MaterialPageRoute<void>(
+                    builder: (_) => ActivityDetailScreen(
+                      activity: activity,
+                      showEngagementActions: true,
+                      showShare: true,
+                      currentUserId: widget.currentUserId,
+                      commentService: comments,
+                      commentLikeService: widget.commentLikeService,
+                      kudosService: widget.kudosService,
+                    ),
+                  ),
+                );
+              },
+              onCommentTap: () {
+                debugPrint(
+                  '[YouScreen] open comments activityId=${activity.id} '
+                  'ownerId=${activity.ownerId}',
+                );
+                Navigator.of(context).push(
+                  MaterialPageRoute<void>(
+                    builder: (_) => CommentsScreen(
+                      activityId: activity.id,
+                      activityOwnerId: activity.ownerId,
+                      commentService: comments,
+                      commentLikeService: widget.commentLikeService,
+                    ),
+                  ),
+                );
+              },
+              onShareTap: () {},
+            );
+          },
+        );
+      },
     );
   }
+}
+
+String _activityTitles(List<ActivityFeedItem>? activities) {
+  if (activities == null || activities.isEmpty) return '';
+  return activities.map((activity) => activity.title).join('|');
 }

@@ -2,7 +2,7 @@
  * Author: Sanjevan Rajasegar
  * Last Updated: 7 August 2026
  * Description:
- *   Widget tests for main shell tab switching, Home friend feed stubs, and
+ *   Widget tests for main shell tab switching, real Home feed, and
  *   notification action toast feedback.
  */
 
@@ -12,6 +12,7 @@ import 'package:firebase_core_platform_interface/test.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:provider/provider.dart';
+import 'package:roam_io/features/activity_feed/data/activity_feed_service.dart';
 import 'package:roam_io/features/activity_feed/data/comment_service.dart';
 import 'package:roam_io/features/activity_feed/models/activity_comment.dart';
 import 'package:roam_io/features/auth/providers/auth_provider.dart';
@@ -20,6 +21,7 @@ import 'package:roam_io/features/map/data/map_page.dart';
 import 'package:roam_io/features/navigation/screens/main_shell_screen.dart';
 import 'package:roam_io/notifications/notification.dart';
 import 'package:roam_io/features/social/data/follow_request_service.dart';
+import 'package:roam_io/features/social/data/follow_service.dart';
 import 'package:roam_io/features/social/data/friendship_service.dart';
 import 'package:roam_io/features/social/data/social_notification_coordinator.dart';
 import 'package:roam_io/features/social/data/social_notification_service.dart';
@@ -61,6 +63,8 @@ void main() {
             // Android platform permissions are not available in widget tests.
             requestNotificationPermission: false,
             commentService: comments,
+            activityFeedService: ActivityFeedService(firestore: firestore),
+            followService: FollowService(firestore: firestore),
             friendshipService: FriendshipService(firestore: firestore),
             followRequestService: FollowRequestService(firestore: firestore),
             socialNotificationCoordinator: SocialNotificationCoordinator(
@@ -85,8 +89,7 @@ void main() {
     await tester.tap(find.text('HOME'));
     await _pumpShellFrame(tester);
     expect(find.text('Home'), findsOneWidget);
-    expect(find.text('Amar'), findsOneWidget);
-    expect(find.text('Sidequest with Mates'), findsOneWidget);
+    expect(find.text('No activities yet'), findsOneWidget);
     expect(find.text('Journeys'), findsNothing);
     expect(find.text('Quests'), findsNothing);
 
@@ -165,6 +168,8 @@ void main() {
               child: MainShellScreen(
                 requestNotificationPermission: false,
                 commentService: comments,
+                activityFeedService: ActivityFeedService(firestore: firestore),
+                followService: FollowService(firestore: firestore),
                 friendshipService: friendshipService,
                 followRequestService: FollowRequestService(
                   firestore: firestore,
@@ -228,6 +233,7 @@ class _FakeCommentService implements CommentService {
   @override
   Future<ActivityComment> addComment({
     required String activityId,
+    required String activityOwnerId,
     required String authorId,
     required String authorDisplayName,
     required String text,
@@ -235,6 +241,20 @@ class _FakeCommentService implements CommentService {
     String? authorPhotoUrl,
   }) async {
     throw UnsupportedError('Shell tests do not post comments.');
+  }
+
+  @override
+  Future<ActivityComment> replyToComment({
+    required String activityId,
+    required String activityOwnerId,
+    required ActivityComment parentComment,
+    required String authorId,
+    required String authorDisplayName,
+    required String text,
+    String? authorUsername,
+    String? authorPhotoUrl,
+  }) async {
+    throw UnsupportedError('Shell tests do not post replies.');
   }
 
   Future<void> dispose() async {}

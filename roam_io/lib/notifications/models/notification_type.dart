@@ -15,6 +15,12 @@ enum NotificationType {
   /// Someone has commented on an activity.
   comment,
 
+  /// Someone replied to a comment.
+  commentReply,
+
+  /// Someone liked a comment.
+  commentLike,
+
   /// User has received a new friend request.
   friendRequest,
 

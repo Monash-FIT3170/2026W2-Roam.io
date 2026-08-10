@@ -33,7 +33,8 @@ void main() {
         value: auth,
         child: MaterialApp(
           home: CommentsScreen(
-            activityId: 'stub-amar-sidequest',
+            activityId: 'activity-1',
+            activityOwnerId: 'owner-1',
             commentService: comments,
           ),
         ),
@@ -67,7 +68,8 @@ void main() {
         value: auth,
         child: MaterialApp(
           home: CommentsScreen(
-            activityId: 'stub-amar-sidequest',
+            activityId: 'activity-1',
+            activityOwnerId: 'owner-1',
             commentService: comments,
           ),
         ),
@@ -112,7 +114,8 @@ void main() {
         value: auth,
         child: MaterialApp(
           home: CommentsScreen(
-            activityId: 'stub-amar-sidequest',
+            activityId: 'activity-1',
+            activityOwnerId: 'owner-1',
             commentService: comments,
           ),
         ),
@@ -150,7 +153,8 @@ void main() {
             builder: (context) {
               expectedTray = AppSurfaces.card(context);
               return CommentsScreen(
-                activityId: 'stub-amar-sidequest',
+                activityId: 'activity-1',
+                activityOwnerId: 'owner-1',
                 commentService: comments,
               );
             },
@@ -213,6 +217,7 @@ class _FakeCommentService implements CommentService {
   @override
   Future<ActivityComment> addComment({
     required String activityId,
+    required String activityOwnerId,
     required String authorId,
     required String authorDisplayName,
     required String text,
@@ -236,6 +241,41 @@ class _FakeCommentService implements CommentService {
     _comments.insert(0, comment);
     _controller.add(List<ActivityComment>.from(_comments));
     return comment;
+  }
+
+  @override
+  Future<ActivityComment> replyToComment({
+    required String activityId,
+    required String activityOwnerId,
+    required ActivityComment parentComment,
+    required String authorId,
+    required String authorDisplayName,
+    required String text,
+    String? authorUsername,
+    String? authorPhotoUrl,
+  }) async {
+    final comment = await addComment(
+      activityId: activityId,
+      activityOwnerId: activityOwnerId,
+      authorId: authorId,
+      authorDisplayName: authorDisplayName,
+      text: text,
+      authorUsername: authorUsername,
+      authorPhotoUrl: authorPhotoUrl,
+    );
+    return ActivityComment(
+      id: comment.id,
+      activityId: activityId,
+      authorId: authorId,
+      authorDisplayName: authorDisplayName,
+      authorUsername: authorUsername,
+      authorPhotoUrl: authorPhotoUrl,
+      text: comment.text,
+      createdAt: comment.createdAt,
+      parentCommentId: parentComment.id,
+      replyToUserId: parentComment.authorId,
+      replyToDisplayName: parentComment.authorDisplayName,
+    );
   }
 
   Future<void> dispose() => _controller.close();
