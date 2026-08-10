@@ -275,15 +275,27 @@ class MapController extends ChangeNotifier {
     await _moveCameraTo(position);
   }
 
+  /// Keeps the map camera in sync with a location produced by journey
+  /// tracking. A deliberate user camera movement still pauses following until
+  /// [recenterOnUser] is used again.
+  void followTrackedLocation(LatLng location) {
+    center = location;
+    if (_isFollowingUser) {
+      unawaited(_moveCameraToLatLng(location));
+    }
+  }
+
   Future<void> _moveCameraTo(Position position) async {
+    await _moveCameraToLatLng(LatLng(position.latitude, position.longitude));
+  }
+
+  Future<void> _moveCameraToLatLng(LatLng location) async {
     final controller = _googleMapController;
     if (controller == null) return;
 
     _isProgrammaticCameraMove = true;
     try {
-      await controller.animateCamera(
-        CameraUpdate.newLatLng(LatLng(position.latitude, position.longitude)),
-      );
+      await controller.animateCamera(CameraUpdate.newLatLng(location));
     } catch (_) {
       _isProgrammaticCameraMove = false;
       rethrow;
@@ -598,6 +610,7 @@ class MapController extends ChangeNotifier {
 
   void _handleLocationUpdate(Position position) {
     _latestPosition = position;
+    center = LatLng(position.latitude, position.longitude);
     _queueRegionCheck(position);
     if (_isFollowingUser) {
       unawaited(_moveCameraTo(position));
