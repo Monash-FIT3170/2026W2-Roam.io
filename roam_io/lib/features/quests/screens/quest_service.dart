@@ -1,0 +1,158 @@
+/*
+ * Description:
+ *   Handles Firestore reads and writes for quest definitions and
+ *   user quest progress.
+ */
+
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:roam_io/features/quests/screens/data/quest.dart';
+import 'package:roam_io/features/quests/screens/data/user_quest.dart';
+import 'package:roam_io/features/quests/screens/quest_enums.dart';
+
+
+
+class QuestService {
+  QuestService({
+    FirebaseFirestore? firestore,
+  }) : _firestore = firestore ?? FirebaseFirestore.instance;
+
+  final FirebaseFirestore _firestore;
+
+  CollectionReference<Map<String, dynamic>> get _questsCollection {
+    return _firestore.collection('quests');
+  }
+
+  CollectionReference<Map<String, dynamic>> _userQuestsCollection(
+    String userId,
+  ) {
+    return _firestore
+        .collection('profiles')
+        .doc(userId)
+        .collection('quests');
+  }
+
+  Future<List<Quest>> getAvailableQuests() async {
+    final snapshot = await _questsCollection
+        .where('isActive', isEqualTo: true)
+        .get();
+
+    final now = DateTime.now();
+
+    final quests = snapshot.docs
+        .map(Quest.fromFirestore)
+        .where((quest) => quest.isAvailableAt(now))
+        .toList();
+
+    quests.sort((a, b) => b.rewardXp.compareTo(a.rewardXp));
+
+    return quests;
+  }
+
+  Future<List<Quest>> getQuestsForRegion(String regionId) async {
+    final snapshot = await _questsCollection
+        .where('isActive', isEqualTo: true)
+        .where('regionId', isEqualTo: regionId)
+        .get();
+
+    final now = DateTime.now();
+
+    return snapshot.docs
+        .map(Quest.fromFirestore)
+        .where((quest) => quest.isAvailableAt(now))
+        .toList();
+  }
+
+  Future<Quest?> getQuestById(String questId) async {
+    final document = await _questsCollection.doc(questId).get();
+
+    if (!document.exists) {
+      return null;
+    }
+
+    return Quest.fromFirestore(document);
+  }
+
+  Future<List<UserQuest>> getUserQuests(String userId) async {
+    final snapshot = await _userQuestsCollection(userId).get();
+
+    return snapshot.docs
+        .map(
+          (document) => UserQuest.fromFirestore(
+            userId: userId,
+            document: document,
+          ),
+        )
+        .toList();
+  }
+
+  Future<UserQuest?> getUserQuest({
+    required String userId,
+    required String questId,
+  }) async {
+    final document = await _userQuestsCollection(userId).doc(questId).get();
+
+    if (!document.exists) {
+      return null;
+    }
+
+    return UserQuest.fromFirestore(
+      userId: userId,
+      document: document,
+    );
+  }
+
+  Future<UserQuest> startQuest({
+    required String userId,
+    required String questId,
+  }) async {
+    final existing = await getUserQuest(
+      userId: userId,
+      questId: questId,
+    );
+
+    if (existing != null) {
+      return existing;
+    }
+
+    final now = DateTime.now();
+
+    final userQuest = UserQuest(
+      id: questId,
+      userId: userId,
+      questId: questId,
+      status: QuestStatus.active,
+      startedAt: now,
+    );
+
+    await _userQuestsCollection(userId).doc(questId).set(
+          userQuest.toMap(),
+        );
+
+    return userQuest;
+  }
+
+  Future<void> updateQuestStatus({
+    required String userId,
+    required String questId,
+    required QuestStatus status,
+    String? rejectionReason,
+  }) async {
+    final updates = <String, dynamic>{
+      'status': status.name,
+    };
+
+    if (status == QuestStatus.submitted) {
+      updates['submittedAt'] = FieldValue.serverTimestamp();
+    }
+
+    if (status == QuestStatus.completed) {
+      updates['completedAt'] = FieldValue.serverTimestamp();
+    }
+
+    if (rejectionReason != null) {
+      updates['rejectionReason'] = rejectionReason;
+    }
+
+    await _userQuestsCollection(userId).doc(questId).update(updates);
+  }
+}
