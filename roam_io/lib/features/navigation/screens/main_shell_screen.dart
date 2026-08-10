@@ -24,6 +24,8 @@ import '../../activity_feed/data/activity_creation_service.dart';
 import '../../activity_feed/data/comment_service.dart';
 import '../../activity_feed/data/comment_like_service.dart';
 import '../../activity_feed/data/kudos_service.dart';
+import '../../activity_feed/screens/activity_detail_screen.dart';
+import '../../activity_feed/screens/comments_screen.dart';
 import '../../auth/providers/auth_provider.dart';
 import '../../home/screens/home_screen.dart';
 import '../../map/data/map_page.dart';
@@ -33,6 +35,7 @@ import '../../social/data/follow_service.dart';
 import '../../social/data/friendship_service.dart';
 import '../../social/data/social_notification_coordinator.dart';
 import '../../social/data/social_notification_service.dart';
+import '../../social/screens/other_user_profile_screen.dart';
 import '../../social/screens/social_screen.dart';
 import '../../you/screens/you_screen.dart';
 
@@ -79,6 +82,7 @@ class _MainShellScreenState extends State<MainShellScreen> {
   int selectedIndex = 2;
 
   StreamSubscription<NotificationActionEvent>? _actionSubscription;
+  StreamSubscription<NotificationTapEvent>? _tapSubscription;
   late final CommentService _commentService;
   late final CommentLikeService _commentLikeService;
   late final KudosService _kudosService;
@@ -151,6 +155,9 @@ class _MainShellScreenState extends State<MainShellScreen> {
     _actionSubscription = NotificationService.instance.actionEvents.listen(
       _handleNotificationAction,
     );
+    _tapSubscription = NotificationService.instance.tapEvents.listen(
+      _handleNotificationTap,
+    );
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _bindSocialNotifications();
@@ -160,10 +167,67 @@ class _MainShellScreenState extends State<MainShellScreen> {
   @override
   void dispose() {
     _actionSubscription?.cancel();
+    _tapSubscription?.cancel();
     if (_ownsCoordinator) {
       _socialNotificationCoordinator.dispose();
     }
     super.dispose();
+  }
+
+  Future<void> _handleNotificationTap(NotificationTapEvent event) async {
+    if (!mounted) return;
+    final notification = event.notification;
+    final actorId = notification.data['actorId'];
+    final activityId = notification.data['activityId'];
+    final currentUserId = context.read<AuthProvider>().currentUser?.uid;
+
+    if (_isActivityNotification(notification.type) && activityId != null) {
+      await Navigator.of(context).push(
+        MaterialPageRoute<void>(
+          builder: (_) => _BannerActivityNotificationDestination(
+            notification: notification,
+            activityId: activityId,
+            currentUserId: currentUserId,
+            activityFeedService: _activityFeedService,
+            commentService: _commentService,
+            commentLikeService: _commentLikeService,
+            kudosService: _kudosService,
+          ),
+        ),
+      );
+      return;
+    }
+
+    if (_isFollowNotification(notification.type) && actorId != null) {
+      await Navigator.of(context).push(
+        MaterialPageRoute<void>(
+          builder: (_) => OtherUserProfileScreen(
+            selectedUserId: actorId,
+            friendshipService: _friendshipService,
+            followService: _followService,
+          ),
+        ),
+      );
+    }
+  }
+
+  bool _isActivityNotification(NotificationType type) {
+    return switch (type) {
+      NotificationType.kudos ||
+      NotificationType.comment ||
+      NotificationType.commentReply ||
+      NotificationType.commentLike => true,
+      _ => false,
+    };
+  }
+
+  bool _isFollowNotification(NotificationType type) {
+    return switch (type) {
+      NotificationType.follow ||
+      NotificationType.followRequest ||
+      NotificationType.followRequestAccepted => true,
+      _ => false,
+    };
   }
 
   void _bindSocialNotifications() {
@@ -287,6 +351,64 @@ class _MainShellScreenState extends State<MainShellScreen> {
           },
         ),
       ),
+    );
+  }
+}
+
+class _BannerActivityNotificationDestination extends StatelessWidget {
+  const _BannerActivityNotificationDestination({
+    required this.notification,
+    required this.activityId,
+    required this.currentUserId,
+    required this.activityFeedService,
+    required this.commentService,
+    required this.commentLikeService,
+    required this.kudosService,
+  });
+
+  final AppNotification notification;
+  final String activityId;
+  final String? currentUserId;
+  final ActivityFeedService activityFeedService;
+  final CommentService commentService;
+  final CommentLikeService commentLikeService;
+  final KudosService kudosService;
+
+  @override
+  Widget build(BuildContext context) {
+    return StreamBuilder(
+      stream: activityFeedService.watchActivity(activityId),
+      builder: (context, snapshot) {
+        final activity = snapshot.data;
+        if (activity == null &&
+            snapshot.connectionState == ConnectionState.waiting) {
+          return const Scaffold(
+            body: Center(child: CircularProgressIndicator()),
+          );
+        }
+        if (activity == null) {
+          return Scaffold(
+            appBar: AppBar(),
+            body: const Center(child: Text('Activity unavailable.')),
+          );
+        }
+        if (notification.type == NotificationType.kudos) {
+          return ActivityDetailScreen(
+            activity: activity,
+            showEngagementActions: true,
+            currentUserId: currentUserId,
+            commentService: commentService,
+            commentLikeService: commentLikeService,
+            kudosService: kudosService,
+          );
+        }
+        return CommentsScreen(
+          activityId: activityId,
+          activityOwnerId: activity.ownerId,
+          commentService: commentService,
+          commentLikeService: commentLikeService,
+        );
+      },
     );
   }
 }

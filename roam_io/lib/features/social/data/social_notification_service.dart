@@ -1,6 +1,6 @@
 /*
  * Author: Sanjevan Rajasegar
- * Last Updated: 8 August 2026
+ * Last Updated: 10 August 2026
  * Description:
  *   Firestore-backed social inbox under profiles/{uid}/notifications.
  *   Follow notification documents are created after follow persistence
@@ -9,6 +9,7 @@
  */
 
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flutter/foundation.dart';
 
 import '../domain/social_notification.dart';
 
@@ -49,14 +50,24 @@ class SocialNotificationService {
         .orderBy('createdAt', descending: true)
         .limit(limit)
         .snapshots()
-        .map(
-          (snapshot) => SocialNotificationRecentSnapshot(
-            items: snapshot.docs
-                .map((doc) => SocialNotification.fromMap(doc.id, doc.data()))
-                .toList(),
+        .map((snapshot) {
+          final items = <SocialNotification>[];
+          for (final doc in snapshot.docs) {
+            try {
+              items.add(SocialNotification.fromMap(doc.id, doc.data()));
+            } catch (error, stackTrace) {
+              debugPrint(
+                '[SocialNotificationService] skip notification '
+                'uid=$uid notificationId=${doc.id} type=${doc.data()['type']} '
+                'error=$error\n$stackTrace',
+              );
+            }
+          }
+          return SocialNotificationRecentSnapshot(
+            items: items,
             isFromCache: snapshot.metadata.isFromCache,
-          ),
-        );
+          );
+        });
   }
 
   /// Recent notifications for [uid], newest first.

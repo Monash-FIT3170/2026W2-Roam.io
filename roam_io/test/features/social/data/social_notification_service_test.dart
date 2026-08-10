@@ -1,6 +1,6 @@
 /*
  * Author: Sanjevan Rajasegar
- * Last Updated: 7 August 2026
+ * Last Updated: 10 August 2026
  * Description:
  *   Unit tests for SocialNotificationService unread/read persistence.
  */
@@ -79,6 +79,52 @@ void main() {
         aCountBeforeRemove,
       );
       expect(await notificationService.watchRecent('user-b').first, isEmpty);
+    },
+  );
+
+  test('valid persisted activity types preserve exact enum values', () async {
+    final notification = SocialNotification.fromMap('kudos-1', {
+      'recipientId': 'owner',
+      'actorId': 'actor',
+      'type': 'activityKudos',
+      'createdAt': DateTime(2026, 8, 10).toIso8601String(),
+      'activityId': 'activity-1',
+    });
+
+    expect(notification.type, SocialNotificationType.activityKudos);
+    expect(notification.activityId, 'activity-1');
+  });
+
+  test(
+    'unknown persisted type is skipped instead of becoming follow',
+    () async {
+      final firestore = FakeFirebaseFirestore();
+      final service = SocialNotificationService(firestore: firestore);
+      final notifications = firestore
+          .collection('profiles')
+          .doc('owner')
+          .collection('notifications');
+
+      await notifications.doc('bad').set({
+        'recipientId': 'owner',
+        'actorId': 'actor',
+        'type': 'legacyActivity',
+        'createdAt': DateTime(2026, 8, 10, 10).toIso8601String(),
+      });
+      await notifications.doc('good').set({
+        'recipientId': 'owner',
+        'actorId': 'actor',
+        'type': 'commentLike',
+        'createdAt': DateTime(2026, 8, 10, 11).toIso8601String(),
+        'activityId': 'activity-1',
+        'commentId': 'comment-1',
+      });
+
+      final recent = await service.watchRecent('owner').first;
+
+      expect(recent, hasLength(1));
+      expect(recent.single.id, 'good');
+      expect(recent.single.type, SocialNotificationType.commentLike);
     },
   );
 }

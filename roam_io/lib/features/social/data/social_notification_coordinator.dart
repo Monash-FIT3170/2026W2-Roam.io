@@ -139,7 +139,7 @@ class SocialNotificationCoordinator extends ChangeNotifier {
         items.where((item) => item.isRead).map(_bannerKey),
       );
 
-      if (unreadItems.length == 1) {
+      if (unreadItems.length == 1 || !_canUseFollowSummary(unreadItems)) {
         await _showBannerFor(
           unreadItems.first,
           expectedUid: expectedUid,
@@ -242,6 +242,12 @@ class SocialNotificationCoordinator extends ChangeNotifier {
 
   String _bannerKey(SocialNotification item) {
     return '${item.id}:${item.createdAt.toIso8601String()}';
+  }
+
+  bool _canUseFollowSummary(List<SocialNotification> unreadItems) {
+    return unreadItems.every(
+      (item) => item.type == SocialNotificationType.follow,
+    );
   }
 
   @override

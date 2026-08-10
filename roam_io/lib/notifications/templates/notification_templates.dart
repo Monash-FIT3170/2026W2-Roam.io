@@ -1,6 +1,6 @@
 /*
- * Author: Sam Sutherland
- * Last Modified: 01/08/2026
+ * Author: Sanjevan Rajasegar
+ * Last Updated: 10 August 2026
  * Description:
  *   Outlines the different notification templates used throughout the application. 
  *   Each template corresponds to a specific notification type and provides a consistent structure.
@@ -140,7 +140,7 @@ class NotificationTemplates {
       id: notificationId ?? now.microsecondsSinceEpoch.toString(),
       type: NotificationType.commentReply,
       title: 'New Reply',
-      body: '$username replied to a comment on your activity',
+      body: '$username replied to your comment',
       timestamp: now,
       showOnDevice: false,
       displayDuration: const Duration(seconds: 5),

@@ -1,6 +1,6 @@
 /*
  * Author: Sanjevan Rajasegar
- * Last Updated: 8 August 2026
+ * Last Updated: 10 August 2026
  * Description:
  *   Unit tests for SocialNotificationCoordinator cold-start summary, live
  *   banner dedupe, and auth UID switching (account change on one device).
@@ -86,6 +86,133 @@ void main() {
     );
     await Future<void>.delayed(const Duration(milliseconds: 50));
     expect(shown.length, 1);
+
+    coordinator.dispose();
+  });
+
+  test('cold start activity notifications do not use follow summary', () async {
+    final firestore = FakeFirebaseFirestore();
+    final friendship = FriendshipService(firestore: firestore);
+    final notif = SocialNotificationService(firestore: firestore);
+    await friendship.upsertPublicProfile(
+      uid: 'actor',
+      username: 'nathan',
+      displayName: 'Nathan',
+    );
+    await notif.upsertNotificationForTests(
+      SocialNotification(
+        id: 'activity-kudos-1',
+        recipientId: 'owner',
+        actorId: 'actor',
+        type: SocialNotificationType.activityKudos,
+        createdAt: DateTime(2026, 8, 10, 10),
+        activityId: 'activity-1',
+      ),
+    );
+    await notif.upsertNotificationForTests(
+      SocialNotification(
+        id: 'comment-like-1',
+        recipientId: 'owner',
+        actorId: 'actor',
+        type: SocialNotificationType.commentLike,
+        createdAt: DateTime(2026, 8, 10, 11),
+        activityId: 'activity-1',
+        commentId: 'comment-1',
+      ),
+    );
+
+    final coordinator = SocialNotificationCoordinator(
+      notificationService: notif,
+      friendshipService: friendship,
+      bannerService: bannerService(),
+    );
+    coordinator.bindUid('owner');
+    await Future<void>.delayed(const Duration(milliseconds: 50));
+
+    expect(shown, hasLength(1));
+    expect(shown.single.type, NotificationType.commentLike);
+    expect(shown.single.body, 'Nathan liked your comment');
+    expect(shown.single.data['followSummaryCount'], isNull);
+
+    coordinator.dispose();
+  });
+
+  test('live activity notifications use distinct templates', () async {
+    final firestore = FakeFirebaseFirestore();
+    final friendship = FriendshipService(firestore: firestore);
+    final notif = SocialNotificationService(firestore: firestore);
+    await friendship.upsertPublicProfile(
+      uid: 'actor',
+      username: 'nathan',
+      displayName: 'Nathan',
+    );
+
+    final coordinator = SocialNotificationCoordinator(
+      notificationService: notif,
+      friendshipService: friendship,
+      bannerService: bannerService(),
+    );
+    coordinator.bindUid('owner');
+    await Future<void>.delayed(const Duration(milliseconds: 50));
+
+    final notifications = <SocialNotification>[
+      SocialNotification(
+        id: 'kudos',
+        recipientId: 'owner',
+        actorId: 'actor',
+        type: SocialNotificationType.activityKudos,
+        createdAt: DateTime(2026, 8, 10, 10),
+        activityId: 'activity-1',
+      ),
+      SocialNotification(
+        id: 'comment',
+        recipientId: 'owner',
+        actorId: 'actor',
+        type: SocialNotificationType.activityComment,
+        createdAt: DateTime(2026, 8, 10, 11),
+        activityId: 'activity-1',
+        commentId: 'comment-1',
+      ),
+      SocialNotification(
+        id: 'reply',
+        recipientId: 'owner',
+        actorId: 'actor',
+        type: SocialNotificationType.commentReply,
+        createdAt: DateTime(2026, 8, 10, 12),
+        activityId: 'activity-1',
+        commentId: 'reply-1',
+      ),
+      SocialNotification(
+        id: 'comment-like',
+        recipientId: 'owner',
+        actorId: 'actor',
+        type: SocialNotificationType.commentLike,
+        createdAt: DateTime(2026, 8, 10, 13),
+        activityId: 'activity-1',
+        commentId: 'comment-1',
+      ),
+    ];
+
+    for (final notification in notifications) {
+      await notif.upsertNotificationForTests(notification);
+      await Future<void>.delayed(const Duration(milliseconds: 50));
+    }
+
+    expect(
+      shown.map((notification) => notification.body),
+      containsAll(<String>[
+        'Nathan gave Kudos to your activity',
+        'Nathan commented on your activity',
+        'Nathan replied to your comment',
+        'Nathan liked your comment',
+      ]),
+    );
+    expect(shown.map((notification) => notification.type), [
+      NotificationType.kudos,
+      NotificationType.comment,
+      NotificationType.commentReply,
+      NotificationType.commentLike,
+    ]);
 
     coordinator.dispose();
   });

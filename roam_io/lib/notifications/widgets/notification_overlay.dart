@@ -1,6 +1,6 @@
 /*
- * Author: Sam Sutherland
- * Last Modified: 01/08/2026
+ * Author: Sanjevan Rajasegar
+ * Last Updated: 10 August 2026
  * Description:
  *   Displays animated in-app notification banners above application 
  *   content and forwards selected actions to the notification service.
@@ -89,7 +89,7 @@ class _NotificationOverlayState extends State<NotificationOverlay> {
 
   /// Handles selection of the notification body.
   void _handleNotificationTap(AppNotification notification) {
-    debugPrint('[Notification selected] ${notification.id}');
+    NotificationService.instance.handleTap(notification: notification);
 
     _dismissNotification(notification.id);
   }

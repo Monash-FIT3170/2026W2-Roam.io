@@ -187,6 +187,8 @@ class _CommentLikeButton extends StatelessWidget {
             final liked = likedSnapshot.data ?? false;
             final label = liked ? 'Liked' : 'Like';
             final text = count > 0 ? '$label · $count' : label;
+            final activeColor = Theme.of(context).colorScheme.primary;
+            final inactiveColor = AppSurfaces.textMuted(context);
             return InkWell(
               onTap: () {
                 service.toggleLike(
@@ -197,14 +199,25 @@ class _CommentLikeButton extends StatelessWidget {
                 );
               },
               borderRadius: BorderRadius.circular(6),
-              child: Text(
-                text,
-                style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                  color: liked
-                      ? Theme.of(context).colorScheme.primary
-                      : AppSurfaces.textMuted(context),
-                  fontWeight: FontWeight.w800,
-                ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  if (liked) ...[
+                    Icon(
+                      Icons.thumb_up_alt_rounded,
+                      size: 14,
+                      color: activeColor,
+                    ),
+                    const SizedBox(width: 4),
+                  ],
+                  Text(
+                    text,
+                    style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                      color: liked ? activeColor : inactiveColor,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                ],
               ),
             );
           },

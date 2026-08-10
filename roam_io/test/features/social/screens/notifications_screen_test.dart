@@ -1,6 +1,6 @@
 /*
  * Author: Sanjevan Rajasegar
- * Last Updated: 9 August 2026
+ * Last Updated: 10 August 2026
  * Description:
  *   Widget tests for NotificationsScreen list, mark-read, Follow Back /
  *   Following unfollow, follow request actions, stale request rows, and empty
@@ -12,6 +12,9 @@ import 'package:firebase_auth/firebase_auth.dart' as firebase_auth;
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:provider/provider.dart';
+import 'package:roam_io/features/activity_feed/data/activity_feed_service.dart';
+import 'package:roam_io/features/activity_feed/models/activity_feed_item.dart';
+import 'package:roam_io/features/activity_feed/screens/comments_screen.dart';
 import 'package:roam_io/features/auth/data/auth_repository.dart';
 import 'package:roam_io/features/auth/providers/auth_provider.dart';
 import 'package:roam_io/features/profile/domain/profile_model.dart';
@@ -32,6 +35,7 @@ void main() {
     required SocialNotificationService notif,
     required FollowService follow,
     required FriendshipService friendship,
+    ActivityFeedService? activityFeed,
     FollowRequestService? requests,
   }) async {
     await tester.pumpWidget(
@@ -43,6 +47,7 @@ void main() {
             followService: follow,
             followRequestService: requests,
             friendshipService: friendship,
+            activityFeedService: activityFeed,
           ),
         ),
       ),
@@ -257,6 +262,53 @@ void main() {
       friendship: FriendshipService(firestore: firestore),
     );
     expect(find.text('No notifications yet'), findsOneWidget);
+    auth.dispose();
+  });
+
+  testWidgets('activity notification row opens comments destination', (
+    tester,
+  ) async {
+    final firestore = FakeFirebaseFirestore();
+    final friendship = FriendshipService(firestore: firestore);
+    final notif = SocialNotificationService(firestore: firestore);
+    final follow = FollowService(firestore: firestore);
+    await friendship.upsertPublicProfile(
+      uid: 'actor',
+      username: 'nathan',
+      displayName: 'Nathan',
+    );
+    await notif.upsertNotificationForTests(
+      SocialNotification(
+        id: 'activity-comment-1',
+        recipientId: 'current-user',
+        actorId: 'actor',
+        type: SocialNotificationType.activityComment,
+        createdAt: DateTime(2026, 8, 10),
+        activityId: 'activity-1',
+        commentId: 'comment-1',
+      ),
+    );
+
+    final auth = AuthProvider(authRepository: _NotifAuthRepository());
+    await pumpNotifScreen(
+      tester,
+      auth: auth,
+      notif: notif,
+      follow: follow,
+      friendship: friendship,
+      activityFeed: _FakeActivityFeedService(),
+    );
+
+    expect(
+      find.textContaining('Nathan commented on your activity'),
+      findsOneWidget,
+    );
+    await tester.tap(find.textContaining('Nathan commented on your activity'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
+
+    expect(find.byType(CommentsScreen), findsOneWidget);
+    expect(find.byType(OtherUserProfileScreen), findsNothing);
     auth.dispose();
   });
 
@@ -497,6 +549,26 @@ class _NotifAuthRepository implements AuthRepository {
 
   @override
   Future<ProfileModel?> getCurrentUserProfile() async => _profile;
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+}
+
+class _FakeActivityFeedService implements ActivityFeedService {
+  @override
+  Stream<ActivityFeedItem?> watchActivity(String activityId) {
+    return Stream<ActivityFeedItem?>.value(
+      ActivityFeedItem(
+        id: activityId,
+        ownerId: 'current-user',
+        displayName: 'Current User',
+        timestampLabel: 'Today',
+        title: 'X Activity 1',
+        kind: ActivityFeedKind.exploration,
+        metrics: const <ActivityFeedMetric>[],
+      ),
+    );
+  }
 
   @override
   dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);

@@ -101,11 +101,17 @@ class SocialNotification {
   }
 
   factory SocialNotification.fromMap(String id, Map<String, dynamic> data) {
+    final type = typeFromString(data['type'] as String?);
+    if (type == null) {
+      throw FormatException(
+        'Unknown social notification type "${data['type']}" for $id',
+      );
+    }
     return SocialNotification(
       id: id,
       recipientId: data['recipientId'] as String? ?? '',
       actorId: data['actorId'] as String? ?? '',
-      type: _typeFromString(data['type'] as String?),
+      type: type,
       createdAt: _parseDate(data['createdAt']) ?? DateTime.now(),
       readAt: _parseDate(data['readAt']),
       activityId: data['activityId'] as String?,
@@ -125,7 +131,7 @@ class SocialNotification {
     };
   }
 
-  static SocialNotificationType _typeFromString(String? raw) {
+  static SocialNotificationType? typeFromString(String? raw) {
     return switch (raw) {
       'follow' => SocialNotificationType.follow,
       'followRequest' => SocialNotificationType.followRequest,
@@ -134,7 +140,7 @@ class SocialNotification {
       'activityComment' => SocialNotificationType.activityComment,
       'commentReply' => SocialNotificationType.commentReply,
       'commentLike' => SocialNotificationType.commentLike,
-      _ => SocialNotificationType.follow,
+      _ => null,
     };
   }
 

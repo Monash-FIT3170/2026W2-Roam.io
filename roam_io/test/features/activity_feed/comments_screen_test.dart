@@ -1,6 +1,6 @@
 /*
  * Author: Sanjevan Rajasegar
- * Last Updated: 6 August 2026
+ * Last Updated: 10 August 2026
  * Description:
  *   Widget tests for CommentsScreen composer validation, empty state, and
  *   CommentService persistence (success clears input; failure does not
@@ -13,6 +13,7 @@ import 'package:firebase_auth/firebase_auth.dart' as firebase_auth;
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:provider/provider.dart';
+import 'package:roam_io/features/activity_feed/data/comment_like_service.dart';
 import 'package:roam_io/features/activity_feed/data/comment_service.dart';
 import 'package:roam_io/features/activity_feed/models/activity_comment.dart';
 import 'package:roam_io/features/activity_feed/screens/comments_screen.dart';
@@ -177,6 +178,59 @@ void main() {
     auth.dispose();
     await comments.dispose();
   });
+
+  testWidgets('liked comment action shows compact thumbs-up active state', (
+    tester,
+  ) async {
+    final comments = _FakeCommentService()
+      ..seedComment(
+        ActivityComment(
+          id: 'comment-1',
+          activityId: 'activity-1',
+          authorId: 'author-1',
+          authorDisplayName: 'Author',
+          text: 'Nice route',
+          createdAt: DateTime(2026, 8, 10, 12),
+        ),
+      );
+    final likes = _FakeCommentLikeService();
+    final auth = AuthProvider(authRepository: _FakeAuthRepository());
+    await auth.refreshCurrentUser();
+
+    await tester.pumpWidget(
+      ChangeNotifierProvider<AuthProvider>.value(
+        value: auth,
+        child: MaterialApp(
+          home: CommentsScreen(
+            activityId: 'activity-1',
+            activityOwnerId: 'owner-1',
+            commentService: comments,
+            commentLikeService: likes,
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Like'), findsOneWidget);
+    expect(find.byIcon(Icons.thumb_up_alt_rounded), findsNothing);
+
+    await tester.tap(find.text('Like'));
+    await tester.pumpAndSettle();
+
+    expect(find.byIcon(Icons.thumb_up_alt_rounded), findsOneWidget);
+    expect(find.text('Liked · 1'), findsOneWidget);
+
+    await tester.tap(find.text('Liked · 1'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Like'), findsOneWidget);
+    expect(find.byIcon(Icons.thumb_up_alt_rounded), findsNothing);
+
+    auth.dispose();
+    await comments.dispose();
+    await likes.dispose();
+  });
 }
 
 class _FakeCommentService implements CommentService {
@@ -187,6 +241,10 @@ class _FakeCommentService implements CommentService {
   final List<ActivityComment> _comments = <ActivityComment>[];
   final StreamController<List<ActivityComment>> _controller =
       StreamController<List<ActivityComment>>.broadcast();
+
+  void seedComment(ActivityComment comment) {
+    _comments.add(comment);
+  }
 
   @override
   Stream<List<ActivityComment>> watchComments(String activityId) {
@@ -276,6 +334,65 @@ class _FakeCommentService implements CommentService {
       replyToUserId: parentComment.authorId,
       replyToDisplayName: parentComment.authorDisplayName,
     );
+  }
+
+  Future<void> dispose() => _controller.close();
+}
+
+class _FakeCommentLikeService implements CommentLikeService {
+  final Set<String> _liked = <String>{};
+  final StreamController<void> _controller = StreamController<void>.broadcast();
+
+  @override
+  Stream<bool> watchIsLiked({
+    required String activityId,
+    required String commentId,
+    required String userId,
+  }) {
+    return Stream<bool>.multi((controller) {
+      controller.add(_liked.contains(_key(activityId, commentId, userId)));
+      final subscription = _controller.stream.listen((_) {
+        controller.add(_liked.contains(_key(activityId, commentId, userId)));
+      });
+      controller.onCancel = subscription.cancel;
+    });
+  }
+
+  @override
+  Stream<int> watchLikeCount({
+    required String activityId,
+    required String commentId,
+  }) {
+    return Stream<int>.multi((controller) {
+      controller.add(_count(activityId, commentId));
+      final subscription = _controller.stream.listen((_) {
+        controller.add(_count(activityId, commentId));
+      });
+      controller.onCancel = subscription.cancel;
+    });
+  }
+
+  @override
+  Future<void> toggleLike({
+    required String activityId,
+    required String commentId,
+    required String commentAuthorId,
+    required String userId,
+  }) async {
+    final key = _key(activityId, commentId, userId);
+    if (!_liked.add(key)) {
+      _liked.remove(key);
+    }
+    _controller.add(null);
+  }
+
+  int _count(String activityId, String commentId) {
+    final prefix = '$activityId/$commentId/';
+    return _liked.where((key) => key.startsWith(prefix)).length;
+  }
+
+  String _key(String activityId, String commentId, String userId) {
+    return '$activityId/$commentId/$userId';
   }
 
   Future<void> dispose() => _controller.close();

@@ -1,6 +1,6 @@
 /*
- * Author: Sam Sutherland
- * Last Modified: 01/08/2026
+ * Author: Sanjevan Rajasegar
+ * Last Updated: 10 August 2026
  * Description:
  *   Handles all notifications within the application. Every feature should communicate 
  * through this service rather than displaying notifications directly.
@@ -29,6 +29,14 @@ class NotificationActionEvent {
   });
 }
 
+/// Represents a notification body tap from the in-app banner.
+class NotificationTapEvent {
+  /// Notification selected by the user.
+  final AppNotification notification;
+
+  const NotificationTapEvent({required this.notification});
+}
+
 /// Service that manages notifications within the application.
 class NotificationService {
   NotificationService._();
@@ -41,11 +49,17 @@ class NotificationService {
   final StreamController<NotificationActionEvent> _actionController =
       StreamController<NotificationActionEvent>.broadcast();
 
+  final StreamController<NotificationTapEvent> _tapController =
+      StreamController<NotificationTapEvent>.broadcast();
+
   /// Notifications consumed by the in-app overlay.
   Stream<AppNotification> get notifications => _notificationController.stream;
 
   /// Actions selected from notification banners.
   Stream<NotificationActionEvent> get actionEvents => _actionController.stream;
+
+  /// Body taps selected from notification banners.
+  Stream<NotificationTapEvent> get tapEvents => _tapController.stream;
 
   /// Sends a notification to the appropriate presentation layers.
   Future<void> show(AppNotification notification) async {
@@ -89,9 +103,18 @@ class NotificationService {
     );
   }
 
+  /// Reports that the body of an in-app notification was selected.
+  void handleTap({required AppNotification notification}) {
+    debugPrint(
+      '[Notification tap] ${notification.type.name} ${notification.id}',
+    );
+    _tapController.add(NotificationTapEvent(notification: notification));
+  }
+
   /// Dispose of resources
   Future<void> dispose() async {
     await _notificationController.close();
     await _actionController.close();
+    await _tapController.close();
   }
 }

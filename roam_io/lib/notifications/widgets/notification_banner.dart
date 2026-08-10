@@ -1,6 +1,6 @@
 /*
  * Author: Sanjevan Rajasegar
- * Last Updated: 8 August 2026
+ * Last Updated: 10 August 2026
  * Description:
  *   Displays cream in-app notification banners with configurable icons,
  *   actions, dismissal and user interaction (no outline border).
@@ -205,7 +205,7 @@ class _NotificationIcon extends StatelessWidget {
   /// Returns the icon associated with each notification type.
   IconData _iconFor(NotificationType type) {
     return switch (type) {
-      NotificationType.kudos => Icons.favorite_outline,
+      NotificationType.kudos => Icons.thumb_up_alt_outlined,
       NotificationType.comment => Icons.chat_bubble_outline,
       NotificationType.commentReply => Icons.reply_rounded,
       NotificationType.commentLike => Icons.thumb_up_alt_outlined,
