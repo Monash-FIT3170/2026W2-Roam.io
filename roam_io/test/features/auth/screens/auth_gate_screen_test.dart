@@ -46,6 +46,7 @@ void main() {
         ),
       );
       await tester.pump();
+      await tester.pump(const Duration(seconds: 2));
       await tester.pump();
 
       expect(find.byType(LoginScreen), findsOneWidget);
@@ -69,6 +70,7 @@ void main() {
         ),
       );
       await tester.pump();
+      await tester.pump(const Duration(seconds: 2));
       await tester.pump();
 
       expect(find.byType(VerifyEmailScreen), findsOneWidget);
@@ -106,6 +108,7 @@ void main() {
         ),
       );
       await tester.pump();
+      await tester.pump(const Duration(seconds: 2));
       await tester.pump();
 
       expect(find.byType(NotificationOverlay), findsOneWidget);
