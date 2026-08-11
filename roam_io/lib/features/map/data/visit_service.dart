@@ -10,50 +10,102 @@
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 
+import '../domain/visit_event.dart';
+import '../../you/services/stats_summary_service.dart';
 import 'place_of_interest.dart';
 import 'visit.dart';
+
+/// Result of persisting a place visit.
+class VisitWriteResult {
+  const VisitWriteResult({required this.isFirstVisit});
+
+  final bool isFirstVisit;
+}
 
 /// Service for managing user visits to places.
 ///
 /// Visits are stored in Firestore at `profiles/{userId}/visits/{placeId}`.
 /// This service owns all read/write operations for visit data.
 class VisitService {
-  VisitService({FirebaseFirestore? firestore})
-    : _firestore = firestore ?? FirebaseFirestore.instance;
+  VisitService({
+    FirebaseFirestore? firestore,
+    StatsSummaryService? statsSummaryService,
+  }) : _firestore = firestore ?? FirebaseFirestore.instance,
+       _statsSummaryService = statsSummaryService ?? StatsSummaryService();
 
   final FirebaseFirestore _firestore;
+  final StatsSummaryService _statsSummaryService;
 
   /// Gets the visits subcollection for a user.
   CollectionReference<Map<String, dynamic>> _visitsCollection(String userId) {
     return _firestore.collection('profiles').doc(userId).collection('visits');
   }
 
+  /// Gets the append-only visit events subcollection for analytics history.
+  CollectionReference<Map<String, dynamic>> _visitEventsCollection(
+    String userId,
+  ) {
+    return _firestore
+        .collection('profiles')
+        .doc(userId)
+        .collection('visit_events');
+  }
+
   /// Marks a place as visited by the user.
   ///
-  /// Uses the place's database ID as the document ID for easy lookup.
-  /// If already visited, this will update the visitedAt timestamp.
-  ///
-  /// Optional fields allow the user to customize their visit entry.
-  Future<void> markVisited({
+  /// Appends a visit event and updates the per-place summary document.
+  Future<VisitWriteResult> markVisited({
     required String userId,
     required PlaceOfInterest place,
     String? customName,
     String? description,
     List<String>? mediaUrls,
   }) async {
+    final now = DateTime.now();
+    final existing = await getVisit(userId: userId, placeId: place.id);
+    final isFirstVisit = existing == null;
+    final visitCount = (existing?.visitCount ?? 0) + 1;
+    final firstVisitedAt = existing?.firstVisitedAt ?? now;
+
     final visit = Visit(
       placeId: place.id,
       googlePlaceId: place.googlePlaceId,
       placeName: place.name,
       regionId: place.regionId,
       category: place.category.name,
-      visitedAt: DateTime.now(),
-      customName: customName,
-      description: description,
-      mediaUrls: mediaUrls ?? [],
+      visitedAt: now,
+      customName: customName ?? existing?.customName,
+      description: description ?? existing?.description,
+      mediaUrls: mediaUrls ?? existing?.mediaUrls ?? const [],
+      visitCount: visitCount,
+      firstVisitedAt: firstVisitedAt,
+      lastVisitedAt: now,
     );
 
-    await _visitsCollection(userId).doc(place.id.toString()).set(visit.toMap());
+    final eventRef = _visitEventsCollection(userId).doc();
+    final event = VisitEvent(
+      id: eventRef.id,
+      placeId: place.id,
+      googlePlaceId: place.googlePlaceId,
+      placeName: place.name,
+      regionId: place.regionId,
+      category: place.category.name,
+      lat: place.location.latitude,
+      lng: place.location.longitude,
+      visitedAt: now,
+    );
+
+    final batch = _firestore.batch();
+    batch.set(_visitsCollection(userId).doc(place.id.toString()), visit.toMap());
+    batch.set(eventRef, event.toMap());
+    await batch.commit();
+
+    await _statsSummaryService.recordVisit(
+      uid: userId,
+      isFirstVisit: isFirstVisit,
+    );
+
+    return VisitWriteResult(isFirstVisit: isFirstVisit);
   }
 
   /// Updates an existing visit with new details.
@@ -158,10 +210,11 @@ class VisitService {
         continue;
       }
 
+      final count = visit.visitCount <= 0 ? 1 : visit.visitCount;
       countsByRegion.update(
         regionId,
-        (existingCount) => existingCount + 1,
-        ifAbsent: () => 1,
+        (existingCount) => existingCount + count,
+        ifAbsent: () => count,
       );
     }
 
@@ -188,7 +241,8 @@ class VisitService {
     final counts = <String, int>{};
     for (final visit in visits) {
       final name = visit.displayName;
-      counts[name] = (counts[name] ?? 0) + 1;
+      final count = visit.visitCount <= 0 ? 1 : visit.visitCount;
+      counts[name] = (counts[name] ?? 0) + count;
     }
 
     final mostVisited = counts.entries.reduce(
@@ -208,6 +262,19 @@ class VisitService {
         .map(
           (snapshot) =>
               snapshot.docs.map((doc) => Visit.fromMap(doc.data())).toList(),
+        );
+  }
+
+  /// Watches append-only visit events for analytics timelines.
+  Stream<List<VisitEvent>> watchVisitEvents(String userId, {int limit = 100}) {
+    return _visitEventsCollection(userId)
+        .orderBy('visitedAt', descending: true)
+        .limit(limit)
+        .snapshots()
+        .map(
+          (snapshot) => snapshot.docs
+              .map((doc) => VisitEvent.fromMap(doc.id, doc.data()))
+              .toList(),
         );
   }
 }

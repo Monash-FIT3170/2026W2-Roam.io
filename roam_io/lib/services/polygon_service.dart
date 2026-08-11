@@ -7,6 +7,7 @@
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 
+import '../features/profile/domain/visited_polygon_meta.dart';
 import '../features/profile/domain/visited_polygon_record.dart';
 
 /// Reads and writes persisted polygon unlock records for profiles.
@@ -17,6 +18,7 @@ class PolygonService {
   static const String _userIdFieldName = 'user_id';
   static const String _legacyUserIdFieldName = 'userId';
   static const String _visitedPolygonsMapField = 'visited_polygons';
+  static const String _visitedPolygonMetaField = 'visited_polygon_meta';
 
   PolygonService({FirebaseFirestore? firestore})
     : _firestore = firestore ?? FirebaseFirestore.instance;
@@ -64,6 +66,8 @@ class PolygonService {
     required String profileId,
     required String polygonId,
     DateTime? visitedAt,
+    double? areaSquareMetres,
+    String? name,
   }) async {
     final time = visitedAt ?? DateTime.now();
     final document = await _resolveVisitedPolygonDocument(profileId);
@@ -82,10 +86,23 @@ class PolygonService {
       final updatedPolygonMap = Map<String, dynamic>.from(currentPolygonMap)
         ..[polygonId] = Timestamp.fromDate(time);
 
+      final currentMetaMap =
+          (currentData?[_visitedPolygonMetaField] as Map<String, dynamic>?) ??
+          <String, dynamic>{};
+      final updatedMetaMap = Map<String, dynamic>.from(currentMetaMap)
+        ..[polygonId] = VisitedPolygonMeta(
+          polygonId: polygonId,
+          visitedAt: time,
+          areaSquareMetres: areaSquareMetres,
+          name: name,
+          lastEnteredAt: time,
+        ).toMap();
+
       transaction.set(document, <String, dynamic>{
         _profileIdFieldName: profileId,
         _userIdFieldName: profileId,
         _visitedPolygonsMapField: updatedPolygonMap,
+        _visitedPolygonMetaField: updatedMetaMap,
       }, SetOptions(merge: true));
 
       return true;
@@ -189,10 +206,98 @@ class PolygonService {
     }
   }
 
+  /// Updates re-entry metadata and increments the tile entry count.
+  Future<int> recordPolygonReentry({
+    required String profileId,
+    required String polygonId,
+    DateTime? enteredAt,
+  }) async {
+    final time = enteredAt ?? DateTime.now();
+    final document = await _resolveVisitedPolygonDocument(profileId);
+
+    return _firestore.runTransaction<int>((transaction) async {
+      final snapshot = await transaction.get(document);
+      final currentData = snapshot.data();
+      final currentEntryMap =
+          (currentData?['entry_counts'] as Map<String, dynamic>?) ??
+          <String, dynamic>{};
+
+      final currentCountDynamic = currentEntryMap[polygonId];
+      final currentCount = currentCountDynamic is num
+          ? currentCountDynamic.toInt()
+          : int.tryParse('$currentCountDynamic') ?? 0;
+      final newCount = currentCount + 1;
+
+      final updatedEntryMap = Map<String, dynamic>.from(currentEntryMap)
+        ..[polygonId] = newCount;
+
+      final currentMetaMap =
+          (currentData?[_visitedPolygonMetaField] as Map<String, dynamic>?) ??
+          <String, dynamic>{};
+      final existingMeta = currentMetaMap[polygonId];
+      final updatedMetaMap = Map<String, dynamic>.from(currentMetaMap);
+
+      if (existingMeta is Map<String, dynamic>) {
+        updatedMetaMap[polygonId] = Map<String, dynamic>.from(existingMeta)
+          ..['lastEnteredAt'] = Timestamp.fromDate(time);
+      } else {
+        updatedMetaMap[polygonId] = VisitedPolygonMeta(
+          polygonId: polygonId,
+          visitedAt: time,
+          lastEnteredAt: time,
+        ).toMap();
+      }
+
+      transaction.set(document, <String, dynamic>{
+        _profileIdFieldName: profileId,
+        _userIdFieldName: profileId,
+        'entry_counts': updatedEntryMap,
+        _visitedPolygonMetaField: updatedMetaMap,
+      }, SetOptions(merge: true));
+
+      return newCount;
+    });
+  }
+
+  /// Returns enriched unlock metadata keyed by polygon ID.
+  Future<Map<String, VisitedPolygonMeta>> getVisitedPolygonMeta({
+    required String profileId,
+  }) async {
+    final document = await _resolveVisitedPolygonDocument(profileId);
+    final currentData = (await document.get()).data();
+    return _metaFromMap(currentData?[_visitedPolygonMetaField]);
+  }
+
+  /// Streams enriched unlock metadata keyed by polygon ID.
+  Stream<Map<String, VisitedPolygonMeta>> watchVisitedPolygonMeta({
+    required String profileId,
+  }) {
+    return Stream.fromFuture(
+      _resolveVisitedPolygonDocument(profileId),
+    ).asyncExpand((document) => document.snapshots()).map((snapshot) {
+      return _metaFromMap(snapshot.data()?[_visitedPolygonMetaField]);
+    });
+  }
+
+  Map<String, VisitedPolygonMeta> _metaFromMap(dynamic rawMetaMap) {
+    final meta = <String, VisitedPolygonMeta>{};
+    if (rawMetaMap is! Map<String, dynamic>) {
+      return meta;
+    }
+
+    for (final entry in rawMetaMap.entries) {
+      if (entry.key.isEmpty) continue;
+      final value = entry.value;
+      if (value is! Map<String, dynamic>) continue;
+      meta[entry.key] = VisitedPolygonMeta.fromMap(entry.key, value);
+    }
+
+    return meta;
+  }
+
   /// Increments an entry count for a polygon for the given profile.
   ///
-  /// This is used to track how many times the user has entered a polygon
-  /// (tile) while the app was open. Returns the new count after increment.
+  /// Prefer [recordPolygonReentry] for new code; this remains for compatibility.
   Future<int> incrementPolygonEntryCount({
     required String profileId,
     required String polygonId,

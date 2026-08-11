@@ -14,6 +14,7 @@ import 'package:flutter/foundation.dart';
 import '../features/profile/domain/profile_model.dart';
 import '../features/profile/domain/xp_award_result.dart';
 import '../features/profile/domain/xp_event.dart';
+import '../features/you/services/stats_summary_service.dart';
 
 /// Owns reads and writes for Firestore documents in the `profiles` collection.
 class ProfileService {
@@ -23,8 +24,10 @@ class ProfileService {
   ProfileService({
     FirebaseFirestore? firestore,
     Future<void> Function(String uid, XpEvent event)? recordXpEvent,
+    StatsSummaryService? statsSummaryService,
   }) : _firestore = firestore ?? FirebaseFirestore.instance,
-       _recordXpEventOverride = recordXpEvent;
+       _recordXpEventOverride = recordXpEvent,
+       _statsSummaryService = statsSummaryService ?? StatsSummaryService();
 
   final FirebaseFirestore _firestore;
 
@@ -32,6 +35,7 @@ class ProfileService {
   /// affecting the canonical progression transaction.
   final Future<void> Function(String uid, XpEvent event)?
   _recordXpEventOverride;
+  final StatsSummaryService _statsSummaryService;
 
   CollectionReference<Map<String, dynamic>> get _profiles =>
       _firestore.collection(_profilesCollectionName);
@@ -230,6 +234,13 @@ class ProfileService {
       ),
     );
 
+    await _tryRecordStatsSummary(
+      uid: uid,
+      amount: xpToAdd,
+      source: source,
+      earnedAt: earnedAt,
+    );
+
     return XpAwardResult.success(
       amount: xpToAdd,
       previousXp: previousXp,
@@ -260,6 +271,28 @@ class ProfileService {
         'sourceId=${event.sourceId} code=$code error=$error\n$stackTrace',
       );
       return false;
+    }
+  }
+
+  Future<void> _tryRecordStatsSummary({
+    required String uid,
+    required int amount,
+    required XpEventSource source,
+    required DateTime earnedAt,
+  }) async {
+    try {
+      await _statsSummaryService.recordXpAward(
+        uid: uid,
+        amount: amount,
+        source: source,
+        earnedAt: earnedAt,
+      );
+    } catch (error, stackTrace) {
+      debugPrint(
+        '[ProfileService.addXp] Stats summary write failed (progression kept) '
+        'uid=$uid amount=$amount source=${source.wireValue} error=$error\n'
+        '$stackTrace',
+      );
     }
   }
 

@@ -63,7 +63,12 @@ class VisitedRegionService {
 
   // Marks a region as visited for the current user. Returns true only when the
   // persisted data confirms this is the first unlock for the user.
-  Future<bool> markVisited(String regionId, {DateTime? visitedAt}) async {
+  Future<bool> markVisited(
+    String regionId, {
+    DateTime? visitedAt,
+    double? areaSquareMetres,
+    String? name,
+  }) async {
     final user = _auth.currentUser;
 
     if (user == null) {
@@ -74,6 +79,8 @@ class VisitedRegionService {
       profileId: user.uid,
       polygonId: regionId,
       visitedAt: visitedAt ?? DateTime.now(),
+      areaSquareMetres: areaSquareMetres,
+      name: name,
     );
   }
 }

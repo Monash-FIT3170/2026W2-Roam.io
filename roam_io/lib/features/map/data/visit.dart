@@ -15,6 +15,9 @@ class Visit {
     this.customName,
     this.description,
     this.mediaUrls = const [],
+    this.visitCount = 1,
+    this.firstVisitedAt,
+    this.lastVisitedAt,
   });
 
   /// The database ID of the place (from PostGIS).
@@ -44,6 +47,15 @@ class Visit {
   /// Firebase Storage URLs for photos/videos attached to this visit.
   final List<String> mediaUrls;
 
+  /// Total number of recorded visits to this place.
+  final int visitCount;
+
+  /// When the user first marked this place as visited.
+  final DateTime? firstVisitedAt;
+
+  /// When the user most recently marked this place as visited.
+  final DateTime? lastVisitedAt;
+
   /// Returns the display name (custom name if set, otherwise place name).
   String get displayName => customName ?? placeName;
 
@@ -59,22 +71,37 @@ class Visit {
       'customName': customName,
       'description': description,
       'mediaUrls': mediaUrls,
+      'visitCount': visitCount,
+      if (firstVisitedAt != null)
+        'firstVisitedAt': Timestamp.fromDate(firstVisitedAt!),
+      if (lastVisitedAt != null)
+        'lastVisitedAt': Timestamp.fromDate(lastVisitedAt!),
     };
   }
 
   /// Creates a Visit from Firestore document data.
   factory Visit.fromMap(Map<String, dynamic> map) {
+    final visitedAt = (map['visitedAt'] as Timestamp).toDate();
     return Visit(
       placeId: map['placeId'] as int,
       googlePlaceId: map['googlePlaceId'] as String,
       placeName: map['placeName'] as String,
       regionId: map['regionId'] as String,
       category: map['category'] as String,
-      visitedAt: (map['visitedAt'] as Timestamp).toDate(),
+      visitedAt: visitedAt,
       customName: map['customName'] as String?,
       description: map['description'] as String?,
       mediaUrls: (map['mediaUrls'] as List<dynamic>?)?.cast<String>() ?? [],
+      visitCount: (map['visitCount'] as num?)?.toInt() ?? 1,
+      firstVisitedAt: _parseOptionalTimestamp(map['firstVisitedAt']) ?? visitedAt,
+      lastVisitedAt: _parseOptionalTimestamp(map['lastVisitedAt']) ?? visitedAt,
     );
+  }
+
+  static DateTime? _parseOptionalTimestamp(dynamic value) {
+    if (value is Timestamp) return value.toDate();
+    if (value is DateTime) return value;
+    return null;
   }
 
   /// Creates a copy of this visit with updated fields.
@@ -88,6 +115,9 @@ class Visit {
     String? customName,
     String? description,
     List<String>? mediaUrls,
+    int? visitCount,
+    DateTime? firstVisitedAt,
+    DateTime? lastVisitedAt,
   }) {
     return Visit(
       placeId: placeId ?? this.placeId,
@@ -99,6 +129,9 @@ class Visit {
       customName: customName ?? this.customName,
       description: description ?? this.description,
       mediaUrls: mediaUrls ?? this.mediaUrls,
+      visitCount: visitCount ?? this.visitCount,
+      firstVisitedAt: firstVisitedAt ?? this.firstVisitedAt,
+      lastVisitedAt: lastVisitedAt ?? this.lastVisitedAt,
     );
   }
 
