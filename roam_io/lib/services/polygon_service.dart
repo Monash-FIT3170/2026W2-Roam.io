@@ -336,8 +336,31 @@ class PolygonService {
   }) async {
     final document = await _resolveVisitedPolygonDocument(profileId);
     final currentData = (await document.get()).data();
-    final rawEntryMap = currentData?['entry_counts'];
+    return _entryCountsFromMap(
+      currentData?['entry_counts'],
+      validPolygonIds: validPolygonIds,
+    );
+  }
 
+  /// Streams polygon entry counts for the profile.
+  Stream<Map<String, int>> watchPolygonEntryCounts({
+    required String profileId,
+    Set<String>? validPolygonIds,
+  }) {
+    return Stream.fromFuture(
+      _resolveVisitedPolygonDocument(profileId),
+    ).asyncExpand((document) => document.snapshots()).map((snapshot) {
+      return _entryCountsFromMap(
+        snapshot.data()?['entry_counts'],
+        validPolygonIds: validPolygonIds,
+      );
+    });
+  }
+
+  Map<String, int> _entryCountsFromMap(
+    dynamic rawEntryMap, {
+    Set<String>? validPolygonIds,
+  }) {
     final counts = <String, int>{};
 
     if (rawEntryMap is Map<String, dynamic>) {

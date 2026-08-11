@@ -1,9 +1,17 @@
 import 'package:flutter/material.dart';
 
+import '../../map/data/visit.dart';
+import '../models/stats_breakdown_item.dart';
 import '../providers/stats_analytics_provider.dart';
 import '../services/stats_aggregation_service.dart';
+import '../widgets/home_base_card.dart';
+import '../widgets/recent_visited_locations_card.dart';
+import '../widgets/stats_breakdown_section.dart';
 import '../widgets/stats_chart_section.dart';
 import '../widgets/stats_hero_row.dart';
+import '../widgets/stats_insight_card.dart';
+import '../widgets/stats_section_card.dart';
+import '../widgets/stats_top_places_section.dart';
 
 /// Locations category on the Stats tab.
 class LocationsStatsView extends StatelessWidget {
@@ -26,32 +34,130 @@ class LocationsStatsView extends StatelessWidget {
     final buckets = analytics.visitEvents.isNotEmpty
         ? aggregationService.visitEventBuckets(analytics.visitEvents)
         : aggregationService.visitSummaryBuckets(analytics.visits);
+    final topPlaces = aggregationService.topPlaces(
+      events: analytics.visitEvents,
+      visits: analytics.visits,
+    );
+    final categories = aggregationService.categoryBreakdown(
+      events: analytics.visitEvents,
+      visits: analytics.visits,
+    );
+    final timeLabel = aggregationService.explorerTimeLabel(analytics.visitEvents);
+    final furthestKm = aggregationService.furthestFromHomeKm(
+      events: analytics.visitEvents,
+      homeBase: analytics.homeBase,
+    );
+    final insight = _buildInsight(
+      topPlaces: topPlaces,
+      timeLabel: timeLabel,
+      furthestKm: furthestKm,
+    );
+    final recentVisits = _recentVisitsForCard();
 
     return SingleChildScrollView(
       padding: const EdgeInsets.fromLTRB(24, 0, 24, 24),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-        Row(
-          children: [
-            StatsHeroStat(
-              label: 'Unique places',
-              value: '$uniquePlaces',
+          Row(
+            children: [
+              StatsHeroStat(
+                label: 'Unique places',
+                value: '$uniquePlaces',
+              ),
+              StatsHeroStat(label: 'Total visits', value: '$totalVisits'),
+              StatsHeroStat(label: 'Revisit rate', value: '$revisitRate%'),
+            ],
+          ),
+          const SizedBox(height: 16),
+          StatsChartSection(
+            title: 'Visits by week',
+            buckets: buckets,
+            emptyMessage: 'No locations to chart yet',
+            detailLabelBuilder: (bucket) =>
+                bucket.detailLabel(' Locations Visited'),
+          ),
+          const SizedBox(height: 16),
+          StatsBreakdownSection(
+            title: 'Place categories',
+            items: categories,
+            emptyMessage: 'Visit places to see your category mix',
+          ),
+          const SizedBox(height: 16),
+          StatsInsightCard(
+            message: insight,
+            icon: Icons.explore_outlined,
+          ),
+          const SizedBox(height: 16),
+          HomeBaseCard(analytics: analytics),
+          if (furthestKm != null) ...[
+            const SizedBox(height: 16),
+            StatsSectionCard(
+              title: 'Furthest from home',
+              child: Text(
+                '${furthestKm.toStringAsFixed(1)} km from your home base',
+                style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
             ),
-            StatsHeroStat(label: 'Total visits', value: '$totalVisits'),
-            StatsHeroStat(label: 'Revisit rate', value: '$revisitRate%'),
           ],
-        ),
-        const SizedBox(height: 16),
-        StatsChartSection(
-          title: 'Visits by week',
-          buckets: buckets,
-          emptyMessage: 'No locations to chart yet',
-          detailLabelBuilder: (bucket) =>
-              bucket.detailLabel(' Locations Visited'),
-        ),
+          const SizedBox(height: 16),
+          StatsTopPlacesSection(places: topPlaces),
+          const SizedBox(height: 16),
+          Text(
+            'Recent visits',
+            style: Theme.of(context).textTheme.titleMedium?.copyWith(
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+          const SizedBox(height: 12),
+          RecentVisitedLocationsCard(
+            visits: recentVisits,
+            isLoading: !analytics.recentVisitsReady,
+            error: analytics.recentVisitsError,
+          ),
         ],
       ),
     );
+  }
+
+  String _buildInsight({
+    required List<TopPlaceEntry> topPlaces,
+    required String? timeLabel,
+    required double? furthestKm,
+  }) {
+    if (topPlaces.isNotEmpty) {
+      final top = topPlaces.first;
+      return '${top.placeName} is your most visited place · ${top.visitCount} visits';
+    }
+    if (timeLabel != null) {
+      return 'You explore most as a $timeLabel';
+    }
+    if (furthestKm != null) {
+      return 'Your furthest visit is ${furthestKm.toStringAsFixed(1)} km from home';
+    }
+    return 'Mark places on the map to start building location stats';
+  }
+
+  List<Visit> _recentVisitsForCard() {
+    if (analytics.recentVisits.isNotEmpty) {
+      return analytics.recentVisits;
+    }
+
+    if (analytics.visitEvents.isEmpty) {
+      return analytics.visits;
+    }
+
+    return analytics.visitEvents.map((event) {
+      return Visit(
+        placeId: event.placeId,
+        googlePlaceId: event.googlePlaceId,
+        placeName: event.placeName,
+        regionId: event.regionId,
+        category: event.category,
+        visitedAt: event.visitedAt,
+      );
+    }).toList();
   }
 }

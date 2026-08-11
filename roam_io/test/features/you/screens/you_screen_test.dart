@@ -27,6 +27,7 @@ import 'package:roam_io/features/map/data/visit_service.dart';
 import 'package:roam_io/features/map/data/visited_region_service.dart';
 import 'package:roam_io/features/map/domain/visit_event.dart';
 import 'package:roam_io/features/profile/domain/profile_model.dart';
+import 'package:roam_io/features/profile/domain/visited_polygon_meta.dart';
 import 'package:roam_io/features/profile/domain/visited_polygon_record.dart';
 import 'package:roam_io/features/profile/domain/xp_event.dart';
 import 'package:roam_io/features/you/services/home_base_service.dart';
@@ -968,6 +969,18 @@ class _FakeVisitedRegionService implements VisitedRegionService {
       );
       controller.onCancel = subscription.cancel;
     });
+  }
+
+  @override
+  Stream<Map<String, VisitedPolygonMeta>> watchVisitedPolygonMeta() {
+    return Stream<Map<String, VisitedPolygonMeta>>.value(
+      const <String, VisitedPolygonMeta>{},
+    );
+  }
+
+  @override
+  Stream<Map<String, int>> watchPolygonEntryCounts() {
+    return Stream<Map<String, int>>.value(const <String, int>{});
   }
 
   void emitVisitedRegionIds(Set<String> visitedRegionIds) {

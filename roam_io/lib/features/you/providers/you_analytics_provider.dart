@@ -41,6 +41,10 @@ class YouAnalyticsProvider extends ChangeNotifier {
   @protected
   VisitService get visitService => _visitService;
 
+  /// Exposed for [StatsAnalyticsProvider] subclasses.
+  @protected
+  VisitedRegionService get visitedRegionService => _visitedRegionService;
+
   String? _boundUid;
   StreamSubscription<List<Visit>>? _visitsSub;
   StreamSubscription<List<Visit>>? _recentVisitsSub;
