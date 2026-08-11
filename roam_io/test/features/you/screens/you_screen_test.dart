@@ -10,6 +10,7 @@
 
 import 'dart:async';
 
+import 'package:fake_cloud_firestore/fake_cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart' as firebase_auth;
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -20,12 +21,51 @@ import 'package:roam_io/features/activity_feed/screens/comments_screen.dart';
 import 'package:roam_io/features/you/screens/you_screen.dart';
 import 'package:roam_io/features/auth/data/auth_repository.dart';
 import 'package:roam_io/features/auth/providers/auth_provider.dart';
+import 'package:roam_io/features/journeys/data/journey_service.dart';
 import 'package:roam_io/features/map/data/visit.dart';
 import 'package:roam_io/features/map/data/visit_service.dart';
 import 'package:roam_io/features/map/data/visited_region_service.dart';
+import 'package:roam_io/features/map/domain/visit_event.dart';
 import 'package:roam_io/features/profile/domain/profile_model.dart';
 import 'package:roam_io/features/profile/domain/visited_polygon_record.dart';
 import 'package:roam_io/features/profile/domain/xp_event.dart';
+import 'package:roam_io/features/you/services/home_base_service.dart';
+import 'package:roam_io/features/you/services/stats_summary_service.dart';
+
+YouScreen _testYouScreen({
+  required VisitService visitService,
+  required VisitedRegionService visitedRegionService,
+  Stream<List<XpEvent>>? xpEventsStream,
+  CommentService? commentService,
+}) {
+  final firestore = FakeFirebaseFirestore();
+  return YouScreen(
+    visitService: visitService,
+    visitedRegionService: visitedRegionService,
+    journeyService: JourneyService(firestore: firestore),
+    statsSummaryService: StatsSummaryService(firestore: firestore),
+    homeBaseService: HomeBaseService(firestore: firestore),
+    xpEventsStream: xpEventsStream,
+    commentService: commentService,
+  );
+}
+
+Future<void> _openStatsTab(WidgetTester tester) async {
+  await tester.ensureVisible(find.text('Stats'));
+  await tester.tap(find.text('Stats'));
+  await tester.pumpAndSettle();
+}
+
+Future<void> _openStatsCategory(WidgetTester tester, String label) async {
+  await _openStatsTab(tester);
+  final categoryTab = find.descendant(
+    of: find.byType(TabBar).last,
+    matching: find.text(label),
+  );
+  await tester.ensureVisible(categoryTab);
+  await tester.tap(categoryTab);
+  await tester.pumpAndSettle();
+}
 
 void main() {
   testWidgets('shows current profile XP instead of placeholder XP', (
@@ -41,7 +81,7 @@ void main() {
         value: provider,
         child: MaterialApp(
           home: Scaffold(
-            body: YouScreen(
+            body: _testYouScreen(
               visitService: _FakeVisitService(totalVisitCount: 0),
               visitedRegionService: _FakeVisitedRegionService(<String>{}),
             ),
@@ -55,13 +95,14 @@ void main() {
     expect(find.text('Summary'), findsNothing);
     expect(find.text('Profile'), findsOneWidget);
     expect(find.text('Activities'), findsOneWidget);
+    expect(find.text('Stats'), findsOneWidget);
     expect(find.text('XP Count'), findsNothing);
     expect(
       find.text('Level ${ProfileModel.levelFromXp(12345)}'),
       findsOneWidget,
     );
-    expect(find.text('Locations Visited'), findsOneWidget);
-    expect(find.text('Tiles Unlocked'), findsOneWidget);
+    expect(find.text('Locations Visited'), findsNothing);
+    expect(find.text('Tiles Unlocked'), findsNothing);
     expect(find.text('Visit volume by week'), findsNothing);
     expect(find.text('Total Visits'), findsNothing);
     expect(find.text('2,450'), findsNothing);
@@ -82,7 +123,7 @@ void main() {
         value: provider,
         child: MaterialApp(
           home: Scaffold(
-            body: YouScreen(
+            body: _testYouScreen(
               visitService: _FakeVisitService(totalVisitCount: 9),
               visitedRegionService: _FakeVisitedRegionService(<String>{
                 'region-1',
@@ -123,7 +164,7 @@ void main() {
         value: provider,
         child: MaterialApp(
           home: Scaffold(
-            body: YouScreen(
+            body: _testYouScreen(
               visitService: _FakeVisitService(totalVisitCount: 14),
               visitedRegionService: _FakeVisitedRegionService(<String>{
                 'tile-a',
@@ -148,7 +189,7 @@ void main() {
     provider.dispose();
   });
 
-  testWidgets('shows most visited location bubble for repeated visits', (
+  testWidgets('Stats tab shows location visit chart for repeated visits', (
     tester,
   ) async {
     final provider = AuthProvider(
@@ -188,7 +229,7 @@ void main() {
         value: provider,
         child: MaterialApp(
           home: Scaffold(
-            body: YouScreen(
+            body: _testYouScreen(
               visitService: _FakeVisitService(
                 totalVisitCount: 3,
                 allVisits: visits,
@@ -204,16 +245,16 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    expect(find.text('Most Visited Location'), findsOneWidget);
-    expect(find.text('Your top location'), findsOneWidget);
-    expect(find.text('Lakeside Cafe'), findsWidgets);
-    // City Park appears in Recent Visited Locations (not most-visited).
-    expect(find.text('City Park'), findsOneWidget);
+    await _openStatsTab(tester);
+
+    expect(find.text('Unique places'), findsOneWidget);
+    expect(find.text('Visits by week'), findsOneWidget);
+    expect(find.byType(CustomPaint), findsWidgets);
 
     provider.dispose();
   });
 
-  testWidgets('shows empty most visited location state when no visits', (
+  testWidgets('Stats tab shows empty location chart when no visits', (
     tester,
   ) async {
     final provider = AuthProvider(
@@ -226,7 +267,7 @@ void main() {
         value: provider,
         child: MaterialApp(
           home: Scaffold(
-            body: YouScreen(
+            body: _testYouScreen(
               visitService: _FakeVisitService(
                 totalVisitCount: 0,
                 allVisits: const <Visit>[],
@@ -239,21 +280,14 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    expect(find.text('No locations yet'), findsOneWidget);
+    await _openStatsTab(tester);
     expect(find.text('No locations to chart yet'), findsOneWidget);
-    expect(
-      find.text(
-        'Visit places on the map to see your most visited location here.',
-      ),
-      findsOneWidget,
-    );
-    expect(find.text('Most Visited Location'), findsOneWidget);
 
     provider.dispose();
   });
 
   testWidgets(
-    'updates You screen data automatically when streamed data changes',
+    'updates profile and stats data automatically when streamed data changes',
     (tester) async {
       final provider = AuthProvider(
         authRepository: _FakeAuthRepository(_buildProfile(xp: 75)),
@@ -271,7 +305,7 @@ void main() {
           value: provider,
           child: MaterialApp(
             home: Scaffold(
-              body: YouScreen(
+              body: _testYouScreen(
                 visitService: visitService,
                 visitedRegionService: visitedRegionService,
               ),
@@ -281,7 +315,6 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      expect(find.text('No locations yet'), findsOneWidget);
       expect(find.text('0'), findsWidgets);
 
       visitService.emitAllVisits(<Visit>[
@@ -308,9 +341,10 @@ void main() {
       });
       await tester.pumpAndSettle();
 
-      expect(find.text('Your top location'), findsOneWidget);
-      expect(find.text('Lakeside Cafe'), findsWidgets);
       expect(find.text('2'), findsWidgets);
+
+      await _openStatsTab(tester);
+      expect(find.text('Visits by week'), findsOneWidget);
 
       await visitService.dispose();
       await visitedRegionService.dispose();
@@ -335,7 +369,7 @@ void main() {
         value: provider,
         child: MaterialApp(
           home: Scaffold(
-            body: YouScreen(
+            body: _testYouScreen(
               visitService: _FakeVisitService(totalVisitCount: 0),
               visitedRegionService: _FakeVisitedRegionService(<String>{}),
               commentService: comments,
@@ -411,7 +445,7 @@ void main() {
         value: provider,
         child: MaterialApp(
           home: Scaffold(
-            body: YouScreen(
+            body: _testYouScreen(
               visitService: _FakeVisitService(totalVisitCount: 0),
               visitedRegionService: _FakeVisitedRegionService(<String>{}),
               commentService: comments,
@@ -450,7 +484,7 @@ void main() {
   });
 
   testWidgets(
-    'switches metric pills and shows empty XP state when history is empty',
+    'Stats XP tab shows empty state when history is empty',
     (tester) async {
       final provider = AuthProvider(
         authRepository: _FakeAuthRepository(_buildProfile(xp: 75)),
@@ -462,7 +496,7 @@ void main() {
           value: provider,
           child: MaterialApp(
             home: Scaffold(
-              body: YouScreen(
+              body: _testYouScreen(
                 visitService: _FakeVisitService(totalVisitCount: 3),
                 visitedRegionService: _FakeVisitedRegionService(<String>{
                   'tile-a',
@@ -476,11 +510,7 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      expect(find.byType(CustomPaint), findsWidgets);
-
-      await tester.ensureVisible(find.text('XP Gained'));
-      await tester.tap(find.text('XP Gained'));
-      await tester.pumpAndSettle();
+      await _openStatsCategory(tester, 'XP');
 
       expect(find.text('No XP gained yet this period'), findsOneWidget);
 
@@ -488,7 +518,7 @@ void main() {
     },
   );
 
-  testWidgets('XP Gained graph updates when new XP events arrive', (
+  testWidgets('Stats XP chart updates when new XP events arrive', (
     tester,
   ) async {
     final provider = AuthProvider(
@@ -504,7 +534,7 @@ void main() {
         value: provider,
         child: MaterialApp(
           home: Scaffold(
-            body: YouScreen(
+            body: _testYouScreen(
               visitService: _FakeVisitService(totalVisitCount: 0),
               visitedRegionService: _FakeVisitedRegionService(<String>{}),
               xpEventsStream: xpController.stream,
@@ -516,9 +546,7 @@ void main() {
     xpController.add(const <XpEvent>[]);
     await tester.pumpAndSettle();
 
-    await tester.ensureVisible(find.text('XP Gained'));
-    await tester.tap(find.text('XP Gained'));
-    await tester.pumpAndSettle();
+    await _openStatsCategory(tester, 'XP');
     expect(find.text('No XP gained yet this period'), findsOneWidget);
 
     xpController.add(<XpEvent>[
@@ -550,7 +578,7 @@ void main() {
     provider.dispose();
   });
 
-  testWidgets('tapping a graph point shows the selected week value', (
+  testWidgets('tapping a stats chart point shows the selected week value', (
     tester,
   ) async {
     final provider = AuthProvider(
@@ -591,7 +619,7 @@ void main() {
         value: provider,
         child: MaterialApp(
           home: Scaffold(
-            body: YouScreen(
+            body: _testYouScreen(
               visitService: _FakeVisitService(
                 totalVisitCount: visits.length,
                 allVisits: visits,
@@ -605,7 +633,9 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    final lastPoint = find.byKey(const ValueKey<String>('graph-point-5'));
+    await _openStatsTab(tester);
+
+    final lastPoint = find.byKey(const ValueKey<String>('stats-graph-point-5'));
     expect(lastPoint, findsOneWidget);
 
     await tester.tap(lastPoint);
@@ -616,7 +646,9 @@ void main() {
     provider.dispose();
   });
 
-  testWidgets('changing metric resets selected graph point', (tester) async {
+  testWidgets('switching stats category resets selected chart point', (
+    tester,
+  ) async {
     final provider = AuthProvider(
       authRepository: _FakeAuthRepository(_buildProfile(xp: 75)),
     );
@@ -639,7 +671,7 @@ void main() {
         value: provider,
         child: MaterialApp(
           home: Scaffold(
-            body: YouScreen(
+            body: _testYouScreen(
               visitService: _FakeVisitService(
                 totalVisitCount: visits.length,
                 allVisits: visits,
@@ -655,13 +687,13 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    await tester.tap(find.byKey(const ValueKey<String>('graph-point-5')));
+    await _openStatsTab(tester);
+
+    await tester.tap(find.byKey(const ValueKey<String>('stats-graph-point-5')));
     await tester.pumpAndSettle();
     expect(find.textContaining('1 Locations Visited'), findsOneWidget);
 
-    await tester.ensureVisible(find.text('Tiles Unlocked'));
-    await tester.tap(find.text('Tiles Unlocked'));
-    await tester.pumpAndSettle();
+    await _openStatsCategory(tester, 'Tiles');
 
     expect(find.textContaining('1 Locations Visited'), findsNothing);
 
@@ -669,7 +701,7 @@ void main() {
   });
 
   testWidgets(
-    'profile analytics survive Activities detail navigation and stay reactive',
+    'stats survive Activities detail navigation and stay reactive',
     (tester) async {
       await tester.binding.setSurfaceSize(const Size(400, 1400));
       addTearDown(() => tester.binding.setSurfaceSize(null));
@@ -704,7 +736,7 @@ void main() {
           value: provider,
           child: MaterialApp(
             home: Scaffold(
-              body: YouScreen(
+              body: _testYouScreen(
                 visitService: visitService,
                 visitedRegionService: regionService,
                 xpEventsStream: xpController.stream,
@@ -723,13 +755,10 @@ void main() {
       ]);
       await tester.pumpAndSettle();
 
-      expect(find.text('Persistent Park'), findsWidgets);
       expect(find.text('Tiles'), findsOneWidget);
       expect(find.text('2'), findsWidgets);
 
-      await tester.ensureVisible(find.text('XP Gained'));
-      await tester.tap(find.text('XP Gained'));
-      await tester.pumpAndSettle();
+      await _openStatsCategory(tester, 'XP');
 
       await tester.tap(find.text('Activities'));
       await tester.pumpAndSettle();
@@ -747,7 +776,6 @@ void main() {
       await tester.tap(find.text('Profile'));
       await tester.pumpAndSettle();
 
-      expect(find.text('Persistent Park'), findsWidgets);
       expect(find.text('2'), findsWidgets);
 
       visitService.emitAllVisits(<Visit>[
@@ -762,7 +790,12 @@ void main() {
         ),
       ]);
       await tester.pumpAndSettle();
-      expect(find.text('Reactive Cafe'), findsWidgets);
+
+      await _openStatsTab(tester);
+      expect(find.text('Visits by week'), findsOneWidget);
+      expect(find.text('Unique places'), findsOneWidget);
+      expect(find.text('Total visits'), findsOneWidget);
+      expect(find.text('2'), findsWidgets);
 
       provider.dispose();
       await visitService.dispose();
@@ -868,6 +901,11 @@ class _FakeVisitService implements VisitService {
 
   Future<void> dispose() {
     return _allVisitsController.close();
+  }
+
+  @override
+  Stream<List<VisitEvent>> watchVisitEvents(String userId, {int limit = 100}) {
+    return Stream<List<VisitEvent>>.value(const <VisitEvent>[]);
   }
 
   @override

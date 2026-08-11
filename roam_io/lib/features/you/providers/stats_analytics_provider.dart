@@ -1,0 +1,154 @@
+import 'dart:async';
+
+import '../../journeys/data/journey_service.dart';
+import '../../journeys/domain/journey.dart';
+import '../../map/domain/visit_event.dart';
+import '../../profile/domain/home_base.dart';
+import '../../profile/domain/stats_summary.dart';
+import '../providers/you_analytics_provider.dart';
+import '../services/home_base_service.dart';
+import '../services/stats_summary_service.dart';
+
+/// Extended analytics provider for the Stats tab and profile header counts.
+class StatsAnalyticsProvider extends YouAnalyticsProvider {
+  StatsAnalyticsProvider({
+    super.visitService,
+    super.visitedRegionService,
+    super.profileService,
+    super.xpEventsStream,
+    JourneyService? journeyService,
+    StatsSummaryService? statsSummaryService,
+    HomeBaseService? homeBaseService,
+  }) : _journeyService = journeyService ?? JourneyService(),
+       _statsSummaryService = statsSummaryService ?? StatsSummaryService(),
+       _homeBaseService = homeBaseService ?? HomeBaseService();
+
+  final JourneyService _journeyService;
+  final StatsSummaryService _statsSummaryService;
+  final HomeBaseService _homeBaseService;
+
+  StreamSubscription<List<VisitEvent>>? _visitEventsSub;
+  StreamSubscription<List<Journey>>? _journeysSub;
+  StreamSubscription<StatsSummary>? _summarySub;
+  StreamSubscription<HomeBase?>? _homeBaseSub;
+
+  List<VisitEvent> _visitEvents = const <VisitEvent>[];
+  List<Journey> _journeys = const <Journey>[];
+  StatsSummary _statsSummary = const StatsSummary();
+  HomeBase? _homeBase;
+  bool _visitEventsReady = false;
+  bool _journeysReady = false;
+  bool _summaryReady = false;
+  bool _homeBaseReady = false;
+
+  List<VisitEvent> get visitEvents => _visitEvents;
+  List<Journey> get journeys => _journeys;
+  StatsSummary get statsSummary => _statsSummary;
+  HomeBase? get homeBase => _homeBase;
+
+  bool get visitEventsReady => _visitEventsReady;
+  bool get journeysReady => _journeysReady;
+  bool get summaryReady => _summaryReady;
+  bool get homeBaseReady => _homeBaseReady;
+
+  @override
+  void bindUid(String? uid) {
+    super.bindUid(uid);
+
+    _cancelExtendedSubscriptions();
+
+    if (uid == null) {
+      _resetExtendedData();
+      _markExtendedReady();
+      notifyListeners();
+      return;
+    }
+
+    _resetExtendedData();
+    _markExtendedReady();
+    notifyListeners();
+
+    _visitEventsSub = visitService.watchVisitEvents(uid).listen(
+      (value) {
+        _visitEvents = value;
+        _visitEventsReady = true;
+        notifyListeners();
+      },
+      onError: (_) {
+        _visitEventsReady = true;
+        notifyListeners();
+      },
+    );
+
+    _journeysSub = _journeyService.getJourneysStream(uid).listen(
+      (value) {
+        _journeys = value;
+        _journeysReady = true;
+        notifyListeners();
+      },
+      onError: (_) {
+        _journeysReady = true;
+        notifyListeners();
+      },
+    );
+
+    _summarySub = _statsSummaryService.watchSummary(uid).listen(
+      (value) {
+        _statsSummary = value;
+        _summaryReady = true;
+        notifyListeners();
+      },
+      onError: (_) {
+        _summaryReady = true;
+        notifyListeners();
+      },
+    );
+
+    _homeBaseSub = _homeBaseService.watchHomeBase(uid).listen(
+      (value) {
+        _homeBase = value;
+        _homeBaseReady = true;
+        notifyListeners();
+      },
+      onError: (_) {
+        _homeBaseReady = true;
+        notifyListeners();
+      },
+    );
+  }
+
+  @override
+  void dispose() {
+    _cancelExtendedSubscriptions();
+    super.dispose();
+  }
+
+  void _resetExtendedData() {
+    _visitEvents = const <VisitEvent>[];
+    _journeys = const <Journey>[];
+    _statsSummary = const StatsSummary();
+    _homeBase = null;
+    _visitEventsReady = false;
+    _journeysReady = false;
+    _summaryReady = false;
+    _homeBaseReady = false;
+  }
+
+  void _markExtendedReady() {
+    _visitEventsReady = true;
+    _journeysReady = true;
+    _summaryReady = true;
+    _homeBaseReady = true;
+  }
+
+  void _cancelExtendedSubscriptions() {
+    _visitEventsSub?.cancel();
+    _journeysSub?.cancel();
+    _summarySub?.cancel();
+    _homeBaseSub?.cancel();
+    _visitEventsSub = null;
+    _journeysSub = null;
+    _summarySub = null;
+    _homeBaseSub = null;
+  }
+}

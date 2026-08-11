@@ -37,6 +37,10 @@ class YouAnalyticsProvider extends ChangeNotifier {
   final ProfileService? _profileService;
   final Stream<List<XpEvent>>? _injectedXpEventsStream;
 
+  /// Exposed for [StatsAnalyticsProvider] subclasses.
+  @protected
+  VisitService get visitService => _visitService;
+
   String? _boundUid;
   StreamSubscription<List<Visit>>? _visitsSub;
   StreamSubscription<List<Visit>>? _recentVisitsSub;
