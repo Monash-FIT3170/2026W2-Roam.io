@@ -1,3 +1,9 @@
+/*
+ * Description:
+ *   Defines the categories, difficulty levels, lifecycle states, and
+ *   verification methods supported by the quest feature.
+ */
+
 enum QuestCategory {
   adventure,
   fitness,
@@ -37,6 +43,17 @@ enum QuestDifficulty {
   epic,
 }
 
+extension QuestDifficultyX on QuestDifficulty {
+  String get displayName {
+    return switch (this) {
+      QuestDifficulty.easy => 'Easy',
+      QuestDifficulty.medium => 'Medium',
+      QuestDifficulty.hard => 'Hard',
+      QuestDifficulty.epic => 'Epic',
+    };
+  }
+}
+
 enum QuestStatus {
   available,
   active,
@@ -54,4 +71,18 @@ enum QuestVerificationType {
   stepCount,
   timeAtLocation,
   manual,
+}
+
+extension QuestVerificationTypeX on QuestVerificationType {
+  String get displayName {
+    return switch (this) {
+      QuestVerificationType.gps => 'Location',
+      QuestVerificationType.photo => 'Photo',
+      QuestVerificationType.gpsAndPhoto => 'Location + Photo',
+      QuestVerificationType.distanceWalked => 'Distance',
+      QuestVerificationType.stepCount => 'Steps',
+      QuestVerificationType.timeAtLocation => 'Time at location',
+      QuestVerificationType.manual => 'Manual',
+    };
+  }
 }
