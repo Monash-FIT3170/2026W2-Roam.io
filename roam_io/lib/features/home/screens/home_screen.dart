@@ -25,6 +25,7 @@ import '../../activity_feed/widgets/activity_feed_card.dart';
 import '../../auth/providers/auth_provider.dart';
 import '../../profile/domain/profile_model.dart';
 import '../../social/data/follow_service.dart';
+import '../../journeys/widgets/journey_share_sheet.dart';
 
 /// Top-level Home tab for the friend activity feed foundation.
 class HomeScreen extends StatefulWidget {
@@ -287,7 +288,10 @@ class _HomeActivityCard extends StatelessWidget {
       commentService: commentService,
       kudosService: kudosService,
       currentUserId: currentUserId,
-      showShare: false,
+      showShare: true,
+      onShareTap: () {
+        JourneyShareSheet.shareFromActivity(context, activity);
+      },
       onOverflowTap: () {
         debugPrint(
           '[HomeScreen] open detail activityId=${activity.id} '

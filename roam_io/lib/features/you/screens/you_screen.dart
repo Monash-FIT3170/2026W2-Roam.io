@@ -36,6 +36,7 @@ import '../../social/data/follow_service.dart';
 import '../../social/data/social_notification_coordinator.dart';
 import '../../social/screens/follow_connections_screen.dart';
 import '../../social/screens/notifications_screen.dart';
+import '../../journeys/widgets/journey_share_sheet.dart';
 import '../providers/you_analytics_provider.dart';
 
 /// Displays personal profile analytics and the user's own activity area.
@@ -533,7 +534,9 @@ class _ActivitiesTabState extends State<_ActivitiesTab> {
                   ),
                 );
               },
-              onShareTap: () {},
+              onShareTap: () {
+                JourneyShareSheet.shareFromActivity(context, activity);
+              },
             );
           },
         );

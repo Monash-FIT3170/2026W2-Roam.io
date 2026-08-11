@@ -17,6 +17,7 @@ import '../models/activity_feed_item.dart';
 import '../widgets/activity_feed_card.dart';
 import '../widgets/activity_map_preview.dart';
 import 'comments_screen.dart';
+import '../../journeys/widgets/journey_share_sheet.dart';
 
 /// Full-screen detail view for a single activity feed item.
 class ActivityDetailScreen extends StatelessWidget {
@@ -170,7 +171,9 @@ class ActivityDetailScreen extends StatelessWidget {
                       child: _DetailAction(
                         icon: Icons.ios_share_rounded,
                         label: 'Share',
-                        onTap: () {},
+                        onTap: () {
+                          JourneyShareSheet.shareFromActivity(context, activity);
+                        },
                       ),
                     ),
                 ],
