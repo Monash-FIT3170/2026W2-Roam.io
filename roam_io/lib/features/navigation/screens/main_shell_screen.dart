@@ -107,7 +107,17 @@ class _MainShellScreenState extends State<MainShellScreen> {
     return Scaffold(
       extendBody: true,
 
-      body: IndexedStack(index: selectedIndex, children: pages),
+      // IndexedStack keeps every page mounted with maintainAnimation: true, so
+      // tickers on hidden tabs keep firing for as long as the app is open.
+      // TickerMode mutes them, which matters most for the map's fog overlay —
+      // it would otherwise animate clouds nobody can see.
+      body: IndexedStack(
+        index: selectedIndex,
+        children: <Widget>[
+          for (var index = 0; index < pages.length; index++)
+            TickerMode(enabled: index == selectedIndex, child: pages[index]),
+        ],
+      ),
 
       bottomNavigationBar: AppBottomNavBar(
         currentIndex: selectedIndex,

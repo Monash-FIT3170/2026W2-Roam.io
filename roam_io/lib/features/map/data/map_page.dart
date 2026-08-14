@@ -33,6 +33,7 @@ import '../../journeys/widgets/start_journey_sheet.dart';
 import '../../profile/domain/xp_event.dart';
 import '../../../shared/widgets/app_toast.dart';
 import '../../../theme/app_surfaces.dart';
+import '../fog/fog_overlay.dart';
 import '../widgets/map_render.dart';
 import '../widgets/mode_toggle_chip.dart';
 import 'map_controller.dart';
@@ -667,7 +668,6 @@ class _MapPageState extends State<MapPage> {
         MapRender(
           initialCenter: _mapController.center,
           polygons: _mapController.polygons,
-          mapStyle: _mapController.mapStyle,
           markers: allMarkers,
           polylines: allPolylines,
           myLocationEnabled: _mapController.myLocationEnabled,
@@ -677,6 +677,9 @@ class _MapPageState extends State<MapPage> {
           onCameraMove: _mapController.onCameraMove,
           onCameraMoveStarted: _mapController.onCameraMoveStarted,
         ),
+        // Fog of war. Must sit directly above the map and below every control,
+        // and is an IgnorePointer internally so map gestures pass through.
+        FogOverlay(controller: _mapController.fogController),
         if (_mapController.myLocationEnabled)
           Positioned(
             right: 16,

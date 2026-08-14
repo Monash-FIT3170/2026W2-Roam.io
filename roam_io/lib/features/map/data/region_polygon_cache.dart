@@ -22,20 +22,6 @@ import 'region_polygon.dart';
 
 /// Keeps loaded [RegionPolygon] objects and rendered Google Maps polygons in sync.
 class RegionPolygonCache {
-  /*
-  static const Color _visitedStrokeColor = Color(0xB0F3D27A);
-  static const Color _visitedFillColor = Color(0x18F3D27A);
-  static const int _visitedStrokeWidth = 3;
-
-  static const Color _unvisitedStrokeColor = Color(0xFF4A4A4A);
-  static const Color _unvisitedFillColor = Color(0xCC000000);
-  static const int _unvisitedStrokeWidth = 2;
-
-  static const Color _currentRegionStrokeColor = Color(0xFFF3D27A);
-  static const Color _currentRegionFillColor = Color(0x33F3D27A);
-  static const int _currentRegionStrokeWidth = 5;
-
-*/
   static const Color _visitedStrokeColor = Color(0xFFFFFFFF);
   static const Color _visitedFillColor = Color(0x30FFFFFF);
   static const int _visitedStrokeWidth = 5;
@@ -44,9 +30,18 @@ class RegionPolygonCache {
   static const Color _currentRegionFillColor = Color(0x30FFFFFF);
   static const int _currentRegionStrokeWidth = 7;
 
-  static const Color _unvisitedStrokeColor = Color(0xFF4A4A4A);
-  static const Color _unvisitedFillColor = Color(0xCC000000);
-  static const int _unvisitedStrokeWidth = 2;
+  // Unvisited regions render nothing. Fog is no longer a black polygon per
+  // census tile — it is a single animated cloud layer drawn above the map by
+  // FogOverlay, as the screen minus holes for explored ground. Per-tile black
+  // fills produced visible seams and double-blended borders wherever adjacent
+  // SA1 polygons shared an edge, which is exactly what that layer removes.
+  //
+  // MapController also stops caching unvisited regions altogether, so this
+  // styling is now only reachable for the tile the user is standing in before
+  // its unlock persists — and the current-region branch already claims that.
+  static const Color _unvisitedStrokeColor = Color(0x00000000);
+  static const Color _unvisitedFillColor = Color(0x00000000);
+  static const int _unvisitedStrokeWidth = 0;
 
   // Use a yellow->orange->red scale so low counts appear yellow, medium
   // counts orange, and the most visited tiles are red.

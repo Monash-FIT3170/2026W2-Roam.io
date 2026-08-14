@@ -66,7 +66,7 @@ void main() {
     });
 
     test(
-      'keeps unvisited regions fogged even when heatmap intensity exists',
+      'renders nothing for unvisited regions, even with heatmap intensity',
       () {
         final cache = RegionPolygonCache();
 
@@ -80,7 +80,15 @@ void main() {
 
         final polygon = cache.polygons.single;
 
-        expect(polygon.fillColor, const Color(0xCC000000));
+        // Fog is no longer a black polygon per census tile. It is a single
+        // animated cloud layer above the map, drawn as the screen minus holes
+        // for explored ground, so unexplored tiles must contribute nothing —
+        // per-tile fills produced seams and double-blended shared edges.
+        //
+        // Heatmap intensity must still not leak through onto an unvisited tile.
+        expect(polygon.fillColor, const Color(0x00000000));
+        expect(polygon.strokeColor, const Color(0x00000000));
+        expect(polygon.strokeWidth, 0);
       },
     );
   });

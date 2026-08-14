@@ -1,0 +1,8 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(FL=/Users/amarpritsingh/dev/flutter/packages/flutter/lib; grep -rn \"export 'package:vector_math\" $FL/*.dart $FL/src/painting/*.dart 2>/dev/null | head)",
+      "Read(//Users/amarpritsingh/dev/flutter/packages/flutter/lib/**)"
+    ]
+  }
+}

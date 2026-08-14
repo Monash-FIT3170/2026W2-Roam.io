@@ -85,6 +85,10 @@ flutter:
     - assets/logos/roam_io_logo.png
     - assets/logos/roam_io_logo_with_text.png
 
+    # Cloud sprites for the fog of war. Declared as a directory so new
+    # Day_Fog_*/Night_Fog_* variants only need adding to FogPalette.
+    - assets/fog_of_war/
+
     - icons/
 
   # An image asset can refer to one or more resolution-specific "variants", see
