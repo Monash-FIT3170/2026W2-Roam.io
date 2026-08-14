@@ -69,6 +69,7 @@ class FogField {
     required List<FogDissolve> dissolves,
     double userSpeedMetresPerSecond = 0.0,
     bool parallax = false,
+    Color spriteTint = FogPalette.spriteTint,
   }) {
     _batch.clear();
     if (atlas.isEmpty) return _batch;
@@ -115,6 +116,7 @@ class FogField {
         elapsed: elapsed,
         dissolves: dissolves,
         parallax: parallax,
+        spriteTint: spriteTint,
       );
     }
 
@@ -128,6 +130,7 @@ class FogField {
         elapsed: elapsed,
         dissolves: dissolves,
         parallax: parallax,
+        spriteTint: spriteTint,
       );
     }
 
@@ -143,6 +146,7 @@ class FogField {
     required Duration elapsed,
     required List<FogDissolve> dissolves,
     required bool parallax,
+    required Color spriteTint,
   }) {
     final cellSize = math.pow(2.0, level).toDouble();
     if (!cellSize.isFinite || cellSize <= 0) return;
@@ -249,7 +253,7 @@ class FogField {
         );
         _batch.rects.add(rect);
         _batch.colors.add(
-          FogPalette.spriteTint.withValues(alpha: opacity.clamp(0.0, 1.0)),
+          spriteTint.withValues(alpha: opacity.clamp(0.0, 1.0)),
         );
       }
     }

@@ -32,6 +32,7 @@ class FogPainter extends CustomPainter {
     required this.dissolves,
     required this.atlas,
     required this.userSpeedMetresPerSecond,
+    this.isNight = false,
     super.repaint,
   });
 
@@ -43,6 +44,7 @@ class FogPainter extends CustomPainter {
   final List<FogDissolve> dissolves;
   final FogAtlas? atlas;
   final double userSpeedMetresPerSecond;
+  final bool isNight;
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -63,9 +65,12 @@ class FogPainter extends CustomPainter {
     canvas.drawRect(
       screenRect,
       Paint()
-        ..color = FogPalette.washColor.withValues(
-          alpha: FogPalette.washOpacity,
-        ),
+        ..color = (isNight ? FogPalette.nightWashColor : FogPalette.washColor)
+            .withValues(
+              alpha: isNight
+                  ? FogPalette.nightWashOpacity
+                  : FogPalette.washOpacity,
+            ),
     );
 
     canvas
@@ -109,6 +114,7 @@ class FogPainter extends CustomPainter {
       dissolves: dissolves,
       userSpeedMetresPerSecond: userSpeedMetresPerSecond,
       parallax: parallax,
+      spriteTint: isNight ? FogPalette.nightSpriteTint : FogPalette.spriteTint,
     );
 
     if (batch.isEmpty) return;
@@ -184,6 +190,7 @@ class FogPainter extends CustomPainter {
         oldDelegate.atlas != atlas ||
         oldDelegate.geometry.length != geometry.length ||
         oldDelegate.dissolves.length != dissolves.length ||
-        oldDelegate.userSpeedMetresPerSecond != userSpeedMetresPerSecond;
+        oldDelegate.userSpeedMetresPerSecond != userSpeedMetresPerSecond ||
+        oldDelegate.isNight != isNight;
   }
 }

@@ -33,6 +33,11 @@ abstract final class FogPalette {
   /// white here if the fog should read lighter without re-exporting the PNG.
   static const Color spriteTint = Color(0xFFE4E8ED);
 
+  /// Cooler, deeper treatment used while the app is in dark mode.
+  static const Color nightWashColor = Color(0xFF4D5D73);
+  static const double nightWashOpacity = 0.72;
+  static const Color nightSpriteTint = Color(0xFF8190A8);
+
   // ---------------------------------------------------------------------------
   // Sprite atlas
   // ---------------------------------------------------------------------------

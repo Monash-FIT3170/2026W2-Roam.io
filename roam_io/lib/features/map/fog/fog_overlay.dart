@@ -195,6 +195,7 @@ class _FogOverlayState extends State<FogOverlay>
             dissolves: controller.dissolveSet.active,
             atlas: atlas,
             userSpeedMetresPerSecond: controller.userSpeedMetresPerSecond,
+            isNight: Theme.of(context).brightness == Brightness.dark,
           ),
         ),
       ),
