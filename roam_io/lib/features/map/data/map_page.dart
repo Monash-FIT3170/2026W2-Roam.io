@@ -32,6 +32,7 @@ import '../../journeys/widgets/past_journey_summary_sheet.dart';
 import '../../journeys/widgets/start_journey_sheet.dart';
 import '../../profile/domain/xp_event.dart';
 import '../../../shared/widgets/app_toast.dart';
+import '../../../theme/app_colours.dart';
 import '../../../theme/app_surfaces.dart';
 import '../fog/fog_overlay.dart';
 import '../widgets/map_render.dart';
@@ -653,9 +654,14 @@ class _MapPageState extends State<MapPage> {
   Widget build(BuildContext context) {
     final journeyController = context.watch<JourneyController>();
     final isTracking = journeyController.currentPhase == JourneyPhase.tracking;
+    final exploredBoundaryColor =
+        Theme.of(context).brightness == Brightness.dark
+        ? AppColors.lightSage
+        : AppColors.sage;
 
     // Combine active journey polyline with saved journey polylines
     final allPolylines = <Polyline>{
+      ..._mapController.exploredBoundaryPolylines(exploredBoundaryColor),
       ..._savedJourneyPolylines,
       ..._activeJourneyPolyline,
     };

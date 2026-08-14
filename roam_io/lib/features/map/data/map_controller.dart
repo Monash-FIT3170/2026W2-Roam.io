@@ -126,6 +126,13 @@ class MapController extends ChangeNotifier {
   Map<String, int> get visitCountsByRegion =>
       Map<String, int>.unmodifiable(_visitCountsByRegion);
 
+  Set<Polyline> exploredBoundaryPolylines(Color boundaryColor) {
+    return _regionPolygonCache.exploredBoundaryPolylines(<String>{
+      ..._visitedRegionIds,
+      ?currentRegion?.id,
+    }, boundaryColor: boundaryColor);
+  }
+
   /// Sets the current exploration mode and notifies listeners.
   void setMode(ExplorationMode mode) {
     if (_currentMode != mode) {

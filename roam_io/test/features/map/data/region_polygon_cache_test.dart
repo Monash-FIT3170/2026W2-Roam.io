@@ -91,7 +91,91 @@ void main() {
         expect(polygon.strokeWidth, 0);
       },
     );
+
+    test('keeps every edge around an isolated explored region', () {
+      final cache = RegionPolygonCache();
+      cache.cacheRegion(
+        region: _squareRegion('left', west: 144, east: 145),
+        isVisited: true,
+        isCurrentRegion: false,
+        onRegionTapped: (_, _) {},
+      );
+
+      expect(cache.polygons.single.strokeWidth, 0);
+      final outlines = cache.exploredBoundaryPolylines(<String>{'left'});
+      expect(outlines, hasLength(4));
+      expect(outlines.every((line) => line.width == 3), isTrue);
+    });
+
+    test('uses the requested theme colour for every boundary edge', () {
+      final cache = RegionPolygonCache();
+      cache.cacheRegion(
+        region: _squareRegion('left', west: 144, east: 145),
+        isVisited: true,
+        isCurrentRegion: false,
+        onRegionTapped: (_, _) {},
+      );
+
+      const darkModeSage = Color(0xFF9EB58D);
+      final outlines = cache.exploredBoundaryPolylines(<String>{
+        'left',
+      }, boundaryColor: darkModeSage);
+
+      expect(outlines.every((line) => line.color == darkModeSage), isTrue);
+    });
+
+    test('removes the shared edge between adjacent explored regions', () {
+      final cache = RegionPolygonCache();
+      for (final region in <RegionPolygon>[
+        _squareRegion('left', west: 144, east: 145),
+        _squareRegion('right', west: 145, east: 146),
+      ]) {
+        cache.cacheRegion(
+          region: region,
+          isVisited: true,
+          isCurrentRegion: false,
+          onRegionTapped: (_, _) {},
+        );
+      }
+
+      final outlines = cache.exploredBoundaryPolylines(<String>{
+        'left',
+        'right',
+      });
+
+      expect(outlines, hasLength(6));
+      expect(
+        outlines.where(
+          (line) => line.points.every((point) => point.longitude == 145),
+        ),
+        isEmpty,
+      );
+    });
   });
+}
+
+RegionPolygon _squareRegion(
+  String id, {
+  required double west,
+  required double east,
+}) {
+  return RegionPolygon(
+    id: id,
+    name: id,
+    areaSquareMetres: 1,
+    geometry: <String, dynamic>{
+      'type': 'Polygon',
+      'coordinates': <dynamic>[
+        <dynamic>[
+          <double>[west, -37],
+          <double>[east, -37],
+          <double>[east, -38],
+          <double>[west, -38],
+          <double>[west, -37],
+        ],
+      ],
+    },
+  );
 }
 
 RegionPolygon _region({required double? areaSquareMetres}) {
