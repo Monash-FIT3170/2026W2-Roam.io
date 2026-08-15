@@ -9,9 +9,10 @@
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:roam_io/features/quests/screens/quests_screen.dart';
 
 import 'features/auth/providers/auth_provider.dart';
-import 'features/auth/screens/auth_gate_screen.dart';
+//import 'features/auth/screens/auth_gate_screen.dart';
 import 'firebase_options.dart';
 import 'shared/widgets/level_up_celebration.dart';
 import 'theme/app_theme.dart';
@@ -61,7 +62,7 @@ class _MyAppState extends State<MyApp> {
             darkTheme: AppTheme.darkTheme,
             themeMode: auth.darkModeEnabled ? ThemeMode.dark : ThemeMode.light,
             navigatorKey: _navigatorKey,
-            home: const AuthGateScreen(),
+            home: const QuestsScreen()
           );
         },
       ),
