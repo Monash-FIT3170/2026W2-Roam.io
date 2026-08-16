@@ -84,6 +84,7 @@ flutter:
     - assets/map_styles/unvisited_tiles.json
     - assets/logos/roam_io_logo.png
     - assets/logos/roam_io_logo_with_text.png
+    - assets/badges/
 
     - icons/
 
