@@ -54,19 +54,25 @@ YouScreen _testYouScreen({
 }
 
 Future<void> _openStatsTab(WidgetTester tester) async {
-  await tester.ensureVisible(find.text('Stats'));
-  await tester.tap(find.text('Stats'));
+  // Prefer the You-tab strip over the Stats section headline.
+  final statsTab = find.descendant(
+    of: find.byType(TabBar).first,
+    matching: find.text('Stats'),
+  );
+  await tester.ensureVisible(statsTab);
+  await tester.tap(statsTab);
   await tester.pumpAndSettle();
 }
 
 Future<void> _openStatsCategory(WidgetTester tester, String label) async {
   await _openStatsTab(tester);
-  final categoryTab = find.descendant(
-    of: find.byType(TabBar).last,
-    matching: find.text(label),
+  final menuButton = find.byWidgetPredicate(
+    (widget) => widget is PopupMenuButton,
   );
-  await tester.ensureVisible(categoryTab);
-  await tester.tap(categoryTab);
+  expect(menuButton, findsOneWidget);
+  await tester.tap(menuButton);
+  await tester.pumpAndSettle();
+  await tester.tap(find.text(label).last);
   await tester.pumpAndSettle();
 }
 
