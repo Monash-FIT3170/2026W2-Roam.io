@@ -14,10 +14,12 @@ class JourneysStatsView extends StatelessWidget {
     super.key,
     required this.analytics,
     this.aggregationService = const StatsAggregationService(),
+    this.embedded = false,
   });
 
   final StatsAnalyticsProvider analytics;
   final StatsAggregationService aggregationService;
+  final bool embedded;
 
   @override
   Widget build(BuildContext context) {
@@ -30,49 +32,53 @@ class JourneysStatsView extends StatelessWidget {
     final modeBreakdown = aggregationService.transportModeBreakdown(journeys);
     final insight = aggregationService.journeyInsightMessage(journeys);
 
+    final body = Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            StatsHeroStat(label: 'Journeys', value: '${journeys.length}'),
+            StatsHeroStat(
+              label: 'Distance',
+              value: '${totalDistanceKm.toStringAsFixed(1)} km',
+            ),
+            StatsHeroStat(
+              label: 'Time',
+              value: '${totalHours.toStringAsFixed(1)} hrs',
+            ),
+          ],
+        ),
+        const SizedBox(height: 16),
+        StatsChartSection(
+          title: 'Journeys by week',
+          buckets: buckets,
+          emptyMessage: 'No journeys to chart yet',
+          detailLabelBuilder: (bucket) =>
+              bucket.detailLabel(' Journeys Completed'),
+        ),
+        const SizedBox(height: 16),
+        StatsBreakdownSection(
+          title: 'Transport modes',
+          items: modeBreakdown,
+          emptyMessage: 'No journeys to break down yet',
+        ),
+        const SizedBox(height: 16),
+        StatsJourneyHighlights(journeys: journeys),
+        const SizedBox(height: 16),
+        StatsInsightCard(
+          message: insight,
+          icon: Icons.route_rounded,
+        ),
+        const SizedBox(height: 16),
+        StatsRecentJourneysList(journeys: journeys),
+      ],
+    );
+
+    if (embedded) return body;
+
     return SingleChildScrollView(
-      padding: const EdgeInsets.fromLTRB(24, 0, 24, 24),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              StatsHeroStat(label: 'Journeys', value: '${journeys.length}'),
-              StatsHeroStat(
-                label: 'Distance',
-                value: '${totalDistanceKm.toStringAsFixed(1)} km',
-              ),
-              StatsHeroStat(
-                label: 'Time',
-                value: '${totalHours.toStringAsFixed(1)} hrs',
-              ),
-            ],
-          ),
-          const SizedBox(height: 16),
-          StatsChartSection(
-            title: 'Journeys by week',
-            buckets: buckets,
-            emptyMessage: 'No journeys to chart yet',
-            detailLabelBuilder: (bucket) =>
-                bucket.detailLabel(' Journeys Completed'),
-          ),
-          const SizedBox(height: 16),
-          StatsBreakdownSection(
-            title: 'Transport modes',
-            items: modeBreakdown,
-            emptyMessage: 'No journeys to break down yet',
-          ),
-          const SizedBox(height: 16),
-          StatsJourneyHighlights(journeys: journeys),
-          const SizedBox(height: 16),
-          StatsInsightCard(
-            message: insight,
-            icon: Icons.route_rounded,
-          ),
-          const SizedBox(height: 16),
-          StatsRecentJourneysList(journeys: journeys),
-        ],
-      ),
+      padding: const EdgeInsets.fromLTRB(24, 12, 24, 24),
+      child: body,
     );
   }
 }

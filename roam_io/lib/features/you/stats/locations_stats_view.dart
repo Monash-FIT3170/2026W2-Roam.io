@@ -3,7 +3,6 @@ import 'package:flutter/material.dart';
 import '../../map/data/visit.dart';
 import '../providers/stats_analytics_provider.dart';
 import '../services/stats_aggregation_service.dart';
-import '../widgets/home_base_card.dart';
 import '../widgets/recent_visited_locations_card.dart';
 import '../widgets/stats_breakdown_section.dart';
 import '../widgets/stats_chart_section.dart';
@@ -16,10 +15,14 @@ class LocationsStatsView extends StatelessWidget {
     super.key,
     required this.analytics,
     this.aggregationService = const StatsAggregationService(),
+    this.embedded = false,
   });
 
   final StatsAnalyticsProvider analytics;
   final StatsAggregationService aggregationService;
+
+  /// When true, returns content only (no nested scroll view).
+  final bool embedded;
 
   @override
   Widget build(BuildContext context) {
@@ -47,61 +50,56 @@ class LocationsStatsView extends StatelessWidget {
     );
     final recentVisits = _recentVisitsForCard();
 
-    return SingleChildScrollView(
-      padding: const EdgeInsets.fromLTRB(24, 0, 24, 24),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              StatsHeroStat(label: 'Total visits', value: '$totalVisits'),
-              StatsHeroStat(label: 'Top category', value: topCategory),
-              StatsHeroStat(label: 'Visit streak', value: '${visitStreak}d'),
-            ],
-          ),
-          const SizedBox(height: 16),
-          StatsChartSection(
-            title: 'Visits by week',
-            buckets: buckets,
-            emptyMessage: 'No locations to chart yet',
-            detailLabelBuilder: (bucket) =>
-                bucket.detailLabel(' Locations Visited'),
-          ),
-          const SizedBox(height: 16),
-          StatsBreakdownSection(
-            title: 'Place categories',
-            items: categories,
-            emptyMessage: 'Visit places to see your category mix',
-          ),
-          const SizedBox(height: 16),
-          HomeBaseCard(analytics: analytics),
-          if (furthestKm != null) ...[
-            const SizedBox(height: 16),
-            StatsSectionCard(
-              title: 'Furthest from home',
-              child: Text(
-                '${furthestKm.toStringAsFixed(1)} km from your home base',
-                style: Theme.of(
-                  context,
-                ).textTheme.bodyLarge?.copyWith(fontWeight: FontWeight.w700),
-              ),
-            ),
+    final body = Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            StatsHeroStat(label: 'Total visits', value: '$totalVisits'),
+            StatsHeroStat(label: 'Top category', value: topCategory),
+            StatsHeroStat(label: 'Visit streak', value: '${visitStreak}d'),
           ],
+        ),
+        const SizedBox(height: 16),
+        StatsChartSection(
+          title: 'Visits by week',
+          buckets: buckets,
+          emptyMessage: 'No locations to chart yet',
+          detailLabelBuilder: (bucket) =>
+              bucket.detailLabel(' Locations Visited'),
+        ),
+        const SizedBox(height: 16),
+        StatsBreakdownSection(
+          title: 'Place categories',
+          items: categories,
+          emptyMessage: 'Visit places to see your category mix',
+        ),
+        if (furthestKm != null) ...[
           const SizedBox(height: 16),
-          Text(
-            'Recent visits',
-            style: Theme.of(
-              context,
-            ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800),
-          ),
-          const SizedBox(height: 12),
-          RecentVisitedLocationsCard(
-            visits: recentVisits,
-            isLoading: !analytics.recentVisitsReady,
-            error: analytics.recentVisitsError,
+          StatsSectionCard(
+            title: 'Furthest from home',
+            child: Text(
+              '${furthestKm.toStringAsFixed(1)} km from your home base',
+              style: Theme.of(
+                context,
+              ).textTheme.bodyLarge?.copyWith(fontWeight: FontWeight.w700),
+            ),
           ),
         ],
-      ),
+        const SizedBox(height: 16),
+        RecentVisitedLocationsCard(
+          visits: recentVisits,
+          isLoading: !analytics.recentVisitsReady,
+          error: analytics.recentVisitsError,
+        ),
+      ],
+    );
+
+    if (embedded) return body;
+
+    return SingleChildScrollView(
+      padding: const EdgeInsets.fromLTRB(24, 12, 24, 24),
+      child: body,
     );
   }
 

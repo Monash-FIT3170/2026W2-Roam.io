@@ -29,6 +29,7 @@ class StatsSectionCard extends StatelessWidget {
         boxShadow: AppSurfaces.cardShadow(context),
       ),
       child: Column(
+        mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(

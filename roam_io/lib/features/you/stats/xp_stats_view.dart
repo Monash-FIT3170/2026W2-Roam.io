@@ -15,10 +15,12 @@ class XpStatsView extends StatelessWidget {
     super.key,
     required this.analytics,
     this.aggregationService = const StatsAggregationService(),
+    this.embedded = false,
   });
 
   final StatsAnalyticsProvider analytics;
   final StatsAggregationService aggregationService;
+  final bool embedded;
 
   @override
   Widget build(BuildContext context) {
@@ -38,57 +40,61 @@ class XpStatsView extends StatelessWidget {
       xpLastWeek: aggregationService.xpLastWeek(analytics.xpEvents),
     );
 
+    final body = Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            StatsHeroStat(
+              label: 'Total XP',
+              value: formatCompactStatNumber(
+                analytics.statsSummary.totalXpFromSources > 0
+                    ? analytics.statsSummary.totalXpFromSources
+                    : analytics.xpEvents.fold<int>(
+                        0,
+                        (sum, event) => sum + event.amount,
+                      ),
+              ),
+            ),
+            StatsHeroStat(
+              label: 'XP this week',
+              value: formatCompactStatNumber(xpThisWeek),
+            ),
+            StatsHeroStat(
+              label: 'From visits',
+              value: formatCompactStatNumber(
+                xpBySource[XpEventSource.visit] ??
+                    analytics.statsSummary.xpFromVisits,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 16),
+        StatsChartSection(
+          title: 'XP gained by week',
+          buckets: buckets,
+          emptyMessage: 'No XP gained yet this period',
+          detailLabelBuilder: (bucket) => bucket.detailLabel(' XP'),
+        ),
+        const SizedBox(height: 16),
+        StatsBreakdownSection(
+          title: 'XP by source',
+          items: sourceBreakdown,
+          emptyMessage: 'Earn XP from visits, tiles, and journeys',
+          valueSuffix: ' XP',
+        ),
+        const SizedBox(height: 16),
+        StatsInsightCard(message: insight),
+        const SizedBox(height: 16),
+        StatsRecentXpList(events: analytics.xpEvents),
+      ],
+    );
+
+    if (embedded) return body;
+
     return SingleChildScrollView(
-      padding: const EdgeInsets.fromLTRB(24, 0, 24, 24),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              StatsHeroStat(
-                label: 'Total XP',
-                value: formatCompactStatNumber(
-                  analytics.statsSummary.totalXpFromSources > 0
-                      ? analytics.statsSummary.totalXpFromSources
-                      : analytics.xpEvents.fold<int>(
-                          0,
-                          (sum, event) => sum + event.amount,
-                        ),
-                ),
-              ),
-              StatsHeroStat(
-                label: 'XP this week',
-                value: formatCompactStatNumber(xpThisWeek),
-              ),
-              StatsHeroStat(
-                label: 'From visits',
-                value: formatCompactStatNumber(
-                  xpBySource[XpEventSource.visit] ??
-                      analytics.statsSummary.xpFromVisits,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 16),
-          StatsChartSection(
-            title: 'XP gained by week',
-            buckets: buckets,
-            emptyMessage: 'No XP gained yet this period',
-            detailLabelBuilder: (bucket) => bucket.detailLabel(' XP'),
-          ),
-          const SizedBox(height: 16),
-          StatsBreakdownSection(
-            title: 'XP by source',
-            items: sourceBreakdown,
-            emptyMessage: 'Earn XP from visits, tiles, and journeys',
-            valueSuffix: ' XP',
-          ),
-          const SizedBox(height: 16),
-          StatsInsightCard(message: insight),
-          const SizedBox(height: 16),
-          StatsRecentXpList(events: analytics.xpEvents),
-        ],
-      ),
+      padding: const EdgeInsets.fromLTRB(24, 12, 24, 24),
+      child: body,
     );
   }
 }

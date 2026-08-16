@@ -14,10 +14,12 @@ class TilesStatsView extends StatelessWidget {
     super.key,
     required this.analytics,
     this.aggregationService = const StatsAggregationService(),
+    this.embedded = false,
   });
 
   final StatsAnalyticsProvider analytics;
   final StatsAggregationService aggregationService;
+  final bool embedded;
 
   @override
   Widget build(BuildContext context) {
@@ -47,56 +49,60 @@ class TilesStatsView extends StatelessWidget {
       unlockStreak: unlockStreak,
     );
 
-    return SingleChildScrollView(
-      padding: const EdgeInsets.fromLTRB(24, 0, 24, 24),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              StatsHeroStat(label: 'Tiles unlocked', value: '$tileCount'),
-              StatsHeroStat(
-                label: 'Area revealed',
-                value: aggregationService.formatAreaKm2(
-                  revealed.squareMetres,
-                  isEstimated: revealed.isEstimated,
-                ),
-              ),
-              StatsHeroStat(
-                label: 'City mapped',
-                value: coverage,
-              ),
-            ],
-          ),
-          const SizedBox(height: 16),
-          StatsChartSection(
-            title: 'Tiles unlocked by week',
-            buckets: buckets,
-            emptyMessage: 'No unlocked tiles to chart yet',
-            detailLabelBuilder: (bucket) =>
-                bucket.detailLabel(' Tiles Unlocked'),
-          ),
-          const SizedBox(height: 16),
-          StatsSectionCard(
-            title: 'Unlock streak',
-            child: Text(
-              unlockStreak == 0
-                  ? 'Unlock tiles on consecutive days to build a streak'
-                  : '$unlockStreak-day unlock streak',
-              style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                fontWeight: FontWeight.w700,
+    final body = Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            StatsHeroStat(label: 'Tiles unlocked', value: '$tileCount'),
+            StatsHeroStat(
+              label: 'Area revealed',
+              value: aggregationService.formatAreaKm2(
+                revealed.squareMetres,
+                isEstimated: revealed.isEstimated,
               ),
             ),
+            StatsHeroStat(
+              label: 'City mapped',
+              value: coverage,
+            ),
+          ],
+        ),
+        const SizedBox(height: 16),
+        StatsChartSection(
+          title: 'Tiles unlocked by week',
+          buckets: buckets,
+          emptyMessage: 'No unlocked tiles to chart yet',
+          detailLabelBuilder: (bucket) =>
+              bucket.detailLabel(' Tiles Unlocked'),
+        ),
+        const SizedBox(height: 16),
+        StatsSectionCard(
+          title: 'Unlock streak',
+          child: Text(
+            unlockStreak == 0
+                ? 'Unlock tiles on consecutive days to build a streak'
+                : '$unlockStreak-day unlock streak',
+            style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+              fontWeight: FontWeight.w700,
+            ),
           ),
-          const SizedBox(height: 16),
-          StatsInsightCard(
-            message: insight,
-            icon: Icons.grid_view_rounded,
-          ),
-          const SizedBox(height: 16),
-          StatsLoyaltyTilesSection(tiles: loyaltyTiles),
-        ],
-      ),
+        ),
+        const SizedBox(height: 16),
+        StatsInsightCard(
+          message: insight,
+          icon: Icons.grid_view_rounded,
+        ),
+        const SizedBox(height: 16),
+        StatsLoyaltyTilesSection(tiles: loyaltyTiles),
+      ],
+    );
+
+    if (embedded) return body;
+
+    return SingleChildScrollView(
+      padding: const EdgeInsets.fromLTRB(24, 12, 24, 24),
+      child: body,
     );
   }
 }
