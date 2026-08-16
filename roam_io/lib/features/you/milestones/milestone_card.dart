@@ -73,7 +73,7 @@ class _MilestoneCardState extends State<MilestoneCard>
 
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
+      padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
         color: AppSurfaces.card(context),
         borderRadius: BorderRadius.circular(18),
@@ -90,7 +90,7 @@ class _MilestoneCardState extends State<MilestoneCard>
               size: 56,
             ),
           ),
-          const SizedBox(width: 10),
+          const SizedBox(width: 12),
           Expanded(
             child: SizedBox(
               height: _MilestoneCardBody.height,
@@ -130,7 +130,10 @@ class _MilestoneCardState extends State<MilestoneCard>
 
 abstract final class _MilestoneCardBody {
   /// Shared content column height so claim and progress cards match.
-  static const double height = 72;
+  /// title(~20) + 4 + subtitle(~16) + 8 + footer(32) = 80
+  static const double height = 80;
+  static const double titleToSubtitle = 4;
+  static const double subtitleToFooter = 8;
   static const double footerHeight = 32;
 }
 
@@ -156,6 +159,7 @@ class _ClaimBody extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
+        const SizedBox(height: 4),
         Text(
           title,
           maxLines: 1,
@@ -163,10 +167,10 @@ class _ClaimBody extends StatelessWidget {
           style: theme.textTheme.titleMedium?.copyWith(
             fontWeight: FontWeight.w900,
             color: AppSurfaces.textPrimary(context),
-            height: 1.1,
+            height: 1.15,
           ),
         ),
-        const SizedBox(height: 1),
+        const SizedBox(height: _MilestoneCardBody.titleToSubtitle),
         Text(
           subtitle,
           maxLines: 1,
@@ -176,10 +180,11 @@ class _ClaimBody extends StatelessWidget {
             height: 1.15,
           ),
         ),
-        const Spacer(),
+        const SizedBox(height: _MilestoneCardBody.subtitleToFooter - 4),
         SizedBox(
           height: _MilestoneCardBody.footerHeight,
           child: Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
             children: [
               Expanded(
                 child: Text(
@@ -187,6 +192,7 @@ class _ClaimBody extends StatelessWidget {
                   style: theme.textTheme.labelLarge?.copyWith(
                     color: AppSurfaces.textPrimary(context),
                     fontWeight: FontWeight.w800,
+                    height: 1.0,
                   ),
                 ),
               ),
@@ -194,10 +200,9 @@ class _ClaimBody extends StatelessWidget {
                 onPressed: claimInFlight ? null : () => onClaim(),
                 style: FilledButton.styleFrom(
                   visualDensity: VisualDensity.compact,
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 14,
-                    vertical: 6,
-                  ),
+                  minimumSize: const Size(0, 32),
+                  padding: const EdgeInsets.symmetric(horizontal: 14),
+                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                 ),
                 child: const Text('Claim'),
               ),
@@ -229,6 +234,7 @@ class _ProgressBody extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
+        const SizedBox(height: 4),
         Text(
           title,
           maxLines: 1,
@@ -236,10 +242,10 @@ class _ProgressBody extends StatelessWidget {
           style: theme.textTheme.titleMedium?.copyWith(
             fontWeight: FontWeight.w900,
             color: AppSurfaces.textPrimary(context),
-            height: 1.1,
+            height: 1.15,
           ),
         ),
-        const SizedBox(height: 1),
+        const SizedBox(height: _MilestoneCardBody.titleToSubtitle),
         Text(
           subtitle,
           maxLines: 1,
@@ -249,7 +255,7 @@ class _ProgressBody extends StatelessWidget {
             height: 1.15,
           ),
         ),
-        const Spacer(),
+        const SizedBox(height: _MilestoneCardBody.subtitleToFooter - 4),
         SizedBox(
           height: _MilestoneCardBody.footerHeight,
           child: Column(
@@ -257,7 +263,7 @@ class _ProgressBody extends StatelessWidget {
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               _MilestoneProgressBar(progress: barProgress.clamp(0.0, 1.0)),
-              const SizedBox(height: 3),
+              const SizedBox(height: 4),
               Text(
                 barLabel,
                 maxLines: 1,
@@ -265,7 +271,7 @@ class _ProgressBody extends StatelessWidget {
                 style: theme.textTheme.labelMedium?.copyWith(
                   color: AppSurfaces.textPrimary(context),
                   fontWeight: FontWeight.w700,
-                  height: 1.1,
+                  height: 1.0,
                 ),
               ),
             ],

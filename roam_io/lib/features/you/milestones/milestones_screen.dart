@@ -83,7 +83,7 @@ class MilestonesScreen extends StatelessWidget {
                 });
               },
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: 10),
           ],
       ],
     );
