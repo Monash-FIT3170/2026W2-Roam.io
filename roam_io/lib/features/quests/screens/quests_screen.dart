@@ -1,17 +1,17 @@
 /*
  * Description:
- *   Displays available quests, category filters and the user's
- *   current quest progress.
+ *   Displays available side quests, category filters and the current
+ *   user's quest progress. Global quests remain browsable when signed out.
  */
 
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+
 import 'package:roam_io/features/quests/screens/data/quest.dart';
 import 'package:roam_io/features/quests/screens/quest_controller.dart';
 import 'package:roam_io/features/quests/screens/quest_enums.dart';
 
 import '../../auth/providers/auth_provider.dart';
-
 import 'quest_details_screen.dart';
 
 class QuestsScreen extends StatefulWidget {
@@ -31,12 +31,22 @@ class _QuestsScreenState extends State<QuestsScreen> {
     _questController = QuestController();
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      final userId = context.read<AuthProvider>().currentUser?.uid;
-
-      if (userId != null) {
-        _questController.initialise(userId: userId);
-      }
+      _loadQuests();
     });
+  }
+
+  Future<void> _loadQuests() async {
+    final userId =
+        context.read<AuthProvider>().currentUser?.uid;
+
+    debugPrint(
+      '[QuestsScreen] Loading quests '
+      'userId=${userId ?? 'not signed in'}',
+    );
+
+    await _questController.initialise(
+      userId: userId,
+    );
   }
 
   @override
@@ -68,7 +78,12 @@ class _QuestsContent extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           const Padding(
-            padding: EdgeInsets.fromLTRB(20, 18, 20, 6),
+            padding: EdgeInsets.fromLTRB(
+              20,
+              18,
+              20,
+              6,
+            ),
             child: Text(
               'Side Quests',
               style: TextStyle(
@@ -78,16 +93,23 @@ class _QuestsContent extends StatelessWidget {
             ),
           ),
           const Padding(
-            padding: EdgeInsets.symmetric(horizontal: 20),
+            padding: EdgeInsets.symmetric(
+              horizontal: 20,
+            ),
             child: Text(
               'Explore somewhere new and earn XP.',
             ),
           ),
           const SizedBox(height: 16),
-          _CategoryFilters(controller: controller),
+          _CategoryFilters(
+            controller: controller,
+          ),
           const SizedBox(height: 12),
           Expanded(
-            child: _buildBody(context, controller),
+            child: _buildBody(
+              context,
+              controller,
+            ),
           ),
         ],
       ),
@@ -105,35 +127,46 @@ class _QuestsContent extends StatelessWidget {
     }
 
     if (controller.errorMessage != null) {
-      return Center(
-        child: Text(controller.errorMessage!),
+      return _QuestErrorState(
+        message: controller.errorMessage!,
       );
     }
 
     if (controller.quests.isEmpty) {
-      return const Center(
-        child: Text('No quests available yet.'),
-      );
+      return const _EmptyQuestState();
     }
 
     return ListView.separated(
-      padding: const EdgeInsets.fromLTRB(20, 4, 20, 100),
+      padding: const EdgeInsets.fromLTRB(
+        20,
+        4,
+        20,
+        100,
+      ),
       itemCount: controller.quests.length,
-      separatorBuilder: (_, _) => const SizedBox(height: 12),
+      separatorBuilder: (_, _) =>
+          const SizedBox(height: 12),
       itemBuilder: (context, index) {
         final quest = controller.quests[index];
 
         return _QuestCard(
           quest: quest,
-          isStarted: controller.isQuestStarted(quest.id),
-          isCompleted: controller.isQuestCompleted(quest.id),
+          isStarted:
+              controller.isQuestStarted(quest.id),
+          isCompleted:
+              controller.isQuestCompleted(quest.id),
           onTap: () {
             Navigator.of(context).push(
               MaterialPageRoute<void>(
-                builder: (_) => ChangeNotifierProvider.value(
-                  value: controller,
-                  child: QuestDetailsScreen(quest: quest),
-                ),
+                builder: (_) =>
+                    ChangeNotifierProvider<
+                      QuestController
+                    >.value(
+                      value: controller,
+                      child: QuestDetailsScreen(
+                        quest: quest,
+                      ),
+                    ),
               ),
             );
           },
@@ -156,11 +189,14 @@ class _CategoryFilters extends StatelessWidget {
       height: 40,
       child: ListView(
         scrollDirection: Axis.horizontal,
-        padding: const EdgeInsets.symmetric(horizontal: 20),
+        padding: const EdgeInsets.symmetric(
+          horizontal: 20,
+        ),
         children: [
           ChoiceChip(
             label: const Text('All'),
-            selected: controller.selectedCategory == null,
+            selected:
+                controller.selectedCategory == null,
             onSelected: (_) {
               controller.selectCategory(null);
             },
@@ -168,12 +204,20 @@ class _CategoryFilters extends StatelessWidget {
           const SizedBox(width: 8),
           ...QuestCategory.values.map(
             (category) => Padding(
-              padding: const EdgeInsets.only(right: 8),
+              padding: const EdgeInsets.only(
+                right: 8,
+              ),
               child: ChoiceChip(
-                label: Text(category.displayName),
-                selected: controller.selectedCategory == category,
+                label: Text(
+                  category.displayName,
+                ),
+                selected:
+                    controller.selectedCategory ==
+                    category,
                 onSelected: (_) {
-                  controller.selectCategory(category);
+                  controller.selectCategory(
+                    category,
+                  );
                 },
               ),
             ),
@@ -216,24 +260,31 @@ class _QuestCard extends StatelessWidget {
                 height: 50,
                 alignment: Alignment.center,
                 decoration: BoxDecoration(
-                  color: theme.colorScheme.primary.withValues(alpha: 0.12),
-                  borderRadius: BorderRadius.circular(14),
+                  color: theme.colorScheme.primary
+                      .withValues(alpha: 0.12),
+                  borderRadius:
+                      BorderRadius.circular(14),
                 ),
                 child: Icon(
-                  _iconForCategory(quest.category),
-                  color: theme.colorScheme.primary,
+                  _iconForCategory(
+                    quest.category,
+                  ),
+                  color:
+                      theme.colorScheme.primary,
                 ),
               ),
               const SizedBox(width: 14),
               Expanded(
                 child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+                  crossAxisAlignment:
+                      CrossAxisAlignment.start,
                   children: [
                     Text(
                       quest.title,
                       style: const TextStyle(
                         fontSize: 16,
-                        fontWeight: FontWeight.w800,
+                        fontWeight:
+                            FontWeight.w800,
                       ),
                     ),
                     const SizedBox(height: 4),
@@ -245,19 +296,30 @@ class _QuestCard extends StatelessWidget {
                     Text(
                       '+${quest.rewardXp} XP',
                       style: TextStyle(
-                        fontWeight: FontWeight.w700,
-                        color: theme.colorScheme.primary,
+                        fontWeight:
+                            FontWeight.w700,
+                        color: theme
+                            .colorScheme.primary,
                       ),
                     ),
                   ],
                 ),
               ),
               if (isCompleted)
-                const Icon(Icons.check_circle_rounded)
+                Icon(
+                  Icons.check_circle_rounded,
+                  color:
+                      theme.colorScheme.primary,
+                )
               else if (isStarted)
-                const Icon(Icons.play_circle_outline_rounded)
+                const Icon(
+                  Icons
+                      .play_circle_outline_rounded,
+                )
               else
-                const Icon(Icons.chevron_right_rounded),
+                const Icon(
+                  Icons.chevron_right_rounded,
+                ),
             ],
           ),
         ),
@@ -265,19 +327,79 @@ class _QuestCard extends StatelessWidget {
     );
   }
 
-  static IconData _iconForCategory(QuestCategory category) {
+  static IconData _iconForCategory(
+    QuestCategory category,
+  ) {
     return switch (category) {
-      QuestCategory.adventure => Icons.explore_rounded,
-      QuestCategory.fitness => Icons.directions_run_rounded,
-      QuestCategory.nature => Icons.park_rounded,
-      QuestCategory.culture => Icons.museum_rounded,
-      QuestCategory.food => Icons.restaurant_rounded,
-      QuestCategory.social => Icons.groups_rounded,
-      QuestCategory.history => Icons.account_balance_rounded,
-      QuestCategory.photography => Icons.photo_camera_rounded,
-      QuestCategory.nightlife => Icons.nightlife_rounded,
-      QuestCategory.seasonal => Icons.event_rounded,
-      QuestCategory.hiddenGem => Icons.diamond_rounded,
+      QuestCategory.adventure =>
+        Icons.explore_rounded,
+      QuestCategory.fitness =>
+        Icons.directions_run_rounded,
+      QuestCategory.nature =>
+        Icons.park_rounded,
+      QuestCategory.culture =>
+        Icons.museum_rounded,
+      QuestCategory.food =>
+        Icons.restaurant_rounded,
+      QuestCategory.social =>
+        Icons.groups_rounded,
+      QuestCategory.history =>
+        Icons.account_balance_rounded,
+      QuestCategory.photography =>
+        Icons.photo_camera_rounded,
+      QuestCategory.nightlife =>
+        Icons.nightlife_rounded,
+      QuestCategory.seasonal =>
+        Icons.event_rounded,
+      QuestCategory.hiddenGem =>
+        Icons.diamond_rounded,
     };
+  }
+}
+
+class _EmptyQuestState extends StatelessWidget {
+  const _EmptyQuestState();
+
+  @override
+  Widget build(BuildContext context) {
+    return const Center(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(
+            Icons.explore_off_rounded,
+            size: 44,
+          ),
+          SizedBox(height: 12),
+          Text(
+            'No quests available yet.',
+            style: TextStyle(
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _QuestErrorState extends StatelessWidget {
+  const _QuestErrorState({
+    required this.message,
+  });
+
+  final String message;
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(24),
+        child: Text(
+          message,
+          textAlign: TextAlign.center,
+        ),
+      ),
+    );
   }
 }

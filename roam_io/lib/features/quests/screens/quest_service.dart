@@ -5,6 +5,7 @@
  */
 
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flutter/material.dart';
 import 'package:roam_io/features/quests/screens/data/quest.dart';
 import 'package:roam_io/features/quests/screens/data/user_quest.dart';
 import 'package:roam_io/features/quests/screens/quest_enums.dart';
@@ -32,21 +33,45 @@ class QuestService {
   }
 
   Future<List<Quest>> getAvailableQuests() async {
+    debugPrint('[QuestService] Loading available quests...');
+
     final snapshot = await _questsCollection
         .where('isActive', isEqualTo: true)
         .get();
 
+    debugPrint(
+      '[QuestService] Firestore returned ${snapshot.docs.length} quest docs',
+    );
+
     final now = DateTime.now();
 
-    final quests = snapshot.docs
-        .map(Quest.fromFirestore)
-        .where((quest) => quest.isAvailableAt(now))
-        .toList();
+    final quests = snapshot.docs.map((document) {
+      debugPrint(
+        '[QuestService] Quest ${document.id}: ${document.data()}',
+      );
+
+      return Quest.fromFirestore(document);
+    }).where((quest) {
+      final available = quest.isAvailableAt(now);
+
+      debugPrint(
+        '[QuestService] ${quest.id} available=$available '
+        'active=${quest.isActive} '
+        'from=${quest.availableFrom} '
+        'until=${quest.availableUntil}',
+      );
+
+      return available;
+    }).toList();
+
+    debugPrint(
+      '[QuestService] Returning ${quests.length} available quests',
+    );
 
     quests.sort((a, b) => b.rewardXp.compareTo(a.rewardXp));
 
     return quests;
-  }
+}
 
   Future<List<Quest>> getQuestsForRegion(String regionId) async {
     final snapshot = await _questsCollection
