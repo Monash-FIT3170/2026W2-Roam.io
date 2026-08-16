@@ -39,11 +39,11 @@ class StatsHeroStrip extends StatelessWidget {
     final xpBarLabel = level >= ProfileModel.maxLevel
         ? 'Max level'
         : '${formatCompactStatNumber(currentLevelXp)} / '
-            '${formatCompactStatNumber(nextLevelXp)} XP';
+              '${formatCompactStatNumber(nextLevelXp)} XP';
 
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.fromLTRB(12, 14, 16, 14),
+      padding: const EdgeInsets.fromLTRB(6, 14, 16, 14),
       decoration: BoxDecoration(
         color: AppSurfaces.card(context),
         borderRadius: BorderRadius.circular(18),
@@ -53,7 +53,7 @@ class StatsHeroStrip extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
           _LevelBadge(level: level, assetPath: rank.assetPath),
-          const SizedBox(width: 12),
+          const SizedBox(width: 8),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -65,7 +65,7 @@ class StatsHeroStrip extends StatelessWidget {
                   overflow: TextOverflow.ellipsis,
                   style: theme.textTheme.titleMedium?.copyWith(
                     color: AppSurfaces.textPrimary(context),
-                    fontWeight: FontWeight.w900,
+                    fontWeight: FontWeight.w800,
                     height: 1.1,
                   ),
                 ),
@@ -79,22 +79,22 @@ class StatsHeroStrip extends StatelessWidget {
                   children: [
                     Expanded(
                       child: Text(
-                        'Gained this week: +$xpThisWeek XP',
+                        'This week: +$xpThisWeek XP',
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: theme.textTheme.labelMedium?.copyWith(
-                          color: AppSurfaces.textPrimary(context),
-                          fontWeight: FontWeight.w800,
+                          color: AppSurfaces.textMuted(context),
+                          fontWeight: FontWeight.w500,
                           height: 1.1,
                         ),
                       ),
                     ),
                     const SizedBox(width: 8),
                     Text(
-                      'Streak: ${streakDays}d 🔥',
+                      'Streak: ${streakDays}d',
                       style: theme.textTheme.labelMedium?.copyWith(
-                        color: AppSurfaces.textPrimary(context),
-                        fontWeight: FontWeight.w800,
+                        color: AppSurfaces.textMuted(context),
+                        fontWeight: FontWeight.w500,
                         height: 1.1,
                       ),
                     ),
@@ -110,10 +110,7 @@ class StatsHeroStrip extends StatelessWidget {
 }
 
 class _LevelBadge extends StatelessWidget {
-  const _LevelBadge({
-    required this.level,
-    required this.assetPath,
-  });
+  const _LevelBadge({required this.level, required this.assetPath});
 
   final int level;
   final String assetPath;
@@ -127,7 +124,23 @@ class _LevelBadge extends StatelessWidget {
       height: 72,
       child: Stack(
         alignment: Alignment.center,
+        clipBehavior: Clip.none,
         children: [
+          Container(
+            width: 52,
+            height: 52,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.28),
+                  blurRadius: 12,
+                  spreadRadius: 1,
+                  offset: const Offset(0, 5),
+                ),
+              ],
+            ),
+          ),
           Image.asset(
             assetPath,
             width: 72,
@@ -151,10 +164,7 @@ class _LevelBadge extends StatelessWidget {
 }
 
 class _XpProgressBar extends StatelessWidget {
-  const _XpProgressBar({
-    required this.progress,
-    required this.label,
-  });
+  const _XpProgressBar({required this.progress, required this.label});
 
   final double progress;
   final String label;
@@ -162,13 +172,24 @@ class _XpProgressBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final fill = const Color(0xFF2F5D3A);
+    final fill = const Color.fromARGB(255, 73, 134, 87);
     final track = AppSurfaces.isDark(context)
         ? const Color(0xFF2A2F38)
         : const Color(0xFFD8D8D8);
 
-    return SizedBox(
+    return Container(
       height: 22,
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(999),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.18),
+            blurRadius: 8,
+            spreadRadius: 0,
+            offset: const Offset(0, 3),
+          ),
+        ],
+      ),
       child: ClipRRect(
         borderRadius: BorderRadius.circular(999),
         child: Stack(
