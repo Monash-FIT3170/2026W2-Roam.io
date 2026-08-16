@@ -131,6 +131,48 @@ class QuestService {
     return userQuest;
   }
 
+  Future<void> completeQuest({
+  required String userId,
+  required Quest quest,
+}) async {
+  final userQuestRef = _userQuestsCollection(userId).doc(quest.id);
+  final profileRef = _firestore.collection('profiles').doc(userId);
+
+  await _firestore.runTransaction((transaction) async {
+    final userQuestSnapshot = await transaction.get(userQuestRef);
+    final profileSnapshot = await transaction.get(profileRef);
+
+    if (!userQuestSnapshot.exists) {
+      throw StateError('Quest must be started before completion.');
+    }
+
+    final userQuestData = userQuestSnapshot.data();
+
+    if (userQuestData?['status'] == QuestStatus.completed.name) {
+      return;
+    }
+
+    final profileData = profileSnapshot.data();
+    final currentXp = (profileData?['xp'] as num?)?.toInt() ?? 0;
+
+    transaction.update(
+      userQuestRef,
+      {
+        'status': QuestStatus.completed.name,
+        'completedAt': FieldValue.serverTimestamp(),
+      },
+    );
+
+    transaction.set(
+      profileRef,
+      {
+        'xp': currentXp + quest.rewardXp,
+      },
+      SetOptions(merge: true),
+    );
+  });
+}
+
   Future<void> updateQuestStatus({
     required String userId,
     required String questId,
