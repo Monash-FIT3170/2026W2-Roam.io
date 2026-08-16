@@ -54,7 +54,7 @@ void main() {
       expect(progress.earnedTier, 3);
       expect(progress.claimableTiers, [2, 3]);
       expect(progress.nextClaimableTier, 2);
-      expect(progress.displayTier, 1);
+      expect(progress.displayTier, 2);
     });
 
     test('backfill exposes every earned tier when nothing claimed', () {
@@ -77,6 +77,32 @@ void main() {
 
       expect(progress.earnedTier, 3);
       expect(progress.claimableTiers, [1, 2, 3]);
+      expect(progress.displayTier, 1);
+    });
+
+    test('shows next goal badge once all earned tiers are claimed', () {
+      final definition = MilestoneCatalog.byId(MilestoneId.visitViking);
+      final progress = builder.build(
+        definition: definition,
+        claimState: const MilestoneClaimState(
+          milestoneId: MilestoneId.visitViking,
+          claimedTiers: {1, 2},
+        ),
+        metrics: const MilestoneMetrics(
+          areaKm2: 0,
+          tilesUnlocked: 0,
+          totalVisits: 15,
+          journeyCount: 0,
+          distanceKm: 0,
+          journeyHours: 0,
+          xpStreakDays: 0,
+        ),
+      );
+
+      expect(progress.earnedTier, 2);
+      expect(progress.nextClaimableTier, isNull);
+      expect(progress.nextTier?.tier, 3);
+      expect(progress.displayTier, 3);
     });
   });
 }

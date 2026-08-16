@@ -268,36 +268,49 @@ class _ActivitiesTab extends StatelessWidget {
     final comments = commentService;
 
     return SingleChildScrollView(
-      padding: EdgeInsets.fromLTRB(24, 20, 24, bottomClearance),
-      child: ActivityFeedCard.fromItem(
-        activity,
-        commentService: comments,
-        showKudos: true,
-        showComments: true,
-        showShare: true,
-        onOverflowTap: () {
-          Navigator.of(context).push(
-            MaterialPageRoute<void>(
-              builder: (_) => ActivityDetailScreen(activity: activity),
+      padding: EdgeInsets.fromLTRB(24, 16, 24, bottomClearance),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Activities',
+            style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+              color: AppSurfaces.textPrimary(context),
+              fontWeight: FontWeight.w900,
             ),
-          );
-        },
-        onKudosTap: () {
-          // Kudos persistence is not wired yet; keep the action visible.
-        },
-        onCommentTap: () {
-          Navigator.of(context).push(
-            MaterialPageRoute<void>(
-              builder: (_) => CommentsScreen(
-                activityId: activity.id,
-                commentService: comments,
-              ),
-            ),
-          );
-        },
-        onShareTap: () {
-          // Activity sharing backend is deferred; preserve the Share action.
-        },
+          ),
+          const SizedBox(height: 12),
+          ActivityFeedCard.fromItem(
+            activity,
+            commentService: comments,
+            showKudos: true,
+            showComments: true,
+            showShare: true,
+            onOverflowTap: () {
+              Navigator.of(context).push(
+                MaterialPageRoute<void>(
+                  builder: (_) => ActivityDetailScreen(activity: activity),
+                ),
+              );
+            },
+            onKudosTap: () {
+              // Kudos persistence is not wired yet; keep the action visible.
+            },
+            onCommentTap: () {
+              Navigator.of(context).push(
+                MaterialPageRoute<void>(
+                  builder: (_) => CommentsScreen(
+                    activityId: activity.id,
+                    commentService: comments,
+                  ),
+                ),
+              );
+            },
+            onShareTap: () {
+              // Activity sharing backend is deferred; preserve the Share action.
+            },
+          ),
+        ],
       ),
     );
   }

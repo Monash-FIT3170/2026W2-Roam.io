@@ -104,24 +104,25 @@ class MilestonesProvider extends ChangeNotifier {
   }
 
   /// Claims the next claimable tier for [milestoneId], then awards XP.
-  Future<bool> claimNextTier({
+  /// Returns the award result on success, or null if the claim did not complete.
+  Future<XpAwardResult?> claimNextTier({
     required MilestoneId milestoneId,
     required AuthProvider auth,
   }) async {
     final uid = _boundUid;
-    if (uid == null || _claimInFlight) return false;
+    if (uid == null || _claimInFlight) return null;
 
     final progress = progressList.firstWhere(
       (item) => item.definition.id == milestoneId,
     );
     final tier = progress.nextClaimableTier;
-    if (tier == null) return false;
+    if (tier == null) return null;
 
     // Re-validate against live metrics before writing.
     final earnedNow = progress.definition.earnedTier(
       _metricsFromAnalytics().valueFor(milestoneId),
     );
-    if (tier > earnedNow) return false;
+    if (tier > earnedNow) return null;
 
     final xp = progress.definition.tierDefinition(tier).xpReward;
     _claimInFlight = true;
@@ -137,7 +138,7 @@ class MilestonesProvider extends ChangeNotifier {
       if (!claimed) {
         _claimInFlight = false;
         notifyListeners();
-        return false;
+        return null;
       }
 
       final XpAwardResult award = await auth.addXp(
@@ -155,14 +156,16 @@ class MilestonesProvider extends ChangeNotifier {
         _claimError = 'Could not award XP. Try again.';
         _claimInFlight = false;
         notifyListeners();
-        return false;
+        return null;
       }
 
       _lastClaimedMilestoneId = milestoneId;
       _lastClaimedTier = tier;
       _claimInFlight = false;
+      // Always celebrate milestone XP (level-ups are also queued by addXp).
+      auth.requestXpCelebration(award);
       notifyListeners();
-      return true;
+      return award;
     } catch (error, stackTrace) {
       debugPrint(
         '[MilestonesProvider] claim failed: $error\n$stackTrace',
@@ -170,7 +173,7 @@ class MilestonesProvider extends ChangeNotifier {
       _claimError = 'Claim failed. Try again.';
       _claimInFlight = false;
       notifyListeners();
-      return false;
+      return null;
     }
   }
 

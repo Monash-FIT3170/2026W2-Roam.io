@@ -352,7 +352,7 @@ class _MapPageState extends State<MapPage> {
 
     // When XP triggers a level-up, show the unlock toast inside the celebration
     // overlay (below the centered content) instead of as a scaffold snackbar.
-    if (auth.pendingLevelUp != null) {
+    if (auth.pendingXpCelebration != null) {
       auth.stageUnlockToast(message);
       return;
     }

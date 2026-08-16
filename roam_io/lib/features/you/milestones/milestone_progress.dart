@@ -109,7 +109,7 @@ class MilestoneProgress {
   /// Earned but not yet claimed, ascending.
   final List<int> claimableTiers;
 
-  /// Badge tier to show (highest claimed, else 1).
+  /// Badge tier to show: next claimable, else next goal tier, else highest claimed.
   final int displayTier;
 
   /// Next tier still locked by metric, or null at max.
@@ -145,10 +145,6 @@ class MilestoneProgressBuilder {
         if (!claimed.contains(tier)) tier,
     ];
 
-    final displayTier = claimed.isEmpty
-        ? 1
-        : claimed.reduce((a, b) => a > b ? a : b);
-
     MilestoneTierDefinition? nextTier;
     var progressToNext = 1.0;
     if (earnedTier < definition.maxTier) {
@@ -161,6 +157,13 @@ class MilestoneProgressBuilder {
           ? 1.0
           : ((currentValue - previousThreshold) / span).clamp(0.0, 1.0);
     }
+
+    final highestClaimed = claimed.isEmpty
+        ? 1
+        : claimed.reduce((a, b) => a > b ? a : b);
+    final displayTier = claimable.isNotEmpty
+        ? claimable.first
+        : (nextTier?.tier ?? highestClaimed);
 
     return MilestoneProgress(
       definition: definition,

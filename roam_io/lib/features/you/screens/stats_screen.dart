@@ -46,10 +46,18 @@ class _StatsScreenState extends State<StatsScreen>
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Padding(
-          padding: const EdgeInsets.fromLTRB(24, 14, 24, 0),
+          padding: const EdgeInsets.fromLTRB(24, 16, 24, 0),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
+              Text(
+                'Stats',
+                style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                  color: AppSurfaces.textPrimary(context),
+                  fontWeight: FontWeight.w900,
+                ),
+              ),
+              const SizedBox(height: 12),
               StatsHeroStrip(profile: widget.profile, analytics: analytics),
               const SizedBox(height: 16),
               _StatsCategoryTabBar(controller: _categoryController),

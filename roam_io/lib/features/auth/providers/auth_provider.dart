@@ -14,6 +14,7 @@ import 'package:flutter/foundation.dart';
 import 'package:image_picker/image_picker.dart';
 
 import '../data/auth_repository.dart';
+import '../../profile/domain/pending_xp_celebration.dart';
 import '../../profile/domain/profile_model.dart';
 import '../../profile/domain/xp_award_result.dart';
 import '../../profile/domain/xp_event.dart';
@@ -37,7 +38,7 @@ class AuthProvider extends ChangeNotifier {
   User? _currentUser;
   ProfileModel? _currentProfile;
   ProfilePhotoUploadResult? _lastProfilePhotoUploadResult;
-  int? _pendingLevelUp;
+  PendingXpCelebration? _pendingXpCelebration;
   String? _pendingUnlockToastMessage;
 
   AuthViewState get viewState => _viewState;
@@ -52,7 +53,15 @@ class AuthProvider extends ChangeNotifier {
   bool get isAuthenticated => _currentUser != null;
   bool get isEmailVerified => _currentUser?.emailVerified ?? false;
   bool get darkModeEnabled => _currentProfile?.darkModeEnabled ?? false;
-  int? get pendingLevelUp => _pendingLevelUp;
+
+  /// Full XP celebration payload (milestone claim or level-up).
+  PendingXpCelebration? get pendingXpCelebration => _pendingXpCelebration;
+
+  /// New level when a celebration includes a level-up; otherwise null.
+  int? get pendingLevelUp =>
+      _pendingXpCelebration != null && _pendingXpCelebration!.didLevelUp
+      ? _pendingXpCelebration!.newLevel
+      : null;
 
   /// Clears the current user-facing error message.
   void clearError() {
@@ -60,9 +69,19 @@ class AuthProvider extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// Clears a pending XP celebration after the app displays it.
+  void clearPendingXpCelebration() {
+    _pendingXpCelebration = null;
+    notifyListeners();
+  }
+
   /// Clears a pending level-up notification after the app displays it.
-  void clearPendingLevelUp() {
-    _pendingLevelUp = null;
+  void clearPendingLevelUp() => clearPendingXpCelebration();
+
+  /// Queues the XP celebration overlay for a successful award (e.g. milestone).
+  void requestXpCelebration(XpAwardResult result) {
+    if (!result.succeeded) return;
+    _pendingXpCelebration = PendingXpCelebration.fromAward(result);
     notifyListeners();
   }
 
@@ -204,6 +223,7 @@ class AuthProvider extends ChangeNotifier {
   Future<bool> updateXp(int newXp) async {
     var didLevelUp = false;
     await _runAuthAction(() async {
+      final oldXp = _currentProfile?.xp ?? 0;
       final oldLevel = _currentProfile?.level ?? 1;
       await _authRepository.updateXp(newXp);
       final newLevel = ProfileModel.levelFromXp(newXp);
@@ -213,7 +233,12 @@ class AuthProvider extends ChangeNotifier {
           : currentProfile.copyWith(xp: newXp, level: newLevel);
 
       if (newLevel > oldLevel) {
-        _pendingLevelUp = newLevel;
+        _pendingXpCelebration = PendingXpCelebration(
+          previousXp: oldXp,
+          newXp: newXp,
+          previousLevel: oldLevel,
+          newLevel: newLevel,
+        );
         didLevelUp = true;
       }
     });
@@ -251,7 +276,7 @@ class AuthProvider extends ChangeNotifier {
           : currentProfile.copyWith(xp: result.newXp, level: result.newLevel);
 
       if (result.didLevelUp) {
-        _pendingLevelUp = result.newLevel;
+        _pendingXpCelebration = PendingXpCelebration.fromAward(result);
       }
 
       return result;
