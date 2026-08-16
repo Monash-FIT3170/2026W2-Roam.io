@@ -108,6 +108,8 @@ class _XpEventRow extends StatelessWidget {
         return Icons.grid_view_rounded;
       case XpEventSource.journey:
         return Icons.route_rounded;
+      case XpEventSource.milestone:
+        return Icons.emoji_events_outlined;
       case XpEventSource.unknown:
         return Icons.star_outline_rounded;
     }

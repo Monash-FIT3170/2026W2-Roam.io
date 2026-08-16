@@ -49,6 +49,12 @@ service cloud.firestore {
         allow read, create, update: if isProfileOwner(userId);
         allow delete: if false;
       }
+
+      // Milestone claim state (one doc per milestone id).
+      match /milestones/{milestoneId} {
+        allow read, create, update: if isProfileOwner(userId);
+        allow delete: if false;
+      }
     }
 
     match /polygons_visited/{userId} {

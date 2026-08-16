@@ -24,10 +24,16 @@ class LocationsStatsView extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final totalVisits = aggregationService.totalVisitEvents(analytics.visits);
-    final uniquePlaces = aggregationService.uniquePlaces(analytics.visits);
-    final revisitRate = totalVisits == 0
-        ? 0
-        : ((1 - uniquePlaces / totalVisits) * 100).round();
+    final topCategory =
+        aggregationService.topCategory(
+          events: analytics.visitEvents,
+          visits: analytics.visits,
+        ) ??
+        '—';
+    final visitStreak = aggregationService.visitStreakDays(
+      events: analytics.visitEvents,
+      visits: analytics.visits,
+    );
     final buckets = analytics.visitEvents.isNotEmpty
         ? aggregationService.visitEventBuckets(analytics.visitEvents)
         : aggregationService.visitSummaryBuckets(analytics.visits);
@@ -48,9 +54,9 @@ class LocationsStatsView extends StatelessWidget {
         children: [
           Row(
             children: [
-              StatsHeroStat(label: 'Unique places', value: '$uniquePlaces'),
               StatsHeroStat(label: 'Total visits', value: '$totalVisits'),
-              StatsHeroStat(label: 'Revisit rate', value: '$revisitRate%'),
+              StatsHeroStat(label: 'Top category', value: topCategory),
+              StatsHeroStat(label: 'Visit streak', value: '${visitStreak}d'),
             ],
           ),
           const SizedBox(height: 16),

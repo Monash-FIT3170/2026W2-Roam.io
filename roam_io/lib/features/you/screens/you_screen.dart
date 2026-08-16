@@ -1,10 +1,11 @@
 /*
  * Author: Sanjevan Rajasegar
- * Last Updated: 11 August 2026
+ * Last Updated: 16 August 2026
  * Description:
- *   Provides the You destination with Profile, Activities, and Stats tabs.
- *   Profile shows identity header only; Stats owns analytics via
- *   [StatsAnalyticsProvider]. Activities shows the personal stub feed.
+ *   Provides the You destination with Profile, Activities, Stats, and
+ *   Milestones tabs. Profile shows identity header only; Stats owns analytics
+ *   via [StatsAnalyticsProvider]. Milestones owns claim progress via
+ *   [MilestonesProvider]. Activities shows the personal stub feed.
  */
 
 import 'package:flutter/material.dart';
@@ -24,6 +25,9 @@ import '../../map/data/visit_service.dart';
 import '../../map/data/visited_region_service.dart';
 import '../../profile/domain/profile_model.dart';
 import '../../profile/domain/xp_event.dart';
+import '../milestones/milestone_service.dart';
+import '../milestones/milestones_provider.dart';
+import '../milestones/milestones_screen.dart';
 import '../providers/stats_analytics_provider.dart';
 import '../screens/stats_screen.dart';
 import '../services/home_base_service.dart';
@@ -31,7 +35,7 @@ import '../services/stats_aggregation_service.dart';
 import '../services/stats_summary_service.dart';
 import '../widgets/profile_header.dart';
 
-/// Displays profile identity, personal activities, and stats analytics.
+/// Displays profile identity, personal activities, stats, and milestones.
 class YouScreen extends StatefulWidget {
   const YouScreen({
     super.key,
@@ -43,6 +47,7 @@ class YouScreen extends StatefulWidget {
     this.journeyService,
     this.statsSummaryService,
     this.homeBaseService,
+    this.milestoneService,
   });
 
   /// Injected for tests; production uses the default [VisitService].
@@ -69,6 +74,9 @@ class YouScreen extends StatefulWidget {
   /// Injected for tests; production uses the default [HomeBaseService].
   final HomeBaseService? homeBaseService;
 
+  /// Injected for tests; production uses the default [MilestoneService].
+  final MilestoneService? milestoneService;
+
   @override
   State<YouScreen> createState() => _YouScreenState();
 }
@@ -77,13 +85,14 @@ class _YouScreenState extends State<YouScreen>
     with SingleTickerProviderStateMixin {
   late final TabController _tabController;
   late final StatsAnalyticsProvider _analytics;
+  late final MilestonesProvider _milestones;
   final StatsAggregationService _aggregationService =
       const StatsAggregationService();
 
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 3, vsync: this);
+    _tabController = TabController(length: 4, vsync: this);
     final profileService =
         widget.profileService ??
         (widget.visitService != null ? null : ProfileService());
@@ -96,19 +105,29 @@ class _YouScreenState extends State<YouScreen>
       statsSummaryService: widget.statsSummaryService,
       homeBaseService: widget.homeBaseService,
     );
+    _milestones = MilestonesProvider(
+      analytics: _analytics,
+      milestoneService: widget.milestoneService,
+    );
   }
 
   @override
   void dispose() {
     _tabController.dispose();
+    _milestones.dispose();
     _analytics.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    return ChangeNotifierProvider<StatsAnalyticsProvider>.value(
-      value: _analytics,
+    return MultiProvider(
+      providers: [
+        ChangeNotifierProvider<StatsAnalyticsProvider>.value(
+          value: _analytics,
+        ),
+        ChangeNotifierProvider<MilestonesProvider>.value(value: _milestones),
+      ],
       child: Container(
         color: AppSurfaces.pageBackground(context),
         child: SafeArea(
@@ -121,6 +140,12 @@ class _YouScreenState extends State<YouScreen>
                 WidgetsBinding.instance.addPostFrameCallback((_) {
                   if (!mounted) return;
                   _analytics.bindUid(uid);
+                  _milestones.bindUid(uid);
+                });
+              } else if (_milestones.boundUid != uid) {
+                WidgetsBinding.instance.addPostFrameCallback((_) {
+                  if (!mounted) return;
+                  _milestones.bindUid(uid);
                 });
               }
 
@@ -145,6 +170,7 @@ class _YouScreenState extends State<YouScreen>
                           commentService: widget.commentService,
                         ),
                         StatsScreen(profile: profile),
+                        const MilestonesScreen(),
                       ],
                     ),
                   ),
@@ -190,6 +216,7 @@ class _YouTabBar extends StatelessWidget {
             Tab(text: 'Profile'),
             Tab(text: 'Activities'),
             Tab(text: 'Stats'),
+            Tab(text: 'Milestones'),
           ],
         ),
       ),

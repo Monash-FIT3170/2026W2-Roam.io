@@ -86,6 +86,7 @@ class StatsSummaryService {
       XpEventSource.visit => 'xpBySource.visit',
       XpEventSource.tileUnlock => 'xpBySource.tileUnlock',
       XpEventSource.journey => 'xpBySource.journey',
+      XpEventSource.milestone => 'xpBySource.milestone',
       XpEventSource.unknown => null,
     };
 

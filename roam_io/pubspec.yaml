@@ -85,6 +85,41 @@ flutter:
     - assets/logos/roam_io_logo.png
     - assets/logos/roam_io_logo_with_text.png
     - assets/badges/
+    - assets/badges/milestones/clocked_cruiser_1.png
+    - assets/badges/milestones/clocked_cruiser_2.png
+    - assets/badges/milestones/clocked_cruiser_3.png
+    - assets/badges/milestones/clocked_cruiser_4.png
+    - assets/badges/milestones/clocked_cruiser_5.png
+    - assets/badges/milestones/flame_keeper_1.png
+    - assets/badges/milestones/flame_keeper_2.png
+    - assets/badges/milestones/flame_keeper_3.png
+    - assets/badges/milestones/flame_keeper_4.png
+    - assets/badges/milestones/flame_keeper_5.png
+    - assets/badges/milestones/kilometre_crusader_1.png
+    - assets/badges/milestones/kilometre_crusader_2.png
+    - assets/badges/milestones/kilometre_crusader_3.png
+    - assets/badges/milestones/kilometre_crusader_4.png
+    - assets/badges/milestones/kilometre_crusader_5.png
+    - assets/badges/milestones/map_magnate_1.png
+    - assets/badges/milestones/map_magnate_2.png
+    - assets/badges/milestones/map_magnate_3.png
+    - assets/badges/milestones/map_magnate_4.png
+    - assets/badges/milestones/map_magnate_5.png
+    - assets/badges/milestones/tile_collector_1.png
+    - assets/badges/milestones/tile_collector_2.png
+    - assets/badges/milestones/tile_collector_3.png
+    - assets/badges/milestones/tile_collector_4.png
+    - assets/badges/milestones/tile_collector_5.png
+    - assets/badges/milestones/trip_tally_1.png
+    - assets/badges/milestones/trip_tally_2.png
+    - assets/badges/milestones/trip_tally_3.png
+    - assets/badges/milestones/trip_tally_4.png
+    - assets/badges/milestones/trip_tally_5.png
+    - assets/badges/milestones/visit_viking_1.png
+    - assets/badges/milestones/visit_viking_2.png
+    - assets/badges/milestones/visit_viking_3.png
+    - assets/badges/milestones/visit_viking_4.png
+    - assets/badges/milestones/visit_viking_5.png
 
     - icons/
 

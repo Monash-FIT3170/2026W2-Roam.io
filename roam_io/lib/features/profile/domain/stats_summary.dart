@@ -13,6 +13,7 @@ class StatsSummary {
     this.xpFromVisits = 0,
     this.xpFromTileUnlocks = 0,
     this.xpFromJourneys = 0,
+    this.xpFromMilestones = 0,
     this.currentXpStreakDays = 0,
     this.lastXpEarnedDate,
     this.updatedAt,
@@ -28,23 +29,26 @@ class StatsSummary {
   final int xpFromVisits;
   final int xpFromTileUnlocks;
   final int xpFromJourneys;
+  final int xpFromMilestones;
   final int currentXpStreakDays;
   final DateTime? lastXpEarnedDate;
   final DateTime? updatedAt;
 
   int get totalXpFromSources =>
-      xpFromVisits + xpFromTileUnlocks + xpFromJourneys;
+      xpFromVisits + xpFromTileUnlocks + xpFromJourneys + xpFromMilestones;
 
   factory StatsSummary.fromMap(Map<String, dynamic> map) {
     final xpBySource = map['xpBySource'];
     var xpFromVisits = 0;
     var xpFromTileUnlocks = 0;
     var xpFromJourneys = 0;
+    var xpFromMilestones = 0;
 
     if (xpBySource is Map<String, dynamic>) {
       xpFromVisits = (xpBySource['visit'] as num?)?.toInt() ?? 0;
       xpFromTileUnlocks = (xpBySource['tileUnlock'] as num?)?.toInt() ?? 0;
       xpFromJourneys = (xpBySource['journey'] as num?)?.toInt() ?? 0;
+      xpFromMilestones = (xpBySource['milestone'] as num?)?.toInt() ?? 0;
     }
 
     return StatsSummary(
@@ -60,6 +64,7 @@ class StatsSummary {
       xpFromVisits: xpFromVisits,
       xpFromTileUnlocks: xpFromTileUnlocks,
       xpFromJourneys: xpFromJourneys,
+      xpFromMilestones: xpFromMilestones,
       currentXpStreakDays: (map['currentXpStreakDays'] as num?)?.toInt() ?? 0,
       lastXpEarnedDate: DateTime.tryParse(
         map['lastXpEarnedDate'] as String? ?? '',

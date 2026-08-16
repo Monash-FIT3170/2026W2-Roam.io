@@ -185,5 +185,92 @@ void main() {
         isNot(equals('0.00%')),
       );
     });
+
+    test('topCategory returns the leading category label', () {
+      final events = <VisitEvent>[
+        VisitEvent(
+          id: 'e1',
+          placeId: 1,
+          googlePlaceId: 'g1',
+          placeName: 'Cafe',
+          regionId: 'r1',
+          category: 'food_drink',
+          lat: -37.8,
+          lng: 144.9,
+          visitedAt: DateTime(2026, 5, 1),
+        ),
+        VisitEvent(
+          id: 'e2',
+          placeId: 2,
+          googlePlaceId: 'g2',
+          placeName: 'Park',
+          regionId: 'r2',
+          category: 'nature',
+          lat: -37.81,
+          lng: 144.91,
+          visitedAt: DateTime(2026, 5, 2),
+        ),
+        VisitEvent(
+          id: 'e3',
+          placeId: 3,
+          googlePlaceId: 'g3',
+          placeName: 'Bakery',
+          regionId: 'r3',
+          category: 'food_drink',
+          lat: -37.82,
+          lng: 144.92,
+          visitedAt: DateTime(2026, 5, 3),
+        ),
+      ];
+
+      expect(
+        service.topCategory(events: events, visits: const []),
+        'Food & Drink',
+      );
+      expect(service.topCategory(events: const [], visits: const []), isNull);
+    });
+
+    test('visitStreakDays counts consecutive days ending today or yesterday', () {
+      final today = DateTime.now();
+      final day = DateTime(today.year, today.month, today.day);
+      final events = <VisitEvent>[
+        VisitEvent(
+          id: 'e1',
+          placeId: 1,
+          googlePlaceId: 'g1',
+          placeName: 'A',
+          regionId: 'r1',
+          category: 'food_drink',
+          lat: -37.8,
+          lng: 144.9,
+          visitedAt: day,
+        ),
+        VisitEvent(
+          id: 'e2',
+          placeId: 2,
+          googlePlaceId: 'g2',
+          placeName: 'B',
+          regionId: 'r2',
+          category: 'nature',
+          lat: -37.81,
+          lng: 144.91,
+          visitedAt: day.subtract(const Duration(days: 1)),
+        ),
+        VisitEvent(
+          id: 'e3',
+          placeId: 3,
+          googlePlaceId: 'g3',
+          placeName: 'C',
+          regionId: 'r3',
+          category: 'nature',
+          lat: -37.82,
+          lng: 144.92,
+          visitedAt: day.subtract(const Duration(days: 3)),
+        ),
+      ];
+
+      expect(service.visitStreakDays(events: events, visits: const []), 2);
+      expect(service.visitStreakDays(events: const [], visits: const []), 0);
+    });
   });
 }

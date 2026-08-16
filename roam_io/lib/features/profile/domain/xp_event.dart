@@ -14,6 +14,7 @@ enum XpEventSource {
   visit,
   tileUnlock,
   journey,
+  milestone,
   unknown;
 
   /// Firestore wire value for this source.
@@ -25,6 +26,8 @@ enum XpEventSource {
         return 'tileUnlock';
       case XpEventSource.journey:
         return 'journey';
+      case XpEventSource.milestone:
+        return 'milestone';
       case XpEventSource.unknown:
         return 'unknown';
     }
@@ -39,6 +42,8 @@ enum XpEventSource {
         return XpEventSource.tileUnlock;
       case 'journey':
         return XpEventSource.journey;
+      case 'milestone':
+        return XpEventSource.milestone;
       default:
         return XpEventSource.unknown;
     }

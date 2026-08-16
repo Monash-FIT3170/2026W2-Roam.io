@@ -32,6 +32,7 @@ import 'package:roam_io/features/profile/domain/visited_polygon_record.dart';
 import 'package:roam_io/features/profile/domain/xp_event.dart';
 import 'package:roam_io/features/you/services/home_base_service.dart';
 import 'package:roam_io/features/you/services/stats_summary_service.dart';
+import 'package:roam_io/features/you/milestones/milestone_service.dart';
 
 YouScreen _testYouScreen({
   required VisitService visitService,
@@ -46,6 +47,7 @@ YouScreen _testYouScreen({
     journeyService: JourneyService(firestore: firestore),
     statsSummaryService: StatsSummaryService(firestore: firestore),
     homeBaseService: HomeBaseService(firestore: firestore),
+    milestoneService: MilestoneService(firestore: firestore),
     xpEventsStream: xpEventsStream,
     commentService: commentService,
   );
@@ -97,6 +99,7 @@ void main() {
     expect(find.text('Profile'), findsOneWidget);
     expect(find.text('Activities'), findsOneWidget);
     expect(find.text('Stats'), findsOneWidget);
+    expect(find.text('Milestones'), findsOneWidget);
     expect(find.text('XP Count'), findsNothing);
     expect(
       find.text('Level ${ProfileModel.levelFromXp(12345)}'),
@@ -248,7 +251,9 @@ void main() {
 
     await _openStatsTab(tester);
 
-    expect(find.text('Unique places'), findsOneWidget);
+    expect(find.text('Total visits'), findsOneWidget);
+    expect(find.text('Top category'), findsOneWidget);
+    expect(find.text('Visit streak'), findsOneWidget);
     expect(find.text('Visits by week'), findsOneWidget);
     expect(find.byType(CustomPaint), findsWidgets);
 
@@ -794,8 +799,9 @@ void main() {
 
       await _openStatsTab(tester);
       expect(find.text('Visits by week'), findsOneWidget);
-      expect(find.text('Unique places'), findsOneWidget);
       expect(find.text('Total visits'), findsOneWidget);
+      expect(find.text('Top category'), findsOneWidget);
+      expect(find.text('Visit streak'), findsOneWidget);
       expect(find.text('2'), findsWidgets);
 
       provider.dispose();

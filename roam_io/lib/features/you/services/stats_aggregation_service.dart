@@ -300,6 +300,7 @@ class StatsAggregationService {
     final visitXp = eventTotals[XpEventSource.visit] ?? 0;
     final tileXp = eventTotals[XpEventSource.tileUnlock] ?? 0;
     final journeyXp = eventTotals[XpEventSource.journey] ?? 0;
+    final milestoneXp = eventTotals[XpEventSource.milestone] ?? 0;
 
     return <StatsBreakdownItem>[
       StatsBreakdownItem(
@@ -314,6 +315,10 @@ class StatsAggregationService {
         label: 'Journeys',
         value: journeyXp > 0 ? journeyXp : summary.xpFromJourneys,
       ),
+      StatsBreakdownItem(
+        label: 'Milestones',
+        value: milestoneXp > 0 ? milestoneXp : summary.xpFromMilestones,
+      ),
     ]..sort((left, right) => right.value.compareTo(left.value));
   }
 
@@ -325,6 +330,8 @@ class StatsAggregationService {
         return 'Tile unlock';
       case XpEventSource.journey:
         return 'Journey';
+      case XpEventSource.milestone:
+        return 'Milestone';
       case XpEventSource.unknown:
         return 'Other';
     }
@@ -393,6 +400,48 @@ class StatsAggregationService {
         )
         .toList()
       ..sort((left, right) => right.value.compareTo(left.value));
+  }
+
+  /// Leading place category label, or null when there are no categorized visits.
+  String? topCategory({
+    required List<VisitEvent> events,
+    required List<Visit> visits,
+  }) {
+    final categories = categoryBreakdown(events: events, visits: visits);
+    if (categories.isEmpty) return null;
+    return categories.first.label;
+  }
+
+  /// Consecutive calendar days with at least one visit, ending today or yesterday.
+  int visitStreakDays({
+    required List<VisitEvent> events,
+    required List<Visit> visits,
+  }) {
+    final visitDays = <DateTime>{};
+
+    if (events.isNotEmpty) {
+      for (final event in events) {
+        visitDays.add(_dateOnly(event.visitedAt));
+      }
+    } else {
+      for (final visit in visits) {
+        visitDays.add(_dateOnly(visit.lastVisitedAt ?? visit.visitedAt));
+      }
+    }
+
+    if (visitDays.isEmpty) return 0;
+
+    var cursor = _dateOnly(DateTime.now());
+    if (!visitDays.contains(cursor)) {
+      cursor = cursor.subtract(const Duration(days: 1));
+    }
+
+    var streak = 0;
+    while (visitDays.contains(cursor)) {
+      streak += 1;
+      cursor = cursor.subtract(const Duration(days: 1));
+    }
+    return streak;
   }
 
   String? explorerTimeLabel(List<VisitEvent> events) {
