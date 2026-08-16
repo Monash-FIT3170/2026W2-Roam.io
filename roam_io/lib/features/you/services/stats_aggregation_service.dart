@@ -15,6 +15,9 @@ import '../models/stats_metric_bucket.dart';
 /// Approximate Melbourne metropolitan land area for v1 coverage percentage.
 const double melbourneMetroAreaSquareMetres = 9_900_000_000;
 
+/// Typical Greater Melbourne SA1 size used when unlock meta has no area yet.
+const double averageSa1AreaSquareMetres = 250_000;
+
 /// Pure aggregation helpers for Stats tab charts and hero numbers.
 class StatsAggregationService {
   const StatsAggregationService();
@@ -103,8 +106,7 @@ class StatsAggregationService {
       final total = events
           .where(
             (event) =>
-                !event.earnedAt.isBefore(start) &&
-                event.earnedAt.isBefore(end),
+                !event.earnedAt.isBefore(start) && event.earnedAt.isBefore(end),
           )
           .fold<int>(0, (sum, event) => sum + event.amount);
       return StatsMetricBucket(
@@ -188,13 +190,79 @@ class StatsAggregationService {
     return tiles.length;
   }
 
+  /// Total unlocked area in square metres.
+  ///
+  /// Prefers [StatsSummary] / polygon meta. When older unlocks have tile IDs
+  /// but no stored area, estimates remaining tiles with
+  /// [averageSa1AreaSquareMetres].
+  ({double squareMetres, bool isEstimated}) revealedAreaSquareMetres({
+    required StatsSummary summary,
+    required Map<String, VisitedPolygonMeta> polygonMeta,
+    required int tileCount,
+  }) {
+    if (summary.totalAreaSquareMetres > 0) {
+      return (
+        squareMetres: summary.totalAreaSquareMetres,
+        isEstimated: false,
+      );
+    }
+
+    var measured = 0.0;
+    var measuredTiles = 0;
+    for (final meta in polygonMeta.values) {
+      final area = meta.areaSquareMetres;
+      if (area != null && area > 0) {
+        measured += area;
+        measuredTiles += 1;
+      }
+    }
+
+    if (measured > 0 && measuredTiles >= tileCount) {
+      return (squareMetres: measured, isEstimated: false);
+    }
+
+    final missingTiles = (tileCount - measuredTiles).clamp(0, tileCount);
+    if (measured <= 0 && missingTiles <= 0) {
+      return (squareMetres: 0, isEstimated: false);
+    }
+
+    final estimated =
+        measured + (missingTiles * averageSa1AreaSquareMetres);
+    return (
+      squareMetres: estimated,
+      isEstimated: missingTiles > 0,
+    );
+  }
+
+  String formatAreaKm2(double squareMetres, {required bool isEstimated}) {
+    final km2 = squareMetres / 1e6;
+    final value = km2 >= 10
+        ? km2.toStringAsFixed(1)
+        : km2.toStringAsFixed(2);
+    return isEstimated ? '~$value km²' : '$value km²';
+  }
+
+  String formatCoveragePercent(double squareMetres) {
+    if (squareMetres <= 0) return '0%';
+    final percent = melbourneCoveragePercent(squareMetres);
+    if (percent <= 0) return '<0.01%';
+    if (percent < 0.01) return '<0.01%';
+    if (percent < 1) return '${percent.toStringAsFixed(3)}%';
+    if (percent < 10) return '${percent.toStringAsFixed(2)}%';
+    return '${percent.toStringAsFixed(1)}%';
+  }
+
   BestXpDay? bestXpDay(List<XpEvent> events) {
     if (events.isEmpty) return null;
 
     final totalsByDay = <DateTime, int>{};
     for (final event in events) {
       final day = _dateOnly(event.earnedAt);
-      totalsByDay.update(day, (value) => value + event.amount, ifAbsent: () => event.amount);
+      totalsByDay.update(
+        day,
+        (value) => value + event.amount,
+        ifAbsent: () => event.amount,
+      );
     }
 
     final best = totalsByDay.entries.reduce(
@@ -281,10 +349,8 @@ class StatsAggregationService {
       return ranked
           .take(limit)
           .map(
-            (entry) => TopPlaceEntry(
-              placeName: entry.name,
-              visitCount: entry.count,
-            ),
+            (entry) =>
+                TopPlaceEntry(placeName: entry.name, visitCount: entry.count),
           )
           .toList();
     }
@@ -356,9 +422,9 @@ class StatsAggregationService {
       'Evening explorer': evening,
       'Night explorer': night,
     };
-    return buckets.entries.reduce(
-      (left, right) => left.value >= right.value ? left : right,
-    ).key;
+    return buckets.entries
+        .reduce((left, right) => left.value >= right.value ? left : right)
+        .key;
   }
 
   double? furthestFromHomeKm({
@@ -417,7 +483,8 @@ class StatsAggregationService {
     var bestYield = 0.0;
 
     for (final journey in journeys) {
-      final yield = journey.tilesPerKm ??
+      final yield =
+          journey.tilesPerKm ??
           (journey.distanceMeters <= 0
               ? 0
               : journey.tilesUnlocked / (journey.distanceMeters / 1000));
@@ -433,7 +500,8 @@ class StatsAggregationService {
   String journeyInsightMessage(List<Journey> journeys) {
     final bestYield = bestYieldJourney(journeys);
     if (bestYield != null && (bestYield.tilesPerKm ?? 0) > 0) {
-      final yield = bestYield.tilesPerKm ??
+      final yield =
+          bestYield.tilesPerKm ??
           bestYield.tilesUnlocked / (bestYield.distanceMeters / 1000);
       return 'Best exploration yield: ${yield.toStringAsFixed(1)} tiles/km';
     }
@@ -449,7 +517,9 @@ class StatsAggregationService {
   int unlockStreakDays(List<VisitedPolygonRecord> records) {
     if (records.isEmpty) return 0;
 
-    final unlockDays = records.map((record) => _dateOnly(record.visitedAt)).toSet();
+    final unlockDays = records
+        .map((record) => _dateOnly(record.visitedAt))
+        .toSet();
     var cursor = _dateOnly(DateTime.now());
     if (!unlockDays.contains(cursor)) {
       cursor = cursor.subtract(const Duration(days: 1));
@@ -494,17 +564,40 @@ class StatsAggregationService {
     final ranked = entryCounts.entries.toList()
       ..sort((left, right) => right.value.compareTo(left.value));
 
-    return ranked
-        .take(limit)
-        .map((entry) {
-          final meta = metaByPolygonId[entry.key];
-          return TopTileEntry(
-            polygonId: entry.key,
-            displayName: meta?.name ?? 'Tile ${entry.key.substring(0, 6)}',
-            entryCount: entry.value,
-          );
-        })
-        .toList();
+    return ranked.take(limit).map((entry) {
+      final meta = metaByPolygonId[entry.key];
+      return TopTileEntry(
+        polygonId: entry.key,
+        displayName: formatTileDisplayName(
+          name: meta?.name,
+          polygonId: entry.key,
+        ),
+        entryCount: entry.value,
+      );
+    }).toList();
+  }
+
+  /// Turns stored region names into short loyalty labels.
+  ///
+  /// Spatial import stores names as `{SA2 name} - SA1 {code}`. Prefer the SA2
+  /// suburb/area name; fall back to a shortened SA1 code only when name is
+  /// missing (older unlocks before meta was written).
+  String formatTileDisplayName({
+    required String? name,
+    required String polygonId,
+  }) {
+    final trimmed = name?.trim();
+    if (trimmed != null && trimmed.isNotEmpty) {
+      final sa1Marker = RegExp(r'\s+-\s+SA1\s+', caseSensitive: false);
+      final parts = trimmed.split(sa1Marker);
+      if (parts.isNotEmpty && parts.first.trim().isNotEmpty) {
+        return parts.first.trim();
+      }
+      return trimmed;
+    }
+
+    if (polygonId.length <= 6) return 'Area $polygonId';
+    return 'Area ${polygonId.substring(0, 6)}';
   }
 
   String tilesInsightMessage({
@@ -515,7 +608,10 @@ class StatsAggregationService {
     final biggest = biggestUnlock(metaByPolygonId);
     if (biggest != null && (biggest.areaSquareMetres ?? 0) > 0) {
       final hectares = (biggest.areaSquareMetres! / 10_000).toStringAsFixed(1);
-      final name = biggest.name ?? 'Unnamed tile';
+      final name = formatTileDisplayName(
+        name: biggest.name,
+        polygonId: biggest.polygonId,
+      );
       return 'Biggest unlock: $name · $hectares ha';
     }
 
@@ -539,15 +635,7 @@ class StatsAggregationService {
       DateTime(value.year, value.month, value.day);
 
   String _weekdayLabel(DateTime day) {
-    const labels = <String>[
-      'Mon',
-      'Tue',
-      'Wed',
-      'Thu',
-      'Fri',
-      'Sat',
-      'Sun',
-    ];
+    const labels = <String>['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
     return labels[day.weekday - DateTime.monday];
   }
 
@@ -555,7 +643,8 @@ class StatsAggregationService {
     const earthRadiusKm = 6371.0;
     final dLat = _toRadians(lat2 - lat1);
     final dLon = _toRadians(lon2 - lon1);
-    final a = math.sin(dLat / 2) * math.sin(dLat / 2) +
+    final a =
+        math.sin(dLat / 2) * math.sin(dLat / 2) +
         math.cos(_toRadians(lat1)) *
             math.cos(_toRadians(lat2)) *
             math.sin(dLon / 2) *

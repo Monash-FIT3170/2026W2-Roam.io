@@ -25,14 +25,14 @@ class TilesStatsView extends StatelessWidget {
       analytics.statsSummary,
       analytics.tileRecords,
     );
-    final areaM2 = analytics.statsSummary.totalAreaSquareMetres > 0
-        ? analytics.statsSummary.totalAreaSquareMetres
-        : analytics.polygonMeta.values.fold<double>(
-            0,
-            (sum, meta) => sum + (meta.areaSquareMetres ?? 0),
-          );
-    final areaKm2 = areaM2 / 1e6;
-    final coverage = aggregationService.melbourneCoveragePercent(areaM2);
+    final revealed = aggregationService.revealedAreaSquareMetres(
+      summary: analytics.statsSummary,
+      polygonMeta: analytics.polygonMeta,
+      tileCount: tileCount,
+    );
+    final coverage = aggregationService.formatCoveragePercent(
+      revealed.squareMetres,
+    );
     final unlockStreak = aggregationService.unlockStreakDays(
       analytics.tileRecords,
     );
@@ -57,11 +57,14 @@ class TilesStatsView extends StatelessWidget {
               StatsHeroStat(label: 'Tiles unlocked', value: '$tileCount'),
               StatsHeroStat(
                 label: 'Area revealed',
-                value: '${areaKm2.toStringAsFixed(2)} km²',
+                value: aggregationService.formatAreaKm2(
+                  revealed.squareMetres,
+                  isEstimated: revealed.isEstimated,
+                ),
               ),
               StatsHeroStat(
                 label: 'City mapped',
-                value: '${coverage.toStringAsFixed(2)}%',
+                value: coverage,
               ),
             ],
           ),

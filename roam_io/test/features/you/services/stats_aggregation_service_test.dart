@@ -149,5 +149,41 @@ void main() {
       expect(tiles.single.displayName, 'Carlton');
       expect(tiles.single.entryCount, 4);
     });
+
+    test('formatTileDisplayName prefers SA2 suburb from stored region name', () {
+      expect(
+        service.formatTileDisplayName(
+          name: 'Carlton - SA1 21102126135',
+          polygonId: '21102126135',
+        ),
+        'Carlton',
+      );
+      expect(
+        service.formatTileDisplayName(
+          name: null,
+          polygonId: '21102126135',
+        ),
+        'Area 211021',
+      );
+    });
+
+    test('revealedAreaSquareMetres estimates when meta has no areas', () {
+      final revealed = service.revealedAreaSquareMetres(
+        summary: const StatsSummary(),
+        polygonMeta: const {},
+        tileCount: 4,
+      );
+
+      expect(revealed.isEstimated, isTrue);
+      expect(revealed.squareMetres, 4 * averageSa1AreaSquareMetres);
+      expect(
+        service.formatAreaKm2(revealed.squareMetres, isEstimated: true),
+        '~1.00 km²',
+      );
+      expect(
+        service.formatCoveragePercent(revealed.squareMetres),
+        isNot(equals('0.00%')),
+      );
+    });
   });
 }
