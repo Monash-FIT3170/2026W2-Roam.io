@@ -49,7 +49,9 @@ class _QuestsScreenState extends State<QuestsScreen> {
   Widget build(BuildContext context) {
     return ChangeNotifierProvider<QuestController>.value(
       value: _questController,
-      child: const _QuestsContent(),
+      child: const Scaffold(
+        body: _QuestsContent(),
+      ),
     );
   }
 }
