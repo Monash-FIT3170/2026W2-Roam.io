@@ -11,7 +11,18 @@ import '../stats/tiles_stats_view.dart';
 import '../stats/xp_stats_view.dart';
 import '../widgets/stats_hero_row.dart';
 
-/// Stats tab shell with hero strip and category sub-tabs.
+enum _StatsCategory { locations, tiles, journeys, xp }
+
+extension on _StatsCategory {
+  String get label => switch (this) {
+    _StatsCategory.locations => 'Locations',
+    _StatsCategory.tiles => 'Tiles',
+    _StatsCategory.journeys => 'Journeys',
+    _StatsCategory.xp => 'XP',
+  };
+}
+
+/// Stats tab shell with hero strip and category dropdown.
 class StatsScreen extends StatefulWidget {
   const StatsScreen({super.key, required this.profile});
 
@@ -21,26 +32,17 @@ class StatsScreen extends StatefulWidget {
   State<StatsScreen> createState() => _StatsScreenState();
 }
 
-class _StatsScreenState extends State<StatsScreen>
-    with SingleTickerProviderStateMixin {
-  late final TabController _categoryController;
-
-  @override
-  void initState() {
-    super.initState();
-    _categoryController = TabController(length: 4, vsync: this);
-  }
-
-  @override
-  void dispose() {
-    _categoryController.dispose();
-    super.dispose();
-  }
+class _StatsScreenState extends State<StatsScreen> {
+  _StatsCategory _category = _StatsCategory.locations;
 
   @override
   Widget build(BuildContext context) {
     final analytics = context.watch<StatsAnalyticsProvider>();
     final bottomClearance = AppBottomNavBar.clearanceFromScreenBottom(context);
+    final sectionStyle = Theme.of(context).textTheme.headlineSmall?.copyWith(
+      color: AppSurfaces.textPrimary(context),
+      fontWeight: FontWeight.w900,
+    );
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -50,24 +52,22 @@ class _StatsScreenState extends State<StatsScreen>
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(
-                'Stats',
-                style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                  color: AppSurfaces.textPrimary(context),
-                  fontWeight: FontWeight.w900,
-                ),
-              ),
+              Text('Stats', style: sectionStyle),
               const SizedBox(height: 12),
               StatsHeroStrip(profile: widget.profile, analytics: analytics),
               const SizedBox(height: 16),
-              _StatsCategoryTabBar(controller: _categoryController),
+              _StatsCategoryDropdown(
+                category: _category,
+                style: sectionStyle,
+                onChanged: (value) => setState(() => _category = value),
+              ),
             ],
           ),
         ),
         const SizedBox(height: 12),
         Expanded(
-          child: TabBarView(
-            controller: _categoryController,
+          child: IndexedStack(
+            index: _category.index,
             children: [
               LocationsStatsView(analytics: analytics),
               TilesStatsView(analytics: analytics),
@@ -82,43 +82,54 @@ class _StatsScreenState extends State<StatsScreen>
   }
 }
 
-class _StatsCategoryTabBar extends StatelessWidget {
-  const _StatsCategoryTabBar({required this.controller});
+class _StatsCategoryDropdown extends StatelessWidget {
+  const _StatsCategoryDropdown({
+    required this.category,
+    required this.style,
+    required this.onChanged,
+  });
 
-  final TabController controller;
+  final _StatsCategory category;
+  final TextStyle? style;
+  final ValueChanged<_StatsCategory> onChanged;
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-      decoration: BoxDecoration(
-        color: AppSurfaces.card(context),
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: AppSurfaces.border(context)),
-      ),
-      child: TabBar(
-        controller: controller,
-        isScrollable: true,
-        tabAlignment: TabAlignment.start,
-        labelColor: theme.colorScheme.primary,
-        unselectedLabelColor: AppSurfaces.textMuted(context),
-        indicatorColor: theme.colorScheme.primary,
-        indicatorWeight: 3,
-        dividerColor: Colors.transparent,
-        labelStyle: theme.textTheme.labelLarge?.copyWith(
-          fontWeight: FontWeight.w800,
-        ),
-        unselectedLabelStyle: theme.textTheme.labelLarge?.copyWith(
-          fontWeight: FontWeight.w700,
-        ),
-        tabs: const [
-          Tab(text: 'Locations'),
-          Tab(text: 'Tiles'),
-          Tab(text: 'Journeys'),
-          Tab(text: 'XP'),
+    return PopupMenuButton<_StatsCategory>(
+      initialValue: category,
+      onSelected: onChanged,
+      padding: EdgeInsets.zero,
+      offset: const Offset(0, 40),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+      itemBuilder: (context) {
+        return [
+          for (final option in _StatsCategory.values)
+            PopupMenuItem<_StatsCategory>(
+              value: option,
+              child: Text(
+                option.label,
+                style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                  fontWeight: option == category
+                      ? FontWeight.w800
+                      : FontWeight.w600,
+                  color: option == category
+                      ? Theme.of(context).colorScheme.primary
+                      : AppSurfaces.textPrimary(context),
+                ),
+              ),
+            ),
+        ];
+      },
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(category.label, style: style),
+          const SizedBox(width: 4),
+          Icon(
+            Icons.keyboard_arrow_down_rounded,
+            size: 28,
+            color: AppSurfaces.textPrimary(context),
+          ),
         ],
       ),
     );

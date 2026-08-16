@@ -40,13 +40,7 @@ class RecentVisitedLocationsCard extends StatelessWidget {
         color: AppSurfaces.card(context),
         borderRadius: BorderRadius.circular(24),
         border: Border.all(color: AppSurfaces.border(context)),
-        boxShadow: [
-          BoxShadow(
-            color: AppSurfaces.shadow(context),
-            blurRadius: 12,
-            offset: const Offset(0, 6),
-          ),
-        ],
+        boxShadow: AppSurfaces.cardShadow(context),
       ),
       child: _buildBody(context),
     );

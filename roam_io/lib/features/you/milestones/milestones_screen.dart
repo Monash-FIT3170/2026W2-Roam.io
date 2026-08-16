@@ -76,7 +76,7 @@ class MilestonesScreen extends StatelessWidget {
                 });
               },
             ),
-            const SizedBox(height: 10),
+            const SizedBox(height: 16),
           ],
           const SizedBox(height: 18),
           Text('Badges', style: sectionStyle),

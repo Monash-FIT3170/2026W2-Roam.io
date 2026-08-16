@@ -30,6 +30,7 @@ class StatsChartSection extends StatelessWidget {
         color: AppSurfaces.card(context),
         borderRadius: BorderRadius.circular(18),
         border: Border.all(color: AppSurfaces.border(context)),
+        boxShadow: AppSurfaces.cardShadow(context),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,

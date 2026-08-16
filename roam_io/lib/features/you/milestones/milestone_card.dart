@@ -78,14 +78,7 @@ class _MilestoneCardState extends State<MilestoneCard>
         color: AppSurfaces.card(context),
         borderRadius: BorderRadius.circular(18),
         border: Border.all(color: AppSurfaces.border(context)),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.14),
-            blurRadius: 14,
-            spreadRadius: 0,
-            offset: const Offset(0, 5),
-          ),
-        ],
+        boxShadow: AppSurfaces.cardShadow(context),
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.center,
