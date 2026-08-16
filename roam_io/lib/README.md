@@ -101,18 +101,24 @@ Find People (`FindPeopleScreen` → `FriendshipService.searchUsers`) lists
 `displayNameSearch`. Deployed Firestore rules must allow signed-in
 `read` (get/list) on `public_profiles` — without that, clients get
 `permission-denied` on `orderBy(displayNameSearch|usernameSearch)` even
-though Auth and Map still work. Keep rules in sync via
-`firebase deploy --only firestore:rules --project roam-io-71e2c` from
-`roam_io/`. Search does not depend on Follow documents or Follow UI state;
-Follow / Following is resolved per row after results render. Missing
-search fields cause empty hits, not permission errors — backfill with
-`npm run backfill:public-profiles` in `roam_io/functions` when needed.
+though Auth and Map still work. Keep rules **and** indexes in sync via
+`firebase deploy --only firestore:rules,firestore:indexes --project roam-io-71e2c`
+from `roam_io/`. Run
+`firebase emulators:exec --only firestore "npm run test:rules"` from
+`roam_io/functions` before deploying. Do not deploy the older MVP
+`develop` rules while this socialisation surface lives only on the
+feature branch — that overwrites hosted Firebase and recreates the
+social/activity `permission-denied` regression. Search does not depend
+on Follow documents or Follow UI state; Follow / Following is resolved
+per row after results render. Missing search fields cause empty hits,
+not permission errors — backfill with `npm run backfill:public-profiles`
+in `roam_io/functions` when needed.
 
 Public avatars use `public_profiles.photoUrl` (HTTPS Firebase Storage download
 URLs with `alt=media` + token). Shared `SocialAvatar` loads HTTP(S) via
 `Image.network` (same path as Settings); `gs://` / relative storage paths are
 resolved with `getDownloadURL` first. Author: Sanjevan Rajasegar,
-Last Updated: 9 August 2026.
+Last Updated: 16 August 2026 — Sanjevan Rajasegar.
 
 Profile headers show identity, level/XP, and six public stats:
 Following, Followers, Tiles, XP Gained, Journeys, and Sidequests. Following /

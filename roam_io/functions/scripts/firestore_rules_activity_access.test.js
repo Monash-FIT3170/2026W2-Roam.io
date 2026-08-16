@@ -1,6 +1,6 @@
 /*
  * Author: Sanjevan Rajasegar
- * Last Updated: 10 August 2026
+ * Last Updated: 16 August 2026 — Sanjevan Rajasegar
  * Description:
  *   Firestore rules tests for profile activity reads, follows, activity
  *   creation, counters, and interaction subcollections.
