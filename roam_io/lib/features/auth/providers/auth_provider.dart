@@ -17,6 +17,7 @@ import '../data/auth_repository.dart';
 import '../../profile/domain/profile_model.dart';
 import '../../profile/domain/xp_award_result.dart';
 import '../../profile/domain/xp_event.dart';
+import '../../social/domain/social_privacy_settings.dart';
 
 /// High-level authentication state used by auth gates and account screens.
 enum AuthViewState { loading, authenticated, unauthenticated }
@@ -52,6 +53,8 @@ class AuthProvider extends ChangeNotifier {
   bool get isAuthenticated => _currentUser != null;
   bool get isEmailVerified => _currentUser?.emailVerified ?? false;
   bool get darkModeEnabled => _currentProfile?.darkModeEnabled ?? false;
+  SocialPrivacySettings get socialPrivacy =>
+      _currentProfile?.privacy ?? const SocialPrivacySettings();
   int? get pendingLevelUp => _pendingLevelUp;
 
   /// Clears the current user-facing error message.
@@ -185,6 +188,17 @@ class AuthProvider extends ChangeNotifier {
       await _authRepository.updateDarkModePreference(enabled);
       _currentProfile = _currentProfile?.copyWith(
         darkModeEnabled: enabled,
+        updatedAt: DateTime.now(),
+      );
+    });
+  }
+
+  /// Persists private-account settings and updates local profile state.
+  Future<void> updateSocialPrivacy(SocialPrivacySettings privacy) async {
+    await _runAuthAction(() async {
+      await _authRepository.updateSocialPrivacy(privacy);
+      _currentProfile = _currentProfile?.copyWith(
+        privacy: privacy,
         updatedAt: DateTime.now(),
       );
     });

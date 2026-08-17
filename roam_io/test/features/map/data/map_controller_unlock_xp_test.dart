@@ -384,6 +384,15 @@ class _FakePlacesService implements PlacesService {
   }
 
   @override
+  Future<Map<String, List<PlaceOfInterest>>> getPlacesForRegions({
+    required List<String> regionIds,
+  }) async {
+    return {
+      for (final regionId in regionIds) regionId: const <PlaceOfInterest>[],
+    };
+  }
+
+  @override
   dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
 }
 

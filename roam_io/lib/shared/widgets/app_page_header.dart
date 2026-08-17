@@ -1,6 +1,6 @@
 /*
  * Author: Sanjevan Rajasegar
- * Last Updated: 5 August 2026
+ * Last Updated: 7 August 2026
  * Description:
  *   Provides a reusable page title with optional subtitle and trailing action
  *   header for app screens.
@@ -30,7 +30,7 @@ class AppPageHeader extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
+            crossAxisAlignment: CrossAxisAlignment.center,
             children: [
               Expanded(
                 child: Text(

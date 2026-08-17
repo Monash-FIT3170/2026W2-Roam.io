@@ -1,6 +1,6 @@
 /*
  * Author: Sanjevan Rajasegar
- * Last Updated: 6 August 2026
+ * Last Updated: 7 August 2026
  * Description:
  *   Regression tests for ProfileService.addXp: canonical progression must
  *   succeed even when secondary xp_events history recording fails.
@@ -10,10 +10,57 @@ import 'package:fake_cloud_firestore/fake_cloud_firestore.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:roam_io/features/profile/domain/profile_model.dart';
 import 'package:roam_io/features/profile/domain/xp_event.dart';
+import 'package:roam_io/features/social/data/friendship_service.dart';
 import 'package:roam_io/services/profile_service.dart';
 
 void main() {
   group('ProfileService.addXp', () {
+    test('createProfile writes the public search profile mirror', () async {
+      final firestore = FakeFirebaseFirestore();
+      final service = ProfileService(firestore: firestore);
+
+      await service.createProfile(
+        _profile(
+          uid: 'u1',
+          xp: 0,
+          level: 1,
+        ).copyWith(username: 'TravellerOne', displayName: 'Traveller One'),
+      );
+
+      final publicProfile = await firestore
+          .collection('public_profiles')
+          .doc('u1')
+          .get();
+
+      expect(publicProfile.exists, isTrue);
+      expect(publicProfile.data()?['username'], 'TravellerOne');
+      expect(publicProfile.data()?['usernameSearch'], 'travellerone');
+      expect(publicProfile.data()?['displayName'], 'Traveller One');
+      expect(publicProfile.data()?['displayNameSearch'], 'traveller one');
+      expect(publicProfile.data()?['xp'], 0);
+      expect(publicProfile.data()?['level'], 1);
+      expect(publicProfile.data()?.containsKey('email'), isFalse);
+    });
+
+    test(
+      'public profile projection failure does not fail profile creation',
+      () async {
+        final firestore = FakeFirebaseFirestore();
+        final service = ProfileService(
+          firestore: firestore,
+          friendshipService: _ThrowingProjectionFriendshipService(),
+        );
+
+        await service.createProfile(_profile(uid: 'u1', xp: 0, level: 1));
+
+        final privateProfile = await firestore
+            .collection('profiles')
+            .doc('u1')
+            .get();
+        expect(privateProfile.exists, isTrue);
+      },
+    );
+
     test(
       'awards canonical XP and records history when history write succeeds',
       () async {
@@ -129,7 +176,49 @@ void main() {
       final profile = await service.getProfile('u1');
       expect(profile?.level, result.newLevel);
     });
+
+    test(
+      'public profile projection failure does not fail XP progression',
+      () async {
+        final firestore = FakeFirebaseFirestore();
+        final service = ProfileService(
+          firestore: firestore,
+          friendshipService: _ThrowingProjectionFriendshipService(),
+        );
+        await firestore
+            .collection('profiles')
+            .doc('u1')
+            .set(_profile(uid: 'u1', xp: 90, level: 1).toMap());
+
+        final result = await service.addXp('u1', 50);
+
+        expect(result.succeeded, isTrue);
+        expect(result.newXp, 140);
+        final profile = await service.getProfile('u1');
+        expect(profile?.xp, 140);
+        expect(profile?.level, ProfileModel.levelFromXp(140));
+      },
+    );
   });
+}
+
+class _ThrowingProjectionFriendshipService implements FriendshipService {
+  @override
+  Future<void> upsertPublicProfile({
+    required String uid,
+    required String username,
+    required String displayName,
+    String? photoUrl,
+    DateTime? createdAt,
+    int? xp,
+    int? level,
+    bool isPrivateAccount = false,
+  }) async {
+    throw Exception('simulated public projection failure');
+  }
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
 }
 
 ProfileModel _profile({
