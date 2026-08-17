@@ -1,6 +1,6 @@
 /*
  * Author: Amarprit Singh
- * Last Modified: 10/05/2026
+ * Last Modified: 13/08/2026
  * Description:
  *
  *   Wraps geolocation access for the map feature so permission and device
@@ -67,14 +67,34 @@ class GeoLocatorService {
   }
 
   // Gets continuous location updates for the active map experience.
-  Future<Stream<Position>> getLocationUpdates() async {
+  //
+  // Journey tracking can opt into iOS background updates so the route can
+  // continue recording while a Live Activity is visible on the Lock Screen.
+  Future<Stream<Position>> getLocationUpdates({
+    bool allowBackgroundUpdates = false,
+  }) async {
     await _ensureLocationAccess();
 
-    return Geolocator.getPositionStream(
-      locationSettings: const LocationSettings(
+    final LocationSettings locationSettings;
+
+    if (!kIsWeb &&
+        defaultTargetPlatform == TargetPlatform.iOS &&
+        allowBackgroundUpdates) {
+      locationSettings = AppleSettings(
+        accuracy: LocationAccuracy.high,
+        activityType: ActivityType.fitness,
+        distanceFilter: distanceRefreshThresholdMetres,
+        pauseLocationUpdatesAutomatically: false,
+        showBackgroundLocationIndicator: true,
+        allowBackgroundLocationUpdates: true,
+      );
+    } else {
+      locationSettings = const LocationSettings(
         accuracy: LocationAccuracy.high,
         distanceFilter: distanceRefreshThresholdMetres,
-      ),
-    );
+      );
+    }
+
+    return Geolocator.getPositionStream(locationSettings: locationSettings);
   }
 }

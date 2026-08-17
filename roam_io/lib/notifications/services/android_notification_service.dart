@@ -183,9 +183,7 @@ class AndroidNotificationService {
   Future<void> cancel(AppNotification notification) async {
     if (!_isSupportedPlatform) return;
 
-    await _plugin.cancel(
-      id: _createNotificationId(notification.id),
-    );
+    await _plugin.cancel(id: _createNotificationId(notification.id));
   }
 
   /// Cancels all system notifications created by the application.
@@ -375,11 +373,7 @@ const _importantChannel = _NotificationChannelConfiguration(
   priority: Priority.high,
 );
 
-const _channels = [
-  _socialChannel,
-  _activityChannel,
-  _importantChannel,
-];
+const _channels = [_socialChannel, _activityChannel, _importantChannel];
 
 // iOS notification category identifiers.
 
@@ -400,16 +394,12 @@ final List<DarwinNotificationCategory> _iosNotificationCategories = [
       DarwinNotificationAction.plain(
         NotificationActionType.accept.name,
         'Accept',
-        options: {
-          DarwinNotificationActionOption.foreground,
-        },
+        options: {DarwinNotificationActionOption.foreground},
       ),
       DarwinNotificationAction.plain(
         NotificationActionType.decline.name,
         'Decline',
-        options: {
-          DarwinNotificationActionOption.foreground,
-        },
+        options: {DarwinNotificationActionOption.foreground},
       ),
     ],
   ),
@@ -419,16 +409,12 @@ final List<DarwinNotificationCategory> _iosNotificationCategories = [
       DarwinNotificationAction.plain(
         NotificationActionType.accept.name,
         'Accept',
-        options: {
-          DarwinNotificationActionOption.foreground,
-        },
+        options: {DarwinNotificationActionOption.foreground},
       ),
       DarwinNotificationAction.plain(
         NotificationActionType.decline.name,
         'Decline',
-        options: {
-          DarwinNotificationActionOption.foreground,
-        },
+        options: {DarwinNotificationActionOption.foreground},
       ),
     ],
   ),
@@ -438,16 +424,12 @@ final List<DarwinNotificationCategory> _iosNotificationCategories = [
       DarwinNotificationAction.plain(
         NotificationActionType.pause.name,
         'Pause',
-        options: {
-          DarwinNotificationActionOption.foreground,
-        },
+        options: {DarwinNotificationActionOption.foreground},
       ),
       DarwinNotificationAction.plain(
         NotificationActionType.resume.name,
         'Resume',
-        options: {
-          DarwinNotificationActionOption.foreground,
-        },
+        options: {DarwinNotificationActionOption.foreground},
       ),
       DarwinNotificationAction.plain(
         NotificationActionType.stop.name,
@@ -465,18 +447,13 @@ final List<DarwinNotificationCategory> _iosNotificationCategories = [
       DarwinNotificationAction.plain(
         NotificationActionType.retry.name,
         'Retry',
-        options: {
-          DarwinNotificationActionOption.foreground,
-        },
+        options: {DarwinNotificationActionOption.foreground},
       ),
       DarwinNotificationAction.plain(
         NotificationActionType.dismiss.name,
         'Dismiss',
-        options: {
-          DarwinNotificationActionOption.foreground,
-        },
+        options: {DarwinNotificationActionOption.foreground},
       ),
     ],
   ),
 ];
-

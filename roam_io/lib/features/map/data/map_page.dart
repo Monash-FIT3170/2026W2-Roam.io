@@ -447,13 +447,29 @@ class _MapPageState extends State<MapPage> {
 
   Future<void> _endJourneyFlow() async {
     final journeyController = context.read<JourneyController>();
+
+    // Stop active GPS tracking before moving into the existing completion flow.
+    await journeyController.stopTracking();
+    if (!mounted || journeyController.currentPhase != JourneyPhase.completing) {
+      return;
+    }
+
+    await _completeStoppedJourneyFlow();
+  }
+
+  /// Completes a Journey whose live tracking has already stopped.
+  ///
+  /// This is also used when the user presses Stop from a system-level live
+  /// notification. In that case the map presents a Finish Journey action the
+  /// next time the user returns to it.
+  Future<void> _completeStoppedJourneyFlow() async {
+    final journeyController = context.read<JourneyController>();
     final authProvider = context.read<AuthProvider>();
     final userId = authProvider.currentUser?.uid;
 
-    // Stop tracking first
-    await journeyController.stopTracking();
+    if (journeyController.currentPhase != JourneyPhase.completing) return;
 
-    // Get current position for the end location sheet
+    // Get current position for the end location sheet.
     LatLng currentPosition;
     try {
       final position = await _mapController.getCurrentPosition();
@@ -462,7 +478,7 @@ class _MapPageState extends State<MapPage> {
       currentPosition = _mapController.center;
     }
 
-    // Fetch nearby places from Google Places API
+    // Fetch nearby places from Google Places API.
     final placesService = PlacesService();
     final googlePlaces = await placesService.getNearbyPlaces(
       lat: currentPosition.latitude,
@@ -470,7 +486,7 @@ class _MapPageState extends State<MapPage> {
       radiusMeters: 10,
     );
 
-    // Get custom saved locations within radius
+    // Get custom saved locations within radius.
     final customLocations = await _getNearbySavedLocations(
       currentPosition: currentPosition,
       radiusMeters: 10,
@@ -479,13 +495,11 @@ class _MapPageState extends State<MapPage> {
     );
     if (!mounted) return;
 
-    // Combine and sort by distance
     final allNearbyPlaces = [...googlePlaces, ...customLocations];
     allNearbyPlaces.sort(
       (a, b) => (a.distanceMeters ?? 999).compareTo(b.distanceMeters ?? 999),
     );
 
-    // Show end journey sheet
     final endResult = await EndJourneySheet.show(
       context: context,
       currentPosition: currentPosition,
@@ -497,14 +511,13 @@ class _MapPageState extends State<MapPage> {
     if (!mounted) return;
 
     if (endResult == null) {
-      // User cancelled - discard journey
       await journeyController.cancelJourney();
       _activeJourneyPolyline = {};
       setState(() {});
       return;
     }
 
-    // User chose to continue tracking
+    // User chose to continue tracking.
     if (endResult.continueTracking) {
       await journeyController.resumeTracking();
       if (mounted && journeyController.isTracking) {
@@ -513,14 +526,11 @@ class _MapPageState extends State<MapPage> {
       return;
     }
 
-    // Set end location and proceed to review
     journeyController.setEndLocation(endResult.endLocation);
     journeyController.proceedToReview();
 
-    // Calculate XP preview
     final xpEarned = journeyController.totalXpEarned;
 
-    // Show summary sheet
     final summaryResult = await JourneySummarySheet.show(
       context: context,
       startLocation: journeyController.startLocation!,
@@ -540,7 +550,6 @@ class _MapPageState extends State<MapPage> {
     if (!mounted) return;
 
     if (summaryResult == JourneySummaryResult.save) {
-      // Save the journey
       final authProvider = context.read<AuthProvider>();
       final userId = authProvider.currentUser?.uid;
 
@@ -548,7 +557,6 @@ class _MapPageState extends State<MapPage> {
         final savedJourney = await journeyController.saveJourney(userId);
 
         if (savedJourney != null && mounted) {
-          // Award XP
           await authProvider.addXp(
             savedJourney.journeyXpEarned ?? savedJourney.xpEarned ?? 0,
           );
@@ -560,14 +568,12 @@ class _MapPageState extends State<MapPage> {
         }
       }
     } else {
-      // Discard
       await journeyController.cancelJourney();
       if (mounted) {
         AppToast.show(context, 'Journey discarded');
       }
     }
 
-    // Clear active journey polyline
     _activeJourneyPolyline = {};
     setState(() {});
   }
@@ -638,6 +644,11 @@ class _MapPageState extends State<MapPage> {
   Widget build(BuildContext context) {
     final journeyController = context.watch<JourneyController>();
     final isTracking = journeyController.currentPhase == JourneyPhase.tracking;
+    final isPaused = journeyController.currentPhase == JourneyPhase.paused;
+    final isLiveJourneyActive = isTracking || isPaused;
+    final isCompleting =
+        journeyController.currentPhase == JourneyPhase.completing;
+    final canStartJourney = journeyController.currentPhase == JourneyPhase.idle;
 
     // Combine active journey polyline with saved journey polylines
     final allPolylines = <Polyline>{
@@ -666,7 +677,7 @@ class _MapPageState extends State<MapPage> {
         if (_mapController.myLocationEnabled)
           Positioned(
             right: 16,
-            bottom: isTracking ? 220 : 120,
+            bottom: isLiveJourneyActive ? 220 : 120,
             child: FloatingActionButton.small(
               heroTag: 'recenter_map',
               tooltip: 'Centre on my location',
@@ -676,14 +687,30 @@ class _MapPageState extends State<MapPage> {
               child: const Icon(Icons.my_location),
             ),
           ),
-        // Start Journey button at top-center (hidden during tracking)
-        if (!isTracking)
+        // Start Journey is available only while no Journey is active.
+        if (canStartJourney)
           Positioned(
             top: MediaQuery.paddingOf(context).top + 16,
             left: 0,
             right: 0,
             child: Center(
               child: StartJourneyChip(onPressed: _startJourneyFlow),
+            ),
+          ),
+        // A lock-screen Stop action ends tracking immediately. The Journey
+        // remains available here so the user can choose its end location and
+        // review/save it after returning to the app.
+        if (isCompleting)
+          Positioned(
+            top: MediaQuery.paddingOf(context).top + 16,
+            left: 0,
+            right: 0,
+            child: Center(
+              child: FilledButton.icon(
+                onPressed: _completeStoppedJourneyFlow,
+                icon: const Icon(Icons.flag_outlined),
+                label: const Text('Finish Journey'),
+              ),
             ),
           ),
         if (_mapController.isHeatmapEnabled)
@@ -700,8 +727,8 @@ class _MapPageState extends State<MapPage> {
             onPressed: _mapController.toggleHeatmap,
           ),
         ),
-        // Journey tracking card (when tracking)
-        if (isTracking)
+        // Journey tracking card remains available while tracking is paused.
+        if (isLiveJourneyActive)
           Positioned(
             bottom: 100,
             left: 0,
@@ -710,6 +737,14 @@ class _MapPageState extends State<MapPage> {
               distanceMeters: journeyController.distanceMeters,
               elapsedTime: journeyController.formattedElapsedTime,
               transportMode: journeyController.transportMode,
+              isPaused: isPaused,
+              onPauseResume: () {
+                if (isPaused) {
+                  journeyController.resumeTracking();
+                } else {
+                  journeyController.pauseTracking();
+                }
+              },
               onEndJourney: _endJourneyFlow,
             ),
           ),

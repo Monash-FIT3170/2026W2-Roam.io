@@ -140,9 +140,11 @@ class _MainShellScreenState extends State<MainShellScreen> {
       const SettingsScreen(),
     ];
 
-    //Initialise the Android notification service
+    // Request system notification permission on supported mobile platforms.
     if (widget.requestNotificationPermission &&
-        defaultTargetPlatform == TargetPlatform.android) {
+        !kIsWeb &&
+        (defaultTargetPlatform == TargetPlatform.android ||
+            defaultTargetPlatform == TargetPlatform.iOS)) {
       WidgetsBinding.instance.addPostFrameCallback((_) async {
         final granted = await AndroidNotificationService.instance
             .requestPermission();
