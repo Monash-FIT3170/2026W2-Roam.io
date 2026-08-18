@@ -13,6 +13,7 @@ import 'package:image_picker/image_picker.dart';
 import '../../profile/domain/profile_model.dart';
 import '../../profile/domain/xp_award_result.dart';
 import '../../profile/domain/xp_event.dart';
+import '../../social/domain/social_privacy_settings.dart';
 import '../../../services/auth_service.dart';
 import '../../../services/profile_service.dart';
 import '../../../services/storage_service.dart';
@@ -168,6 +169,19 @@ class AuthRepository {
     return updateThemeModePreference(
       enabled ? AppThemeMode.dark : AppThemeMode.light,
     );
+  }
+
+  /// Persists the signed-in user's social privacy settings.
+  Future<void> updateSocialPrivacy(SocialPrivacySettings privacy) async {
+    final user = currentUser;
+    if (user == null) {
+      throw FirebaseAuthException(
+        code: 'user-not-found',
+        message: 'No logged in user found.',
+      );
+    }
+
+    await _profileService.updateSocialPrivacy(uid: user.uid, privacy: privacy);
   }
 
   /// Uploads a profile image when it differs from the current stored photo.

@@ -1,9 +1,9 @@
 /*
  * Author: Sanjevan Rajasegar
- * Last Updated: 5 August 2026
+ * Last Updated: 8 August 2026
  * Description:
  *   Provides the row-based Settings screen for account identity, account edit
- *   navigation, profile photo updates, standalone session actions, and app
+ *   navigation, profile photo updates, privacy, session actions, and app
  *   preferences.
  */
 
@@ -119,6 +119,20 @@ class _SettingsScreenState extends State<SettingsScreen> {
     }
   }
 
+  /// Persists whether the account requires approval for new followers.
+  Future<void> _togglePrivateAccount(bool enabled) async {
+    final auth = context.read<AuthProvider>();
+    await auth.updateSocialPrivacy(
+      auth.socialPrivacy.copyWith(isPrivateAccount: enabled),
+    );
+
+    if (!mounted) return;
+
+    if (auth.errorMessage != null) {
+      AppToast.error(context, auth.errorMessage!);
+    }
+  }
+
   void _open(Widget screen) {
     Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => screen));
   }
@@ -221,6 +235,24 @@ class _SettingsScreenState extends State<SettingsScreen> {
                                     color: AppSurfaces.textSubtle(context),
                                   ),
                                 ],
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 22),
+                        SettingsGroup(
+                          title: 'Privacy',
+                          children: [
+                            SettingsRow(
+                              icon: Icons.visibility_off_outlined,
+                              title: 'Private Account',
+                              showChevron: false,
+                              showDivider: false,
+                              trailing: Switch(
+                                value: auth.socialPrivacy.isPrivateAccount,
+                                onChanged: auth.isBusy || profile == null
+                                    ? null
+                                    : _togglePrivateAccount,
                               ),
                             ),
                           ],

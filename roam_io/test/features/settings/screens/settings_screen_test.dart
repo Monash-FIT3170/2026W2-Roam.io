@@ -1,6 +1,9 @@
 /*
- * Regression tests for the Settings Light, Dark, and Dynamic appearance
- * preference and profile data preservation.
+ * Author: Sanjevan Rajasegar
+ * Last Updated: 8 August 2026
+ * Description:
+ *   Regression tests for row-based Settings appearance/privacy controls and
+ *   profile data preservation across Light, Dark, and Dynamic modes.
  */
 
 import 'package:firebase_auth/firebase_auth.dart' as firebase_auth;
@@ -11,6 +14,7 @@ import 'package:roam_io/features/auth/data/auth_repository.dart';
 import 'package:roam_io/features/auth/providers/auth_provider.dart';
 import 'package:roam_io/features/profile/domain/profile_model.dart';
 import 'package:roam_io/features/settings/screens/settings_screen.dart';
+import 'package:roam_io/features/settings/widgets/settings_group.dart';
 import 'package:roam_io/theme/app_theme_mode.dart';
 
 void main() {
@@ -30,7 +34,9 @@ void main() {
         repository.clearRecordedActions();
 
         final before = provider.currentProfile!;
-        await tester.tap(find.text('Appearance'));
+        final appearanceRow = find.text('Appearance');
+        await tester.ensureVisible(appearanceRow);
+        await tester.tap(appearanceRow);
         await tester.pumpAndSettle();
 
         expect(find.text('Light'), findsWidgets);
@@ -66,7 +72,9 @@ void main() {
     await _pumpSettingsScreen(tester, provider);
     repository.clearRecordedActions();
 
-    await tester.tap(find.text('Appearance'));
+    final appearanceRow = find.text('Appearance');
+    await tester.ensureVisible(appearanceRow);
+    await tester.tap(appearanceRow);
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const ValueKey<String>('theme-mode-dynamic')));
     await tester.pumpAndSettle();
@@ -92,7 +100,17 @@ Future<void> _pumpSettingsScreen(
 
   expect(provider.currentProfile, isNotNull);
   expect(find.text('Appearance'), findsOneWidget);
-  expect(find.byType(Switch), findsNothing);
+  expect(_switchForRow('Private Account'), findsOneWidget);
+}
+
+Finder _switchForRow(String rowTitle) {
+  return find.descendant(
+    of: find.ancestor(
+      of: find.text(rowTitle),
+      matching: find.byType(SettingsRow),
+    ),
+    matching: find.byType(Switch),
+  );
 }
 
 ProfileModel _buildProfile({required AppThemeMode themeMode}) {

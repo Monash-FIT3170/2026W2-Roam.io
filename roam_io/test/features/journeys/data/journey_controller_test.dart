@@ -11,18 +11,21 @@ import 'package:roam_io/features/journeys/domain/journey_location.dart';
 import 'package:roam_io/features/journeys/domain/journey_phase.dart';
 import 'package:roam_io/features/journeys/domain/transport_mode.dart';
 import 'package:roam_io/features/map/data/geolocator_service.dart';
+import 'package:roam_io/features/you/services/stats_summary_service.dart';
 
 void main() {
   test(
     'tile unlock XP is counted only while journey tracking is active',
     () async {
       final geo = _StreamingGeoLocatorService();
+      final firestore = FakeFirebaseFirestore();
       final controller = JourneyController(
-        journeyService: JourneyService(firestore: FakeFirebaseFirestore()),
+        journeyService: JourneyService(firestore: firestore),
         trackingService: JourneyTrackingService(geoLocatorService: geo),
+        statsSummaryService: StatsSummaryService(firestore: firestore),
       );
 
-      controller.recordTileUnlocked(50);
+      controller.recordTileUnlocked(polygonId: 'tile-1', xpAwarded: 50);
       expect(controller.tilesUnlocked, 0);
 
       controller.beginJourneySetup();
@@ -34,15 +37,15 @@ void main() {
       );
       await controller.startTracking();
 
-      controller.recordTileUnlocked(50);
-      controller.recordTileUnlocked(50);
+      controller.recordTileUnlocked(polygonId: 'tile-1', xpAwarded: 50);
+      controller.recordTileUnlocked(polygonId: 'tile-2', xpAwarded: 50);
 
       expect(controller.tilesUnlocked, 2);
       expect(controller.tileXpEarned, 100);
       expect(controller.totalXpEarned, controller.journeyXpEarned + 100);
 
       await controller.stopTracking();
-      controller.recordTileUnlocked(50);
+      controller.recordTileUnlocked(polygonId: 'tile-1', xpAwarded: 50);
       expect(controller.tilesUnlocked, 2);
 
       await controller.cancelJourney();
@@ -58,6 +61,7 @@ void main() {
     final controller = JourneyController(
       journeyService: service,
       trackingService: JourneyTrackingService(geoLocatorService: geo),
+      statsSummaryService: StatsSummaryService(firestore: firestore),
     );
     const start = JourneyLocation(
       latLng: LatLng(-37.8136, 144.9631),
@@ -74,7 +78,11 @@ void main() {
     await controller.startTracking();
     geo.addPosition(-37.8125, 144.9631);
     await Future<void>.delayed(Duration.zero);
-    controller.recordTileUnlocked(50);
+    controller.recordTileUnlocked(
+      polygonId: 'tile-save',
+      xpAwarded: 50,
+      areaSquareMetres: 1000,
+    );
     await controller.stopTracking();
     controller.setEndLocation(end);
     controller.proceedToReview();
@@ -90,7 +98,10 @@ void main() {
     final saved = await controller.saveJourney('user-1');
 
     expect(saved, isNotNull);
-    expect(saved?.xpEarned, saved!.journeyXpEarned! + 50);
+    expect(saved!.xpEarned, saved.journeyXpEarned! + 50);
+    expect(saved.tilesUnlocked, 1);
+    expect(saved.unlockedTileIds, ['tile-save']);
+    expect(saved.areaUnlockedSquareMetres, 1000);
     expect(controller.currentPhase, JourneyPhase.idle);
 
     final journeys = await controller.getJourneys('user-1');
@@ -121,9 +132,11 @@ void main() {
 
   test('rejects invalid state transitions and incomplete journeys', () async {
     final geo = _StreamingGeoLocatorService();
+    final firestore = FakeFirebaseFirestore();
     final controller = JourneyController(
-      journeyService: JourneyService(firestore: FakeFirebaseFirestore()),
+      journeyService: JourneyService(firestore: firestore),
       trackingService: JourneyTrackingService(geoLocatorService: geo),
+      statsSummaryService: StatsSummaryService(firestore: firestore),
     );
 
     await controller.stopTracking();
@@ -158,9 +171,11 @@ void main() {
     () async {
       final geo = _StreamingGeoLocatorService();
       final trackingService = JourneyTrackingService(geoLocatorService: geo);
+      final firestore = FakeFirebaseFirestore();
       final controller = JourneyController(
-        journeyService: JourneyService(firestore: FakeFirebaseFirestore()),
+        journeyService: JourneyService(firestore: firestore),
         trackingService: trackingService,
+        statsSummaryService: StatsSummaryService(firestore: firestore),
       );
 
       controller.beginJourneySetup();

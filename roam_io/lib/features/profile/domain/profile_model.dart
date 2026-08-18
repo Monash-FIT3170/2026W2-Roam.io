@@ -1,12 +1,14 @@
 import 'dart:math' as math;
 
 import '../../../theme/app_theme_mode.dart';
+import '../../social/domain/social_privacy_settings.dart';
 
 /*
- * Author: Alvin Liong
- * Last Modified: 4/05/2026
+ * Author: Sanjevan Rajasegar
+ * Last Updated: 8 August 2026
  * Description:
- *   Represents a user profile and maps profile data to and from Firestore.
+ *   Represents a user profile and maps profile data to and from Firestore,
+ *   including appearance preferences and nested social privacy settings.
  */
 
 /// App-level profile entity stored in Firestore at `profiles/{uid}`.
@@ -64,6 +66,7 @@ class ProfileModel {
     required this.updatedAt,
     AppThemeMode themeMode = AppThemeMode.light,
     bool? darkModeEnabled,
+    this.privacy = const SocialPrivacySettings(),
     this.xp = 0,
     this.level = 1,
   }) : themeMode = darkModeEnabled == null
@@ -79,6 +82,7 @@ class ProfileModel {
   final DateTime createdAt;
   final DateTime updatedAt;
   final AppThemeMode themeMode;
+  final SocialPrivacySettings privacy;
   final int xp;
   final int level;
 
@@ -98,6 +102,7 @@ class ProfileModel {
     DateTime? updatedAt,
     AppThemeMode? themeMode,
     bool? darkModeEnabled,
+    SocialPrivacySettings? privacy,
     int? xp,
     int? level,
   }) {
@@ -113,6 +118,7 @@ class ProfileModel {
       themeMode: darkModeEnabled == null
           ? (themeMode ?? this.themeMode)
           : (darkModeEnabled ? AppThemeMode.dark : AppThemeMode.light),
+      privacy: privacy ?? this.privacy,
       xp: xp ?? this.xp,
       level: level ?? this.level,
     );
@@ -130,6 +136,7 @@ class ProfileModel {
       'themeMode': themeMode.storageValue,
       // Retained for compatibility with clients that predate Dynamic mode.
       'darkModeEnabled': darkModeEnabled,
+      'privacy': privacy.toMap(),
       'xp': xp,
       'level': level,
     };
@@ -163,6 +170,7 @@ class ProfileModel {
         map['themeMode'],
         legacyDarkModeEnabled: map['darkModeEnabled'] == true,
       ),
+      privacy: SocialPrivacySettings.fromMap(map['privacy']),
       xp: (map['xp'] as num?)?.toInt() ?? 0,
       level:
           (map['level'] as num?)?.toInt() ??

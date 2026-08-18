@@ -107,5 +107,61 @@ void main() {
       expect(records, hasLength(1));
       expect(records.single.polygonId, 'keep');
     });
+    test('upsertVisitedPolygon stores visited_polygon_meta', () async {
+      final firestore = FakeFirebaseFirestore();
+      final service = PolygonService(firestore: firestore);
+      final visitedAt = DateTime(2026, 3, 1, 12);
+
+      final didUnlock = await service.upsertVisitedPolygon(
+        profileId: 'user-meta',
+        polygonId: 'poly-meta',
+        visitedAt: visitedAt,
+        areaSquareMetres: 12345.6,
+        name: 'Carlton',
+      );
+
+      expect(didUnlock, isTrue);
+
+      final meta = await service.getVisitedPolygonMeta(profileId: 'user-meta');
+      expect(meta['poly-meta']?.areaSquareMetres, 12345.6);
+      expect(meta['poly-meta']?.name, 'Carlton');
+      expect(meta['poly-meta']?.lastEnteredAt, visitedAt);
+    });
+
+    test(
+      'recordPolygonReentry increments entry count and lastEnteredAt',
+      () async {
+        final firestore = FakeFirebaseFirestore();
+        final service = PolygonService(firestore: firestore);
+        final firstEnter = DateTime(2026, 3, 1, 12);
+        final secondEnter = DateTime(2026, 3, 2, 12);
+
+        await service.upsertVisitedPolygon(
+          profileId: 'user-reentry',
+          polygonId: 'poly-reentry',
+          visitedAt: firstEnter,
+          areaSquareMetres: 500,
+          name: 'Fitzroy',
+        );
+
+        final count = await service.recordPolygonReentry(
+          profileId: 'user-reentry',
+          polygonId: 'poly-reentry',
+          enteredAt: secondEnter,
+        );
+
+        expect(count, 1);
+
+        final meta = await service.getVisitedPolygonMeta(
+          profileId: 'user-reentry',
+        );
+        expect(meta['poly-reentry']?.lastEnteredAt, secondEnter);
+
+        final counts = await service.getPolygonEntryCounts(
+          profileId: 'user-reentry',
+        );
+        expect(counts['poly-reentry'], 1);
+      },
+    );
   });
 }

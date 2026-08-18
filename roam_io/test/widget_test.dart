@@ -172,15 +172,17 @@ void main() {
           ),
         ),
       );
-      await tester.pump(const Duration(milliseconds: 900));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 200));
+      // Level 6→7 animation duration is 1100 + 550ms.
+      await tester.pump(const Duration(milliseconds: 1800));
 
-      expect(find.text('LEVEL UP!'), findsOneWidget);
       expect(find.text('Level 7'), findsOneWidget);
+      expect(find.text('LEVEL UP!'), findsOneWidget);
       expect(find.text('Tap to continue'), findsOneWidget);
 
       await tester.tap(find.byType(LevelUpCelebration));
       await tester.pumpAndSettle();
-      await tester.pump(const Duration(seconds: 3));
 
       expect(dismissed, isTrue);
     });

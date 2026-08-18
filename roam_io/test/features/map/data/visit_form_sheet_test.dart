@@ -356,7 +356,7 @@ class _CapturingVisitService extends VisitService {
   List<String>? lastUpdateMediaUrls;
 
   @override
-  Future<void> markVisited({
+  Future<VisitWriteResult> markVisited({
     required String userId,
     required PlaceOfInterest place,
     String? customName,
@@ -366,7 +366,7 @@ class _CapturingVisitService extends VisitService {
     markVisitedCalls++;
     lastCustomName = customName;
     lastDescription = description;
-    await super.markVisited(
+    return super.markVisited(
       userId: userId,
       place: place,
       customName: customName,
@@ -396,7 +396,7 @@ class _ThrowingVisitService extends VisitService {
   _ThrowingVisitService() : super(firestore: FakeFirebaseFirestore());
 
   @override
-  Future<void> markVisited({
+  Future<VisitWriteResult> markVisited({
     required String userId,
     required PlaceOfInterest place,
     String? customName,

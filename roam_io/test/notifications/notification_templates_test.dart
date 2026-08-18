@@ -1,6 +1,6 @@
 /*
- * Author: Sam Sutherland
- * Last Modified: 01/08/2026
+ * Author: Sanjevan Rajasegar
+ * Last Updated: 10 August 2026
  * Description:
  *   Tests the reusable notification templates to ensure each template
  *   produces the expected type, content, actions, duration and metadata.
@@ -67,6 +67,22 @@ void main() {
       expect(notification.type, NotificationType.comment);
       expect(notification.title, 'New Comment');
       expect(notification.body, 'Alex commented on your activity.');
+    });
+
+    test('activity interaction templates use distinct types and copy', () {
+      final kudos = NotificationTemplates.activityKudos('Nathan');
+      final comment = NotificationTemplates.activityComment('Nathan');
+      final reply = NotificationTemplates.commentReply('Nathan');
+      final commentLike = NotificationTemplates.commentLike('Nathan');
+
+      expect(kudos.type, NotificationType.kudos);
+      expect(kudos.body, 'Nathan gave Kudos to your activity');
+      expect(comment.type, NotificationType.comment);
+      expect(comment.body, 'Nathan commented on your activity');
+      expect(reply.type, NotificationType.commentReply);
+      expect(reply.body, 'Nathan replied to your comment');
+      expect(commentLike.type, NotificationType.commentLike);
+      expect(commentLike.body, 'Nathan liked your comment');
     });
 
     test('error creates retry and dismiss actions', () {

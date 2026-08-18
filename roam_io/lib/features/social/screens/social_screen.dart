@@ -1,92 +1,88 @@
 /*
  * Author: Sanjevan Rajasegar
- * Last Updated: 5 August 2026
+ * Last Updated: 9 August 2026
  * Description:
- *   Provides the Social destination foundation for future friend and community
- *   functionality without implementing feed features.
+ *   Provides the Social destination with Find People as the entry point.
+ *   Private follow requests are managed from Notifications only.
  */
 
 import 'package:flutter/material.dart';
+import 'package:firebase_core/firebase_core.dart';
 
 import '../../../shared/widgets/app_page_header.dart';
 import '../../../theme/app_surfaces.dart';
+import '../data/follow_service.dart';
+import '../data/friendship_service.dart';
+import '../domain/public_profile.dart';
+import 'find_people_screen.dart';
 
-/// Top-level Social tab for friend and community functionality.
+/// Top-level Social tab for follow and community functionality.
 class SocialScreen extends StatelessWidget {
-  const SocialScreen({super.key});
+  const SocialScreen({
+    super.key,
+    FriendshipService? friendshipService,
+    FollowService? followService,
+  }) : _friendshipService = friendshipService,
+       _followService = followService;
+
+  final FriendshipService? _friendshipService;
+  final FollowService? _followService;
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
+    final friendshipService =
+        _friendshipService ??
+        (Firebase.apps.isNotEmpty
+            ? FriendshipService()
+            : _EmptyFriendshipService());
 
     return Container(
       color: AppSurfaces.pageBackground(context),
       child: SafeArea(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.only(bottom: 110),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const AppPageHeader(
-                title: 'Social',
-                subtitle: 'Friends and community tools',
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            AppPageHeader(
+              title: 'Social',
+              subtitle: 'Follow and community tools',
+              trailing: IconButton(
+                tooltip: 'Find people',
+                color: AppSurfaces.textPrimary(context),
+                icon: const Icon(Icons.search),
+                onPressed: () {
+                  Navigator.of(context).push(
+                    MaterialPageRoute<void>(
+                      builder: (_) => FindPeopleScreen(
+                        friendshipService: friendshipService,
+                        followService: _followService,
+                      ),
+                    ),
+                  );
+                },
               ),
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 24),
-                child: Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.all(18),
-                  decoration: BoxDecoration(
-                    color: AppSurfaces.card(context),
-                    borderRadius: BorderRadius.circular(18),
-                    border: Border.all(color: AppSurfaces.border(context)),
-                    boxShadow: [
-                      BoxShadow(
-                        color: AppSurfaces.shadow(context),
-                        blurRadius: 12,
-                        offset: const Offset(0, 5),
-                      ),
-                    ],
-                  ),
-                  child: Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Icon(
-                        Icons.groups_2_outlined,
-                        color: theme.colorScheme.primary,
-                        size: 28,
-                      ),
-                      const SizedBox(width: 14),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              'Social hub',
-                              style: theme.textTheme.titleMedium?.copyWith(
-                                color: AppSurfaces.textPrimary(context),
-                                fontWeight: FontWeight.w800,
-                              ),
-                            ),
-                            const SizedBox(height: 6),
-                            Text(
-                              'Friend requests, friends, and community tools will live here as they are introduced.',
-                              style: theme.textTheme.bodyMedium?.copyWith(
-                                color: AppSurfaces.textMuted(context),
-                                height: 1.35,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );
   }
+}
+
+class _EmptyFriendshipService implements FriendshipService {
+  @override
+  Future<List<PublicProfile>> searchUsers({
+    required String query,
+    required String currentUserId,
+    int limit = 20,
+  }) async {
+    return const <PublicProfile>[];
+  }
+
+  @override
+  Stream<PublicProfile?> watchPublicProfile(String uid) {
+    return Stream<PublicProfile?>.value(null);
+  }
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
 }

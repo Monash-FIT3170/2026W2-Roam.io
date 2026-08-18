@@ -29,6 +29,7 @@ import 'tile_unlock_xp_service.dart';
 import 'visit_service.dart';
 import 'visited_region_service.dart';
 import 'viewport_region_loader.dart';
+import '../../you/services/exploration_stats_service.dart';
 import '../../../services/polygon_service.dart';
 
 enum VisitResult { success, notLoggedIn, alreadyVisited, tooFar, error }
@@ -49,6 +50,7 @@ class MapController extends ChangeNotifier {
     PlaceMarkerManager? placeMarkerManager,
     MapViewportPolicy? viewportPolicy,
     PolygonService? polygonService,
+    ExplorationStatsService? explorationStatsService,
   }) : _geoLocatorService = geoLocatorService ?? GeoLocatorService(),
        _regionService = regionService ?? RegionService(),
        _visitService = visitService ?? VisitService(),
@@ -58,7 +60,8 @@ class MapController extends ChangeNotifier {
        _viewportRegionLoader = viewportRegionLoader ?? ViewportRegionLoader(),
        _placeMarkerManager = placeMarkerManager ?? PlaceMarkerManager(),
        _viewportPolicy = viewportPolicy ?? MapViewportPolicy(),
-       _polygonService = polygonService;
+       _polygonService = polygonService,
+       _explorationStatsService = explorationStatsService;
 
   final GeoLocatorService _geoLocatorService;
   final RegionService _regionService;
@@ -70,9 +73,15 @@ class MapController extends ChangeNotifier {
   final PlaceMarkerManager _placeMarkerManager;
   final MapViewportPolicy _viewportPolicy;
   PolygonService? _polygonService;
+  ExplorationStatsService? _explorationStatsService;
 
   PolygonService get _resolvedPolygonService =>
       _polygonService ??= PolygonService();
+
+  ExplorationStatsService get _resolvedExplorationStatsService =>
+      _explorationStatsService ??= ExplorationStatsService(
+        polygonService: _resolvedPolygonService,
+      );
 
   GoogleMapController? _googleMapController;
   StreamSubscription<Position>? _locationUpdatesSubscription;
@@ -873,7 +882,7 @@ class MapController extends ChangeNotifier {
       _entryCountsByRegion.update(region.id, (c) => c + 1, ifAbsent: () => 1);
 
       unawaited(
-        _resolvedPolygonService.incrementPolygonEntryCount(
+        _resolvedExplorationStatsService.recordReentry(
           profileId: _userId!,
           polygonId: region.id,
         ),
@@ -891,7 +900,8 @@ class MapController extends ChangeNotifier {
     }
 
     try {
-      final didPersistVisit = await _visitedRegionService.markVisited(regionId);
+      final didPersistVisit = await _resolvedExplorationStatsService
+          .recordUnlock(profileId: _userId!, region: region);
 
       if (!didPersistVisit) {
         return false;

@@ -16,8 +16,9 @@ import 'package:provider/provider.dart';
 import 'features/auth/providers/auth_provider.dart';
 import 'features/auth/screens/auth_gate_screen.dart';
 import 'features/journeys/data/journey_controller.dart';
+import 'features/profile/domain/pending_xp_celebration.dart';
 import 'firebase_options.dart';
-import 'shared/widgets/level_up_celebration.dart';
+import 'shared/widgets/xp_progress_celebration.dart';
 import 'theme/app_theme.dart';
 import 'theme/app_theme_mode.dart';
 import 'package:roam_io/notifications/services/android_notification_service.dart';
@@ -88,15 +89,16 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
           final resolvedThemeMode = selectedThemeMode.resolve(DateTime.now());
           _scheduleDynamicThemeRefresh(selectedThemeMode);
 
-          // Listen for level-up events
+          // Listen for XP celebration events (level-up or forced claim overlay).
           WidgetsBinding.instance.addPostFrameCallback((_) {
-            if (auth.pendingLevelUp != null && _levelUpOverlay == null) {
+            if (auth.pendingXpCelebration != null && _levelUpOverlay == null) {
               final unlockToast = auth.takePendingUnlockToast();
-              _showLevelUpCelebration(
-                auth.pendingLevelUp!,
-                rewardToastMessage: unlockToast,
-              );
-              auth.clearPendingLevelUp();
+              final pending = auth.pendingXpCelebration!;
+              final celebration = unlockToast == null
+                  ? pending
+                  : pending.withRewardToast(unlockToast);
+              _showXpCelebration(celebration);
+              auth.clearPendingXpCelebration();
             }
           });
 
@@ -144,11 +146,10 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
     });
   }
 
-  void _showLevelUpCelebration(int newLevel, {String? rewardToastMessage}) {
+  void _showXpCelebration(PendingXpCelebration celebration) {
     _levelUpOverlay = OverlayEntry(
-      builder: (context) => LevelUpCelebration(
-        newLevel: newLevel,
-        rewardToastMessage: rewardToastMessage,
+      builder: (context) => XpProgressCelebration(
+        celebration: celebration,
         onDismiss: () {
           _levelUpOverlay?.remove();
           _levelUpOverlay = null;
