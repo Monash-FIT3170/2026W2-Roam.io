@@ -7,10 +7,7 @@
 
 /// Explorer rank tier for the Stats level badge hero.
 class ExplorerRank {
-  const ExplorerRank({
-    required this.title,
-    required this.assetPath,
-  });
+  const ExplorerRank({required this.title, required this.assetPath});
 
   final String title;
   final String assetPath;

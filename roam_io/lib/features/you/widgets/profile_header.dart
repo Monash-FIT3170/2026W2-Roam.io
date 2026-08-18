@@ -91,10 +91,7 @@ class ProfileHeader extends StatelessWidget {
           ],
         ),
         const SizedBox(height: 12),
-        ProfileStatsRow(
-          tileCount: tileCount,
-          journeyCount: journeyCount,
-        ),
+        ProfileStatsRow(tileCount: tileCount, journeyCount: journeyCount),
       ],
     );
   }

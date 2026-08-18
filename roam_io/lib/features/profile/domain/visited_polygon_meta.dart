@@ -26,7 +26,10 @@ class VisitedPolygonMeta {
     };
   }
 
-  factory VisitedPolygonMeta.fromMap(String polygonId, Map<String, dynamic> map) {
+  factory VisitedPolygonMeta.fromMap(
+    String polygonId,
+    Map<String, dynamic> map,
+  ) {
     return VisitedPolygonMeta(
       polygonId: polygonId,
       visitedAt: _parseTimestamp(map['visitedAt']) ?? DateTime.now(),

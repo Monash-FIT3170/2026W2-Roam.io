@@ -123,9 +123,7 @@ class _YouScreenState extends State<YouScreen>
   Widget build(BuildContext context) {
     return MultiProvider(
       providers: [
-        ChangeNotifierProvider<StatsAnalyticsProvider>.value(
-          value: _analytics,
-        ),
+        ChangeNotifierProvider<StatsAnalyticsProvider>.value(value: _analytics),
         ChangeNotifierProvider<MilestonesProvider>.value(value: _milestones),
       ],
       child: Container(

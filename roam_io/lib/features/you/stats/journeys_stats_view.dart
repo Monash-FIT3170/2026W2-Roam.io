@@ -26,8 +26,7 @@ class JourneysStatsView extends StatelessWidget {
     final journeys = analytics.journeys;
     final totalDistanceKm =
         aggregationService.totalJourneyDistance(journeys) / 1000;
-    final totalHours =
-        aggregationService.totalJourneySeconds(journeys) / 3600;
+    final totalHours = aggregationService.totalJourneySeconds(journeys) / 3600;
     final buckets = aggregationService.journeyBuckets(journeys);
     final modeBreakdown = aggregationService.transportModeBreakdown(journeys);
     final insight = aggregationService.journeyInsightMessage(journeys);
@@ -65,10 +64,7 @@ class JourneysStatsView extends StatelessWidget {
         const SizedBox(height: 16),
         StatsJourneyHighlights(journeys: journeys),
         const SizedBox(height: 16),
-        StatsInsightCard(
-          message: insight,
-          icon: Icons.route_rounded,
-        ),
+        StatsInsightCard(message: insight, icon: Icons.route_rounded),
         const SizedBox(height: 16),
         StatsRecentJourneysList(journeys: journeys),
       ],

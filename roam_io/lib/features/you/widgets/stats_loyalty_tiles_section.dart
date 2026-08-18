@@ -7,10 +7,7 @@ import 'stats_section_card.dart';
 
 /// Top tiles by re-entry count on the Tiles stats page.
 class StatsLoyaltyTilesSection extends StatelessWidget {
-  const StatsLoyaltyTilesSection({
-    super.key,
-    required this.tiles,
-  });
+  const StatsLoyaltyTilesSection({super.key, required this.tiles});
 
   final List<TopTileEntry> tiles;
 

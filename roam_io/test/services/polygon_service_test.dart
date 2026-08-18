@@ -128,37 +128,40 @@ void main() {
       expect(meta['poly-meta']?.lastEnteredAt, visitedAt);
     });
 
-    test('recordPolygonReentry increments entry count and lastEnteredAt', () async {
-      final firestore = FakeFirebaseFirestore();
-      final service = PolygonService(firestore: firestore);
-      final firstEnter = DateTime(2026, 3, 1, 12);
-      final secondEnter = DateTime(2026, 3, 2, 12);
+    test(
+      'recordPolygonReentry increments entry count and lastEnteredAt',
+      () async {
+        final firestore = FakeFirebaseFirestore();
+        final service = PolygonService(firestore: firestore);
+        final firstEnter = DateTime(2026, 3, 1, 12);
+        final secondEnter = DateTime(2026, 3, 2, 12);
 
-      await service.upsertVisitedPolygon(
-        profileId: 'user-reentry',
-        polygonId: 'poly-reentry',
-        visitedAt: firstEnter,
-        areaSquareMetres: 500,
-        name: 'Fitzroy',
-      );
+        await service.upsertVisitedPolygon(
+          profileId: 'user-reentry',
+          polygonId: 'poly-reentry',
+          visitedAt: firstEnter,
+          areaSquareMetres: 500,
+          name: 'Fitzroy',
+        );
 
-      final count = await service.recordPolygonReentry(
-        profileId: 'user-reentry',
-        polygonId: 'poly-reentry',
-        enteredAt: secondEnter,
-      );
+        final count = await service.recordPolygonReentry(
+          profileId: 'user-reentry',
+          polygonId: 'poly-reentry',
+          enteredAt: secondEnter,
+        );
 
-      expect(count, 1);
+        expect(count, 1);
 
-      final meta = await service.getVisitedPolygonMeta(
-        profileId: 'user-reentry',
-      );
-      expect(meta['poly-reentry']?.lastEnteredAt, secondEnter);
+        final meta = await service.getVisitedPolygonMeta(
+          profileId: 'user-reentry',
+        );
+        expect(meta['poly-reentry']?.lastEnteredAt, secondEnter);
 
-      final counts = await service.getPolygonEntryCounts(
-        profileId: 'user-reentry',
-      );
-      expect(counts['poly-reentry'], 1);
-    });
+        final counts = await service.getPolygonEntryCounts(
+          profileId: 'user-reentry',
+        );
+        expect(counts['poly-reentry'], 1);
+      },
+    );
   });
 }

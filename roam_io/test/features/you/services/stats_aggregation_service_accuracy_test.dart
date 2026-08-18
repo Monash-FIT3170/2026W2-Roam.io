@@ -68,12 +68,12 @@ Journey _journey({
     userId: 'u1',
     startTime: start,
     endTime: start.add(Duration(seconds: durationSeconds)),
-    startLocation: JourneyLocation(
-      latLng: const LatLng(-37.8, 144.9),
+    startLocation: const JourneyLocation(
+      latLng: LatLng(-37.8, 144.9),
       displayName: 'Start',
     ),
-    endLocation: JourneyLocation(
-      latLng: const LatLng(-37.81, 144.91),
+    endLocation: const JourneyLocation(
+      latLng: LatLng(-37.81, 144.91),
       displayName: 'End',
     ),
     transportMode: mode,
@@ -91,12 +91,7 @@ XpEvent _xp({
   required DateTime earnedAt,
   XpEventSource source = XpEventSource.visit,
 }) {
-  return XpEvent(
-    id: id,
-    amount: amount,
-    earnedAt: earnedAt,
-    source: source,
-  );
+  return XpEvent(id: id, amount: amount, earnedAt: earnedAt, source: source);
 }
 
 void main() {
@@ -169,46 +164,49 @@ void main() {
       expect(fromVisits.last.value, 1);
     });
 
-    test('visitStreakDays ignores gaps and accepts yesterday-ending streaks', () {
-      final today = DateTime.now();
-      final day = DateTime(today.year, today.month, today.day);
+    test(
+      'visitStreakDays ignores gaps and accepts yesterday-ending streaks',
+      () {
+        final today = DateTime.now();
+        final day = DateTime(today.year, today.month, today.day);
 
-      expect(
-        service.visitStreakDays(
-          events: [
-            _event(
-              id: 'a',
-              placeId: 1,
-              category: 'nature',
-              visitedAt: day.subtract(const Duration(days: 1)),
-            ),
-            _event(
-              id: 'b',
-              placeId: 2,
-              category: 'nature',
-              visitedAt: day.subtract(const Duration(days: 2)),
-            ),
-          ],
-          visits: const [],
-        ),
-        2,
-      );
+        expect(
+          service.visitStreakDays(
+            events: [
+              _event(
+                id: 'a',
+                placeId: 1,
+                category: 'nature',
+                visitedAt: day.subtract(const Duration(days: 1)),
+              ),
+              _event(
+                id: 'b',
+                placeId: 2,
+                category: 'nature',
+                visitedAt: day.subtract(const Duration(days: 2)),
+              ),
+            ],
+            visits: const [],
+          ),
+          2,
+        );
 
-      expect(
-        service.visitStreakDays(
-          events: const [],
-          visits: [
-            _visit(placeId: 1, visitedAt: day, visitCount: 2),
-            _visit(
-              placeId: 2,
-              visitedAt: day.subtract(const Duration(days: 1)),
-              lastVisitedAt: day.subtract(const Duration(days: 1)),
-            ),
-          ],
-        ),
-        2,
-      );
-    });
+        expect(
+          service.visitStreakDays(
+            events: const [],
+            visits: [
+              _visit(placeId: 1, visitedAt: day, visitCount: 2),
+              _visit(
+                placeId: 2,
+                visitedAt: day.subtract(const Duration(days: 1)),
+                lastVisitedAt: day.subtract(const Duration(days: 1)),
+              ),
+            ],
+          ),
+          2,
+        );
+      },
+    );
 
     test('furthestFromHomeKm returns max haversine distance', () {
       final home = HomeBase(
@@ -247,7 +245,11 @@ void main() {
     test('xpThisWeek and xpLastWeek use Monday-aligned half-open weeks', () {
       final weekStart = startOfWeek(DateTime.now());
       final events = [
-        _xp(id: 'this', amount: 40, earnedAt: weekStart.add(const Duration(hours: 2))),
+        _xp(
+          id: 'this',
+          amount: 40,
+          earnedAt: weekStart.add(const Duration(hours: 2)),
+        ),
         _xp(
           id: 'this-end',
           amount: 10,
@@ -300,7 +302,10 @@ void main() {
         eventTotals: bySource,
         summary: const StatsSummary(),
       );
-      expect(breakdown.map((item) => item.label).toList(), contains('Milestones'));
+      expect(
+        breakdown.map((item) => item.label).toList(),
+        contains('Milestones'),
+      );
       expect(
         breakdown.firstWhere((item) => item.label == 'Milestones').value,
         100,
@@ -323,7 +328,9 @@ void main() {
     });
 
     test('weeklyBucketsFromXpEvents sums amounts into six week windows', () {
-      final anchor = startOfWeek(DateTime(2026, 5, 13)); // Wednesday → Mon 11 May
+      final anchor = startOfWeek(
+        DateTime(2026, 5, 13),
+      ); // Wednesday → Mon 11 May
       final events = [
         _xp(id: 'a', amount: 10, earnedAt: anchor),
         _xp(id: 'b', amount: 15, earnedAt: anchor.add(const Duration(days: 2))),
@@ -390,59 +397,55 @@ void main() {
       ];
 
       expect(
-        service.tileCountFromSummary(
-          const StatsSummary(totalTiles: 9),
-          tiles,
-        ),
+        service.tileCountFromSummary(const StatsSummary(totalTiles: 9), tiles),
         9,
       );
       expect(service.tileCountFromSummary(const StatsSummary(), tiles), 2);
     });
 
-    test('revealedAreaSquareMetres prefers summary then meta then estimate', () {
-      final fromSummary = service.revealedAreaSquareMetres(
-        summary: const StatsSummary(totalAreaSquareMetres: 1_500_000),
-        polygonMeta: const {},
-        tileCount: 99,
-      );
-      expect(fromSummary.squareMetres, 1_500_000);
-      expect(fromSummary.isEstimated, isFalse);
+    test(
+      'revealedAreaSquareMetres prefers summary then meta then estimate',
+      () {
+        final fromSummary = service.revealedAreaSquareMetres(
+          summary: const StatsSummary(totalAreaSquareMetres: 1_500_000),
+          polygonMeta: const {},
+          tileCount: 99,
+        );
+        expect(fromSummary.squareMetres, 1_500_000);
+        expect(fromSummary.isEstimated, isFalse);
 
-      final fromMeta = service.revealedAreaSquareMetres(
-        summary: const StatsSummary(),
-        polygonMeta: {
-          'a': VisitedPolygonMeta(
-            polygonId: 'a',
-            visitedAt: DateTime(2026, 5, 1),
-            areaSquareMetres: 100_000,
-          ),
-          'b': VisitedPolygonMeta(
-            polygonId: 'b',
-            visitedAt: DateTime(2026, 5, 2),
-            areaSquareMetres: 50_000,
-          ),
-        },
-        tileCount: 2,
-      );
-      expect(fromMeta.squareMetres, 150_000);
-      expect(fromMeta.isEstimated, isFalse);
+        final fromMeta = service.revealedAreaSquareMetres(
+          summary: const StatsSummary(),
+          polygonMeta: {
+            'a': VisitedPolygonMeta(
+              polygonId: 'a',
+              visitedAt: DateTime(2026, 5, 1),
+              areaSquareMetres: 100_000,
+            ),
+            'b': VisitedPolygonMeta(
+              polygonId: 'b',
+              visitedAt: DateTime(2026, 5, 2),
+              areaSquareMetres: 50_000,
+            ),
+          },
+          tileCount: 2,
+        );
+        expect(fromMeta.squareMetres, 150_000);
+        expect(fromMeta.isEstimated, isFalse);
 
-      expect(
-        service.melbourneCoveragePercent(melbourneMetroAreaSquareMetres),
-        100,
-      );
-      expect(service.melbourneCoveragePercent(0), 0);
-    });
+        expect(
+          service.melbourneCoveragePercent(melbourneMetroAreaSquareMetres),
+          100,
+        );
+        expect(service.melbourneCoveragePercent(0), 0);
+      },
+    );
 
     test('unlockStreakDays counts consecutive unlock days', () {
       final today = DateTime.now();
       final day = DateTime(today.year, today.month, today.day);
       final records = [
-        VisitedPolygonRecord(
-          profileId: 'u1',
-          polygonId: 'a',
-          visitedAt: day,
-        ),
+        VisitedPolygonRecord(profileId: 'u1', polygonId: 'a', visitedAt: day),
         VisitedPolygonRecord(
           profileId: 'u1',
           polygonId: 'b',
@@ -471,12 +474,7 @@ void main() {
     test('visitEventBuckets count events by week of visitedAt', () {
       final week = startOfWeek(DateTime(2026, 8, 12));
       final events = [
-        _event(
-          id: '1',
-          placeId: 1,
-          category: 'nature',
-          visitedAt: week,
-        ),
+        _event(id: '1', placeId: 1, category: 'nature', visitedAt: week),
         _event(
           id: '2',
           placeId: 2,

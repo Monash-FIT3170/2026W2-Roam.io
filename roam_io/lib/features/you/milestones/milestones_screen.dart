@@ -62,8 +62,7 @@ class MilestonesScreen extends StatelessWidget {
               progress: progress,
               claimInFlight: milestones.claimInFlight,
               playClaimAnimation:
-                  milestones.lastClaimedMilestoneId ==
-                      progress.definition.id &&
+                  milestones.lastClaimedMilestoneId == progress.definition.id &&
                   milestones.lastClaimedTier != null,
               onClaim: () async {
                 final award = await milestones.claimNextTier(

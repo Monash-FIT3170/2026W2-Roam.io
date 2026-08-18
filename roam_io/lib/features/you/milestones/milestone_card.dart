@@ -106,8 +106,9 @@ class _MilestoneCardState extends State<MilestoneCard>
                   : _ProgressBody(
                       title: definition.title,
                       subtitle: definition.subtitle,
-                      barProgress:
-                          progress.isMaxed ? 1.0 : progress.progressToNext,
+                      barProgress: progress.isMaxed
+                          ? 1.0
+                          : progress.progressToNext,
                       barLabel: () {
                         final unit = definition.unit;
                         final nextTier = progress.nextTier;

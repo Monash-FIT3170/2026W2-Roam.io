@@ -93,7 +93,8 @@ class Visit {
       description: map['description'] as String?,
       mediaUrls: (map['mediaUrls'] as List<dynamic>?)?.cast<String>() ?? [],
       visitCount: (map['visitCount'] as num?)?.toInt() ?? 1,
-      firstVisitedAt: _parseOptionalTimestamp(map['firstVisitedAt']) ?? visitedAt,
+      firstVisitedAt:
+          _parseOptionalTimestamp(map['firstVisitedAt']) ?? visitedAt,
       lastVisitedAt: _parseOptionalTimestamp(map['lastVisitedAt']) ?? visitedAt,
     );
   }

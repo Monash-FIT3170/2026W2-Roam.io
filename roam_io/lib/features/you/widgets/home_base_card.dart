@@ -124,7 +124,9 @@ class _HomeBaseCardState extends State<HomeBaseCard> {
                           child: CircularProgressIndicator(strokeWidth: 2),
                         )
                       : const Icon(Icons.my_location_rounded, size: 18),
-                  label: Text(homeBase == null ? 'Use current location' : 'Update'),
+                  label: Text(
+                    homeBase == null ? 'Use current location' : 'Update',
+                  ),
                 ),
               ),
               if (homeBase != null) ...[

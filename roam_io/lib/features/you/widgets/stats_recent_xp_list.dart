@@ -42,7 +42,9 @@ class StatsRecentXpList extends StatelessWidget {
                     Divider(color: AppSurfaces.border(context), height: 1),
                   _XpEventRow(
                     event: recent[index],
-                    label: aggregationService.xpSourceLabel(recent[index].source),
+                    label: aggregationService.xpSourceLabel(
+                      recent[index].source,
+                    ),
                   ),
                 ],
               ],

@@ -98,10 +98,7 @@ String _formatTimestamp(DateTime value) {
 
 /// Highlight cards for standout journey stats.
 class StatsJourneyHighlights extends StatelessWidget {
-  const StatsJourneyHighlights({
-    super.key,
-    required this.journeys,
-  });
+  const StatsJourneyHighlights({super.key, required this.journeys});
 
   final List<Journey> journeys;
 
@@ -182,10 +179,7 @@ class _HighlightTile extends StatelessWidget {
 
 /// Mode split breakdown wrapper using [StatsBreakdownItem] rows.
 class StatsModeSplitSection extends StatelessWidget {
-  const StatsModeSplitSection({
-    super.key,
-    required this.items,
-  });
+  const StatsModeSplitSection({super.key, required this.items});
 
   final List<StatsBreakdownItem> items;
 
@@ -210,9 +204,8 @@ class StatsModeSplitSection extends StatelessWidget {
                       Expanded(
                         child: Text(
                           items[index].label,
-                          style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                            fontWeight: FontWeight.w700,
-                          ),
+                          style: Theme.of(context).textTheme.labelLarge
+                              ?.copyWith(fontWeight: FontWeight.w700),
                         ),
                       ),
                       Text(

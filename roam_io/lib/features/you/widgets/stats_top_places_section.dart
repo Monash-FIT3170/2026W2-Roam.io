@@ -7,10 +7,7 @@ import 'stats_section_card.dart';
 
 /// Top places ranked by visit count on the Locations stats page.
 class StatsTopPlacesSection extends StatelessWidget {
-  const StatsTopPlacesSection({
-    super.key,
-    required this.places,
-  });
+  const StatsTopPlacesSection({super.key, required this.places});
 
   final List<TopPlaceEntry> places;
 

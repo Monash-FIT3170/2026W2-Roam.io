@@ -422,7 +422,12 @@ class _FakeVisitedRegionService implements VisitedRegionService {
   }
 
   @override
-  Future<bool> markVisited(String regionId, {DateTime? visitedAt}) async {
+  Future<bool> markVisited(
+    String regionId, {
+    DateTime? visitedAt,
+    double? areaSquareMetres,
+    String? name,
+  }) async {
     if (throwOnMarkVisited) {
       throw Exception('Could not persist region visit');
     }

@@ -80,20 +80,22 @@ class MilestonesProvider extends ChangeNotifier {
       return;
     }
 
-    _claimsSub = _milestoneService.watchClaims(uid).listen(
-      (claims) {
-        _claims = claims;
-        _claimsReady = true;
-        notifyListeners();
-      },
-      onError: (Object error, StackTrace stackTrace) {
-        debugPrint(
-          '[MilestonesProvider] claims watch failed: $error\n$stackTrace',
+    _claimsSub = _milestoneService
+        .watchClaims(uid)
+        .listen(
+          (claims) {
+            _claims = claims;
+            _claimsReady = true;
+            notifyListeners();
+          },
+          onError: (Object error, StackTrace stackTrace) {
+            debugPrint(
+              '[MilestonesProvider] claims watch failed: $error\n$stackTrace',
+            );
+            _claimsReady = true;
+            notifyListeners();
+          },
         );
-        _claimsReady = true;
-        notifyListeners();
-      },
-    );
     notifyListeners();
   }
 
@@ -167,9 +169,7 @@ class MilestonesProvider extends ChangeNotifier {
       notifyListeners();
       return award;
     } catch (error, stackTrace) {
-      debugPrint(
-        '[MilestonesProvider] claim failed: $error\n$stackTrace',
-      );
+      debugPrint('[MilestonesProvider] claim failed: $error\n$stackTrace');
       _claimError = 'Claim failed. Try again.';
       _claimInFlight = false;
       notifyListeners();

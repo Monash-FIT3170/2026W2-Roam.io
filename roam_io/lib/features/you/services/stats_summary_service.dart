@@ -92,11 +92,7 @@ class StatsSummaryService {
 
     if (sourceField == null) return;
 
-    final earnedDate = DateTime(
-      earnedAt.year,
-      earnedAt.month,
-      earnedAt.day,
-    );
+    final earnedDate = DateTime(earnedAt.year, earnedAt.month, earnedAt.day);
 
     await _firestore.runTransaction((transaction) async {
       final ref = _summaryDoc(uid);

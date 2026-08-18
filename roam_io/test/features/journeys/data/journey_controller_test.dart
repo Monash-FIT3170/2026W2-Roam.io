@@ -25,10 +25,7 @@ void main() {
         statsSummaryService: StatsSummaryService(firestore: firestore),
       );
 
-      controller.recordTileUnlocked(
-        polygonId: 'tile-1',
-        xpAwarded: 50,
-      );
+      controller.recordTileUnlocked(polygonId: 'tile-1', xpAwarded: 50);
       expect(controller.tilesUnlocked, 0);
 
       controller.beginJourneySetup();
@@ -40,24 +37,15 @@ void main() {
       );
       await controller.startTracking();
 
-      controller.recordTileUnlocked(
-        polygonId: 'tile-1',
-        xpAwarded: 50,
-      );
-      controller.recordTileUnlocked(
-        polygonId: 'tile-2',
-        xpAwarded: 50,
-      );
+      controller.recordTileUnlocked(polygonId: 'tile-1', xpAwarded: 50);
+      controller.recordTileUnlocked(polygonId: 'tile-2', xpAwarded: 50);
 
       expect(controller.tilesUnlocked, 2);
       expect(controller.tileXpEarned, 100);
       expect(controller.totalXpEarned, controller.journeyXpEarned + 100);
 
       await controller.stopTracking();
-      controller.recordTileUnlocked(
-        polygonId: 'tile-1',
-        xpAwarded: 50,
-      );
+      controller.recordTileUnlocked(polygonId: 'tile-1', xpAwarded: 50);
       expect(controller.tilesUnlocked, 2);
 
       await controller.cancelJourney();
@@ -110,10 +98,10 @@ void main() {
     final saved = await controller.saveJourney('user-1');
 
     expect(saved, isNotNull);
-    expect(saved?.xpEarned, saved!.journeyXpEarned! + 50);
-    expect(saved?.tilesUnlocked, 1);
-    expect(saved?.unlockedTileIds, ['tile-save']);
-    expect(saved?.areaUnlockedSquareMetres, 1000);
+    expect(saved!.xpEarned, saved.journeyXpEarned! + 50);
+    expect(saved.tilesUnlocked, 1);
+    expect(saved.unlockedTileIds, ['tile-save']);
+    expect(saved.areaUnlockedSquareMetres, 1000);
     expect(controller.currentPhase, JourneyPhase.idle);
 
     final journeys = await controller.getJourneys('user-1');

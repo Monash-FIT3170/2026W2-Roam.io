@@ -62,10 +62,7 @@ class TilesStatsView extends StatelessWidget {
                 isEstimated: revealed.isEstimated,
               ),
             ),
-            StatsHeroStat(
-              label: 'City mapped',
-              value: coverage,
-            ),
+            StatsHeroStat(label: 'City mapped', value: coverage),
           ],
         ),
         const SizedBox(height: 16),
@@ -73,8 +70,7 @@ class TilesStatsView extends StatelessWidget {
           title: 'Tiles unlocked by week',
           buckets: buckets,
           emptyMessage: 'No unlocked tiles to chart yet',
-          detailLabelBuilder: (bucket) =>
-              bucket.detailLabel(' Tiles Unlocked'),
+          detailLabelBuilder: (bucket) => bucket.detailLabel(' Tiles Unlocked'),
         ),
         const SizedBox(height: 16),
         StatsSectionCard(
@@ -83,16 +79,13 @@ class TilesStatsView extends StatelessWidget {
             unlockStreak == 0
                 ? 'Unlock tiles on consecutive days to build a streak'
                 : '$unlockStreak-day unlock streak',
-            style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-              fontWeight: FontWeight.w700,
-            ),
+            style: Theme.of(
+              context,
+            ).textTheme.bodyLarge?.copyWith(fontWeight: FontWeight.w700),
           ),
         ),
         const SizedBox(height: 16),
-        StatsInsightCard(
-          message: insight,
-          icon: Icons.grid_view_rounded,
-        ),
+        StatsInsightCard(message: insight, icon: Icons.grid_view_rounded),
         const SizedBox(height: 16),
         StatsLoyaltyTilesSection(tiles: loyaltyTiles),
       ],

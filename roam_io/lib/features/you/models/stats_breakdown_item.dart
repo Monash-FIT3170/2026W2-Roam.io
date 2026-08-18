@@ -1,9 +1,6 @@
 /// A labelled value row for source, category, or mode breakdown charts.
 class StatsBreakdownItem {
-  const StatsBreakdownItem({
-    required this.label,
-    required this.value,
-  });
+  const StatsBreakdownItem({required this.label, required this.value});
 
   final String label;
   final int value;
@@ -11,10 +8,7 @@ class StatsBreakdownItem {
 
 /// A place ranked by visit count for Locations stats.
 class TopPlaceEntry {
-  const TopPlaceEntry({
-    required this.placeName,
-    required this.visitCount,
-  });
+  const TopPlaceEntry({required this.placeName, required this.visitCount});
 
   final String placeName;
   final int visitCount;

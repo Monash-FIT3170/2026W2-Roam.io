@@ -175,7 +175,8 @@ class Journey {
           (data['xpEarned'] as num?)?.toInt(),
       tilesUnlocked: (data['tilesUnlocked'] as num?)?.toInt() ?? 0,
       tileXpEarned: (data['tileXpEarned'] as num?)?.toInt() ?? 0,
-      unlockedTileIds: (data['unlockedTileIds'] as List<dynamic>?)
+      unlockedTileIds:
+          (data['unlockedTileIds'] as List<dynamic>?)
               ?.map((value) => '$value')
               .toList() ??
           const [],

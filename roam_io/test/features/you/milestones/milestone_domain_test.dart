@@ -38,52 +38,45 @@ void main() {
 
     test('each milestone uses the locked threshold table', () {
       expect(
-        MilestoneCatalog.byId(MilestoneId.mapMagnate)
-            .tiers
-            .map((tier) => tier.threshold)
-            .toList(),
+        MilestoneCatalog.byId(
+          MilestoneId.mapMagnate,
+        ).tiers.map((tier) => tier.threshold).toList(),
         [1, 3, 5, 15, 50],
       );
       expect(
-        MilestoneCatalog.byId(MilestoneId.tileCollector)
-            .tiers
-            .map((tier) => tier.threshold)
-            .toList(),
+        MilestoneCatalog.byId(
+          MilestoneId.tileCollector,
+        ).tiers.map((tier) => tier.threshold).toList(),
         [5, 15, 40, 100, 250],
       );
       expect(
-        MilestoneCatalog.byId(MilestoneId.visitViking)
-            .tiers
-            .map((tier) => tier.threshold)
-            .toList(),
+        MilestoneCatalog.byId(
+          MilestoneId.visitViking,
+        ).tiers.map((tier) => tier.threshold).toList(),
         [5, 15, 40, 100, 250],
       );
       expect(
-        MilestoneCatalog.byId(MilestoneId.tripTally)
-            .tiers
-            .map((tier) => tier.threshold)
-            .toList(),
+        MilestoneCatalog.byId(
+          MilestoneId.tripTally,
+        ).tiers.map((tier) => tier.threshold).toList(),
         [1, 5, 15, 40, 100],
       );
       expect(
-        MilestoneCatalog.byId(MilestoneId.kilometreCrusader)
-            .tiers
-            .map((tier) => tier.threshold)
-            .toList(),
+        MilestoneCatalog.byId(
+          MilestoneId.kilometreCrusader,
+        ).tiers.map((tier) => tier.threshold).toList(),
         [5, 25, 75, 200, 500],
       );
       expect(
-        MilestoneCatalog.byId(MilestoneId.clockedCruiser)
-            .tiers
-            .map((tier) => tier.threshold)
-            .toList(),
+        MilestoneCatalog.byId(
+          MilestoneId.clockedCruiser,
+        ).tiers.map((tier) => tier.threshold).toList(),
         [1, 5, 15, 40, 100],
       );
       expect(
-        MilestoneCatalog.byId(MilestoneId.flameKeeper)
-            .tiers
-            .map((tier) => tier.threshold)
-            .toList(),
+        MilestoneCatalog.byId(
+          MilestoneId.flameKeeper,
+        ).tiers.map((tier) => tier.threshold).toList(),
         [3, 7, 14, 30, 60],
       );
     });
@@ -154,13 +147,10 @@ void main() {
 
   group('MilestoneClaimState', () {
     test('fromMap parses claimed tiers and ignores non-numeric values', () {
-      final state = MilestoneClaimState.fromMap(
-        MilestoneId.tripTally,
-        {
-          'claimedTiers': [1, 2, 'x', 2, 3.0],
-          'updatedAt': '2026-08-16T10:00:00.000',
-        },
-      );
+      final state = MilestoneClaimState.fromMap(MilestoneId.tripTally, {
+        'claimedTiers': [1, 2, 'x', 2, 3.0],
+        'updatedAt': '2026-08-16T10:00:00.000',
+      });
 
       expect(state.milestoneId, MilestoneId.tripTally);
       expect(state.claimedTiers, {1, 2, 3});
@@ -301,16 +291,22 @@ void main() {
   group('milestone formatting', () {
     test('formats count, distance, hours, and days for UI labels', () {
       expect(formatMilestoneValue(12, MilestoneMetricUnit.count), '12');
-      expect(formatMilestoneValue(9.4, MilestoneMetricUnit.kilometres), '9.40 km');
-      expect(formatMilestoneValue(12.34, MilestoneMetricUnit.kilometres), '12.3 km');
-      expect(formatMilestoneValue(150.2, MilestoneMetricUnit.kilometres), '150 km');
+      expect(
+        formatMilestoneValue(9.4, MilestoneMetricUnit.kilometres),
+        '9.40 km',
+      );
+      expect(
+        formatMilestoneValue(12.34, MilestoneMetricUnit.kilometres),
+        '12.3 km',
+      );
+      expect(
+        formatMilestoneValue(150.2, MilestoneMetricUnit.kilometres),
+        '150 km',
+      );
       expect(formatMilestoneValue(4.2, MilestoneMetricUnit.hours), '4.2h');
       expect(formatMilestoneValue(12.7, MilestoneMetricUnit.hours), '13h');
       expect(formatMilestoneValue(7, MilestoneMetricUnit.days), '7d');
-      expect(
-        formatMilestoneThreshold(40, MilestoneMetricUnit.count),
-        '40',
-      );
+      expect(formatMilestoneThreshold(40, MilestoneMetricUnit.count), '40');
     });
   });
 }

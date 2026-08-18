@@ -201,10 +201,7 @@ class StatsAggregationService {
     required int tileCount,
   }) {
     if (summary.totalAreaSquareMetres > 0) {
-      return (
-        squareMetres: summary.totalAreaSquareMetres,
-        isEstimated: false,
-      );
+      return (squareMetres: summary.totalAreaSquareMetres, isEstimated: false);
     }
 
     var measured = 0.0;
@@ -226,19 +223,13 @@ class StatsAggregationService {
       return (squareMetres: 0, isEstimated: false);
     }
 
-    final estimated =
-        measured + (missingTiles * averageSa1AreaSquareMetres);
-    return (
-      squareMetres: estimated,
-      isEstimated: missingTiles > 0,
-    );
+    final estimated = measured + (missingTiles * averageSa1AreaSquareMetres);
+    return (squareMetres: estimated, isEstimated: missingTiles > 0);
   }
 
   String formatAreaKm2(double squareMetres, {required bool isEstimated}) {
     final km2 = squareMetres / 1e6;
-    final value = km2 >= 10
-        ? km2.toStringAsFixed(1)
-        : km2.toStringAsFixed(2);
+    final value = km2 >= 10 ? km2.toStringAsFixed(1) : km2.toStringAsFixed(2);
     return isEstimated ? '~$value km²' : '$value km²';
   }
 

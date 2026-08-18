@@ -2,7 +2,6 @@ import 'dart:async';
 
 import '../../journeys/data/journey_service.dart';
 import '../../journeys/domain/journey.dart';
-import '../../map/data/visited_region_service.dart';
 import '../../map/domain/visit_event.dart';
 import '../../profile/domain/home_base.dart';
 import '../../profile/domain/stats_summary.dart';
@@ -40,7 +39,8 @@ class StatsAnalyticsProvider extends YouAnalyticsProvider {
   List<Journey> _journeys = const <Journey>[];
   StatsSummary _statsSummary = const StatsSummary();
   HomeBase? _homeBase;
-  Map<String, VisitedPolygonMeta> _polygonMeta = const <String, VisitedPolygonMeta>{};
+  Map<String, VisitedPolygonMeta> _polygonMeta =
+      const <String, VisitedPolygonMeta>{};
   Map<String, int> _entryCounts = const <String, int>{};
   bool _visitEventsReady = false;
   bool _journeysReady = false;
@@ -102,53 +102,61 @@ class StatsAnalyticsProvider extends YouAnalyticsProvider {
     _markExtendedReady();
     notifyListeners();
 
-    _visitEventsSub = visitService.watchVisitEvents(uid).listen(
-      (value) {
-        _visitEvents = value;
-        _visitEventsReady = true;
-        notifyListeners();
-      },
-      onError: (_) {
-        _visitEventsReady = true;
-        notifyListeners();
-      },
-    );
+    _visitEventsSub = visitService
+        .watchVisitEvents(uid)
+        .listen(
+          (value) {
+            _visitEvents = value;
+            _visitEventsReady = true;
+            notifyListeners();
+          },
+          onError: (_) {
+            _visitEventsReady = true;
+            notifyListeners();
+          },
+        );
 
-    _journeysSub = _journeyService.getJourneysStream(uid).listen(
-      (value) {
-        _journeys = value;
-        _journeysReady = true;
-        notifyListeners();
-      },
-      onError: (_) {
-        _journeysReady = true;
-        notifyListeners();
-      },
-    );
+    _journeysSub = _journeyService
+        .getJourneysStream(uid)
+        .listen(
+          (value) {
+            _journeys = value;
+            _journeysReady = true;
+            notifyListeners();
+          },
+          onError: (_) {
+            _journeysReady = true;
+            notifyListeners();
+          },
+        );
 
-    _summarySub = _statsSummaryService.watchSummary(uid).listen(
-      (value) {
-        _statsSummary = value;
-        _summaryReady = true;
-        notifyListeners();
-      },
-      onError: (_) {
-        _summaryReady = true;
-        notifyListeners();
-      },
-    );
+    _summarySub = _statsSummaryService
+        .watchSummary(uid)
+        .listen(
+          (value) {
+            _statsSummary = value;
+            _summaryReady = true;
+            notifyListeners();
+          },
+          onError: (_) {
+            _summaryReady = true;
+            notifyListeners();
+          },
+        );
 
-    _homeBaseSub = _homeBaseService.watchHomeBase(uid).listen(
-      (value) {
-        _homeBase = value;
-        _homeBaseReady = true;
-        notifyListeners();
-      },
-      onError: (_) {
-        _homeBaseReady = true;
-        notifyListeners();
-      },
-    );
+    _homeBaseSub = _homeBaseService
+        .watchHomeBase(uid)
+        .listen(
+          (value) {
+            _homeBase = value;
+            _homeBaseReady = true;
+            notifyListeners();
+          },
+          onError: (_) {
+            _homeBaseReady = true;
+            notifyListeners();
+          },
+        );
 
     _polygonMetaSub = visitedRegionService.watchVisitedPolygonMeta().listen(
       (value) {

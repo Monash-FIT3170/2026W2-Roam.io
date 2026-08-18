@@ -25,7 +25,9 @@ class StatsBreakdownSection extends StatelessWidget {
     final visibleItems = items.where((item) => item.value > 0).toList();
     final maxValue = visibleItems.isEmpty
         ? 0
-        : visibleItems.map((item) => item.value).reduce((a, b) => a > b ? a : b);
+        : visibleItems
+              .map((item) => item.value)
+              .reduce((a, b) => a > b ? a : b);
 
     return StatsSectionCard(
       title: title,

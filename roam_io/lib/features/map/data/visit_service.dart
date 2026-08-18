@@ -96,7 +96,10 @@ class VisitService {
     );
 
     final batch = _firestore.batch();
-    batch.set(_visitsCollection(userId).doc(place.id.toString()), visit.toMap());
+    batch.set(
+      _visitsCollection(userId).doc(place.id.toString()),
+      visit.toMap(),
+    );
     batch.set(eventRef, event.toMap());
     await batch.commit();
 

@@ -62,12 +62,12 @@ Journey _journey({
     userId: 'u1',
     startTime: start,
     endTime: start.add(Duration(seconds: durationSeconds)),
-    startLocation: JourneyLocation(
-      latLng: const LatLng(-37.8, 144.9),
+    startLocation: const JourneyLocation(
+      latLng: LatLng(-37.8, 144.9),
       displayName: 'Start',
     ),
-    endLocation: JourneyLocation(
-      latLng: const LatLng(-37.81, 144.91),
+    endLocation: const JourneyLocation(
+      latLng: LatLng(-37.81, 144.91),
       displayName: 'End',
     ),
     transportMode: TransportMode.walk,

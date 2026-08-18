@@ -130,18 +130,12 @@ class _StatsScreenState extends State<StatsScreen> {
                         analytics: analytics,
                         embedded: true,
                       ),
-                      1 => TilesStatsView(
-                        analytics: analytics,
-                        embedded: true,
-                      ),
+                      1 => TilesStatsView(analytics: analytics, embedded: true),
                       2 => JourneysStatsView(
                         analytics: analytics,
                         embedded: true,
                       ),
-                      _ => XpStatsView(
-                        analytics: analytics,
-                        embedded: true,
-                      ),
+                      _ => XpStatsView(analytics: analytics, embedded: true),
                     },
                   ),
                 ),

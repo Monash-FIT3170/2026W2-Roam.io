@@ -109,12 +109,12 @@ void main() {
           userId: 'u1',
           startTime: DateTime(2026, 5, 1, 9),
           endTime: DateTime(2026, 5, 1, 10),
-          startLocation: JourneyLocation(
-            latLng: const LatLng(-37.8, 144.9),
+          startLocation: const JourneyLocation(
+            latLng: LatLng(-37.8, 144.9),
             displayName: 'Start',
           ),
-          endLocation: JourneyLocation(
-            latLng: const LatLng(-37.81, 144.91),
+          endLocation: const JourneyLocation(
+            latLng: LatLng(-37.81, 144.91),
             displayName: 'End',
           ),
           transportMode: TransportMode.walk,
@@ -150,22 +150,22 @@ void main() {
       expect(tiles.single.entryCount, 4);
     });
 
-    test('formatTileDisplayName prefers SA2 suburb from stored region name', () {
-      expect(
-        service.formatTileDisplayName(
-          name: 'Carlton - SA1 21102126135',
-          polygonId: '21102126135',
-        ),
-        'Carlton',
-      );
-      expect(
-        service.formatTileDisplayName(
-          name: null,
-          polygonId: '21102126135',
-        ),
-        'Area 211021',
-      );
-    });
+    test(
+      'formatTileDisplayName prefers SA2 suburb from stored region name',
+      () {
+        expect(
+          service.formatTileDisplayName(
+            name: 'Carlton - SA1 21102126135',
+            polygonId: '21102126135',
+          ),
+          'Carlton',
+        );
+        expect(
+          service.formatTileDisplayName(name: null, polygonId: '21102126135'),
+          'Area 211021',
+        );
+      },
+    );
 
     test('revealedAreaSquareMetres estimates when meta has no areas', () {
       final revealed = service.revealedAreaSquareMetres(
@@ -230,47 +230,50 @@ void main() {
       expect(service.topCategory(events: const [], visits: const []), isNull);
     });
 
-    test('visitStreakDays counts consecutive days ending today or yesterday', () {
-      final today = DateTime.now();
-      final day = DateTime(today.year, today.month, today.day);
-      final events = <VisitEvent>[
-        VisitEvent(
-          id: 'e1',
-          placeId: 1,
-          googlePlaceId: 'g1',
-          placeName: 'A',
-          regionId: 'r1',
-          category: 'food_drink',
-          lat: -37.8,
-          lng: 144.9,
-          visitedAt: day,
-        ),
-        VisitEvent(
-          id: 'e2',
-          placeId: 2,
-          googlePlaceId: 'g2',
-          placeName: 'B',
-          regionId: 'r2',
-          category: 'nature',
-          lat: -37.81,
-          lng: 144.91,
-          visitedAt: day.subtract(const Duration(days: 1)),
-        ),
-        VisitEvent(
-          id: 'e3',
-          placeId: 3,
-          googlePlaceId: 'g3',
-          placeName: 'C',
-          regionId: 'r3',
-          category: 'nature',
-          lat: -37.82,
-          lng: 144.92,
-          visitedAt: day.subtract(const Duration(days: 3)),
-        ),
-      ];
+    test(
+      'visitStreakDays counts consecutive days ending today or yesterday',
+      () {
+        final today = DateTime.now();
+        final day = DateTime(today.year, today.month, today.day);
+        final events = <VisitEvent>[
+          VisitEvent(
+            id: 'e1',
+            placeId: 1,
+            googlePlaceId: 'g1',
+            placeName: 'A',
+            regionId: 'r1',
+            category: 'food_drink',
+            lat: -37.8,
+            lng: 144.9,
+            visitedAt: day,
+          ),
+          VisitEvent(
+            id: 'e2',
+            placeId: 2,
+            googlePlaceId: 'g2',
+            placeName: 'B',
+            regionId: 'r2',
+            category: 'nature',
+            lat: -37.81,
+            lng: 144.91,
+            visitedAt: day.subtract(const Duration(days: 1)),
+          ),
+          VisitEvent(
+            id: 'e3',
+            placeId: 3,
+            googlePlaceId: 'g3',
+            placeName: 'C',
+            regionId: 'r3',
+            category: 'nature',
+            lat: -37.82,
+            lng: 144.92,
+            visitedAt: day.subtract(const Duration(days: 3)),
+          ),
+        ];
 
-      expect(service.visitStreakDays(events: events, visits: const []), 2);
-      expect(service.visitStreakDays(events: const [], visits: const []), 0);
-    });
+        expect(service.visitStreakDays(events: events, visits: const []), 2);
+        expect(service.visitStreakDays(events: const [], visits: const []), 0);
+      },
+    );
   });
 }

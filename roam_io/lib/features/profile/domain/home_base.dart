@@ -25,8 +25,7 @@ class HomeBase {
     return HomeBase(
       lat: (map['lat'] as num).toDouble(),
       lng: (map['lng'] as num).toDouble(),
-      setAt:
-          DateTime.tryParse(map['setAt'] as String? ?? '') ?? DateTime.now(),
+      setAt: DateTime.tryParse(map['setAt'] as String? ?? '') ?? DateTime.now(),
       label: map['label'] as String?,
     );
   }

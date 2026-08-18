@@ -32,10 +32,7 @@ class RecentVisitedLocationsCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return StatsSectionCard(
-      title: 'Recent visits',
-      child: _buildBody(context),
-    );
+    return StatsSectionCard(title: 'Recent visits', child: _buildBody(context));
   }
 
   Widget _buildBody(BuildContext context) {
@@ -78,8 +75,7 @@ class RecentVisitedLocationsCard extends StatelessWidget {
       mainAxisSize: MainAxisSize.min,
       children: [
         for (var index = 0; index < limited.length; index++) ...[
-          if (index > 0)
-            Divider(color: AppSurfaces.border(context), height: 1),
+          if (index > 0) Divider(color: AppSurfaces.border(context), height: 1),
           _VisitRow(visit: limited[index]),
         ],
       ],

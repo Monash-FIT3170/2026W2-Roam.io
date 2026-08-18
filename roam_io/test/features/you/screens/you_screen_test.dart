@@ -495,40 +495,39 @@ void main() {
     provider.dispose();
   });
 
-  testWidgets(
-    'Stats XP tab shows empty state when history is empty',
-    (tester) async {
-      final provider = AuthProvider(
-        authRepository: _FakeAuthRepository(_buildProfile(xp: 75)),
-      );
-      await provider.refreshCurrentUser();
+  testWidgets('Stats XP tab shows empty state when history is empty', (
+    tester,
+  ) async {
+    final provider = AuthProvider(
+      authRepository: _FakeAuthRepository(_buildProfile(xp: 75)),
+    );
+    await provider.refreshCurrentUser();
 
-      await tester.pumpWidget(
-        ChangeNotifierProvider<AuthProvider>.value(
-          value: provider,
-          child: MaterialApp(
-            home: Scaffold(
-              body: _testYouScreen(
-                visitService: _FakeVisitService(totalVisitCount: 3),
-                visitedRegionService: _FakeVisitedRegionService(<String>{
-                  'tile-a',
-                  'tile-b',
-                }),
-                xpEventsStream: Stream<List<XpEvent>>.value(const <XpEvent>[]),
-              ),
+    await tester.pumpWidget(
+      ChangeNotifierProvider<AuthProvider>.value(
+        value: provider,
+        child: MaterialApp(
+          home: Scaffold(
+            body: _testYouScreen(
+              visitService: _FakeVisitService(totalVisitCount: 3),
+              visitedRegionService: _FakeVisitedRegionService(<String>{
+                'tile-a',
+                'tile-b',
+              }),
+              xpEventsStream: Stream<List<XpEvent>>.value(const <XpEvent>[]),
             ),
           ),
         ),
-      );
-      await tester.pumpAndSettle();
+      ),
+    );
+    await tester.pumpAndSettle();
 
-      await _openStatsCategory(tester, 'XP');
+    await _openStatsCategory(tester, 'XP');
 
-      expect(find.text('No XP gained yet this period'), findsOneWidget);
+    expect(find.text('No XP gained yet this period'), findsOneWidget);
 
-      provider.dispose();
-    },
-  );
+    provider.dispose();
+  });
 
   testWidgets('Stats XP chart updates when new XP events arrive', (
     tester,
@@ -712,110 +711,109 @@ void main() {
     provider.dispose();
   });
 
-  testWidgets(
-    'stats survive Activities detail navigation and stay reactive',
-    (tester) async {
-      await tester.binding.setSurfaceSize(const Size(400, 1400));
-      addTearDown(() => tester.binding.setSurfaceSize(null));
+  testWidgets('stats survive Activities detail navigation and stay reactive', (
+    tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(400, 1400));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
 
-      final weekStart = _mondayOnOrBefore(DateTime.now());
-      final visits = <Visit>[
-        Visit(
-          placeId: 1,
-          googlePlaceId: 'park-1',
-          placeName: 'Persistent Park',
-          regionId: 'region-a',
-          category: 'nature',
-          visitedAt: weekStart.add(const Duration(hours: 3)),
-        ),
-      ];
-      final visitService = _FakeVisitService(
-        totalVisitCount: 1,
-        allVisits: visits,
-      );
-      final regionService = _FakeVisitedRegionService(<String>{
-        'region-a',
-        'region-b',
-      });
-      final xpController = StreamController<List<XpEvent>>.broadcast();
-      final provider = AuthProvider(
-        authRepository: _FakeAuthRepository(_buildProfile(xp: 250)),
-      );
-      await provider.refreshCurrentUser();
+    final weekStart = _mondayOnOrBefore(DateTime.now());
+    final visits = <Visit>[
+      Visit(
+        placeId: 1,
+        googlePlaceId: 'park-1',
+        placeName: 'Persistent Park',
+        regionId: 'region-a',
+        category: 'nature',
+        visitedAt: weekStart.add(const Duration(hours: 3)),
+      ),
+    ];
+    final visitService = _FakeVisitService(
+      totalVisitCount: 1,
+      allVisits: visits,
+    );
+    final regionService = _FakeVisitedRegionService(<String>{
+      'region-a',
+      'region-b',
+    });
+    final xpController = StreamController<List<XpEvent>>.broadcast();
+    final provider = AuthProvider(
+      authRepository: _FakeAuthRepository(_buildProfile(xp: 250)),
+    );
+    await provider.refreshCurrentUser();
 
-      await tester.pumpWidget(
-        ChangeNotifierProvider<AuthProvider>.value(
-          value: provider,
-          child: MaterialApp(
-            home: Scaffold(
-              body: _testYouScreen(
-                visitService: visitService,
-                visitedRegionService: regionService,
-                xpEventsStream: xpController.stream,
-              ),
+    await tester.pumpWidget(
+      ChangeNotifierProvider<AuthProvider>.value(
+        value: provider,
+        child: MaterialApp(
+          home: Scaffold(
+            body: _testYouScreen(
+              visitService: visitService,
+              visitedRegionService: regionService,
+              xpEventsStream: xpController.stream,
             ),
           ),
         ),
-      );
-      xpController.add(<XpEvent>[
-        XpEvent(
-          id: 'xp-1',
-          amount: 40,
-          earnedAt: weekStart.add(const Duration(hours: 2)),
-          source: XpEventSource.visit,
-        ),
-      ]);
-      await tester.pumpAndSettle();
+      ),
+    );
+    xpController.add(<XpEvent>[
+      XpEvent(
+        id: 'xp-1',
+        amount: 40,
+        earnedAt: weekStart.add(const Duration(hours: 2)),
+        source: XpEventSource.visit,
+      ),
+    ]);
+    await tester.pumpAndSettle();
 
-      expect(find.text('Tiles'), findsOneWidget);
-      expect(find.text('2'), findsWidgets);
+    expect(find.text('Tiles'), findsOneWidget);
+    expect(find.text('2'), findsWidgets);
 
-      await _openStatsCategory(tester, 'XP');
+    await _openStatsCategory(tester, 'XP');
 
-      await tester.tap(find.text('Activities'));
-      await tester.pumpAndSettle();
-      expect(find.text('Journey to Coles'), findsOneWidget);
+    await tester.tap(find.text('Activities'));
+    await tester.pumpAndSettle();
+    expect(find.text('Journey to Coles'), findsOneWidget);
 
-      await tester.tap(find.byIcon(Icons.more_horiz_rounded));
-      await tester.pumpAndSettle();
-      expect(find.text('Journey route map'), findsOneWidget);
-      expect(find.text('Kudos'), findsNothing);
-      expect(find.text('0 comments'), findsNothing);
-      expect(find.text('Share'), findsNothing);
+    await tester.tap(find.byIcon(Icons.more_horiz_rounded));
+    await tester.pumpAndSettle();
+    expect(find.text('Journey route map'), findsOneWidget);
+    expect(find.text('Kudos'), findsNothing);
+    expect(find.text('0 comments'), findsNothing);
+    expect(find.text('Share'), findsNothing);
 
-      await tester.pageBack();
-      await tester.pumpAndSettle();
-      await tester.tap(find.text('Profile'));
-      await tester.pumpAndSettle();
+    await tester.pageBack();
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Profile'));
+    await tester.pumpAndSettle();
 
-      expect(find.text('2'), findsWidgets);
+    expect(find.text('2'), findsWidgets);
 
-      visitService.emitAllVisits(<Visit>[
-        ...visits,
-        Visit(
-          placeId: 2,
-          googlePlaceId: 'cafe-1',
-          placeName: 'Reactive Cafe',
-          regionId: 'region-a',
-          category: 'food',
-          visitedAt: weekStart.add(const Duration(hours: 5)),
-        ),
-      ]);
-      await tester.pumpAndSettle();
+    visitService.emitAllVisits(<Visit>[
+      ...visits,
+      Visit(
+        placeId: 2,
+        googlePlaceId: 'cafe-1',
+        placeName: 'Reactive Cafe',
+        regionId: 'region-a',
+        category: 'food',
+        visitedAt: weekStart.add(const Duration(hours: 5)),
+      ),
+    ]);
+    await tester.pumpAndSettle();
 
-      await _openStatsTab(tester);
-      expect(find.text('Visits by week'), findsOneWidget);
-      expect(find.text('Total visits'), findsOneWidget);
-      expect(find.text('Top category'), findsOneWidget);
-      expect(find.text('Visit streak'), findsOneWidget);
-      expect(find.text('2'), findsWidgets);
+    await _openStatsTab(tester);
+    expect(find.text('Visits by week'), findsOneWidget);
+    expect(find.text('Total visits'), findsOneWidget);
+    expect(find.text('Top category'), findsOneWidget);
+    expect(find.text('Visit streak'), findsOneWidget);
+    expect(find.text('2'), findsWidgets);
 
-      provider.dispose();
-      await visitService.dispose();
-      await regionService.dispose();
-      await xpController.close();
-    },
-  );
+    provider.dispose();
+    await visitService.dispose();
+    await regionService.dispose();
+    await xpController.close();
+  });
 }
 
 DateTime _mondayOnOrBefore(DateTime date) {
