@@ -14,6 +14,7 @@ import 'package:roam_io/features/auth/providers/auth_provider.dart';
 import 'package:roam_io/features/profile/domain/profile_model.dart';
 import 'package:roam_io/features/profile/domain/xp_award_result.dart';
 import 'package:roam_io/features/profile/domain/xp_event.dart';
+import 'package:roam_io/theme/app_theme_mode.dart';
 
 import '../../../support/fake_firebase_user.dart';
 
@@ -226,7 +227,7 @@ class _ThrowingAuthRepository implements AuthRepository {
   }
 
   @override
-  Future<void> updateDarkModePreference(bool enabled) async {
+  Future<void> updateThemeModePreference(AppThemeMode mode) async {
     final fn = onUpdateDarkMode;
     if (fn != null) await fn();
   }

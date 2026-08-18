@@ -110,6 +110,23 @@ void main() {
 
       controller.dispose();
     });
+
+    testWidgets('switches the cloud palette when app brightness changes', (
+      tester,
+    ) async {
+      final controller = FogController()
+        ..setAnchor(_anchor)
+        ..updateCamera(_camera)
+        ..markViewportLoaded();
+
+      await _pump(tester, controller, atlas: atlas, theme: ThemeData.light());
+      expect(_fogPainter(tester).isNight, isFalse);
+
+      await _pump(tester, controller, atlas: atlas, theme: ThemeData.dark());
+      expect(_fogPainter(tester).isNight, isTrue);
+
+      controller.dispose();
+    });
   });
 
   group('FogController', () {
@@ -217,14 +234,21 @@ final Finder _fogPaintFinder = find.byWidgetPredicate(
   (widget) => widget is CustomPaint && widget.painter is FogPainter,
 );
 
+FogPainter _fogPainter(WidgetTester tester) {
+  return tester.widget<CustomPaint>(_fogPaintFinder).painter! as FogPainter;
+}
+
 Future<void> _pump(
   WidgetTester tester,
   FogController controller, {
   required FogAtlas atlas,
   bool isActive = true,
+  ThemeData? theme,
 }) async {
   await tester.pumpWidget(
     MaterialApp(
+      theme: theme,
+      themeAnimationDuration: Duration.zero,
       home: Stack(
         children: <Widget>[
           FogOverlay(

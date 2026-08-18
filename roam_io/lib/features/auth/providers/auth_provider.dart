@@ -17,6 +17,7 @@ import '../data/auth_repository.dart';
 import '../../profile/domain/profile_model.dart';
 import '../../profile/domain/xp_award_result.dart';
 import '../../profile/domain/xp_event.dart';
+import '../../../theme/app_theme_mode.dart';
 
 /// High-level authentication state used by auth gates and account screens.
 enum AuthViewState { loading, authenticated, unauthenticated }
@@ -51,6 +52,8 @@ class AuthProvider extends ChangeNotifier {
       _lastProfilePhotoUploadResult == ProfilePhotoUploadResult.unchanged;
   bool get isAuthenticated => _currentUser != null;
   bool get isEmailVerified => _currentUser?.emailVerified ?? false;
+  AppThemeMode get themeMode =>
+      _currentProfile?.themeMode ?? AppThemeMode.light;
   bool get darkModeEnabled => _currentProfile?.darkModeEnabled ?? false;
   int? get pendingLevelUp => _pendingLevelUp;
 
@@ -179,15 +182,22 @@ class AuthProvider extends ChangeNotifier {
     );
   }
 
-  /// Persists the user's dark mode preference and updates local profile state.
-  Future<void> updateDarkModePreference(bool enabled) async {
+  /// Persists the user's appearance preference and updates local profile state.
+  Future<void> updateThemeModePreference(AppThemeMode mode) async {
     await _runAuthAction(() async {
-      await _authRepository.updateDarkModePreference(enabled);
+      await _authRepository.updateThemeModePreference(mode);
       _currentProfile = _currentProfile?.copyWith(
-        darkModeEnabled: enabled,
+        themeMode: mode,
         updatedAt: DateTime.now(),
       );
     });
+  }
+
+  /// Legacy wrapper retained for callers that still expose a boolean switch.
+  Future<void> updateDarkModePreference(bool enabled) {
+    return updateThemeModePreference(
+      enabled ? AppThemeMode.dark : AppThemeMode.light,
+    );
   }
 
   /// Uploads a new profile picture and refreshes the current profile.

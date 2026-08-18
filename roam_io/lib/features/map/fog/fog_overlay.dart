@@ -119,7 +119,7 @@ class _FogOverlayState extends State<FogOverlay>
 
     final atlas = await FogAtlas.load(assetPaths: assets);
 
-    if (!mounted) {
+    if (!mounted || brightness != _loadedBrightness) {
       atlas?.dispose();
       return;
     }

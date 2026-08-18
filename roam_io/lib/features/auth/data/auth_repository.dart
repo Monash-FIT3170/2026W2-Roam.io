@@ -16,6 +16,7 @@ import '../../profile/domain/xp_event.dart';
 import '../../../services/auth_service.dart';
 import '../../../services/profile_service.dart';
 import '../../../services/storage_service.dart';
+import '../../../theme/app_theme_mode.dart';
 
 /// Orchestrates multi-step auth, profile, and profile photo workflows.
 class AuthRepository {
@@ -66,7 +67,7 @@ class AuthRepository {
       email: email,
       createdAt: now,
       updatedAt: now,
-      darkModeEnabled: false,
+      themeMode: AppThemeMode.light,
     );
     await _profileService.createProfile(profile);
     await _authService.sendEmailVerification();
@@ -149,8 +150,8 @@ class AuthRepository {
     return _profileService.getProfile(user.uid);
   }
 
-  /// Persists the signed-in user's dark mode preference in Firestore.
-  Future<void> updateDarkModePreference(bool enabled) async {
+  /// Persists the signed-in user's appearance preference in Firestore.
+  Future<void> updateThemeModePreference(AppThemeMode mode) async {
     final user = currentUser;
     if (user == null) {
       throw FirebaseAuthException(
@@ -159,9 +160,13 @@ class AuthRepository {
       );
     }
 
-    await _profileService.updateDarkModePreference(
-      uid: user.uid,
-      enabled: enabled,
+    await _profileService.updateThemeModePreference(uid: user.uid, mode: mode);
+  }
+
+  /// Legacy wrapper retained for older callers and tests.
+  Future<void> updateDarkModePreference(bool enabled) {
+    return updateThemeModePreference(
+      enabled ? AppThemeMode.dark : AppThemeMode.light,
     );
   }
 

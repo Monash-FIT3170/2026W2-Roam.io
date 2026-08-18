@@ -1,9 +1,6 @@
 /*
- * Author: Sanjevan Rajasegar
- * Last Updated: 5 August 2026
- * Description:
- *   Regression tests for row-based Settings dark mode toggling and profile
- *   data preservation.
+ * Regression tests for the Settings Light, Dark, and Dynamic appearance
+ * preference and profile data preservation.
  */
 
 import 'package:firebase_auth/firebase_auth.dart' as firebase_auth;
@@ -14,64 +11,69 @@ import 'package:roam_io/features/auth/data/auth_repository.dart';
 import 'package:roam_io/features/auth/providers/auth_provider.dart';
 import 'package:roam_io/features/profile/domain/profile_model.dart';
 import 'package:roam_io/features/settings/screens/settings_screen.dart';
+import 'package:roam_io/theme/app_theme_mode.dart';
 
 void main() {
-  testWidgets('toggling dark mode on preserves existing settings screen data', (
+  for (final testCase in <({AppThemeMode from, AppThemeMode to})>[
+    (from: AppThemeMode.light, to: AppThemeMode.dark),
+    (from: AppThemeMode.dark, to: AppThemeMode.light),
+    (from: AppThemeMode.light, to: AppThemeMode.dynamic),
+  ]) {
+    testWidgets(
+      'selecting ${testCase.to.name} preserves existing settings data',
+      (tester) async {
+        final profile = _buildProfile(themeMode: testCase.from);
+        final repository = _FakeAuthRepository(profile);
+        final provider = AuthProvider(authRepository: repository);
+
+        await _pumpSettingsScreen(tester, provider);
+        repository.clearRecordedActions();
+
+        final before = provider.currentProfile!;
+        await tester.tap(find.text('Appearance'));
+        await tester.pumpAndSettle();
+
+        expect(find.text('Light'), findsWidgets);
+        expect(find.text('Dark'), findsWidgets);
+        expect(find.text('Dynamic'), findsWidgets);
+
+        await tester.tap(
+          find.byKey(
+            ValueKey<String>('theme-mode-${testCase.to.storageValue}'),
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        final after = provider.currentProfile!;
+        expect(repository.themeModeUpdates, <AppThemeMode>[testCase.to]);
+        expect(after.themeMode, testCase.to);
+        expect(after.updatedAt, isNot(before.updatedAt));
+        _expectUnrelatedProfileFieldsPreserved(before, after);
+
+        provider.dispose();
+      },
+    );
+  }
+
+  testWidgets('selecting the current mode does not write the profile again', (
     tester,
   ) async {
-    final profile = _buildProfile(darkModeEnabled: false);
-    final repository = _FakeAuthRepository(profile);
+    final repository = _FakeAuthRepository(
+      _buildProfile(themeMode: AppThemeMode.dynamic),
+    );
     final provider = AuthProvider(authRepository: repository);
 
     await _pumpSettingsScreen(tester, provider);
     repository.clearRecordedActions();
 
-    final before = provider.currentProfile!;
+    await tester.tap(find.text('Appearance'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey<String>('theme-mode-dynamic')));
+    await tester.pumpAndSettle();
 
-    final darkModeSwitch = find.byType(Switch);
-    await tester.ensureVisible(darkModeSwitch);
-    await tester.tap(darkModeSwitch);
-    await tester.pump();
-    await tester.pump();
-
-    final after = provider.currentProfile!;
-
-    expect(repository.darkModeUpdates, <bool>[true]);
-    expect(after.darkModeEnabled, isTrue);
-    expect(after.updatedAt, isNot(before.updatedAt));
-    _expectUnrelatedProfileFieldsPreserved(before, after);
-
+    expect(repository.themeModeUpdates, isEmpty);
     provider.dispose();
   });
-
-  testWidgets(
-    'toggling dark mode off preserves existing settings screen data',
-    (tester) async {
-      final profile = _buildProfile(darkModeEnabled: true);
-      final repository = _FakeAuthRepository(profile);
-      final provider = AuthProvider(authRepository: repository);
-
-      await _pumpSettingsScreen(tester, provider);
-      repository.clearRecordedActions();
-
-      final before = provider.currentProfile!;
-
-      final darkModeSwitch = find.byType(Switch);
-      await tester.ensureVisible(darkModeSwitch);
-      await tester.tap(darkModeSwitch);
-      await tester.pump();
-      await tester.pump();
-
-      final after = provider.currentProfile!;
-
-      expect(repository.darkModeUpdates, <bool>[false]);
-      expect(after.darkModeEnabled, isFalse);
-      expect(after.updatedAt, isNot(before.updatedAt));
-      _expectUnrelatedProfileFieldsPreserved(before, after);
-
-      provider.dispose();
-    },
-  );
 }
 
 Future<void> _pumpSettingsScreen(
@@ -89,10 +91,11 @@ Future<void> _pumpSettingsScreen(
   await tester.pump();
 
   expect(provider.currentProfile, isNotNull);
-  expect(find.byType(Switch), findsOneWidget);
+  expect(find.text('Appearance'), findsOneWidget);
+  expect(find.byType(Switch), findsNothing);
 }
 
-ProfileModel _buildProfile({required bool darkModeEnabled}) {
+ProfileModel _buildProfile({required AppThemeMode themeMode}) {
   return ProfileModel(
     uid: 'user-1',
     username: 'traveller',
@@ -102,7 +105,7 @@ ProfileModel _buildProfile({required bool darkModeEnabled}) {
     photoHash: 'photo-hash',
     createdAt: DateTime(2026, 5, 1, 10),
     updatedAt: DateTime(2026, 5, 1, 11),
-    darkModeEnabled: darkModeEnabled,
+    themeMode: themeMode,
   );
 }
 
@@ -128,10 +131,10 @@ class _FakeAuthRepository implements AuthRepository {
     email: 'traveller@example.com',
   );
 
-  final List<bool> darkModeUpdates = <bool>[];
+  final List<AppThemeMode> themeModeUpdates = <AppThemeMode>[];
 
   void clearRecordedActions() {
-    darkModeUpdates.clear();
+    themeModeUpdates.clear();
   }
 
   @override
@@ -148,8 +151,8 @@ class _FakeAuthRepository implements AuthRepository {
   Future<void> reloadCurrentUser() async {}
 
   @override
-  Future<void> updateDarkModePreference(bool enabled) async {
-    darkModeUpdates.add(enabled);
+  Future<void> updateThemeModePreference(AppThemeMode mode) async {
+    themeModeUpdates.add(mode);
   }
 
   @override
