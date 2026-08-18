@@ -11,7 +11,11 @@ class ExplorationStatsService {
     PolygonService? polygonService,
     StatsSummaryService? statsSummaryService,
   }) : _polygonService = polygonService ?? PolygonService(),
-       _statsSummaryService = statsSummaryService ?? StatsSummaryService();
+       _statsSummaryService =
+           statsSummaryService ??
+           StatsSummaryService(
+             firestore: (polygonService ?? PolygonService()).firestore,
+           );
 
   final PolygonService _polygonService;
   final StatsSummaryService _statsSummaryService;

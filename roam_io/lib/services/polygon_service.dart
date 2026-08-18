@@ -25,6 +25,9 @@ class PolygonService {
 
   final FirebaseFirestore _firestore;
 
+  /// Exposed so companion services can share the same Firestore instance.
+  FirebaseFirestore get firestore => _firestore;
+
   CollectionReference<Map<String, dynamic>> get _visitedPolygons =>
       _firestore.collection(_visitedPolygonsCollectionName);
 
