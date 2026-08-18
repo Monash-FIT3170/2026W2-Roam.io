@@ -174,7 +174,12 @@ class FogAtlas {
     canvas.drawImage(
       source,
       Offset(offsetX, offsetY),
-      ui.Paint()..filterQuality = ui.FilterQuality.medium,
+      ui.Paint()
+        ..filterQuality = ui.FilterQuality.medium
+        ..colorFilter = const ui.ColorFilter.mode(
+          FogPalette.spriteEdgeLift,
+          ui.BlendMode.screen,
+        ),
     );
   }
 

@@ -23,9 +23,9 @@ abstract final class FogPalette {
   /// Day_Fog_1.png so the two layers sit together.
   static const Color washColor = Color(0xFFA7B6C8);
 
-  /// Wash opacity. Combined with the sprites this lands near the agreed ~90%
-  /// coverage, leaving major roads readable as faint ghosts.
-  static const double washOpacity = 0.58;
+  /// Wash opacity. Kept light enough that map detail remains visible beneath
+  /// the cloud texture.
+  static const double washOpacity = 0.46;
 
   /// Per-sprite tint, multiplied over the artwork via [BlendMode.modulate].
   ///
@@ -33,9 +33,14 @@ abstract final class FogPalette {
   /// white here if the fog should read lighter without re-exporting the PNG.
   static const Color spriteTint = Color(0xFFE4E8ED);
 
+  /// Pale screen tint baked over the source artwork in the atlas. This lifts
+  /// the blue-grey contour around each puff so overlapping sprites read as one
+  /// continuous cloud field instead of separate outlined tiles.
+  static const Color spriteEdgeLift = Color(0x38EDF4FA);
+
   /// Cooler, deeper treatment used while the app is in dark mode.
   static const Color nightWashColor = Color(0xFF4D5D73);
-  static const double nightWashOpacity = 0.72;
+  static const double nightWashOpacity = 0.56;
   static const Color nightSpriteTint = Color(0xFF8190A8);
 
   // ---------------------------------------------------------------------------
@@ -104,8 +109,8 @@ abstract final class FogPalette {
   static const double scaleVariance = 0.1;
 
   /// Per-instance opacity range.
-  static const double opacityMin = 0.52;
-  static const double opacityMax = 0.82;
+  static const double opacityMin = 0.42;
+  static const double opacityMax = 0.66;
 
   /// How strongly sprite size tracks zoom.
   ///
