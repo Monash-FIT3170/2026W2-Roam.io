@@ -422,10 +422,7 @@ class _FakeVisitService implements VisitService {
 }
 
 class _FakeVisitedRegionService implements VisitedRegionService {
-  _FakeVisitedRegionService(
-    this._visitedRegionIds, {
-    this.events,
-  });
+  _FakeVisitedRegionService(this._visitedRegionIds, {this.events});
 
   final Set<String> _visitedRegionIds;
   final List<String>? events;
@@ -460,7 +457,9 @@ class _FakeExplorationStatsService extends ExplorationStatsService {
     this.persistNewUnlocks = true,
     this.throwOnRecordUnlock = false,
     this.events,
-  }) : super(polygonService: PolygonService(firestore: FakeFirebaseFirestore()));
+  }) : super(
+         polygonService: PolygonService(firestore: FakeFirebaseFirestore()),
+       );
 
   final bool persistNewUnlocks;
   final bool throwOnRecordUnlock;

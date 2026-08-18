@@ -33,7 +33,9 @@ class VisitService {
   }) : _firestore = firestore ?? FirebaseFirestore.instance,
        _statsSummaryService =
            statsSummaryService ??
-           StatsSummaryService(firestore: firestore ?? FirebaseFirestore.instance);
+           StatsSummaryService(
+             firestore: firestore ?? FirebaseFirestore.instance,
+           );
 
   final FirebaseFirestore _firestore;
   final StatsSummaryService _statsSummaryService;

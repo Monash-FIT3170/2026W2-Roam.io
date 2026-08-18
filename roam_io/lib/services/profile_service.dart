@@ -33,7 +33,9 @@ class ProfileService {
        _recordXpEventOverride = recordXpEvent,
        _statsSummaryService =
            statsSummaryService ??
-           StatsSummaryService(firestore: firestore ?? FirebaseFirestore.instance),
+           StatsSummaryService(
+             firestore: firestore ?? FirebaseFirestore.instance,
+           ),
        _friendshipService = friendshipService;
 
   final FirebaseFirestore _firestore;
