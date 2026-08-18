@@ -1,11 +1,12 @@
 /*
  * Author: Sanjevan Rajasegar
- * Last Updated: 16 August 2026
+ * Last Updated: 18 August 2026
  * Description:
  *   Provides the You destination with Profile, Activities, Stats, and
  *   Milestones tabs. Profile shows identity header only; Stats owns analytics
  *   via [StatsAnalyticsProvider]. Milestones owns claim progress via
- *   [MilestonesProvider]. Activities shows the personal stub feed.
+ *   [MilestonesProvider]. Activities lists the user's persisted feed. A
+ *   notifications bell opens the social inbox.
  */
 
 import 'package:flutter/material.dart';
@@ -15,8 +16,11 @@ import '../../../services/profile_service.dart';
 import '../../journeys/data/journey_service.dart';
 import '../../../shared/widgets/app_bottom_nav_bar.dart';
 import '../../../theme/app_surfaces.dart';
+import '../../activity_feed/data/activity_feed_service.dart';
 import '../../activity_feed/data/comment_service.dart';
-import '../../activity_feed/data/stub_activity_feed_data.dart';
+import '../../activity_feed/data/comment_like_service.dart';
+import '../../activity_feed/data/kudos_service.dart';
+import '../../activity_feed/models/activity_feed_item.dart';
 import '../../activity_feed/screens/activity_detail_screen.dart';
 import '../../activity_feed/screens/comments_screen.dart';
 import '../../activity_feed/widgets/activity_feed_card.dart';
@@ -25,6 +29,9 @@ import '../../map/data/visit_service.dart';
 import '../../map/data/visited_region_service.dart';
 import '../../profile/domain/profile_model.dart';
 import '../../profile/domain/xp_event.dart';
+import '../../social/data/follow_service.dart';
+import '../../social/data/social_notification_coordinator.dart';
+import '../../social/screens/notifications_screen.dart';
 import '../milestones/milestone_service.dart';
 import '../milestones/milestones_provider.dart';
 import '../milestones/milestones_screen.dart';
@@ -42,8 +49,12 @@ class YouScreen extends StatefulWidget {
     this.visitService,
     this.visitedRegionService,
     this.profileService,
+    this.followService,
     this.xpEventsStream,
     this.commentService,
+    this.commentLikeService,
+    this.kudosService,
+    this.activityFeedService,
     this.journeyService,
     this.statsSummaryService,
     this.homeBaseService,
@@ -59,11 +70,17 @@ class YouScreen extends StatefulWidget {
   /// Injected for tests; production uses the default [ProfileService].
   final ProfileService? profileService;
 
+  /// Injected for tests; production uses the default [FollowService].
+  final FollowService? followService;
+
   /// Injected XP event stream for tests; production watches Firestore.
   final Stream<List<XpEvent>>? xpEventsStream;
 
   /// Injected for tests; production receives a shared instance from MainShell.
   final CommentService? commentService;
+  final CommentLikeService? commentLikeService;
+  final KudosService? kudosService;
+  final ActivityFeedService? activityFeedService;
 
   /// Injected for tests; production uses the default [JourneyService].
   final JourneyService? journeyService;
@@ -86,6 +103,8 @@ class _YouScreenState extends State<YouScreen>
   late final TabController _tabController;
   late final StatsAnalyticsProvider _analytics;
   late final MilestonesProvider _milestones;
+  late final FollowService _followService;
+  late final ActivityFeedService? _activityFeedService;
   final StatsAggregationService _aggregationService =
       const StatsAggregationService();
 
@@ -96,10 +115,15 @@ class _YouScreenState extends State<YouScreen>
     final profileService =
         widget.profileService ??
         (widget.visitService != null ? null : ProfileService());
+    _followService =
+        widget.followService ??
+        (widget.visitService != null ? _EmptyFollowService() : FollowService());
+    _activityFeedService = widget.activityFeedService;
     _analytics = StatsAnalyticsProvider(
       visitService: widget.visitService,
       visitedRegionService: widget.visitedRegionService,
       profileService: profileService,
+      followService: _followService,
       xpEventsStream: widget.xpEventsStream,
       journeyService: widget.journeyService,
       statsSummaryService: widget.statsSummaryService,
@@ -157,6 +181,8 @@ class _YouScreenState extends State<YouScreen>
                       children: [
                         _ProfileTab(
                           profile: profile,
+                          followingCount: analytics.followingCount,
+                          followerCount: analytics.followerCount,
                           tileCount: _aggregationService.tileCountFromSummary(
                             analytics.statsSummary,
                             analytics.tileRecords,
@@ -164,8 +190,11 @@ class _YouScreenState extends State<YouScreen>
                           journeyCount: analytics.journeys.length,
                         ),
                         _ActivitiesTab(
-                          profile: profile,
+                          activityFeedService: _activityFeedService,
+                          currentUserId: uid,
                           commentService: widget.commentService,
+                          commentLikeService: widget.commentLikeService,
+                          kudosService: widget.kudosService,
                         ),
                         StatsScreen(profile: profile),
                         const MilestonesScreen(),
@@ -190,33 +219,91 @@ class _YouTabBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    var unreadCount = 0;
+    try {
+      unreadCount = context.watch<SocialNotificationCoordinator>().unreadCount;
+    } on ProviderNotFoundException {
+      unreadCount = 0;
+    }
 
     return Padding(
-      padding: const EdgeInsets.fromLTRB(24, 12, 24, 0),
-      child: Align(
-        alignment: Alignment.centerLeft,
-        child: TabBar(
-          controller: controller,
-          isScrollable: true,
-          tabAlignment: TabAlignment.start,
-          labelColor: theme.colorScheme.primary,
-          unselectedLabelColor: AppSurfaces.textMuted(context),
-          indicatorColor: theme.colorScheme.primary,
-          indicatorWeight: 3,
-          dividerColor: AppSurfaces.border(context),
-          labelStyle: theme.textTheme.titleMedium?.copyWith(
-            fontWeight: FontWeight.w900,
+      padding: const EdgeInsets.fromLTRB(12, 8, 12, 0),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          Expanded(
+            child: Align(
+              alignment: Alignment.centerLeft,
+              child: TabBar(
+                controller: controller,
+                isScrollable: true,
+                tabAlignment: TabAlignment.start,
+                labelColor: theme.colorScheme.primary,
+                unselectedLabelColor: AppSurfaces.textMuted(context),
+                indicatorColor: theme.colorScheme.primary,
+                indicatorWeight: 3,
+                dividerColor: AppSurfaces.border(context),
+                labelStyle: theme.textTheme.titleMedium?.copyWith(
+                  fontWeight: FontWeight.w900,
+                ),
+                unselectedLabelStyle: theme.textTheme.titleMedium?.copyWith(
+                  fontWeight: FontWeight.w700,
+                ),
+                tabs: const [
+                  Tab(text: 'Profile'),
+                  Tab(text: 'Activities'),
+                  Tab(text: 'Stats'),
+                  Tab(text: 'Milestones'),
+                ],
+              ),
+            ),
           ),
-          unselectedLabelStyle: theme.textTheme.titleMedium?.copyWith(
-            fontWeight: FontWeight.w700,
+          Stack(
+            clipBehavior: Clip.none,
+            children: [
+              IconButton(
+                tooltip: 'Notifications',
+                onPressed: () {
+                  Navigator.of(context).push(
+                    MaterialPageRoute<void>(
+                      builder: (_) => const NotificationsScreen(),
+                    ),
+                  );
+                },
+                icon: Icon(
+                  Icons.notifications_none_rounded,
+                  color: AppSurfaces.textPrimary(context),
+                ),
+              ),
+              if (unreadCount > 0)
+                Positioned(
+                  top: 6,
+                  right: 6,
+                  child: Container(
+                    constraints: const BoxConstraints(
+                      minWidth: 16,
+                      minHeight: 16,
+                    ),
+                    padding: const EdgeInsets.symmetric(horizontal: 4),
+                    decoration: BoxDecoration(
+                      color: theme.colorScheme.primary,
+                      borderRadius: BorderRadius.circular(999),
+                    ),
+                    alignment: Alignment.center,
+                    child: Text(
+                      unreadCount > 99 ? '99+' : '$unreadCount',
+                      style: TextStyle(
+                        color: theme.colorScheme.onPrimary,
+                        fontSize: 10,
+                        fontWeight: FontWeight.w800,
+                        height: 1,
+                      ),
+                    ),
+                  ),
+                ),
+            ],
           ),
-          tabs: const [
-            Tab(text: 'Profile'),
-            Tab(text: 'Activities'),
-            Tab(text: 'Stats'),
-            Tab(text: 'Milestones'),
-          ],
-        ),
+        ],
       ),
     );
   }
@@ -225,11 +312,15 @@ class _YouTabBar extends StatelessWidget {
 class _ProfileTab extends StatelessWidget {
   const _ProfileTab({
     required this.profile,
+    required this.followingCount,
+    required this.followerCount,
     required this.tileCount,
     required this.journeyCount,
   });
 
   final ProfileModel? profile;
+  final int followingCount;
+  final int followerCount;
   final int tileCount;
   final int journeyCount;
 
@@ -241,6 +332,8 @@ class _ProfileTab extends StatelessWidget {
       padding: EdgeInsets.fromLTRB(24, 14, 24, bottomClearance + 12),
       child: ProfileHeader(
         profile: profile,
+        followingCount: followingCount,
+        followerCount: followerCount,
         tileCount: tileCount,
         journeyCount: journeyCount,
       ),
@@ -248,68 +341,204 @@ class _ProfileTab extends StatelessWidget {
   }
 }
 
-class _ActivitiesTab extends StatelessWidget {
-  const _ActivitiesTab({required this.profile, this.commentService});
+class _EmptyFollowService implements FollowService {
+  @override
+  Stream<int> watchFollowingCount(String uid) {
+    return Stream<int>.value(0);
+  }
 
-  final ProfileModel? profile;
+  @override
+  Stream<int> watchFollowerCount(String uid) {
+    return Stream<int>.value(0);
+  }
+
+  @override
+  Stream<List<String>> watchFollowingIds(String uid) {
+    return Stream<List<String>>.value(const <String>[]);
+  }
+
+  @override
+  Stream<List<String>> watchFollowerIds(String uid) {
+    return Stream<List<String>>.value(const <String>[]);
+  }
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+}
+
+class _ActivitiesTab extends StatefulWidget {
+  const _ActivitiesTab({
+    required this.activityFeedService,
+    required this.currentUserId,
+    this.commentService,
+    this.commentLikeService,
+    this.kudosService,
+  });
+
+  final ActivityFeedService? activityFeedService;
+  final String? currentUserId;
   final CommentService? commentService;
+  final CommentLikeService? commentLikeService;
+  final KudosService? kudosService;
+
+  @override
+  State<_ActivitiesTab> createState() => _ActivitiesTabState();
+}
+
+class _ActivitiesTabState extends State<_ActivitiesTab> {
+  Stream<List<ActivityFeedItem>>? _activitiesStream;
+  String? _activitiesStreamUserId;
+  ActivityFeedService? _activitiesStreamService;
+
+  Stream<List<ActivityFeedItem>> _ownedActivitiesStream() {
+    final currentUserId = widget.currentUserId;
+    final activityFeedService = widget.activityFeedService;
+    if (currentUserId == null || activityFeedService == null) {
+      if (_activitiesStream != null ||
+          _activitiesStreamUserId != null ||
+          _activitiesStreamService != null) {
+        debugPrint(
+          '[YouScreen] activities stream cleared currentUserId=$currentUserId '
+          'hasActivityFeedService=${activityFeedService != null}',
+        );
+      }
+      _activitiesStream = Stream<List<ActivityFeedItem>>.value(
+        const <ActivityFeedItem>[],
+      );
+      _activitiesStreamUserId = null;
+      _activitiesStreamService = null;
+      return _activitiesStream!;
+    }
+
+    final hasCachedStream =
+        _activitiesStream != null &&
+        _activitiesStreamUserId == currentUserId &&
+        identical(_activitiesStreamService, activityFeedService);
+    if (hasCachedStream) return _activitiesStream!;
+
+    debugPrint(
+      '[YouScreen] activities stream created currentUserId=$currentUserId '
+      'query=ownerId==$currentUserId',
+    );
+    _activitiesStream = activityFeedService.watchActivitiesOwnedBy(
+      currentUserId,
+    );
+    _activitiesStreamUserId = currentUserId;
+    _activitiesStreamService = activityFeedService;
+    return _activitiesStream!;
+  }
 
   @override
   Widget build(BuildContext context) {
     final bottomClearance =
         AppBottomNavBar.clearanceFromScreenBottom(context) + 12;
-    final activity = StubActivityFeedData.personalJourney.copyWith(
-      displayName: profile?.displayName ?? 'Traveller',
-      username: profile?.username,
-      photoUrl: profile?.photoUrl,
-    );
-    final comments = commentService;
+    final comments = widget.commentService;
+    final stream = _ownedActivitiesStream();
 
-    return SingleChildScrollView(
-      padding: EdgeInsets.fromLTRB(24, 16, 24, bottomClearance),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            'Activities',
-            style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-              color: AppSurfaces.textPrimary(context),
-              fontWeight: FontWeight.w900,
+    return StreamBuilder<List<ActivityFeedItem>>(
+      stream: stream,
+      builder: (context, snapshot) {
+        debugPrint(
+          '[YouScreen] activities builder currentUserId=${widget.currentUserId} '
+          'hasActivityFeedService=${widget.activityFeedService != null} '
+          'query=ownerId==${widget.currentUserId} '
+          'connectionState=${snapshot.connectionState} '
+          'hasError=${snapshot.hasError} hasData=${snapshot.hasData} '
+          'renderedCount=${snapshot.data?.length ?? 0} '
+          'titles=${_activityTitles(snapshot.data)}',
+        );
+        if (snapshot.hasError) {
+          debugPrint('[YouScreen] activities failed ${snapshot.error}');
+          return Center(
+            child: Padding(
+              padding: const EdgeInsets.all(24),
+              child: Text(
+                'Could not load activities. Try again.',
+                textAlign: TextAlign.center,
+                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                  color: AppSurfaces.textMuted(context),
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
             ),
-          ),
-          const SizedBox(height: 12),
-          ActivityFeedCard.fromItem(
-            activity,
-            commentService: comments,
-            showKudos: true,
-            showComments: true,
-            showShare: true,
-            onOverflowTap: () {
-              Navigator.of(context).push(
-                MaterialPageRoute<void>(
-                  builder: (_) => ActivityDetailScreen(activity: activity),
+          );
+        }
+        if (snapshot.connectionState == ConnectionState.waiting &&
+            !snapshot.hasData) {
+          return const Center(child: CircularProgressIndicator());
+        }
+        final activities = snapshot.data ?? const <ActivityFeedItem>[];
+        if (activities.isEmpty) {
+          return Center(
+            child: Padding(
+              padding: const EdgeInsets.all(24),
+              child: Text(
+                'No activities yet',
+                textAlign: TextAlign.center,
+                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                  color: AppSurfaces.textMuted(context),
+                  fontWeight: FontWeight.w700,
                 ),
-              );
-            },
-            onKudosTap: () {
-              // Kudos persistence is not wired yet; keep the action visible.
-            },
-            onCommentTap: () {
-              Navigator.of(context).push(
-                MaterialPageRoute<void>(
-                  builder: (_) => CommentsScreen(
-                    activityId: activity.id,
-                    commentService: comments,
+              ),
+            ),
+          );
+        }
+
+        return ListView.separated(
+          padding: EdgeInsets.fromLTRB(24, 20, 24, bottomClearance),
+          itemCount: activities.length,
+          separatorBuilder: (context, index) => const SizedBox(height: 14),
+          itemBuilder: (context, index) {
+            final activity = activities[index];
+            return ActivityFeedCard.fromItem(
+              activity,
+              commentService: comments,
+              kudosService: widget.kudosService,
+              currentUserId: widget.currentUserId,
+              showKudos: true,
+              showComments: true,
+              showShare: true,
+              onOverflowTap: () {
+                Navigator.of(context).push(
+                  MaterialPageRoute<void>(
+                    builder: (_) => ActivityDetailScreen(
+                      activity: activity,
+                      showEngagementActions: true,
+                      showShare: true,
+                      currentUserId: widget.currentUserId,
+                      commentService: comments,
+                      commentLikeService: widget.commentLikeService,
+                      kudosService: widget.kudosService,
+                    ),
                   ),
-                ),
-              );
-            },
-            onShareTap: () {
-              // Activity sharing backend is deferred; preserve the Share action.
-            },
-          ),
-        ],
-      ),
+                );
+              },
+              onCommentTap: () {
+                debugPrint(
+                  '[YouScreen] open comments activityId=${activity.id} '
+                  'ownerId=${activity.ownerId}',
+                );
+                Navigator.of(context).push(
+                  MaterialPageRoute<void>(
+                    builder: (_) => CommentsScreen(
+                      activityId: activity.id,
+                      activityOwnerId: activity.ownerId,
+                      commentService: comments,
+                      commentLikeService: widget.commentLikeService,
+                    ),
+                  ),
+                );
+              },
+              onShareTap: () {},
+            );
+          },
+        );
+      },
     );
   }
+}
+
+String _activityTitles(List<ActivityFeedItem>? activities) {
+  if (activities == null || activities.isEmpty) return '';
+  return activities.map((activity) => activity.title).join('|');
 }

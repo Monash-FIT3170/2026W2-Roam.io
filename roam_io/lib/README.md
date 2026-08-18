@@ -81,48 +81,131 @@ Firebase's verified email change flow rather than a direct profile overwrite.
 Successful display-name and username saves keep the user on the edit screen so
 the updated value can be reviewed before manually navigating back.
 
-### You Dashboard
+### Public Profile Dashboards
 
-`You` owns personal profile context and personal activity surfaces. It uses
-internal `Profile` and `Activities` tabs rather than adding more bottom-nav
-destinations. `Profile` keeps a compact identity row (64px avatar beside
-display name, username, and level/XP) with the five-stat row
-(Following/Followers/Tiles/Journeys/Sidequests) full-width beneath, then a
-metric-selectable interactive line graph. Analytics subscriptions live in
-`YouAnalyticsProvider`, which holds the latest visits / tiles / XP events so
-Profile data survives Activities tab remounts and Activity Detail push/pop
-(do not cache Firestore watches with `.asBroadcastStream()` on the screen).
-Locations Visited and Tiles Unlocked use existing visit/polygon timestamps.
-XP Gained uses timestamped `profiles/{uid}/xp_events` recorded **after** the
-canonical `profiles/{uid}` XP/level update succeeds. History is secondary
-analytics: a failure to write an XP event must never roll back or block
-progression. History accumulates from the point event tracking was introduced —
-existing aggregate XP is not reverse-engineered into fabricated past weeks.
-Weekly buckets use Monday-start local calendar weeks. Tapping a graph point
-selects it and shows that week's exact value; changing metric resets selection.
-Journey and sidequest graph modes remain empty until those domain sources
-exist. Bottom scroll padding uses `AppBottomNavBar.clearanceFromScreenBottom`
-with `SafeArea(bottom: false)` so content is not double-inset under the
-floating nav. `Activities` shows a personal stub via shared `activity_feed`
-cards with **Kudos + live comment count + Share**. Overflow opens a journey
-detail screen with **no** engagement controls (share and comments stay on the
-card). Comment opens the shared `CommentsScreen` (same as Home) backed by
-`activities/{activityId}/comments` via `CommentService`; card counts use
-`watchCommentCount`. `MainShellScreen` injects one shared `CommentService`
-into Home and You so card counts stay in sync after posting. `Home` uses a
-distinct friend stub dataset with **Kudos + live comment count** (Share omitted
-for privacy). Empty comments copy is `No comments yet`. The composer tray fills
-`AppSurfaces.card` through the bottom SafeArea inset. Notifications for
-comments are deferred. Metric columns are equal-width and centre-aligned;
-Sidequest stubs use Time / Locations Visited / XP Gained. Map preview remains a
-replaceable placeholder.
+Registered users have public social profiles by default. Private accounts are
+authoritative at `profiles/{uid}.privacy.isPrivateAccount`, mirrored as the
+safe discovery bit `public_profiles/{uid}.isPrivateAccount`. Aggregate identity
+data stays public for private profiles: avatar, display name, username,
+following/follower counts, level, and XP. Detailed visits, XP event graphs,
+locations, tiles, and activity feeds are gated to the owner or approved
+followers. `You` owns authenticated-user state, while
+`OtherUserProfileScreen(selectedUserId)` owns selected-user state and composes
+the same dashboard presentation only after access is resolved. Every external
+analytics watch must bind to `selectedUserId`, not `AuthProvider.currentUser.uid`
+(except Follow relationship actions, which always use the authenticated user's
+follow graph).
+
+Find People (`FindPeopleScreen` → `FriendshipService.searchUsers`) lists
+`public_profiles` with prefix queries on `usernameSearch` /
+`displayNameSearch`. Deployed Firestore rules must allow signed-in
+`read` (get/list) on `public_profiles` — without that, clients get
+`permission-denied` on `orderBy(displayNameSearch|usernameSearch)` even
+though Auth and Map still work. Keep rules **and** indexes in sync via
+`firebase deploy --only firestore:rules,firestore:indexes --project roam-io-71e2c`
+from `roam_io/`. Run
+`firebase emulators:exec --only firestore "npm run test:rules"` from
+`roam_io/functions` before deploying. Do not deploy the older MVP
+`develop` rules while this socialisation surface lives only on the
+feature branch — that overwrites hosted Firebase and recreates the
+social/activity `permission-denied` regression. Search does not depend
+on Follow documents or Follow UI state; Follow / Following is resolved
+per row after results render. Missing search fields cause empty hits,
+not permission errors — backfill with `npm run backfill:public-profiles`
+in `roam_io/functions` when needed.
+
+Public avatars use `public_profiles.photoUrl` (HTTPS Firebase Storage download
+URLs with `alt=media` + token). Shared `SocialAvatar` loads HTTP(S) via
+`Image.network` (same path as Settings); `gs://` / relative storage paths are
+resolved with `getDownloadURL` first. Author: Sanjevan Rajasegar,
+Last Updated: 16 August 2026 — Sanjevan Rajasegar.
+
+Profile headers show identity, level/XP, and six public stats:
+Following, Followers, Tiles, XP Gained, Journeys, and Sidequests. Following /
+Followers come from one-way `follows/{followerId_followeeId}` documents
+(`followerId`, `followeeId`, `createdAt`). Following count =
+relationships where `followerId == profileId`; Followers count =
+relationships where `followeeId == profileId`. Counts and
+`FollowConnectionsScreen` lists share those queries. Tapping Following or
+Followers on You or an external profile opens the list for that profile id;
+row Follow / Following buttons still reflect whether **the authenticated user**
+follows each listed person. Public discovery (`FindPeopleScreen`) and external
+profiles use Follow / Following stadium buttons (filled Follow, outlined
+Following with immediate silent unfollow for public profiles). Private targets
+resolve to `Requested` through `follow_requests/{requesterId_targetId}` until
+the owner accepts. Accepted requests create the same one-way
+`follows/{followerId_followeeId}` document with request-acceptance metadata so
+the target does not receive a redundant followed-you notification. Lists and
+counts stream from the same `follows` collection, so unfollow on an external
+profile updates any open Following/Followers list and profile counts without a
+manual refresh. Tiles use selected-user visited polygon records.
+The top-level XP Gained stat uses lifetime/current profile XP, while the XP
+Gained graph uses timestamped `profiles/{uid}/xp_events` recorded **after**
+the canonical `profiles/{uid}` XP/level update succeeds. Journey and sidequest
+counts are explicit zeroes in the profile stats view model until persisted
+completion sources exist.
+
+Failed Firestore analytics queries must not silently render Tiles as `0`.
+`YouAnalyticsProvider` distinguishes loading, real empty results, and errors
+for tiles (Tiles show `—` when unavailable). Following / Followers always
+render a numeric value: empty or unavailable relationships show `0`, never
+`—`. Recent visits and
+most-visited surfaces show an unavailable state on error.
+
+`YouAnalyticsProvider` holds the latest visits / tiles / XP events / follow
+counts for its bound profile id so Profile data survives Activities tab
+remounts and Activity Detail push/pop. Weekly graph buckets use Monday-start
+local calendar weeks; tapping a graph point selects it and changing metric
+resets selection. The metric pill carousel clips to its outer rounded card
+(`clipBehavior: Clip.antiAlias`) so pills never protrude; each pill stays
+stadium/capsule shaped (`BorderRadius.circular(999)`).
+`You → Activities` still uses the personal stub card with Kudos + live comment
+count + Share. External profile Activities must only render persisted
+`activities` documents for the selected profile; when none exist, show the
+normal empty state and do not render stubs. Public dashboard reads of visits,
+XP events, and tile records are temporary public-by-default access and must be
+replaced by ART2-84 privacy/projection rules.
 
 ### Notifications
 
-The authenticated shell listens for production notification actions and displays
-shared app toasts. User-facing manual Test Notification controls should not be
-added to app chrome; notification templates, overlays, and services remain under
-`lib/notifications/`.
+ART2-96 in-app banners (`NotificationService` + `NotificationOverlay`) remain
+the presentation layer. Friend-request banners continue to listen to
+`friend_requests` from `MainShellScreen`.
+
+Public-profile **Follow** notifications are persisted at
+`profiles/{recipientId}/notifications/{followerId_followeeId}`. Creation is
+idempotent on that ID: after `follows/{id}` is written, a best-effort client
+write from `FollowService.follow` creates the inbox row for the followee even
+when the recipient is offline; Cloud Function `onFollowCreated` (when
+deployed) uses the same document. Clients may create only as
+`actorId == auth.uid` when the matching `follows/{id}` document exists.
+Recipients may only update `readAt`. Notification write failures never roll
+back Follow. Unfollow is silent (no notification create or delete).
+
+`SocialNotificationCoordinator` (shell-scoped, keyed/rebound by auth UID)
+watches the inbox:
+
+- On auth UID change: cancels prior subscriptions, clears
+  `_surfacedBannerIds` / cold-start state / unread, then starts the new
+  user's unread query + recent listener. Account switch on one device must
+  behave like cold-start session init.
+- Cold start: skips provisional empty cache emits; then one summary banner
+  (`N people followed you` / single name) for unread follows; does **not**
+  mark them read.
+- Live: each new unread follow after cold start surfaces one green in-app
+  banner (`showOnDevice: false`).
+- Per-session `_surfacedBannerIds` is cleared on UID change so Account A
+  dedupe cannot suppress Account B.
+
+Unread count drives a numeric You bottom-nav badge and the You tab bell badge
+(counts above 99 show as `99+`). Opening
+You does not clear unread. Opening `NotificationsScreen` calls `markAllRead`
+and keeps historical rows. Rows support Follow Back / Following (immediate
+unfollow) and Remove follower (delete `follows/{actor_recipient}` with no
+notify).
+
+User-facing manual Test Notification controls should not be added to app
+chrome; templates, overlays, and services remain under `lib/notifications/`.
 
 ### `features/<feature>/screens`
 

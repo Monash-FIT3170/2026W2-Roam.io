@@ -1,9 +1,9 @@
 /*
  * Author: Sanjevan Rajasegar
- * Last Updated: 5 August 2026
+ * Last Updated: 8 August 2026
  * Description:
- *   Regression tests for row-based Settings dark mode toggling and profile
- *   data preservation.
+ *   Regression tests for row-based Settings dark mode/privacy controls and
+ *   profile data preservation.
  */
 
 import 'package:firebase_auth/firebase_auth.dart' as firebase_auth;
@@ -14,6 +14,7 @@ import 'package:roam_io/features/auth/data/auth_repository.dart';
 import 'package:roam_io/features/auth/providers/auth_provider.dart';
 import 'package:roam_io/features/profile/domain/profile_model.dart';
 import 'package:roam_io/features/settings/screens/settings_screen.dart';
+import 'package:roam_io/features/settings/widgets/settings_group.dart';
 
 void main() {
   testWidgets('toggling dark mode on preserves existing settings screen data', (
@@ -28,7 +29,7 @@ void main() {
 
     final before = provider.currentProfile!;
 
-    final darkModeSwitch = find.byType(Switch);
+    final darkModeSwitch = _switchForRow('Dark Mode');
     await tester.ensureVisible(darkModeSwitch);
     await tester.tap(darkModeSwitch);
     await tester.pump();
@@ -56,7 +57,7 @@ void main() {
 
       final before = provider.currentProfile!;
 
-      final darkModeSwitch = find.byType(Switch);
+      final darkModeSwitch = _switchForRow('Dark Mode');
       await tester.ensureVisible(darkModeSwitch);
       await tester.tap(darkModeSwitch);
       await tester.pump();
@@ -89,7 +90,18 @@ Future<void> _pumpSettingsScreen(
   await tester.pump();
 
   expect(provider.currentProfile, isNotNull);
-  expect(find.byType(Switch), findsOneWidget);
+  expect(_switchForRow('Dark Mode'), findsOneWidget);
+  expect(_switchForRow('Private Account'), findsOneWidget);
+}
+
+Finder _switchForRow(String rowTitle) {
+  return find.descendant(
+    of: find.ancestor(
+      of: find.text(rowTitle),
+      matching: find.byType(SettingsRow),
+    ),
+    matching: find.byType(Switch),
+  );
 }
 
 ProfileModel _buildProfile({required bool darkModeEnabled}) {

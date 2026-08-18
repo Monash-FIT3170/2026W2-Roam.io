@@ -15,6 +15,7 @@ import 'package:firebase_auth/firebase_auth.dart' as firebase_auth;
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:provider/provider.dart';
+import 'package:roam_io/features/activity_feed/data/activity_feed_service.dart';
 import 'package:roam_io/features/activity_feed/data/comment_service.dart';
 import 'package:roam_io/features/activity_feed/models/activity_comment.dart';
 import 'package:roam_io/features/activity_feed/screens/comments_screen.dart';
@@ -33,12 +34,15 @@ import 'package:roam_io/features/profile/domain/xp_event.dart';
 import 'package:roam_io/features/you/services/home_base_service.dart';
 import 'package:roam_io/features/you/services/stats_summary_service.dart';
 import 'package:roam_io/features/you/milestones/milestone_service.dart';
+import 'package:roam_io/features/social/data/follow_service.dart';
 
 YouScreen _testYouScreen({
   required VisitService visitService,
   required VisitedRegionService visitedRegionService,
   Stream<List<XpEvent>>? xpEventsStream,
   CommentService? commentService,
+  ActivityFeedService? activityFeedService,
+  FollowService? followService,
 }) {
   final firestore = FakeFirebaseFirestore();
   return YouScreen(
@@ -50,29 +54,28 @@ YouScreen _testYouScreen({
     milestoneService: MilestoneService(firestore: firestore),
     xpEventsStream: xpEventsStream,
     commentService: commentService,
+    activityFeedService: activityFeedService,
+    followService: followService,
   );
 }
 
-Future<void> _openStatsTab(WidgetTester tester) async {
-  // Prefer the You-tab strip over the Stats section headline.
-  final statsTab = find.descendant(
+Future<void> _openYouTab(WidgetTester tester, String label) async {
+  final tab = find.descendant(
     of: find.byType(TabBar).first,
-    matching: find.text('Stats'),
+    matching: find.text(label),
   );
-  await tester.ensureVisible(statsTab);
-  await tester.tap(statsTab);
+  await tester.ensureVisible(tab);
+  await tester.tap(tab);
   await tester.pumpAndSettle();
+}
+
+Future<void> _openStatsTab(WidgetTester tester) async {
+  await _openYouTab(tester, 'Stats');
 }
 
 Future<void> _openStatsCategory(WidgetTester tester, String label) async {
   await _openStatsTab(tester);
-  final menuButton = find.byWidgetPredicate(
-    (widget) => widget is PopupMenuButton,
-  );
-  expect(menuButton, findsOneWidget);
-  await tester.tap(menuButton);
-  await tester.pumpAndSettle();
-  await tester.tap(find.text(label).last);
+  await tester.tap(find.text(label));
   await tester.pumpAndSettle();
 }
 
@@ -364,7 +367,7 @@ void main() {
     },
   );
 
-  testWidgets('opens Activities tab and shows placeholder activity card', (
+  testWidgets('opens Activities tab and shows owned persisted activity card', (
     tester,
   ) async {
     await tester.binding.setSurfaceSize(const Size(400, 1400));
@@ -375,6 +378,19 @@ void main() {
     );
     await provider.refreshCurrentUser();
     final comments = _FakeYouCommentService();
+    final firestore = FakeFirebaseFirestore();
+    await _seedYouActivity(
+      firestore,
+      activityId: 'sanjevan-test-activity',
+      ownerId: 'user-1',
+      title: "Sanjevan's Test Activity",
+    );
+    await _seedYouActivity(
+      firestore,
+      activityId: 'other-activity',
+      ownerId: 'someone-else',
+      title: 'Other user activity',
+    );
 
     await tester.pumpWidget(
       ChangeNotifierProvider<AuthProvider>.value(
@@ -385,6 +401,7 @@ void main() {
               visitService: _FakeVisitService(totalVisitCount: 0),
               visitedRegionService: _FakeVisitedRegionService(<String>{}),
               commentService: comments,
+              activityFeedService: ActivityFeedService(firestore: firestore),
             ),
           ),
         ),
@@ -392,15 +409,15 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    await tester.tap(find.text('Activities'));
-    await tester.pumpAndSettle();
+    await _openYouTab(tester, 'Activities');
     expect(find.text('No activities yet'), findsNothing);
-    expect(find.text('Journey to Coles'), findsOneWidget);
-    expect(find.text('August 3, 2026 at 10:07 AM'), findsOneWidget);
-    expect(find.text('47m 51s'), findsOneWidget);
+    expect(find.text("Sanjevan's Test Activity"), findsOneWidget);
+    expect(find.text('Other user activity'), findsNothing);
+    expect(find.text('10/8/2026 at 0:00'), findsOneWidget);
+    expect(find.text('12m 34s'), findsOneWidget);
     expect(find.text('Locations Visited'), findsOneWidget);
-    expect(find.text('4'), findsOneWidget);
-    expect(find.text('+200 XP'), findsOneWidget);
+    expect(find.text('3'), findsOneWidget);
+    expect(find.text('+120 XP'), findsOneWidget);
     expect(find.text('Map preview'), findsOneWidget);
     expect(find.text('Morning Weight Training'), findsNothing);
     expect(find.text('Traveller'), findsOneWidget);
@@ -410,16 +427,14 @@ void main() {
 
     await tester.tap(find.byIcon(Icons.more_horiz_rounded));
     await tester.pumpAndSettle();
-    expect(find.text('Journey to Coles'), findsOneWidget);
+    expect(find.text("Sanjevan's Test Activity"), findsOneWidget);
     expect(find.text('Journey route map'), findsOneWidget);
-    expect(find.text('Kudos'), findsNothing);
-    expect(find.text('Comment'), findsNothing);
-    expect(find.text('0 comments'), findsNothing);
-    expect(find.text('Share'), findsNothing);
+    expect(find.text('Kudos'), findsOneWidget);
+    expect(find.text('0 comments'), findsOneWidget);
+    expect(find.text('Share'), findsOneWidget);
     await tester.pageBack();
     await tester.pumpAndSettle();
 
-    // Personal card still exposes Kudos + Comments + Share after detail pop.
     expect(find.text('0 comments'), findsOneWidget);
     expect(find.text('Kudos'), findsOneWidget);
     expect(find.text('Share'), findsOneWidget);
@@ -432,8 +447,7 @@ void main() {
     await tester.pageBack();
     await tester.pumpAndSettle();
 
-    await tester.tap(find.text('Profile'));
-    await tester.pumpAndSettle();
+    await _openYouTab(tester, 'Profile');
     expect(find.text('Traveller'), findsOneWidget);
 
     await comments.dispose();
@@ -451,6 +465,13 @@ void main() {
     );
     await provider.refreshCurrentUser();
     final comments = _FakeYouCommentService();
+    final firestore = FakeFirebaseFirestore();
+    await _seedYouActivity(
+      firestore,
+      activityId: 'sanjevan-test-activity',
+      ownerId: 'user-1',
+      title: "Sanjevan's Test Activity",
+    );
 
     await tester.pumpWidget(
       ChangeNotifierProvider<AuthProvider>.value(
@@ -461,6 +482,7 @@ void main() {
               visitService: _FakeVisitService(totalVisitCount: 0),
               visitedRegionService: _FakeVisitedRegionService(<String>{}),
               commentService: comments,
+              activityFeedService: ActivityFeedService(firestore: firestore),
             ),
           ),
         ),
@@ -468,8 +490,7 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    await tester.tap(find.text('Activities'));
-    await tester.pumpAndSettle();
+    await _openYouTab(tester, 'Activities');
     expect(find.text('Kudos'), findsOneWidget);
     expect(find.text('0 comments'), findsOneWidget);
     expect(find.text('Share'), findsOneWidget);
@@ -741,6 +762,14 @@ void main() {
       authRepository: _FakeAuthRepository(_buildProfile(xp: 250)),
     );
     await provider.refreshCurrentUser();
+    final comments = _FakeYouCommentService();
+    final firestore = FakeFirebaseFirestore();
+    await _seedYouActivity(
+      firestore,
+      activityId: 'sanjevan-test-activity',
+      ownerId: 'user-1',
+      title: "Sanjevan's Test Activity",
+    );
 
     await tester.pumpWidget(
       ChangeNotifierProvider<AuthProvider>.value(
@@ -751,6 +780,8 @@ void main() {
               visitService: visitService,
               visitedRegionService: regionService,
               xpEventsStream: xpController.stream,
+              activityFeedService: ActivityFeedService(firestore: firestore),
+              commentService: comments,
             ),
           ),
         ),
@@ -771,21 +802,19 @@ void main() {
 
     await _openStatsCategory(tester, 'XP');
 
-    await tester.tap(find.text('Activities'));
-    await tester.pumpAndSettle();
-    expect(find.text('Journey to Coles'), findsOneWidget);
+    await _openYouTab(tester, 'Activities');
+    expect(find.text("Sanjevan's Test Activity"), findsOneWidget);
 
     await tester.tap(find.byIcon(Icons.more_horiz_rounded));
     await tester.pumpAndSettle();
     expect(find.text('Journey route map'), findsOneWidget);
-    expect(find.text('Kudos'), findsNothing);
-    expect(find.text('0 comments'), findsNothing);
-    expect(find.text('Share'), findsNothing);
+    expect(find.text('Kudos'), findsOneWidget);
+    expect(find.text('0 comments'), findsOneWidget);
+    expect(find.text('Share'), findsOneWidget);
 
     await tester.pageBack();
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Profile'));
-    await tester.pumpAndSettle();
+    await _openYouTab(tester, 'Profile');
 
     expect(find.text('2'), findsWidgets);
 
@@ -810,9 +839,48 @@ void main() {
     expect(find.text('2'), findsWidgets);
 
     provider.dispose();
+    await comments.dispose();
     await visitService.dispose();
     await regionService.dispose();
     await xpController.close();
+  });
+
+  testWidgets('You Following count updates from FollowService relationships', (
+    tester,
+  ) async {
+    final firestore = FakeFirebaseFirestore();
+    final followService = FollowService(firestore: firestore);
+    final provider = AuthProvider(
+      authRepository: _FakeAuthRepository(_buildProfile(xp: 50)),
+    );
+    await provider.refreshCurrentUser();
+
+    await tester.pumpWidget(
+      ChangeNotifierProvider<AuthProvider>.value(
+        value: provider,
+        child: MaterialApp(
+          home: Scaffold(
+            body: _testYouScreen(
+              visitService: _FakeVisitService(totalVisitCount: 0),
+              visitedRegionService: _FakeVisitedRegionService(<String>{}),
+              followService: followService,
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Following'), findsOneWidget);
+    expect(find.text('0'), findsWidgets);
+
+    await followService.follow(followerId: 'user-1', followeeId: 'user-b');
+    await tester.pumpAndSettle();
+
+    expect(find.text('1'), findsWidgets);
+    expect(await followService.watchFollowingCount('user-1').first, 1);
+
+    provider.dispose();
   });
 }
 
@@ -832,6 +900,31 @@ ProfileModel _buildProfile({required int xp}) {
     xp: xp,
     level: ProfileModel.levelFromXp(xp),
   );
+}
+
+Future<void> _seedYouActivity(
+  FakeFirebaseFirestore firestore, {
+  required String activityId,
+  required String ownerId,
+  required String title,
+  DateTime? createdAt,
+}) {
+  return firestore.collection('activities').doc(activityId).set({
+    'activityId': activityId,
+    'ownerId': ownerId,
+    'profileId': ownerId,
+    'displayName': ownerId == 'user-1' ? 'Traveller' : 'Other Traveller',
+    'username': ownerId == 'user-1' ? 'traveller' : 'other',
+    'title': title,
+    'kind': 'exploration',
+    'showMapPreview': true,
+    'createdAt': (createdAt ?? DateTime(2026, 8, 10)).toIso8601String(),
+    'metrics': [
+      {'label': 'Time', 'value': '12m 34s'},
+      {'label': 'Locations Visited', 'value': '3'},
+      {'label': 'XP Gained', 'value': '+120 XP'},
+    ],
+  });
 }
 
 class _FakeAuthRepository implements AuthRepository {
@@ -969,7 +1062,9 @@ class _FakeVisitedRegionService implements VisitedRegionService {
   }
 
   @override
-  Stream<List<VisitedPolygonRecord>> watchVisitedPolygonRecords() {
+  Stream<List<VisitedPolygonRecord>> watchVisitedPolygonRecords({
+    String? profileId,
+  }) {
     return Stream<List<VisitedPolygonRecord>>.multi((controller) {
       controller.add(_visitedPolygonRecords);
       final subscription = _visitedPolygonRecordsController.stream.listen(
@@ -1054,6 +1149,7 @@ class _FakeYouCommentService implements CommentService {
   @override
   Future<ActivityComment> addComment({
     required String activityId,
+    required String activityOwnerId,
     required String authorId,
     required String authorDisplayName,
     required String text,
@@ -1071,6 +1167,28 @@ class _FakeYouCommentService implements CommentService {
     _comments.insert(0, comment);
     _controller.add(List<ActivityComment>.from(_comments));
     return comment;
+  }
+
+  @override
+  Future<ActivityComment> replyToComment({
+    required String activityId,
+    required String activityOwnerId,
+    required ActivityComment parentComment,
+    required String authorId,
+    required String authorDisplayName,
+    required String text,
+    String? authorUsername,
+    String? authorPhotoUrl,
+  }) {
+    return addComment(
+      activityId: activityId,
+      activityOwnerId: activityOwnerId,
+      authorId: authorId,
+      authorDisplayName: authorDisplayName,
+      text: text,
+      authorUsername: authorUsername,
+      authorPhotoUrl: authorPhotoUrl,
+    );
   }
 
   Future<void> dispose() => _controller.close();

@@ -1,10 +1,13 @@
 import 'dart:math' as math;
 
+import '../../social/domain/social_privacy_settings.dart';
+
 /*
- * Author: Alvin Liong
- * Last Modified: 4/05/2026
+ * Author: Sanjevan Rajasegar
+ * Last Updated: 8 August 2026
  * Description:
- *   Represents a user profile and maps profile data to and from Firestore.
+ *   Represents a user profile and maps profile data to and from Firestore,
+ *   including nested social privacy settings.
  */
 
 /// App-level profile entity stored in Firestore at `profiles/{uid}`.
@@ -61,6 +64,7 @@ class ProfileModel {
     required this.createdAt,
     required this.updatedAt,
     this.darkModeEnabled = false,
+    this.privacy = const SocialPrivacySettings(),
     this.xp = 0,
     this.level = 1,
   });
@@ -74,6 +78,7 @@ class ProfileModel {
   final DateTime createdAt;
   final DateTime updatedAt;
   final bool darkModeEnabled;
+  final SocialPrivacySettings privacy;
   final int xp;
   final int level;
 
@@ -88,6 +93,7 @@ class ProfileModel {
     DateTime? createdAt,
     DateTime? updatedAt,
     bool? darkModeEnabled,
+    SocialPrivacySettings? privacy,
     int? xp,
     int? level,
   }) {
@@ -101,6 +107,7 @@ class ProfileModel {
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
       darkModeEnabled: darkModeEnabled ?? this.darkModeEnabled,
+      privacy: privacy ?? this.privacy,
       xp: xp ?? this.xp,
       level: level ?? this.level,
     );
@@ -116,6 +123,7 @@ class ProfileModel {
       'createdAt': createdAt.toIso8601String(),
       'updatedAt': updatedAt.toIso8601String(),
       'darkModeEnabled': darkModeEnabled,
+      'privacy': privacy.toMap(),
       'xp': xp,
       'level': level,
     };
@@ -146,6 +154,7 @@ class ProfileModel {
           DateTime.now(),
       // Older profile documents predate this optional preference field.
       darkModeEnabled: (map['darkModeEnabled'] ?? false) as bool,
+      privacy: SocialPrivacySettings.fromMap(map['privacy']),
       xp: (map['xp'] as num?)?.toInt() ?? 0,
       level:
           (map['level'] as num?)?.toInt() ??

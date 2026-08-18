@@ -9,11 +9,15 @@ class ProfileHeader extends StatelessWidget {
   const ProfileHeader({
     super.key,
     required this.profile,
+    required this.followingCount,
+    required this.followerCount,
     required this.tileCount,
     required this.journeyCount,
   });
 
   final ProfileModel? profile;
+  final int followingCount;
+  final int followerCount;
   final int tileCount;
   final int journeyCount;
 
@@ -91,7 +95,12 @@ class ProfileHeader extends StatelessWidget {
           ],
         ),
         const SizedBox(height: 12),
-        ProfileStatsRow(tileCount: tileCount, journeyCount: journeyCount),
+        ProfileStatsRow(
+          followingCount: followingCount,
+          followerCount: followerCount,
+          tileCount: tileCount,
+          journeyCount: journeyCount,
+        ),
       ],
     );
   }
@@ -100,10 +109,14 @@ class ProfileHeader extends StatelessWidget {
 class ProfileStatsRow extends StatelessWidget {
   const ProfileStatsRow({
     super.key,
+    required this.followingCount,
+    required this.followerCount,
     required this.tileCount,
     required this.journeyCount,
   });
 
+  final int followingCount;
+  final int followerCount;
   final int tileCount;
   final int journeyCount;
 
@@ -112,8 +125,14 @@ class ProfileStatsRow extends StatelessWidget {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const ProfileStat(label: 'Following', value: '0'),
-        const ProfileStat(label: 'Followers', value: '0'),
+        ProfileStat(
+          label: 'Following',
+          value: formatProfileNumber(followingCount),
+        ),
+        ProfileStat(
+          label: 'Followers',
+          value: formatProfileNumber(followerCount),
+        ),
         ProfileStat(label: 'Tiles', value: formatProfileNumber(tileCount)),
         ProfileStat(
           label: 'Journeys',

@@ -1,9 +1,10 @@
 /*
  * Author: Sanjevan Rajasegar
- * Last Modified: 12/05/2026
+ * Last Modified: 7 August 2026
  * Description:
  *   Firebase spatial API that returns region geometry and square-metre area for
- *   map unlock XP rewards.
+ *   map unlock XP rewards, plus Firestore triggers for social follow inbox
+ *   notifications.
  */
 
 const { onRequest } = require('firebase-functions/v2/https');
@@ -18,6 +19,14 @@ const {
   mapToCategory,
   TRANSPORT_TYPES,
 } = require('./placesapi');
+
+const {
+  onFollowCreated,
+  onFollowDeleted,
+  onFollowRequestCreated,
+  onFollowRequestDeleted,
+  onFollowRequestAccepted,
+} = require('./follow_notifications');
 
 const DATABASE_URL = defineSecret('DATABASE_URL');
 const GOOGLE_PLACES_API_KEY = defineSecret('GOOGLE_PLACES_API_KEY');
@@ -697,3 +706,9 @@ exports.api = onRequest(
   },
   app
 );
+
+exports.onFollowCreated = onFollowCreated;
+exports.onFollowDeleted = onFollowDeleted;
+exports.onFollowRequestCreated = onFollowRequestCreated;
+exports.onFollowRequestDeleted = onFollowRequestDeleted;
+exports.onFollowRequestAccepted = onFollowRequestAccepted;

@@ -16,6 +16,7 @@ class StatsAnalyticsProvider extends YouAnalyticsProvider {
     super.visitService,
     super.visitedRegionService,
     super.profileService,
+    super.followService,
     super.xpEventsStream,
     JourneyService? journeyService,
     StatsSummaryService? statsSummaryService,

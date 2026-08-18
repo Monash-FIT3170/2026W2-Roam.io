@@ -68,12 +68,21 @@ firebase projects:list
 firebase use roam-io-71e2c
 ```
 
-1. Firestore rules are already deployed for normal development.
-  You only need to deploy rules if you changed `firestore.rules`:
+1. Firestore rules/indexes for this feature branch are deployed from
+  `roam_io/` against `roam-io-71e2c`. Redeploy whenever
+  `firestore.rules` or `firestore.indexes.json` change on the branch you
+  are shipping:
 
 ```bash
-firebase deploy --only firestore:rules
+firebase deploy --only firestore:rules,firestore:indexes --project roam-io-71e2c
 ```
+
+**Warning:** `develop` still carries the older MVP rules (no
+`public_profiles`, `follows`, notifications, kudos, or activity create).
+Deploying rules from `develop` will overwrite hosted Firebase and break
+social/activity features again. Deploy Firestore rules/indexes from the
+branch that owns the current socialisation surface (this feature branch)
+until those rules are merged into `develop`.
 
 ## Firebase Config in This Repo
 
@@ -106,21 +115,41 @@ flutter pub get
 flutter run -d <android-device-id>
 ```
 
-## Firestore Rules
+## Firestore Rules and Indexes
 
-Rules are stored in:
+Author: Sanjevan Rajasegar  
+Last Updated: 16 August 2026 — Sanjevan Rajasegar
+
+Rules and composite indexes are stored in:
 
 - `firestore.rules`
+- `firestore.indexes.json`
 
-Deploy rules:
+Deploy both from `roam_io/`:
 
 ```bash
-firebase deploy --only firestore:rules --project roam-io-71e2c
+firebase deploy --only firestore:rules,firestore:indexes --project roam-io-71e2c
 ```
 
-Current rules allow authenticated users to read/write only their own profile document:
+Validate rules locally before deploy:
 
-- `profiles/{uid}` where `request.auth.uid == uid`
+```bash
+cd functions
+firebase emulators:exec --only firestore "npm run test:rules" --project roam-io-71e2c
+```
+
+Current branch rules cover (among other paths):
+
+- Owner-only `profiles/{uid}` (canonical profile)
+- Signed-in `public_profiles` search/read
+- `follows` / `follow_requests` and private-account activity visibility
+- Owner inbox `profiles/{uid}/notifications`
+- Activity create + `activity_counters`, plus kudos/comments/likes under `activities`
+
+Do **not** deploy the older MVP `develop` rules while this socialisation
+surface is only complete on the feature branch — that regresses hosted
+`permission-denied` failures for Find People, follows, notifications,
+kudos, and activity creation.
 
 ## Auth Flow Implemented
 

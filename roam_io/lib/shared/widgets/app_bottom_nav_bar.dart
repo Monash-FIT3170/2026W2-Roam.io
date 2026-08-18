@@ -1,9 +1,10 @@
 /*
  * Author: Sanjevan Rajasegar
- * Last Updated: 5 August 2026
+ * Last Updated: 8 August 2026
  * Description:
  *   Provides the reusable Home, Social, Map, You, and Settings bottom
- *   navigation bar used by the main app shell.
+ *   navigation bar used by the main app shell. Optional unread count badge
+ *   on the You tab for persisted social notifications.
  */
 
 import 'package:flutter/material.dart';
@@ -26,10 +27,14 @@ class AppBottomNavBar extends StatelessWidget {
   final int currentIndex;
   final ValueChanged<int> onTap;
 
+  /// Unread social notification count for the YOU icon badge. Hidden when 0.
+  final int youUnreadCount;
+
   const AppBottomNavBar({
     super.key,
     required this.currentIndex,
     required this.onTap,
+    this.youUnreadCount = 0,
   });
 
   static const items = [
@@ -39,6 +44,8 @@ class AppBottomNavBar extends StatelessWidget {
     _NavItem(Icons.person_outline, Icons.person, 'YOU'),
     _NavItem(Icons.settings_outlined, Icons.settings, 'SETTINGS'),
   ];
+
+  static const int youIndex = 3;
 
   @override
   Widget build(BuildContext context) {
@@ -99,14 +106,30 @@ class AppBottomNavBar extends StatelessWidget {
                               scale: isSelected ? 1.14 : 1.0,
                               duration: const Duration(milliseconds: 180),
                               curve: Curves.easeOutCubic,
-                              child: Icon(
-                                isSelected
-                                    ? item.filledIcon
-                                    : item.outlinedIcon,
-                                size: 25,
-                                color: isSelected
-                                    ? selectedColor
-                                    : unselectedColor,
+                              child: Stack(
+                                clipBehavior: Clip.none,
+                                children: [
+                                  Icon(
+                                    isSelected
+                                        ? item.filledIcon
+                                        : item.outlinedIcon,
+                                    size: 25,
+                                    color: isSelected
+                                        ? selectedColor
+                                        : unselectedColor,
+                                  ),
+                                  if (index == youIndex && youUnreadCount > 0)
+                                    Positioned(
+                                      top: -6,
+                                      right: -10,
+                                      child: _UnreadCountBadge(
+                                        count: youUnreadCount,
+                                        backgroundColor: colorScheme.primary,
+                                        foregroundColor: colorScheme.onPrimary,
+                                        borderColor: backgroundColor,
+                                      ),
+                                    ),
+                                ],
                               ),
                             ),
                             const SizedBox(height: 5),
@@ -192,6 +215,46 @@ class AppBottomNavBar extends StatelessWidget {
               ),
             ),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+class _UnreadCountBadge extends StatelessWidget {
+  const _UnreadCountBadge({
+    required this.count,
+    required this.backgroundColor,
+    required this.foregroundColor,
+    this.borderColor,
+  });
+
+  final int count;
+  final Color backgroundColor;
+  final Color foregroundColor;
+  final Color? borderColor;
+
+  @override
+  Widget build(BuildContext context) {
+    final label = count > 99 ? '99+' : '$count';
+    return Container(
+      constraints: const BoxConstraints(minWidth: 16, minHeight: 16),
+      padding: const EdgeInsets.symmetric(horizontal: 4),
+      decoration: BoxDecoration(
+        color: backgroundColor,
+        borderRadius: BorderRadius.circular(999),
+        border: borderColor == null
+            ? null
+            : Border.all(color: borderColor!, width: 1.5),
+      ),
+      alignment: Alignment.center,
+      child: Text(
+        label,
+        style: TextStyle(
+          color: foregroundColor,
+          fontSize: 10,
+          fontWeight: FontWeight.w800,
+          height: 1,
         ),
       ),
     );
