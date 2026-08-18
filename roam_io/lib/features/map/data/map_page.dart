@@ -341,14 +341,18 @@ class _MapPageState extends State<MapPage> {
   void _showRegionUnlockReward(RegionPolygon region, int xpAwarded) {
     if (!mounted) return;
 
-    context.read<JourneyController>().recordTileUnlocked(xpAwarded);
+    context.read<JourneyController>().recordTileUnlocked(
+      polygonId: region.id,
+      xpAwarded: xpAwarded,
+      areaSquareMetres: region.areaSquareMetres,
+    );
 
     final message = 'Unlocked New Region +$xpAwarded XP';
     final auth = context.read<AuthProvider>();
 
     // When XP triggers a level-up, show the unlock toast inside the celebration
     // overlay (below the centered content) instead of as a scaffold snackbar.
-    if (auth.pendingLevelUp != null) {
+    if (auth.pendingXpCelebration != null) {
       auth.stageUnlockToast(message);
       return;
     }
@@ -565,6 +569,8 @@ class _MapPageState extends State<MapPage> {
           // Award XP
           await authProvider.addXp(
             savedJourney.journeyXpEarned ?? savedJourney.xpEarned ?? 0,
+            source: XpEventSource.journey,
+            sourceId: savedJourney.id,
           );
           if (!mounted) return;
           AppToast.success(

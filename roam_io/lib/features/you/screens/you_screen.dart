@@ -1,20 +1,19 @@
 /*
  * Author: Sanjevan Rajasegar
- * Last Updated: 10 August 2026
+ * Last Updated: 18 August 2026
  * Description:
- *   Provides the You destination with Profile and Activities tabs. Profile
- *   analytics are owned by YouAnalyticsProvider bound to the authenticated
- *   uid (visits, tiles, xp_events, follow counts). Following/Followers use
- *   the same follows collection as external profiles so counts update without
- *   manual refresh and open dedicated connection lists. A notifications bell
- *   opens the social inbox; numeric unread badges share SocialNotificationCoordinator
- *   state with the You nav item.
+ *   Provides the You destination with Profile, Activities, Stats, and
+ *   Milestones tabs. Profile shows identity header only; Stats owns analytics
+ *   via [StatsAnalyticsProvider]. Milestones owns claim progress via
+ *   [MilestonesProvider]. Activities lists the user's persisted feed. A
+ *   notifications bell opens the social inbox.
  */
 
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../../services/profile_service.dart';
+import '../../journeys/data/journey_service.dart';
 import '../../../shared/widgets/app_bottom_nav_bar.dart';
 import '../../../theme/app_surfaces.dart';
 import '../../activity_feed/data/activity_feed_service.dart';
@@ -29,16 +28,21 @@ import '../../auth/providers/auth_provider.dart';
 import '../../map/data/visit_service.dart';
 import '../../map/data/visited_region_service.dart';
 import '../../profile/domain/profile_model.dart';
-import '../../profile/domain/profile_stats.dart';
 import '../../profile/domain/xp_event.dart';
-import '../../profile/widgets/profile_dashboard.dart';
 import '../../social/data/follow_service.dart';
 import '../../social/data/social_notification_coordinator.dart';
-import '../../social/screens/follow_connections_screen.dart';
 import '../../social/screens/notifications_screen.dart';
-import '../providers/you_analytics_provider.dart';
+import '../milestones/milestone_service.dart';
+import '../milestones/milestones_provider.dart';
+import '../milestones/milestones_screen.dart';
+import '../providers/stats_analytics_provider.dart';
+import '../screens/stats_screen.dart';
+import '../services/home_base_service.dart';
+import '../services/stats_aggregation_service.dart';
+import '../services/stats_summary_service.dart';
+import '../widgets/profile_header.dart';
 
-/// Displays personal profile analytics and the user's own activity area.
+/// Displays profile identity, personal activities, stats, and milestones.
 class YouScreen extends StatefulWidget {
   const YouScreen({
     super.key,
@@ -51,6 +55,10 @@ class YouScreen extends StatefulWidget {
     this.commentLikeService,
     this.kudosService,
     this.activityFeedService,
+    this.journeyService,
+    this.statsSummaryService,
+    this.homeBaseService,
+    this.milestoneService,
   });
 
   /// Injected for tests; production uses the default [VisitService].
@@ -74,6 +82,18 @@ class YouScreen extends StatefulWidget {
   final KudosService? kudosService;
   final ActivityFeedService? activityFeedService;
 
+  /// Injected for tests; production uses the default [JourneyService].
+  final JourneyService? journeyService;
+
+  /// Injected for tests; production uses the default [StatsSummaryService].
+  final StatsSummaryService? statsSummaryService;
+
+  /// Injected for tests; production uses the default [HomeBaseService].
+  final HomeBaseService? homeBaseService;
+
+  /// Injected for tests; production uses the default [MilestoneService].
+  final MilestoneService? milestoneService;
+
   @override
   State<YouScreen> createState() => _YouScreenState();
 }
@@ -81,16 +101,17 @@ class YouScreen extends StatefulWidget {
 class _YouScreenState extends State<YouScreen>
     with SingleTickerProviderStateMixin {
   late final TabController _tabController;
-  late final YouAnalyticsProvider _analytics;
+  late final StatsAnalyticsProvider _analytics;
+  late final MilestonesProvider _milestones;
   late final FollowService _followService;
   late final ActivityFeedService? _activityFeedService;
-  ProfileGraphMetric _selectedGraphMetric = ProfileGraphMetric.locationsVisited;
+  final StatsAggregationService _aggregationService =
+      const StatsAggregationService();
 
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 2, vsync: this);
-    // When tests inject VisitService without ProfileService, skip Firebase XP.
+    _tabController = TabController(length: 4, vsync: this);
     final profileService =
         widget.profileService ??
         (widget.visitService != null ? null : ProfileService());
@@ -98,38 +119,42 @@ class _YouScreenState extends State<YouScreen>
         widget.followService ??
         (widget.visitService != null ? _EmptyFollowService() : FollowService());
     _activityFeedService = widget.activityFeedService;
-    _analytics = YouAnalyticsProvider(
+    _analytics = StatsAnalyticsProvider(
       visitService: widget.visitService,
       visitedRegionService: widget.visitedRegionService,
       profileService: profileService,
       followService: _followService,
       xpEventsStream: widget.xpEventsStream,
+      journeyService: widget.journeyService,
+      statsSummaryService: widget.statsSummaryService,
+      homeBaseService: widget.homeBaseService,
+    );
+    _milestones = MilestonesProvider(
+      analytics: _analytics,
+      milestoneService: widget.milestoneService,
     );
   }
 
   @override
   void dispose() {
     _tabController.dispose();
+    _milestones.dispose();
     _analytics.dispose();
     super.dispose();
   }
 
-  void _selectGraphMetric(ProfileGraphMetric metric) {
-    if (_selectedGraphMetric == metric) return;
-    setState(() {
-      _selectedGraphMetric = metric;
-    });
-  }
-
   @override
   Widget build(BuildContext context) {
-    return ChangeNotifierProvider<YouAnalyticsProvider>.value(
-      value: _analytics,
+    return MultiProvider(
+      providers: [
+        ChangeNotifierProvider<StatsAnalyticsProvider>.value(value: _analytics),
+        ChangeNotifierProvider<MilestonesProvider>.value(value: _milestones),
+      ],
       child: Container(
         color: AppSurfaces.pageBackground(context),
         child: SafeArea(
           bottom: false,
-          child: Consumer2<AuthProvider, YouAnalyticsProvider>(
+          child: Consumer2<AuthProvider, StatsAnalyticsProvider>(
             builder: (context, auth, analytics, _) {
               final profile = auth.currentProfile;
               final uid = auth.currentUser?.uid;
@@ -137,6 +162,12 @@ class _YouScreenState extends State<YouScreen>
                 WidgetsBinding.instance.addPostFrameCallback((_) {
                   if (!mounted) return;
                   _analytics.bindUid(uid);
+                  _milestones.bindUid(uid);
+                });
+              } else if (_milestones.boundUid != uid) {
+                WidgetsBinding.instance.addPostFrameCallback((_) {
+                  if (!mounted) return;
+                  _milestones.bindUid(uid);
                 });
               }
 
@@ -150,10 +181,13 @@ class _YouScreenState extends State<YouScreen>
                       children: [
                         _ProfileTab(
                           profile: profile,
-                          currentUserId: uid,
-                          followService: _followService,
-                          selectedGraphMetric: _selectedGraphMetric,
-                          onGraphMetricSelected: _selectGraphMetric,
+                          followingCount: analytics.followingCount,
+                          followerCount: analytics.followerCount,
+                          tileCount: _aggregationService.tileCountFromSummary(
+                            analytics.statsSummary,
+                            analytics.tileRecords,
+                          ),
+                          journeyCount: analytics.journeys.length,
                         ),
                         _ActivitiesTab(
                           activityFeedService: _activityFeedService,
@@ -162,6 +196,8 @@ class _YouScreenState extends State<YouScreen>
                           commentLikeService: widget.commentLikeService,
                           kudosService: widget.kudosService,
                         ),
+                        StatsScreen(profile: profile),
+                        const MilestonesScreen(),
                       ],
                     ),
                   ),
@@ -216,6 +252,8 @@ class _YouTabBar extends StatelessWidget {
                 tabs: const [
                   Tab(text: 'Profile'),
                   Tab(text: 'Activities'),
+                  Tab(text: 'Stats'),
+                  Tab(text: 'Milestones'),
                 ],
               ),
             ),
@@ -274,73 +312,31 @@ class _YouTabBar extends StatelessWidget {
 class _ProfileTab extends StatelessWidget {
   const _ProfileTab({
     required this.profile,
-    required this.currentUserId,
-    required this.followService,
-    required this.selectedGraphMetric,
-    required this.onGraphMetricSelected,
+    required this.followingCount,
+    required this.followerCount,
+    required this.tileCount,
+    required this.journeyCount,
   });
 
   final ProfileModel? profile;
-  final String? currentUserId;
-  final FollowService followService;
-  final ProfileGraphMetric selectedGraphMetric;
-  final ValueChanged<ProfileGraphMetric> onGraphMetricSelected;
+  final int followingCount;
+  final int followerCount;
+  final int tileCount;
+  final int journeyCount;
 
   @override
   Widget build(BuildContext context) {
     final bottomClearance = AppBottomNavBar.clearanceFromScreenBottom(context);
-    final analytics = context.watch<YouAnalyticsProvider>();
 
-    return ProfileDashboard(
-      displayName: profile?.displayName ?? '-',
-      username: profile?.username ?? '-',
-      photoUrl: profile?.photoUrl,
-      level: profile?.level,
-      xp: profile?.xp,
-      stats: ProfileStats(
-        following: analytics.followingCount,
-        followers: analytics.followerCount,
-        tiles: analytics.tileCount,
-        xpGained: profile?.xp ?? 0,
-        journeys: 0,
-        sidequests: 0,
-        onFollowingTap: currentUserId == null
-            ? null
-            : () {
-                Navigator.of(context).push(
-                  MaterialPageRoute<void>(
-                    builder: (_) => FollowConnectionsScreen(
-                      selectedUserId: currentUserId!,
-                      mode: FollowConnectionsMode.following,
-                      followService: followService,
-                    ),
-                  ),
-                );
-              },
-        onFollowersTap: currentUserId == null
-            ? null
-            : () {
-                Navigator.of(context).push(
-                  MaterialPageRoute<void>(
-                    builder: (_) => FollowConnectionsScreen(
-                      selectedUserId: currentUserId!,
-                      mode: FollowConnectionsMode.followers,
-                      followService: followService,
-                    ),
-                  ),
-                );
-              },
+    return SingleChildScrollView(
+      padding: EdgeInsets.fromLTRB(24, 14, 24, bottomClearance + 12),
+      child: ProfileHeader(
+        profile: profile,
+        followingCount: followingCount,
+        followerCount: followerCount,
+        tileCount: tileCount,
+        journeyCount: journeyCount,
       ),
-      visits: analytics.visits,
-      recentVisits: analytics.recentVisits,
-      tileRecords: analytics.tileRecords,
-      xpEvents: analytics.xpEvents,
-      selectedMetric: selectedGraphMetric,
-      onMetricSelected: onGraphMetricSelected,
-      recentVisitsReady: analytics.recentVisitsReady,
-      recentVisitsError: analytics.recentVisitsError,
-      visitsError: analytics.visitsError,
-      bottomPadding: bottomClearance + 12,
     );
   }
 }

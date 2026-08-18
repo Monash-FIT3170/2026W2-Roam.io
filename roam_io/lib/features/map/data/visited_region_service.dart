@@ -8,6 +8,7 @@
 
 import 'package:firebase_auth/firebase_auth.dart';
 import '../../../services/polygon_service.dart';
+import '../../profile/domain/visited_polygon_meta.dart';
 import '../../profile/domain/visited_polygon_record.dart';
 
 /// Persists region visits and reports whether each visit is a new unlock.
@@ -67,9 +68,38 @@ class VisitedRegionService {
     );
   }
 
+  /// Streams enriched unlock metadata for tile analytics.
+  Stream<Map<String, VisitedPolygonMeta>> watchVisitedPolygonMeta() {
+    final user = _resolvedAuth.currentUser;
+
+    if (user == null) {
+      return Stream<Map<String, VisitedPolygonMeta>>.value(
+        const <String, VisitedPolygonMeta>{},
+      );
+    }
+
+    return _polygonService.watchVisitedPolygonMeta(profileId: user.uid);
+  }
+
+  /// Streams tile re-entry counts for loyalty analytics.
+  Stream<Map<String, int>> watchPolygonEntryCounts() {
+    final user = _resolvedAuth.currentUser;
+
+    if (user == null) {
+      return Stream<Map<String, int>>.value(const <String, int>{});
+    }
+
+    return _polygonService.watchPolygonEntryCounts(profileId: user.uid);
+  }
+
   // Marks a region as visited for the current user. Returns true only when the
   // persisted data confirms this is the first unlock for the user.
-  Future<bool> markVisited(String regionId, {DateTime? visitedAt}) async {
+  Future<bool> markVisited(
+    String regionId, {
+    DateTime? visitedAt,
+    double? areaSquareMetres,
+    String? name,
+  }) async {
     final user = _resolvedAuth.currentUser;
 
     if (user == null) {
@@ -80,6 +110,8 @@ class VisitedRegionService {
       profileId: user.uid,
       polygonId: regionId,
       visitedAt: visitedAt ?? DateTime.now(),
+      areaSquareMetres: areaSquareMetres,
+      name: name,
     );
   }
 }

@@ -99,7 +99,12 @@ void main() {
 
     await tester.tap(find.text('YOU'));
     await _pumpShellFrame(tester);
-    expect(find.text('Most Visited Location'), findsOneWidget);
+    expect(find.text('Stats'), findsOneWidget);
+    expect(find.text('Milestones'), findsOneWidget);
+
+    await tester.tap(find.text('Stats'));
+    await _pumpShellFrame(tester);
+    expect(find.text('Visits by week'), findsOneWidget);
 
     await tester.tap(find.text('SETTINGS'));
     await _pumpShellFrame(tester);

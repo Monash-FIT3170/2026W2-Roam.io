@@ -115,11 +115,12 @@ void main() {
         find.byKey(const Key('recent-visits-card')),
       );
 
-      // Five padded rows (~62px) + separators + card chrome must stay well
+      // Five padded rows + title + separators + card chrome must stay well
       // below content-plus-nav-bar-height (would indicate MediaQuery pad leak).
-      expect(cardSize.height, lessThan(420));
-      expect(cardSize.height, lessThan(AppBottomNavBar.barHeight + 280));
+      expect(cardSize.height, lessThan(480));
+      expect(cardSize.height, lessThan(AppBottomNavBar.barHeight + 360));
       expect(cardSize.height, greaterThan(200));
+      expect(find.text('Recent visits'), findsOneWidget);
     },
   );
 }

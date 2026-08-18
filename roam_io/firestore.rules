@@ -492,6 +492,24 @@ service cloud.firestore {
         allow update, delete: if false;
       }
 
+      // Append-only visit history for Stats charts.
+      match /visit_events/{eventId} {
+        allow read, create: if isProfileOwner(userId);
+        allow update, delete: if false;
+      }
+
+      // Rollup counters for Stats tab hero numbers.
+      match /stats_summary/{docId} {
+        allow read, create, update: if isProfileOwner(userId);
+        allow delete: if false;
+      }
+
+      // Milestone claim state (one doc per milestone id).
+      match /milestones/{milestoneId} {
+        allow read, create, update: if isProfileOwner(userId);
+        allow delete: if false;
+      }
+
       // Persistent social inbox (follow notifications). Prefer Cloud Function
       // creation; clients may create only as the actor for a real follow doc.
       match /notifications/{notificationId} {
@@ -666,6 +684,7 @@ service cloud.firestore {
         );
       allow update: if false;
     }
+
 
     match /polygons_visited/{userId} {
       allow get, list: if canViewProfileActivity(userId);

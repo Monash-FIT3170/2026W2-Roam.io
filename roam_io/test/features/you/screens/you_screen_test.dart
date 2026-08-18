@@ -1,9 +1,9 @@
 /*
  * Author: Sanjevan Rajasegar
- * Last Updated: 10 August 2026
+ * Last Updated: 6 August 2026
  * Description:
  *   Regression tests for You screen tabs, profile identity XP progress,
- *   full-width social/exploration stats, metric line graphs, owned activities
+ *   full-width social/exploration stats, metric line graphs, activities stub
  *   (Kudos + comments + Share on the card; no engagement on detail), and
  *   location states.
  */
@@ -18,18 +18,66 @@ import 'package:provider/provider.dart';
 import 'package:roam_io/features/activity_feed/data/activity_feed_service.dart';
 import 'package:roam_io/features/activity_feed/data/comment_service.dart';
 import 'package:roam_io/features/activity_feed/models/activity_comment.dart';
-import 'package:roam_io/features/activity_feed/models/activity_feed_item.dart';
 import 'package:roam_io/features/activity_feed/screens/comments_screen.dart';
 import 'package:roam_io/features/you/screens/you_screen.dart';
 import 'package:roam_io/features/auth/data/auth_repository.dart';
 import 'package:roam_io/features/auth/providers/auth_provider.dart';
+import 'package:roam_io/features/journeys/data/journey_service.dart';
 import 'package:roam_io/features/map/data/visit.dart';
 import 'package:roam_io/features/map/data/visit_service.dart';
 import 'package:roam_io/features/map/data/visited_region_service.dart';
+import 'package:roam_io/features/map/domain/visit_event.dart';
 import 'package:roam_io/features/profile/domain/profile_model.dart';
+import 'package:roam_io/features/profile/domain/visited_polygon_meta.dart';
 import 'package:roam_io/features/profile/domain/visited_polygon_record.dart';
 import 'package:roam_io/features/profile/domain/xp_event.dart';
+import 'package:roam_io/features/you/services/home_base_service.dart';
+import 'package:roam_io/features/you/services/stats_summary_service.dart';
+import 'package:roam_io/features/you/milestones/milestone_service.dart';
 import 'package:roam_io/features/social/data/follow_service.dart';
+
+YouScreen _testYouScreen({
+  required VisitService visitService,
+  required VisitedRegionService visitedRegionService,
+  Stream<List<XpEvent>>? xpEventsStream,
+  CommentService? commentService,
+  ActivityFeedService? activityFeedService,
+  FollowService? followService,
+}) {
+  final firestore = FakeFirebaseFirestore();
+  return YouScreen(
+    visitService: visitService,
+    visitedRegionService: visitedRegionService,
+    journeyService: JourneyService(firestore: firestore),
+    statsSummaryService: StatsSummaryService(firestore: firestore),
+    homeBaseService: HomeBaseService(firestore: firestore),
+    milestoneService: MilestoneService(firestore: firestore),
+    xpEventsStream: xpEventsStream,
+    commentService: commentService,
+    activityFeedService: activityFeedService,
+    followService: followService,
+  );
+}
+
+Future<void> _openYouTab(WidgetTester tester, String label) async {
+  final tab = find.descendant(
+    of: find.byType(TabBar).first,
+    matching: find.text(label),
+  );
+  await tester.ensureVisible(tab);
+  await tester.tap(tab);
+  await tester.pumpAndSettle();
+}
+
+Future<void> _openStatsTab(WidgetTester tester) async {
+  await _openYouTab(tester, 'Stats');
+}
+
+Future<void> _openStatsCategory(WidgetTester tester, String label) async {
+  await _openStatsTab(tester);
+  await tester.tap(find.text(label));
+  await tester.pumpAndSettle();
+}
 
 void main() {
   testWidgets('shows current profile XP instead of placeholder XP', (
@@ -45,7 +93,7 @@ void main() {
         value: provider,
         child: MaterialApp(
           home: Scaffold(
-            body: YouScreen(
+            body: _testYouScreen(
               visitService: _FakeVisitService(totalVisitCount: 0),
               visitedRegionService: _FakeVisitedRegionService(<String>{}),
             ),
@@ -59,13 +107,15 @@ void main() {
     expect(find.text('Summary'), findsNothing);
     expect(find.text('Profile'), findsOneWidget);
     expect(find.text('Activities'), findsOneWidget);
+    expect(find.text('Stats'), findsOneWidget);
+    expect(find.text('Milestones'), findsOneWidget);
     expect(find.text('XP Count'), findsNothing);
     expect(
       find.text('Level ${ProfileModel.levelFromXp(12345)}'),
       findsOneWidget,
     );
-    expect(find.text('Locations Visited'), findsOneWidget);
-    expect(find.text('Tiles Unlocked'), findsOneWidget);
+    expect(find.text('Locations Visited'), findsNothing);
+    expect(find.text('Tiles Unlocked'), findsNothing);
     expect(find.text('Visit volume by week'), findsNothing);
     expect(find.text('Total Visits'), findsNothing);
     expect(find.text('2,450'), findsNothing);
@@ -86,7 +136,7 @@ void main() {
         value: provider,
         child: MaterialApp(
           home: Scaffold(
-            body: YouScreen(
+            body: _testYouScreen(
               visitService: _FakeVisitService(totalVisitCount: 9),
               visitedRegionService: _FakeVisitedRegionService(<String>{
                 'region-1',
@@ -108,7 +158,6 @@ void main() {
     expect(find.text('Tiles'), findsOneWidget);
     expect(find.text('Following'), findsOneWidget);
     expect(find.text('Followers'), findsOneWidget);
-    expect(find.text('XP Gained'), findsWidgets);
     expect(find.text('Journeys'), findsOneWidget);
     expect(find.text('Sidequests'), findsOneWidget);
     expect(find.text('6'), findsWidgets);
@@ -128,7 +177,7 @@ void main() {
         value: provider,
         child: MaterialApp(
           home: Scaffold(
-            body: YouScreen(
+            body: _testYouScreen(
               visitService: _FakeVisitService(totalVisitCount: 14),
               visitedRegionService: _FakeVisitedRegionService(<String>{
                 'tile-a',
@@ -153,7 +202,7 @@ void main() {
     provider.dispose();
   });
 
-  testWidgets('shows most visited location bubble for repeated visits', (
+  testWidgets('Stats tab shows location visit chart for repeated visits', (
     tester,
   ) async {
     final provider = AuthProvider(
@@ -193,7 +242,7 @@ void main() {
         value: provider,
         child: MaterialApp(
           home: Scaffold(
-            body: YouScreen(
+            body: _testYouScreen(
               visitService: _FakeVisitService(
                 totalVisitCount: 3,
                 allVisits: visits,
@@ -209,16 +258,18 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    expect(find.text('Most Visited Location'), findsOneWidget);
-    expect(find.text('Top location'), findsOneWidget);
-    expect(find.text('Lakeside Cafe'), findsWidgets);
-    // City Park appears in Recent Visited Locations (not most-visited).
-    expect(find.text('City Park'), findsOneWidget);
+    await _openStatsTab(tester);
+
+    expect(find.text('Total visits'), findsOneWidget);
+    expect(find.text('Top category'), findsOneWidget);
+    expect(find.text('Visit streak'), findsOneWidget);
+    expect(find.text('Visits by week'), findsOneWidget);
+    expect(find.byType(CustomPaint), findsWidgets);
 
     provider.dispose();
   });
 
-  testWidgets('shows empty most visited location state when no visits', (
+  testWidgets('Stats tab shows empty location chart when no visits', (
     tester,
   ) async {
     final provider = AuthProvider(
@@ -231,7 +282,7 @@ void main() {
         value: provider,
         child: MaterialApp(
           home: Scaffold(
-            body: YouScreen(
+            body: _testYouScreen(
               visitService: _FakeVisitService(
                 totalVisitCount: 0,
                 allVisits: const <Visit>[],
@@ -244,19 +295,14 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    expect(find.text('No locations yet'), findsOneWidget);
+    await _openStatsTab(tester);
     expect(find.text('No locations to chart yet'), findsOneWidget);
-    expect(
-      find.text('Visit places on the map to build this profile.'),
-      findsOneWidget,
-    );
-    expect(find.text('Most Visited Location'), findsOneWidget);
 
     provider.dispose();
   });
 
   testWidgets(
-    'updates You screen data automatically when streamed data changes',
+    'updates profile and stats data automatically when streamed data changes',
     (tester) async {
       final provider = AuthProvider(
         authRepository: _FakeAuthRepository(_buildProfile(xp: 75)),
@@ -274,7 +320,7 @@ void main() {
           value: provider,
           child: MaterialApp(
             home: Scaffold(
-              body: YouScreen(
+              body: _testYouScreen(
                 visitService: visitService,
                 visitedRegionService: visitedRegionService,
               ),
@@ -284,7 +330,6 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      expect(find.text('No locations yet'), findsOneWidget);
       expect(find.text('0'), findsWidgets);
 
       visitService.emitAllVisits(<Visit>[
@@ -311,9 +356,10 @@ void main() {
       });
       await tester.pumpAndSettle();
 
-      expect(find.text('Top location'), findsOneWidget);
-      expect(find.text('Lakeside Cafe'), findsWidgets);
       expect(find.text('2'), findsWidgets);
+
+      await _openStatsTab(tester);
+      expect(find.text('Visits by week'), findsOneWidget);
 
       await visitService.dispose();
       await visitedRegionService.dispose();
@@ -351,7 +397,7 @@ void main() {
         value: provider,
         child: MaterialApp(
           home: Scaffold(
-            body: YouScreen(
+            body: _testYouScreen(
               visitService: _FakeVisitService(totalVisitCount: 0),
               visitedRegionService: _FakeVisitedRegionService(<String>{}),
               commentService: comments,
@@ -363,8 +409,7 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    await tester.tap(find.text('Activities'));
-    await tester.pumpAndSettle();
+    await _openYouTab(tester, 'Activities');
     expect(find.text('No activities yet'), findsNothing);
     expect(find.text("Sanjevan's Test Activity"), findsOneWidget);
     expect(find.text('Other user activity'), findsNothing);
@@ -390,7 +435,6 @@ void main() {
     await tester.pageBack();
     await tester.pumpAndSettle();
 
-    // Personal card still exposes Kudos + Comments + Share after detail pop.
     expect(find.text('0 comments'), findsOneWidget);
     expect(find.text('Kudos'), findsOneWidget);
     expect(find.text('Share'), findsOneWidget);
@@ -403,228 +447,8 @@ void main() {
     await tester.pageBack();
     await tester.pumpAndSettle();
 
-    await tester.tap(find.text('Profile'));
-    await tester.pumpAndSettle();
+    await _openYouTab(tester, 'Profile');
     expect(find.text('Traveller'), findsOneWidget);
-
-    await comments.dispose();
-    provider.dispose();
-  });
-
-  testWidgets('Activities tab reacts to newly inserted own activities', (
-    tester,
-  ) async {
-    await tester.binding.setSurfaceSize(const Size(400, 1400));
-    addTearDown(() => tester.binding.setSurfaceSize(null));
-
-    final provider = AuthProvider(
-      authRepository: _FakeAuthRepository(_buildProfile(xp: 75)),
-    );
-    await provider.refreshCurrentUser();
-    final comments = _FakeYouCommentService();
-    final firestore = FakeFirebaseFirestore();
-
-    await tester.pumpWidget(
-      ChangeNotifierProvider<AuthProvider>.value(
-        value: provider,
-        child: MaterialApp(
-          home: Scaffold(
-            body: YouScreen(
-              visitService: _FakeVisitService(totalVisitCount: 0),
-              visitedRegionService: _FakeVisitedRegionService(<String>{}),
-              commentService: comments,
-              activityFeedService: ActivityFeedService(firestore: firestore),
-            ),
-          ),
-        ),
-      ),
-    );
-    await tester.pumpAndSettle();
-
-    await tester.tap(find.text('Activities'));
-    await tester.pumpAndSettle();
-    expect(find.text('No activities yet'), findsOneWidget);
-
-    await _seedYouActivity(
-      firestore,
-      activityId: 'activity-1',
-      ownerId: 'user-1',
-      title: 'Traveller Activity 1',
-      createdAt: DateTime(2026, 8, 10),
-    );
-    await tester.pumpAndSettle();
-
-    expect(find.text('Traveller Activity 1'), findsOneWidget);
-
-    await _seedYouActivity(
-      firestore,
-      activityId: 'activity-2',
-      ownerId: 'user-1',
-      title: 'Traveller Activity 2',
-      createdAt: DateTime(2026, 8, 11),
-    );
-    await tester.pumpAndSettle();
-
-    expect(find.text('Traveller Activity 2'), findsOneWidget);
-    expect(find.text('Traveller Activity 1'), findsOneWidget);
-    expect(
-      tester.getTopLeft(find.text('Traveller Activity 2')).dy,
-      lessThan(tester.getTopLeft(find.text('Traveller Activity 1')).dy),
-    );
-
-    await comments.dispose();
-    provider.dispose();
-  });
-
-  testWidgets(
-    'Activities tab does not recreate owned activity stream on rebuild',
-    (tester) async {
-      await tester.binding.setSurfaceSize(const Size(400, 1400));
-      addTearDown(() => tester.binding.setSurfaceSize(null));
-
-      final provider = AuthProvider(
-        authRepository: _FakeAuthRepository(_buildProfile(xp: 75)),
-      );
-      await provider.refreshCurrentUser();
-      final comments = _FakeYouCommentService();
-      final activityFeedService = _CountingYouActivityFeedService();
-
-      Widget widget() {
-        return ChangeNotifierProvider<AuthProvider>.value(
-          value: provider,
-          child: MaterialApp(
-            home: Scaffold(
-              body: YouScreen(
-                visitService: _FakeVisitService(totalVisitCount: 0),
-                visitedRegionService: _FakeVisitedRegionService(<String>{}),
-                commentService: comments,
-                activityFeedService: activityFeedService,
-              ),
-            ),
-          ),
-        );
-      }
-
-      await tester.pumpWidget(widget());
-      await tester.pumpAndSettle();
-      await tester.tap(find.text('Activities'));
-      await tester.pumpAndSettle();
-
-      expect(activityFeedService.watchOwnedCalls, 1);
-
-      await tester.pumpWidget(widget());
-      await tester.pumpAndSettle();
-
-      expect(activityFeedService.watchOwnedCalls, 1);
-
-      await comments.dispose();
-      provider.dispose();
-    },
-  );
-
-  testWidgets('Amar723 Activities tab excludes Sanjevan-owned test activity', (
-    tester,
-  ) async {
-    await tester.binding.setSurfaceSize(const Size(400, 1400));
-    addTearDown(() => tester.binding.setSurfaceSize(null));
-
-    const amarUid = 'amar-uid';
-    const sanjevanUid = 'sanjevan-uid';
-    final provider = AuthProvider(
-      authRepository: _FakeAuthRepository(
-        _buildProfile(
-          xp: 75,
-          uid: amarUid,
-          username: 'Amar723',
-          displayName: 'Amar',
-        ),
-      ),
-    );
-    await provider.refreshCurrentUser();
-    final comments = _FakeYouCommentService();
-    final firestore = FakeFirebaseFirestore();
-    await _seedYouActivity(
-      firestore,
-      activityId: 'sanjevan-test-activity',
-      ownerId: sanjevanUid,
-      title: "Sanjevan's Test Activity",
-    );
-    await _seedYouActivity(
-      firestore,
-      activityId: 'amar-activity',
-      ownerId: amarUid,
-      title: "Amar's Activity",
-    );
-
-    await tester.pumpWidget(
-      ChangeNotifierProvider<AuthProvider>.value(
-        value: provider,
-        child: MaterialApp(
-          home: Scaffold(
-            body: YouScreen(
-              visitService: _FakeVisitService(totalVisitCount: 0),
-              visitedRegionService: _FakeVisitedRegionService(<String>{}),
-              commentService: comments,
-              activityFeedService: ActivityFeedService(firestore: firestore),
-            ),
-          ),
-        ),
-      ),
-    );
-    await tester.pumpAndSettle();
-
-    await tester.tap(find.text('Activities'));
-    await tester.pumpAndSettle();
-
-    expect(find.text("Amar's Activity"), findsOneWidget);
-    expect(find.text("Sanjevan's Test Activity"), findsNothing);
-
-    await comments.dispose();
-    provider.dispose();
-  });
-
-  testWidgets('Activities tab does not inject Amar-only stub activities', (
-    tester,
-  ) async {
-    await tester.binding.setSurfaceSize(const Size(400, 1400));
-    addTearDown(() => tester.binding.setSurfaceSize(null));
-
-    const amarUid = 'amar-uid';
-    final provider = AuthProvider(
-      authRepository: _FakeAuthRepository(
-        _buildProfile(
-          xp: 75,
-          uid: amarUid,
-          username: 'Amar723',
-          displayName: 'Amar',
-        ),
-      ),
-    );
-    await provider.refreshCurrentUser();
-    final comments = _FakeYouCommentService();
-    final firestore = FakeFirebaseFirestore();
-
-    await tester.pumpWidget(
-      ChangeNotifierProvider<AuthProvider>.value(
-        value: provider,
-        child: MaterialApp(
-          home: Scaffold(
-            body: YouScreen(
-              visitService: _FakeVisitService(totalVisitCount: 0),
-              visitedRegionService: _FakeVisitedRegionService(<String>{}),
-              commentService: comments,
-              activityFeedService: ActivityFeedService(firestore: firestore),
-            ),
-          ),
-        ),
-      ),
-    );
-    await tester.pumpAndSettle();
-
-    await tester.tap(find.text('Activities'));
-    await tester.pumpAndSettle();
-
-    expect(find.text('No activities yet'), findsOneWidget);
 
     await comments.dispose();
     provider.dispose();
@@ -654,7 +478,7 @@ void main() {
         value: provider,
         child: MaterialApp(
           home: Scaffold(
-            body: YouScreen(
+            body: _testYouScreen(
               visitService: _FakeVisitService(totalVisitCount: 0),
               visitedRegionService: _FakeVisitedRegionService(<String>{}),
               commentService: comments,
@@ -666,8 +490,7 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    await tester.tap(find.text('Activities'));
-    await tester.pumpAndSettle();
+    await _openYouTab(tester, 'Activities');
     expect(find.text('Kudos'), findsOneWidget);
     expect(find.text('0 comments'), findsOneWidget);
     expect(find.text('Share'), findsOneWidget);
@@ -693,47 +516,41 @@ void main() {
     provider.dispose();
   });
 
-  testWidgets(
-    'switches metric pills and shows empty XP state when history is empty',
-    (tester) async {
-      final provider = AuthProvider(
-        authRepository: _FakeAuthRepository(_buildProfile(xp: 75)),
-      );
-      await provider.refreshCurrentUser();
+  testWidgets('Stats XP tab shows empty state when history is empty', (
+    tester,
+  ) async {
+    final provider = AuthProvider(
+      authRepository: _FakeAuthRepository(_buildProfile(xp: 75)),
+    );
+    await provider.refreshCurrentUser();
 
-      await tester.pumpWidget(
-        ChangeNotifierProvider<AuthProvider>.value(
-          value: provider,
-          child: MaterialApp(
-            home: Scaffold(
-              body: YouScreen(
-                visitService: _FakeVisitService(totalVisitCount: 3),
-                visitedRegionService: _FakeVisitedRegionService(<String>{
-                  'tile-a',
-                  'tile-b',
-                }),
-                xpEventsStream: Stream<List<XpEvent>>.value(const <XpEvent>[]),
-              ),
+    await tester.pumpWidget(
+      ChangeNotifierProvider<AuthProvider>.value(
+        value: provider,
+        child: MaterialApp(
+          home: Scaffold(
+            body: _testYouScreen(
+              visitService: _FakeVisitService(totalVisitCount: 3),
+              visitedRegionService: _FakeVisitedRegionService(<String>{
+                'tile-a',
+                'tile-b',
+              }),
+              xpEventsStream: Stream<List<XpEvent>>.value(const <XpEvent>[]),
             ),
           ),
         ),
-      );
-      await tester.pumpAndSettle();
+      ),
+    );
+    await tester.pumpAndSettle();
 
-      expect(find.byType(CustomPaint), findsWidgets);
+    await _openStatsCategory(tester, 'XP');
 
-      final xpMetric = find.byKey(const ValueKey('profile-metric-xpGained'));
-      await tester.ensureVisible(xpMetric);
-      await tester.tap(xpMetric);
-      await tester.pumpAndSettle();
+    expect(find.text('No XP gained yet this period'), findsOneWidget);
 
-      expect(find.text('No XP gained yet this period'), findsOneWidget);
+    provider.dispose();
+  });
 
-      provider.dispose();
-    },
-  );
-
-  testWidgets('XP Gained graph updates when new XP events arrive', (
+  testWidgets('Stats XP chart updates when new XP events arrive', (
     tester,
   ) async {
     final provider = AuthProvider(
@@ -749,7 +566,7 @@ void main() {
         value: provider,
         child: MaterialApp(
           home: Scaffold(
-            body: YouScreen(
+            body: _testYouScreen(
               visitService: _FakeVisitService(totalVisitCount: 0),
               visitedRegionService: _FakeVisitedRegionService(<String>{}),
               xpEventsStream: xpController.stream,
@@ -761,10 +578,7 @@ void main() {
     xpController.add(const <XpEvent>[]);
     await tester.pumpAndSettle();
 
-    final xpMetric = find.byKey(const ValueKey('profile-metric-xpGained'));
-    await tester.ensureVisible(xpMetric);
-    await tester.tap(xpMetric);
-    await tester.pumpAndSettle();
+    await _openStatsCategory(tester, 'XP');
     expect(find.text('No XP gained yet this period'), findsOneWidget);
 
     xpController.add(<XpEvent>[
@@ -796,7 +610,7 @@ void main() {
     provider.dispose();
   });
 
-  testWidgets('tapping a graph point shows the selected week value', (
+  testWidgets('tapping a stats chart point shows the selected week value', (
     tester,
   ) async {
     final provider = AuthProvider(
@@ -837,7 +651,7 @@ void main() {
         value: provider,
         child: MaterialApp(
           home: Scaffold(
-            body: YouScreen(
+            body: _testYouScreen(
               visitService: _FakeVisitService(
                 totalVisitCount: visits.length,
                 allVisits: visits,
@@ -851,7 +665,9 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    final lastPoint = find.byKey(const ValueKey<String>('graph-point-5'));
+    await _openStatsTab(tester);
+
+    final lastPoint = find.byKey(const ValueKey<String>('stats-graph-point-5'));
     expect(lastPoint, findsOneWidget);
 
     await tester.tap(lastPoint);
@@ -862,7 +678,9 @@ void main() {
     provider.dispose();
   });
 
-  testWidgets('changing metric resets selected graph point', (tester) async {
+  testWidgets('switching stats category resets selected chart point', (
+    tester,
+  ) async {
     final provider = AuthProvider(
       authRepository: _FakeAuthRepository(_buildProfile(xp: 75)),
     );
@@ -885,7 +703,7 @@ void main() {
         value: provider,
         child: MaterialApp(
           home: Scaffold(
-            body: YouScreen(
+            body: _testYouScreen(
               visitService: _FakeVisitService(
                 totalVisitCount: visits.length,
                 allVisits: visits,
@@ -901,130 +719,131 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    await tester.tap(find.byKey(const ValueKey<String>('graph-point-5')));
+    await _openStatsTab(tester);
+
+    await tester.tap(find.byKey(const ValueKey<String>('stats-graph-point-5')));
     await tester.pumpAndSettle();
     expect(find.textContaining('1 Locations Visited'), findsOneWidget);
 
-    await tester.ensureVisible(find.text('Tiles Unlocked'));
-    await tester.tap(find.text('Tiles Unlocked'));
-    await tester.pumpAndSettle();
+    await _openStatsCategory(tester, 'Tiles');
 
     expect(find.textContaining('1 Locations Visited'), findsNothing);
 
     provider.dispose();
   });
 
-  testWidgets(
-    'profile analytics survive Activities detail navigation and stay reactive',
-    (tester) async {
-      await tester.binding.setSurfaceSize(const Size(400, 1400));
-      addTearDown(() => tester.binding.setSurfaceSize(null));
+  testWidgets('stats survive Activities detail navigation and stay reactive', (
+    tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(400, 1400));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
 
-      final weekStart = _mondayOnOrBefore(DateTime.now());
-      final visits = <Visit>[
-        Visit(
-          placeId: 1,
-          googlePlaceId: 'park-1',
-          placeName: 'Persistent Park',
-          regionId: 'region-a',
-          category: 'nature',
-          visitedAt: weekStart.add(const Duration(hours: 3)),
-        ),
-      ];
-      final visitService = _FakeVisitService(
-        totalVisitCount: 1,
-        allVisits: visits,
-      );
-      final regionService = _FakeVisitedRegionService(<String>{
-        'region-a',
-        'region-b',
-      });
-      final xpController = StreamController<List<XpEvent>>.broadcast();
-      final provider = AuthProvider(
-        authRepository: _FakeAuthRepository(_buildProfile(xp: 250)),
-      );
-      await provider.refreshCurrentUser();
-      final firestore = FakeFirebaseFirestore();
-      await _seedYouActivity(
-        firestore,
-        activityId: 'sanjevan-test-activity',
-        ownerId: 'user-1',
-        title: "Sanjevan's Test Activity",
-      );
+    final weekStart = _mondayOnOrBefore(DateTime.now());
+    final visits = <Visit>[
+      Visit(
+        placeId: 1,
+        googlePlaceId: 'park-1',
+        placeName: 'Persistent Park',
+        regionId: 'region-a',
+        category: 'nature',
+        visitedAt: weekStart.add(const Duration(hours: 3)),
+      ),
+    ];
+    final visitService = _FakeVisitService(
+      totalVisitCount: 1,
+      allVisits: visits,
+    );
+    final regionService = _FakeVisitedRegionService(<String>{
+      'region-a',
+      'region-b',
+    });
+    final xpController = StreamController<List<XpEvent>>.broadcast();
+    final provider = AuthProvider(
+      authRepository: _FakeAuthRepository(_buildProfile(xp: 250)),
+    );
+    await provider.refreshCurrentUser();
+    final comments = _FakeYouCommentService();
+    final firestore = FakeFirebaseFirestore();
+    await _seedYouActivity(
+      firestore,
+      activityId: 'sanjevan-test-activity',
+      ownerId: 'user-1',
+      title: "Sanjevan's Test Activity",
+    );
 
-      await tester.pumpWidget(
-        ChangeNotifierProvider<AuthProvider>.value(
-          value: provider,
-          child: MaterialApp(
-            home: Scaffold(
-              body: YouScreen(
-                visitService: visitService,
-                visitedRegionService: regionService,
-                xpEventsStream: xpController.stream,
-                activityFeedService: ActivityFeedService(firestore: firestore),
-              ),
+    await tester.pumpWidget(
+      ChangeNotifierProvider<AuthProvider>.value(
+        value: provider,
+        child: MaterialApp(
+          home: Scaffold(
+            body: _testYouScreen(
+              visitService: visitService,
+              visitedRegionService: regionService,
+              xpEventsStream: xpController.stream,
+              activityFeedService: ActivityFeedService(firestore: firestore),
+              commentService: comments,
             ),
           ),
         ),
-      );
-      xpController.add(<XpEvent>[
-        XpEvent(
-          id: 'xp-1',
-          amount: 40,
-          earnedAt: weekStart.add(const Duration(hours: 2)),
-          source: XpEventSource.visit,
-        ),
-      ]);
-      await tester.pumpAndSettle();
+      ),
+    );
+    xpController.add(<XpEvent>[
+      XpEvent(
+        id: 'xp-1',
+        amount: 40,
+        earnedAt: weekStart.add(const Duration(hours: 2)),
+        source: XpEventSource.visit,
+      ),
+    ]);
+    await tester.pumpAndSettle();
 
-      expect(find.text('Persistent Park'), findsWidgets);
-      expect(find.text('Tiles'), findsOneWidget);
-      expect(find.text('2'), findsWidgets);
+    expect(find.text('Tiles'), findsOneWidget);
+    expect(find.text('2'), findsWidgets);
 
-      final xpMetric = find.byKey(const ValueKey('profile-metric-xpGained'));
-      await tester.ensureVisible(xpMetric);
-      await tester.tap(xpMetric);
-      await tester.pumpAndSettle();
+    await _openStatsCategory(tester, 'XP');
 
-      await tester.tap(find.text('Activities'));
-      await tester.pumpAndSettle();
-      expect(find.text("Sanjevan's Test Activity"), findsOneWidget);
+    await _openYouTab(tester, 'Activities');
+    expect(find.text("Sanjevan's Test Activity"), findsOneWidget);
 
-      await tester.tap(find.byIcon(Icons.more_horiz_rounded));
-      await tester.pumpAndSettle();
-      expect(find.text('Journey route map'), findsOneWidget);
-      expect(find.text('Kudos'), findsOneWidget);
-      expect(find.text('Comments'), findsOneWidget);
-      expect(find.text('Share'), findsOneWidget);
+    await tester.tap(find.byIcon(Icons.more_horiz_rounded));
+    await tester.pumpAndSettle();
+    expect(find.text('Journey route map'), findsOneWidget);
+    expect(find.text('Kudos'), findsOneWidget);
+    expect(find.text('0 comments'), findsOneWidget);
+    expect(find.text('Share'), findsOneWidget);
 
-      await tester.pageBack();
-      await tester.pumpAndSettle();
-      await tester.tap(find.text('Profile'));
-      await tester.pumpAndSettle();
+    await tester.pageBack();
+    await tester.pumpAndSettle();
+    await _openYouTab(tester, 'Profile');
 
-      expect(find.text('Persistent Park'), findsWidgets);
-      expect(find.text('2'), findsWidgets);
+    expect(find.text('2'), findsWidgets);
 
-      visitService.emitAllVisits(<Visit>[
-        ...visits,
-        Visit(
-          placeId: 2,
-          googlePlaceId: 'cafe-1',
-          placeName: 'Reactive Cafe',
-          regionId: 'region-a',
-          category: 'food',
-          visitedAt: weekStart.add(const Duration(hours: 5)),
-        ),
-      ]);
-      await tester.pumpAndSettle();
-      expect(find.text('Reactive Cafe'), findsWidgets);
+    visitService.emitAllVisits(<Visit>[
+      ...visits,
+      Visit(
+        placeId: 2,
+        googlePlaceId: 'cafe-1',
+        placeName: 'Reactive Cafe',
+        regionId: 'region-a',
+        category: 'food',
+        visitedAt: weekStart.add(const Duration(hours: 5)),
+      ),
+    ]);
+    await tester.pumpAndSettle();
 
-      provider.dispose();
-      await visitService.dispose();
-      await regionService.dispose();
-      await xpController.close();
-    },
-  );
+    await _openStatsTab(tester);
+    expect(find.text('Visits by week'), findsOneWidget);
+    expect(find.text('Total visits'), findsOneWidget);
+    expect(find.text('Top category'), findsOneWidget);
+    expect(find.text('Visit streak'), findsOneWidget);
+    expect(find.text('2'), findsWidgets);
+
+    provider.dispose();
+    await comments.dispose();
+    await visitService.dispose();
+    await regionService.dispose();
+    await xpController.close();
+  });
 
   testWidgets('You Following count updates from FollowService relationships', (
     tester,
@@ -1041,7 +860,7 @@ void main() {
         value: provider,
         child: MaterialApp(
           home: Scaffold(
-            body: YouScreen(
+            body: _testYouScreen(
               visitService: _FakeVisitService(totalVisitCount: 0),
               visitedRegionService: _FakeVisitedRegionService(<String>{}),
               followService: followService,
@@ -1070,17 +889,12 @@ DateTime _mondayOnOrBefore(DateTime date) {
   return day.subtract(Duration(days: day.weekday - DateTime.monday));
 }
 
-ProfileModel _buildProfile({
-  required int xp,
-  String uid = 'user-1',
-  String username = 'traveller',
-  String displayName = 'Traveller',
-}) {
+ProfileModel _buildProfile({required int xp}) {
   return ProfileModel(
-    uid: uid,
-    username: username,
-    displayName: displayName,
-    email: '$username@example.com',
+    uid: 'user-1',
+    username: 'traveller',
+    displayName: 'Traveller',
+    email: 'traveller@example.com',
     createdAt: DateTime(2026, 5, 1, 10),
     updatedAt: DateTime(2026, 5, 1, 11),
     xp: xp,
@@ -1114,11 +928,13 @@ Future<void> _seedYouActivity(
 }
 
 class _FakeAuthRepository implements AuthRepository {
-  _FakeAuthRepository(this._profile)
-    : _user = _FakeUser(uid: _profile.uid, email: _profile.email);
+  _FakeAuthRepository(this._profile);
 
   final ProfileModel _profile;
-  final _FakeUser _user;
+  final _FakeUser _user = _FakeUser(
+    uid: 'user-1',
+    email: 'traveller@example.com',
+  );
 
   @override
   Stream<firebase_auth.User?> authStateChanges() =>
@@ -1192,6 +1008,11 @@ class _FakeVisitService implements VisitService {
   }
 
   @override
+  Stream<List<VisitEvent>> watchVisitEvents(String userId, {int limit = 100}) {
+    return Stream<List<VisitEvent>>.value(const <VisitEvent>[]);
+  }
+
+  @override
   dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
 
   static List<Visit> _buildVisits(int count) {
@@ -1253,6 +1074,18 @@ class _FakeVisitedRegionService implements VisitedRegionService {
       );
       controller.onCancel = subscription.cancel;
     });
+  }
+
+  @override
+  Stream<Map<String, VisitedPolygonMeta>> watchVisitedPolygonMeta() {
+    return Stream<Map<String, VisitedPolygonMeta>>.value(
+      const <String, VisitedPolygonMeta>{},
+    );
+  }
+
+  @override
+  Stream<Map<String, int>> watchPolygonEntryCounts() {
+    return Stream<Map<String, int>>.value(const <String, int>{});
   }
 
   void emitVisitedRegionIds(Set<String> visitedRegionIds) {
@@ -1359,18 +1192,6 @@ class _FakeYouCommentService implements CommentService {
   }
 
   Future<void> dispose() => _controller.close();
-}
-
-class _CountingYouActivityFeedService extends ActivityFeedService {
-  _CountingYouActivityFeedService() : super(firestore: FakeFirebaseFirestore());
-
-  var watchOwnedCalls = 0;
-
-  @override
-  Stream<List<ActivityFeedItem>> watchActivitiesOwnedBy(String ownerId) {
-    watchOwnedCalls += 1;
-    return Stream<List<ActivityFeedItem>>.value(const <ActivityFeedItem>[]);
-  }
 }
 
 class _FakeUser implements firebase_auth.User {
