@@ -1,8 +1,9 @@
 /*
  * Author: Sam Sutherland
- * Last Modified: 05/08/2026
+ * Last Modified: 13/08/2026
  * Description:
- *   Tests Android notification service platform guards.
+ *   Tests system notification service platform guards without invoking native
+ *   Android or iOS notification plugins in the unit-test environment.
  */
 
 import 'package:flutter/foundation.dart';
@@ -17,17 +18,20 @@ void main() {
   });
 
   group('AndroidNotificationService', () {
-    test('initialise returns without throwing on iOS', () async {
-      debugDefaultTargetPlatformOverride = TargetPlatform.iOS;
+    test(
+      'initialise returns without throwing on unsupported platforms',
+      () async {
+        debugDefaultTargetPlatformOverride = TargetPlatform.linux;
 
-      await expectLater(
-        AndroidNotificationService.instance.initialise(),
-        completes,
-      );
-    });
+        await expectLater(
+          AndroidNotificationService.instance.initialise(),
+          completes,
+        );
+      },
+    );
 
-    test('requestPermission returns false on iOS', () async {
-      debugDefaultTargetPlatformOverride = TargetPlatform.iOS;
+    test('requestPermission returns false on unsupported platforms', () async {
+      debugDefaultTargetPlatformOverride = TargetPlatform.linux;
 
       final granted = await AndroidNotificationService.instance
           .requestPermission();

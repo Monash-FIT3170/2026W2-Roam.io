@@ -216,8 +216,9 @@ class _FixedPositionGeo extends GeoLocatorService {
   Future<Position> getCurrentLocation() async => _position;
 
   @override
-  Future<Stream<Position>> getLocationUpdates() async =>
-      Stream<Position>.fromIterable(const <Position>[]);
+  Future<Stream<Position>> getLocationUpdates({
+    bool allowBackgroundUpdates = false,
+  }) async => Stream<Position>.fromIterable(const <Position>[]);
 }
 
 class _AlwaysThrowingVisitService extends VisitService {
