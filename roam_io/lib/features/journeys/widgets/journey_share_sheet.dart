@@ -141,9 +141,11 @@ class _JourneyShareSheetState extends State<JourneyShareSheet> {
       await file.writeAsBytes(byteData.buffer.asUint8List());
 
       final xFile = XFile(file.path, mimeType: 'image/png');
-      await Share.shareXFiles(
-        [xFile],
-        text: 'Check out my journey on Roam.io!',
+      await SharePlus.instance.share(
+        ShareParams(
+          text: 'Check out my journey on Roam.io!',
+          files: [xFile],
+        ),
       );
     } catch (e) {
       if (mounted) {
