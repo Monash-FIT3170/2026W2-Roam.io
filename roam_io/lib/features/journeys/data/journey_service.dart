@@ -60,6 +60,16 @@ class JourneyService {
     return snapshot.docs.map((doc) => Journey.fromFirestore(doc)).toList();
   }
 
+  /// Gets all journeys for a user that started after the given date.
+  Future<List<Journey>> getJourneysSince(String userId, DateTime since) async {
+    final snapshot = await _journeysCollection(userId)
+        .where('startTime', isGreaterThanOrEqualTo: Timestamp.fromDate(since))
+        .orderBy('startTime', descending: true)
+        .get();
+
+    return snapshot.docs.map((doc) => Journey.fromFirestore(doc)).toList();
+  }
+
   /// Gets a single journey by ID.
   Future<Journey?> getJourneyById({
     required String userId,
