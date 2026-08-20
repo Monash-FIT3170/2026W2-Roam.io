@@ -1,9 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:google_maps_flutter/google_maps_flutter.dart';
 
 import '../../../theme/app_colours.dart';
-import '../../../theme/app_surfaces.dart';
+import '../../map/domain/map_styles.dart';
 
-/// A shared scaffold for authentication pages with a custom animated background.
+/// A shared scaffold for authentication pages with a custom animated cloud background.
 class AuthPageScaffold extends StatelessWidget {
   const AuthPageScaffold({
     super.key,
@@ -28,103 +29,72 @@ class AuthPageScaffold extends StatelessWidget {
     final textTheme = theme.textTheme;
 
     return Scaffold(
+      backgroundColor: AppColors.cream,
       body: Stack(
         children: [
-          const Positioned.fill(child: AnimatedAuthBackground()),
+          const Positioned.fill(child: CloudAuthBackground()),
           Positioned.fill(
             child: SafeArea(
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 28),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    const SizedBox(height: 10),
-                    Align(
-                      alignment: Alignment.center,
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                        decoration: BoxDecoration(
-                          color: AppSurfaces.softCard(context).withOpacity(0.92),
-                          borderRadius: BorderRadius.circular(28),
-                          border: Border.all(
-                            color: AppSurfaces.border(context),
+              child: Column(
+                children: [
+                  const Spacer(),
+                  // Main content at the bottom
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.fromLTRB(24, 32, 24, 32),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          title,
+                          style: textTheme.headlineMedium?.copyWith(
+                            color: AppColors.ink,
+                            fontWeight: FontWeight.w700,
+                            height: 1.1,
                           ),
                         ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            const Icon(Icons.explore, size: 22, color: AppColors.sage),
-                            const SizedBox(width: 10),
-                            Text(
-                              'Roam.io',
-                              style: textTheme.titleMedium?.copyWith(
-                                color: AppColors.ink,
-                                fontWeight: FontWeight.w700,
-                              ),
-                            ),
-                          ],
+                        const SizedBox(height: 12),
+                        Text(
+                          subtitle,
+                          style: textTheme.bodyMedium?.copyWith(
+                            color: AppColors.ink.withValues(alpha: 0.7),
+                            height: 1.5,
+                          ),
                         ),
-                      ),
-                    ),
-                    const SizedBox(height: 40),
-                    Text(
-                      title,
-                      style: textTheme.headlineLarge?.copyWith(height: 1.1),
-                    ),
-                    const SizedBox(height: 14),
-                    Text(
-                      subtitle,
-                      style: textTheme.bodyMedium?.copyWith(
-                        color: AppSurfaces.textMuted(context),
-                        height: 1.5,
-                      ),
-                    ),
-                    const SizedBox(height: 30),
-                    Container(
-                      decoration: BoxDecoration(
-                        color: AppSurfaces.card(context),
-                        borderRadius: BorderRadius.circular(24),
-                        border: Border.all(color: AppSurfaces.border(context)),
-                        boxShadow: [
-                          BoxShadow(
-                            color: AppColors.ink.withOpacity(0.08),
-                            blurRadius: 24,
-                            offset: const Offset(0, 12),
+                        const SizedBox(height: 24),
+                        child,
+                        if (footerText != null && footerLabel != null && onFooterTap != null) ...[
+                          const SizedBox(height: 24),
+                          Center(
+                            child: Wrap(
+                              alignment: WrapAlignment.center,
+                              spacing: 4,
+                              children: [
+                                Text(
+                                  footerText!, 
+                                  style: textTheme.bodyMedium?.copyWith(
+                                    color: AppColors.ink.withValues(alpha: 0.7),
+                                  ),
+                                ),
+                                GestureDetector(
+                                  onTap: onFooterTap,
+                                  child: Text(
+                                    footerLabel!,
+                                    style: textTheme.bodyMedium?.copyWith(
+                                      color: AppColors.sage,
+                                      fontWeight: FontWeight.w700,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
                           ),
                         ],
-                      ),
-                      padding: const EdgeInsets.all(24),
-                      child: child,
+                      ],
                     ),
-                    if (footerText != null && footerLabel != null && onFooterTap != null) ...[
-                      const SizedBox(height: 24),
-                      Center(
-                        child: Wrap(
-                          alignment: WrapAlignment.center,
-                          spacing: 4,
-                          children: [
-                            Text(
-                              footerText!, 
-                              style: textTheme.bodyMedium?.copyWith(
-                                color: AppSurfaces.textMuted(context),
-                              ),
-                            ),
-                            GestureDetector(
-                              onTap: onFooterTap,
-                              child: Text(
-                                footerLabel!,
-                                style: textTheme.bodyMedium?.copyWith(
-                                  color: AppColors.sage,
-                                  fontWeight: FontWeight.w700,
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ],
-                ),
+                  ),
+                ],
               ),
             ),
           ),
@@ -134,15 +104,15 @@ class AuthPageScaffold extends StatelessWidget {
   }
 }
 
-/// Background with subtle looping motion and blended color blobs.
-class AnimatedAuthBackground extends StatefulWidget {
-  const AnimatedAuthBackground({super.key});
+/// Background with dense, seamless drifting clouds and soft cutouts.
+class CloudAuthBackground extends StatefulWidget {
+  const CloudAuthBackground({super.key});
 
   @override
-  State<AnimatedAuthBackground> createState() => _AnimatedAuthBackgroundState();
+  State<CloudAuthBackground> createState() => _CloudAuthBackgroundState();
 }
 
-class _AnimatedAuthBackgroundState extends State<AnimatedAuthBackground>
+class _CloudAuthBackgroundState extends State<CloudAuthBackground>
     with SingleTickerProviderStateMixin {
   late final AnimationController _controller;
 
@@ -151,8 +121,8 @@ class _AnimatedAuthBackgroundState extends State<AnimatedAuthBackground>
     super.initState();
     _controller = AnimationController(
       vsync: this,
-      duration: const Duration(seconds: 16),
-    )..repeat(reverse: true);
+      duration: const Duration(seconds: 40),
+    )..repeat(reverse: true); // Oscillate to prevent noticeable seams or bounds
   }
 
   @override
@@ -167,94 +137,144 @@ class _AnimatedAuthBackgroundState extends State<AnimatedAuthBackground>
       animation: _controller,
       builder: (context, child) {
         final progress = _controller.value;
-        final beginAlignment = Alignment(-0.9 + 1.8 * progress, -1);
-        final endAlignment = Alignment(1 - 1.8 * progress, 1);
-
-        return Container(
-            decoration: BoxDecoration(
-            gradient: LinearGradient(
-              begin: beginAlignment,
-              end: endAlignment,
-              colors: [
-                AppColors.sage.withOpacity(0.98),
-                AppColors.sand.withOpacity(0.18),
-                AppColors.cream.withOpacity(0.92),
-              ],
+        
+        // Cloud Layers that will have holes punched in them
+        Widget clouds = Stack(
+          fit: StackFit.expand,
+          children: [
+            _buildCloudLayer(
+              image: 'assets/fog_of_war/cartoon_cloud_01.png', // The high-res cloud
+              progress: progress,
+              speedX: 100,
+              speedY: 50,
+              opacity: 1.0,
+              scale: 1.0,
             ),
-          ),
-          child: Stack(
-            children: [
-              Positioned(
-                top: -80 + 40 * progress,
-                left: -80,
-                child: _AnimatedBlob(
-                  size: 220,
-                  color: AppColors.sage.withOpacity(0.18),
-                ),
-              ),
-              Positioned(
-                bottom: -70,
-                right: -90 + 40 * progress,
-                child: _AnimatedBlob(
-                  size: 260,
-                  color: AppColors.sage.withOpacity(0.14),
-                ),
-              ),
-              Positioned(
-                top: 120,
-                right: -40 - 30 * progress,
-                child: _AnimatedBlob(
-                  size: 140,
-                  color: AppColors.sand.withOpacity(0.18),
-                ),
-              ),
-              Positioned.fill(
-                child: Container(
-                  decoration: BoxDecoration(
-                    gradient: RadialGradient(
-                      center: Alignment(-0.3, -0.5),
-                      radius: 1.1,
-                      colors: [
-                        AppColors.cream.withOpacity(0.08),
-                        AppColors.cream.withOpacity(0.0),
-                      ],
-                    ),
-                  ),
-                ),
-              ),
+            _buildCloudLayer(
+              image: 'assets/fog_of_war/cartoon_cloud_01.png',
+              progress: progress,
+              speedX: -80,
+              speedY: 40,
+              opacity: 0.8,
+              scale: 1.2,
+            ),
+            _buildCloudLayer(
+              image: 'assets/fog_of_war/cartoon_cloud_01.png',
+              progress: progress,
+              speedX: 150,
+              speedY: -60,
+              opacity: 0.6,
+              scale: 1.0,
+            ),
+          ],
+        );
+
+        // Punch multiple soft holes in the clouds to simulate unlocked locations
+        // Hole 1: Top center-right
+        clouds = ShaderMask(
+          blendMode: BlendMode.dstOut,
+          shaderCallback: (bounds) => RadialGradient(
+            center: const Alignment(0.3, -0.4),
+            radius: 0.4,
+            colors: [
+              Colors.black,
+              Colors.black.withValues(alpha: 0.6),
+              Colors.transparent,
             ],
-          ),
+            stops: const [0.0, 0.5, 1.0],
+          ).createShader(bounds),
+          child: clouds,
+        );
+
+        // Hole 2: Bottom left
+        clouds = ShaderMask(
+          blendMode: BlendMode.dstOut,
+          shaderCallback: (bounds) => RadialGradient(
+            center: const Alignment(-0.5, 0.3),
+            radius: 0.3,
+            colors: [
+              Colors.black.withValues(alpha: 0.8),
+              Colors.black.withValues(alpha: 0.4),
+              Colors.transparent,
+            ],
+            stops: const [0.0, 0.6, 1.0],
+          ).createShader(bounds),
+          child: clouds,
+        );
+        
+        // Hole 3: Center (behind the logo/main card)
+        clouds = ShaderMask(
+          blendMode: BlendMode.dstOut,
+          shaderCallback: (bounds) => RadialGradient(
+            center: const Alignment(0.0, 0.1),
+            radius: 0.5,
+            colors: [
+              Colors.black.withValues(alpha: 0.5),
+              Colors.transparent,
+            ],
+            stops: const [0.0, 1.0],
+          ).createShader(bounds),
+          child: clouds,
+        );
+
+        return Stack(
+          fit: StackFit.expand,
+          children: [
+            // Static Map Background centered at Monash University Clayton
+            GoogleMap(
+              initialCameraPosition: const CameraPosition(
+                target: LatLng(-37.9105, 145.1362),
+                zoom: 16.0,
+              ),
+              style: MapStyles.forBrightness(Theme.of(context).brightness),
+              zoomControlsEnabled: false,
+              scrollGesturesEnabled: false,
+              rotateGesturesEnabled: false,
+              tiltGesturesEnabled: false,
+              mapToolbarEnabled: false,
+              myLocationButtonEnabled: false,
+              myLocationEnabled: false,
+            ),
+            clouds,
+          ],
         );
       },
     );
   }
-}
 
-class _AnimatedBlob extends StatelessWidget {
-  const _AnimatedBlob({
-    required this.size,
-    required this.color,
-  });
+  Widget _buildCloudLayer({
+    required String image,
+    required double progress,
+    required double speedX,
+    required double speedY,
+    required double opacity,
+    required double scale,
+  }) {
+    // We create an oversized bounding box so we can translate the texture
+    // without exposing the edges, allowing a natural pan.
+    const double extraSize = 800; // Enough padding to prevent edges showing during pan
+    
+    // Smooth easing for translation
+    final dx = (progress - 0.5) * speedX;
+    final dy = (progress - 0.5) * speedY;
 
-  final double size;
-  final Color color;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: size,
-      height: size,
-      decoration: BoxDecoration(
-        shape: BoxShape.circle,
-        color: color,
-        boxShadow: [
-          BoxShadow(
-            color: color.withOpacity(0.6),
-            blurRadius: 70,
-            spreadRadius: 14,
+    return Positioned(
+      top: -extraSize / 2 + dy,
+      left: -extraSize / 2 + dx,
+      right: -extraSize / 2 - dx,
+      bottom: -extraSize / 2 - dy,
+      child: Opacity(
+        opacity: opacity,
+        child: Transform.scale(
+          scale: scale,
+          child: Image.asset(
+            image,
+            repeat: ImageRepeat.repeat, // Tile at natural resolution to prevent blurry stretching
+            filterQuality: FilterQuality.low,
           ),
-        ],
+        ),
       ),
     );
   }
 }
+

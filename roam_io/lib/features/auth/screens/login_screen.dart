@@ -10,7 +10,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../../shared/widgets/app_toast.dart';
-import '../../../theme/app_surfaces.dart';
+import '../../../theme/app_colours.dart';
 import '../providers/auth_provider.dart';
 import '../widgets/auth_page_scaffold.dart';
 import 'forgot_password_screen.dart';
@@ -154,11 +154,20 @@ class _LoginScreenState extends State<LoginScreen> {
       obscureText: obscureText,
       decoration: InputDecoration(
         labelText: label,
+        labelStyle: TextStyle(color: AppColors.ink.withValues(alpha: 0.7)),
         filled: true,
-        fillColor: AppSurfaces.innerCard(context),
+        fillColor: AppColors.cream.withValues(alpha: 0.9), // Solid cream to stand out against clouds
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(16),
-          borderSide: BorderSide(color: AppSurfaces.border(context)),
+          borderSide: BorderSide(color: AppColors.sage.withValues(alpha: 0.3)),
+        ),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(16),
+          borderSide: BorderSide(color: AppColors.sage.withValues(alpha: 0.3)),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(16),
+          borderSide: const BorderSide(color: AppColors.sage, width: 2),
         ),
       ),
       validator: validator,
