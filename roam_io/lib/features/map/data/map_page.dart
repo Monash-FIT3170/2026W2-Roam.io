@@ -1,6 +1,6 @@
 /*
  * Author: Sanjevan Rajasegar
- * Last Updated: 6 August 2026
+ * Last Updated: 20 August 2026
  * Description:
  *   Hosts the map screen and wires widget lifecycle to the map controller. This
  *   file keeps UI thin while controller setup, visit XP wiring, heatmap
@@ -16,6 +16,7 @@ import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:provider/provider.dart';
 
+import '../../activity_feed/data/activity_creation_service.dart';
 import '../../auth/providers/auth_provider.dart';
 import '../../journeys/data/journey_controller.dart';
 import '../../journeys/data/polyline_codec.dart';
@@ -31,6 +32,7 @@ import '../../journeys/widgets/journey_tracking_card.dart';
 import '../../journeys/widgets/past_journey_summary_sheet.dart';
 import '../../journeys/widgets/start_journey_sheet.dart';
 import '../../profile/domain/xp_event.dart';
+import '../../../shared/widgets/activity_saved_celebration.dart';
 import '../../../shared/widgets/app_toast.dart';
 import '../../../theme/app_surfaces.dart';
 import '../widgets/map_render.dart';
@@ -107,7 +109,9 @@ double _haversineDistance(LatLng p1, LatLng p2) {
 
 /// Map screen that connects controller unlock events to provider XP and toast UI.
 class MapPage extends StatefulWidget {
-  const MapPage({super.key});
+  const MapPage({super.key, this.activityCreationService});
+
+  final ActivityCreationService? activityCreationService;
 
   @override
   State<MapPage> createState() => _MapPageState();
@@ -116,16 +120,21 @@ class MapPage extends StatefulWidget {
 class _MapPageState extends State<MapPage> {
   late final MapController _mapController;
   late final JourneyController _journeyController;
+  late final ActivityCreationService _activityCreationService;
   Set<Polyline> _activeJourneyPolyline = {};
   Set<Polyline> _savedJourneyPolylines = {};
   Set<Marker> _journeyMarkers = {};
   StreamSubscription<List<Journey>>? _journeysSubscription;
+  bool _isOpeningJourneyCompletionFlow = false;
+  bool _isSavingReviewedJourneyActivity = false;
 
   @override
   void initState() {
     super.initState();
 
     final authProvider = context.read<AuthProvider>();
+    _activityCreationService =
+        widget.activityCreationService ?? ActivityCreationService();
 
     // Own the controller for this page and start its setup work once mounted.
     _mapController = MapController(
@@ -448,13 +457,21 @@ class _MapPageState extends State<MapPage> {
   Future<void> _endJourneyFlow() async {
     final journeyController = context.read<JourneyController>();
 
-    // Stop active GPS tracking before moving into the existing completion flow.
-    await journeyController.stopTracking();
-    if (!mounted || journeyController.currentPhase != JourneyPhase.completing) {
-      return;
-    }
+    setState(() => _isOpeningJourneyCompletionFlow = true);
+    try {
+      // Stop active GPS tracking before moving into the existing completion flow.
+      await journeyController.stopTracking();
+      if (!mounted ||
+          journeyController.currentPhase != JourneyPhase.completing) {
+        return;
+      }
 
-    await _completeStoppedJourneyFlow();
+      await _completeStoppedJourneyFlow();
+    } finally {
+      if (mounted) {
+        setState(() => _isOpeningJourneyCompletionFlow = false);
+      }
+    }
   }
 
   /// Completes a Journey whose live tracking has already stopped.
@@ -468,6 +485,9 @@ class _MapPageState extends State<MapPage> {
     final userId = authProvider.currentUser?.uid;
 
     if (journeyController.currentPhase != JourneyPhase.completing) return;
+    if (!_isOpeningJourneyCompletionFlow && mounted) {
+      setState(() => _isOpeningJourneyCompletionFlow = true);
+    }
 
     // Get current position for the end location sheet.
     LatLng currentPosition;
@@ -513,7 +533,7 @@ class _MapPageState extends State<MapPage> {
     if (endResult == null) {
       await journeyController.cancelJourney();
       _activeJourneyPolyline = {};
-      setState(() {});
+      setState(() => _isOpeningJourneyCompletionFlow = false);
       return;
     }
 
@@ -521,6 +541,7 @@ class _MapPageState extends State<MapPage> {
     if (endResult.continueTracking) {
       await journeyController.resumeTracking();
       if (mounted && journeyController.isTracking) {
+        setState(() => _isOpeningJourneyCompletionFlow = false);
         AppToast.show(context, 'Journey resumed');
       }
       return;
@@ -529,7 +550,22 @@ class _MapPageState extends State<MapPage> {
     journeyController.setEndLocation(endResult.endLocation);
     journeyController.proceedToReview();
 
-    final xpEarned = journeyController.totalXpEarned;
+    await _showJourneyReviewFlow();
+    if (mounted) {
+      setState(() => _isOpeningJourneyCompletionFlow = false);
+    }
+  }
+
+  Future<void> _showJourneyReviewFlow() async {
+    final journeyController = context.read<JourneyController>();
+    final authProvider = context.read<AuthProvider>();
+    final userId = authProvider.currentUser?.uid;
+
+    if (journeyController.currentPhase != JourneyPhase.reviewing ||
+        journeyController.startLocation == null ||
+        journeyController.endLocation == null) {
+      return;
+    }
 
     final summaryResult = await JourneySummarySheet.show(
       context: context,
@@ -539,7 +575,9 @@ class _MapPageState extends State<MapPage> {
       distanceMeters: journeyController.distanceMeters,
       duration: journeyController.elapsedDuration,
       routePoints: journeyController.routePoints,
-      xpEarned: xpEarned,
+      startTime: journeyController.startTime,
+      initialTitle: journeyController.persistedReviewedJourney?.title,
+      xpEarned: journeyController.totalXpEarned,
       tilesUnlocked: journeyController.tilesUnlocked,
       onUpdateStartName: journeyController.updateStartLocationName,
       onUpdateEndName: journeyController.updateEndLocationName,
@@ -547,35 +585,164 @@ class _MapPageState extends State<MapPage> {
       onUpdateStartLocation: journeyController.updateStartLocation,
       onUpdateEndLocation: journeyController.updateEndLocation,
     );
-    if (!mounted) return;
+    if (!mounted || summaryResult == null) return;
 
-    if (summaryResult == JourneySummaryResult.save) {
-      final authProvider = context.read<AuthProvider>();
-      final userId = authProvider.currentUser?.uid;
+    switch (summaryResult.action) {
+      case JourneySummaryAction.save:
+        await _saveReviewedJourneyActivity(summaryResult.title);
+        break;
+      case JourneySummaryAction.discard:
+        await _discardReviewedJourneyActivity(summaryResult.title);
+        break;
+    }
+  }
 
-      if (userId != null) {
-        final savedJourney = await journeyController.saveJourney(userId);
-
-        if (savedJourney != null && mounted) {
-          await authProvider.addXp(
-            savedJourney.journeyXpEarned ?? savedJourney.xpEarned ?? 0,
-          );
-          if (!mounted) return;
-          AppToast.success(
-            context,
-            'Journey saved! +${savedJourney.xpEarned} XP',
-          );
-        }
-      }
-    } else {
-      await journeyController.cancelJourney();
-      if (mounted) {
-        AppToast.show(context, 'Journey discarded');
-      }
+  Future<void> _saveReviewedJourneyActivity(String title) async {
+    final journeyController = context.read<JourneyController>();
+    final authProvider = context.read<AuthProvider>();
+    final userId = authProvider.currentUser?.uid;
+    if (userId == null) {
+      AppToast.error(context, 'Sign in to save this journey.');
+      return;
     }
 
+    authProvider.deferLevelUpCelebrationOverlay();
+    setState(() => _isSavingReviewedJourneyActivity = true);
+
+    final savedJourney = await journeyController.saveJourney(
+      userId,
+      title: title,
+      resetAfterSave: false,
+    );
+    if (!mounted) {
+      authProvider.resumeLevelUpCelebrationOverlay();
+      return;
+    }
+    if (savedJourney == null) {
+      authProvider.resumeLevelUpCelebrationOverlay();
+      setState(() => _isSavingReviewedJourneyActivity = false);
+      AppToast.error(
+        context,
+        journeyController.errorMessage ?? 'Could not save journey.',
+      );
+      return;
+    }
+
+    final xpAwarded = await _awardReviewedJourneyXp(savedJourney);
+    if (!mounted || !xpAwarded) {
+      authProvider.resumeLevelUpCelebrationOverlay();
+      if (mounted) {
+        setState(() => _isSavingReviewedJourneyActivity = false);
+      }
+      return;
+    }
+
+    try {
+      await _activityCreationService.createJourneyActivity(
+        journey: savedJourney,
+        title: title,
+        fallbackProfile: authProvider.currentProfile,
+      );
+    } catch (error, stackTrace) {
+      debugPrint(
+        '[MapPage] publish journey activity failed $error\n$stackTrace',
+      );
+      if (mounted) {
+        authProvider.resumeLevelUpCelebrationOverlay();
+        setState(() => _isSavingReviewedJourneyActivity = false);
+        AppToast.error(context, 'Journey saved. Could not publish activity.');
+      }
+      return;
+    }
+
+    if (!mounted) {
+      authProvider.resumeLevelUpCelebrationOverlay();
+      return;
+    }
+    await _showActivitySavedCelebration(xpEarned: savedJourney.xpEarned);
+    if (!mounted) {
+      authProvider.resumeLevelUpCelebrationOverlay();
+      return;
+    }
+    journeyController.clearReviewedJourney();
+    _activeJourneyPolyline = {};
+    setState(() => _isSavingReviewedJourneyActivity = false);
+    authProvider.resumeLevelUpCelebrationOverlay();
+  }
+
+  Future<void> _showActivitySavedCelebration({int? xpEarned}) async {
+    final overlay = Overlay.of(context);
+    final completer = Completer<void>();
+    late final OverlayEntry entry;
+    entry = OverlayEntry(
+      builder: (context) => ActivitySavedCelebration(
+        xpEarned: xpEarned,
+        onDismiss: () {
+          entry.remove();
+          if (!completer.isCompleted) completer.complete();
+        },
+      ),
+    );
+    overlay.insert(entry);
+    await completer.future;
+  }
+
+  Future<void> _discardReviewedJourneyActivity(String title) async {
+    final journeyController = context.read<JourneyController>();
+    final authProvider = context.read<AuthProvider>();
+    final userId = authProvider.currentUser?.uid;
+    if (userId == null) {
+      AppToast.error(context, 'Sign in to save this journey.');
+      return;
+    }
+
+    final savedJourney = await journeyController.saveJourney(
+      userId,
+      title: title,
+      resetAfterSave: false,
+    );
+    if (!mounted) return;
+    if (savedJourney == null) {
+      AppToast.error(
+        context,
+        journeyController.errorMessage ?? 'Could not save journey.',
+      );
+      return;
+    }
+
+    final xpAwarded = await _awardReviewedJourneyXp(savedJourney);
+    if (!mounted || !xpAwarded) return;
+
+    journeyController.clearReviewedJourney();
     _activeJourneyPolyline = {};
     setState(() {});
+    AppToast.show(context, 'Journey saved without activity');
+  }
+
+  Future<bool> _awardReviewedJourneyXp(Journey savedJourney) async {
+    final journeyController = context.read<JourneyController>();
+    if (journeyController.reviewedJourneyXpAwarded) return true;
+
+    final xpToAward =
+        savedJourney.journeyXpEarned ?? savedJourney.xpEarned ?? 0;
+    if (xpToAward <= 0) {
+      journeyController.markReviewedJourneyXpAwarded();
+      return true;
+    }
+
+    final result = await context.read<AuthProvider>().addXp(
+      xpToAward,
+      source: XpEventSource.journey,
+      sourceId: savedJourney.id,
+    );
+    if (!mounted) return false;
+    if (!result.succeeded) {
+      AppToast.error(context, 'Journey saved. Could not award XP.');
+      return false;
+    }
+
+    journeyController.markReviewedJourneyXpAwarded();
+    return true;
   }
 
   /// Get nearby saved custom locations (those without placeId) within a given radius.
@@ -648,6 +815,9 @@ class _MapPageState extends State<MapPage> {
     final isLiveJourneyActive = isTracking || isPaused;
     final isCompleting =
         journeyController.currentPhase == JourneyPhase.completing;
+    final isReviewing =
+        journeyController.currentPhase == JourneyPhase.reviewing &&
+        !_isSavingReviewedJourneyActivity;
     final canStartJourney = journeyController.currentPhase == JourneyPhase.idle;
 
     // Combine active journey polyline with saved journey polylines
@@ -700,7 +870,7 @@ class _MapPageState extends State<MapPage> {
         // A lock-screen Stop action ends tracking immediately. The Journey
         // remains available here so the user can choose its end location and
         // review/save it after returning to the app.
-        if (isCompleting)
+        if (isCompleting && !_isOpeningJourneyCompletionFlow)
           Positioned(
             top: MediaQuery.paddingOf(context).top + 16,
             left: 0,
@@ -710,6 +880,19 @@ class _MapPageState extends State<MapPage> {
                 onPressed: _completeStoppedJourneyFlow,
                 icon: const Icon(Icons.flag_outlined),
                 label: const Text('Finish Journey'),
+              ),
+            ),
+          ),
+        if (isReviewing)
+          Positioned(
+            top: MediaQuery.paddingOf(context).top + 16,
+            left: 0,
+            right: 0,
+            child: Center(
+              child: FilledButton.icon(
+                onPressed: _showJourneyReviewFlow,
+                icon: const Icon(Icons.rate_review_outlined),
+                label: const Text('Review Journey'),
               ),
             ),
           ),

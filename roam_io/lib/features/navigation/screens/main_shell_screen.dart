@@ -125,11 +125,10 @@ class _MainShellScreenState extends State<MainShellScreen> {
         commentLikeService: _commentLikeService,
         kudosService: _kudosService,
         activityFeedService: _activityFeedService,
-        activityCreationService: _activityCreationService,
         followService: _followService,
       ),
       SocialScreen(friendshipService: _friendshipService),
-      const MapPage(),
+      MapPage(activityCreationService: _activityCreationService),
       YouScreen(
         commentService: _commentService,
         commentLikeService: _commentLikeService,

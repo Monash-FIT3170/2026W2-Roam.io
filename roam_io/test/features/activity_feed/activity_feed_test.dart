@@ -46,7 +46,7 @@ void main() {
     expect(find.text('Traveller Activity 1'), findsOneWidget);
     expect(find.text('August 3, 2026 at 10:07 AM'), findsOneWidget);
     expect(find.text('47m 51s'), findsOneWidget);
-    expect(find.text('Locations Visited'), findsOneWidget);
+    expect(find.text('Tiles Unlocked'), findsOneWidget);
     expect(find.text('4'), findsOneWidget);
     expect(find.text('+200 XP'), findsOneWidget);
     expect(find.text('Map preview'), findsOneWidget);
@@ -60,13 +60,13 @@ void main() {
     expect(find.text('Morning Weight Training'), findsNothing);
     expect(find.byIcon(Icons.fitness_center), findsNothing);
 
-    final label = tester.widget<Text>(find.text('Locations Visited'));
+    final label = tester.widget<Text>(find.text('Tiles Unlocked'));
     expect(label.maxLines, 1);
     expect(label.softWrap, isFalse);
     expect(label.textAlign, TextAlign.center);
   });
 
-  testWidgets('activity card uses Locations Visited and comment counts', (
+  testWidgets('activity card uses Journey metrics and comment counts', (
     tester,
   ) async {
     final activity = _testActivity(
@@ -74,7 +74,7 @@ void main() {
       title: 'Traveller Activity 2',
       metrics: const [
         ActivityFeedMetric(label: 'Time', value: '1h 12m'),
-        ActivityFeedMetric(label: 'Locations Visited', value: '3'),
+        ActivityFeedMetric(label: 'Tiles Unlocked', value: '3'),
         ActivityFeedMetric(label: 'XP Gained', value: '+150 XP'),
       ],
     );
@@ -97,7 +97,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Sidequest Progress'), findsNothing);
-    expect(find.text('Locations Visited'), findsOneWidget);
+    expect(find.text('Tiles Unlocked'), findsOneWidget);
     expect(find.text('3'), findsOneWidget);
     expect(find.text('Share'), findsNothing);
     expect(find.text('Kudos'), findsOneWidget);
@@ -159,7 +159,7 @@ ActivityFeedItem _testActivity({
   String title = 'Traveller Activity 1',
   List<ActivityFeedMetric> metrics = const [
     ActivityFeedMetric(label: 'Time', value: '47m 51s'),
-    ActivityFeedMetric(label: 'Locations Visited', value: '4'),
+    ActivityFeedMetric(label: 'Tiles Unlocked', value: '4'),
     ActivityFeedMetric(label: 'XP Gained', value: '+200 XP'),
   ],
 }) {

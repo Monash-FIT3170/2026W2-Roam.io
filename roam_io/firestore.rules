@@ -137,6 +137,13 @@ service cloud.firestore {
         'photoUrl',
         'title',
         'kind',
+        'sourceJourneyId',
+        'encodedRoute',
+        'routeBounds',
+        'journeyStartTime',
+        'journeyEndTime',
+        'transportMode',
+        'media',
         'metrics',
         'showMapPreview',
         'createdAt'
@@ -162,9 +169,41 @@ service cloud.firestore {
         request.resource.data.photoUrl is string) &&
       request.resource.data.title is string &&
       request.resource.data.kind is string &&
+      (!request.resource.data.keys().hasAny(['sourceJourneyId']) ||
+        request.resource.data.sourceJourneyId is string) &&
+      (!request.resource.data.keys().hasAny(['encodedRoute']) ||
+        request.resource.data.encodedRoute is string) &&
+      (!request.resource.data.keys().hasAny(['routeBounds']) ||
+        request.resource.data.routeBounds is map) &&
+      (!request.resource.data.keys().hasAny(['journeyStartTime']) ||
+        request.resource.data.journeyStartTime is string) &&
+      (!request.resource.data.keys().hasAny(['journeyEndTime']) ||
+        request.resource.data.journeyEndTime is string) &&
+      (!request.resource.data.keys().hasAny(['transportMode']) ||
+        request.resource.data.transportMode is string) &&
+      (!request.resource.data.keys().hasAny(['media']) ||
+        request.resource.data.media is list) &&
       request.resource.data.metrics is list &&
       request.resource.data.showMapPreview is bool &&
-      request.resource.data.createdAt is string;
+      request.resource.data.createdAt is string &&
+      (
+        request.resource.data.kind != 'journey' ||
+        (
+          request.resource.data.keys().hasAll([
+            'sourceJourneyId',
+            'encodedRoute',
+            'journeyStartTime',
+            'journeyEndTime',
+            'transportMode',
+            'media'
+          ]) &&
+          request.resource.data.activityId ==
+            'journey_' + request.resource.data.sourceJourneyId &&
+          exists(
+            /databases/$(database)/documents/profiles/$(request.auth.uid)/journeys/$(request.resource.data.sourceJourneyId)
+          )
+        )
+      );
     }
 
     function hasActivityCounterFields(userId) {

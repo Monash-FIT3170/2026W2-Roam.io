@@ -25,6 +25,7 @@ class Journey {
     required this.encodedRoute,
     required this.distanceMeters,
     required this.durationSeconds,
+    this.title,
     this.xpEarned,
     this.journeyXpEarned,
     this.tilesUnlocked = 0,
@@ -62,6 +63,9 @@ class Journey {
   /// Total duration in seconds.
   final int durationSeconds;
 
+  /// User-facing Journey title chosen during summary review.
+  final String? title;
+
   /// Total XP earned during this journey, including unlocked-tile XP.
   final int? xpEarned;
 
@@ -93,9 +97,12 @@ class Journey {
     return '$minutes min${minutes != 1 ? 's' : ''}';
   }
 
-  /// Returns the journey title in "Start Location to End Location" format.
-  /// Each location's custom name takes precedence over its default name.
-  String get displayTitle => '${startLocation.name} to ${endLocation.name}';
+  /// Returns the reviewed title, falling back to the legacy route title.
+  String get displayTitle {
+    final trimmed = title?.trim();
+    if (trimmed != null && trimmed.isNotEmpty) return trimmed;
+    return '${startLocation.name} to ${endLocation.name}';
+  }
 
   /// Creates a copy with optional field overrides.
   Journey copyWith({
@@ -109,6 +116,7 @@ class Journey {
     String? encodedRoute,
     double? distanceMeters,
     int? durationSeconds,
+    String? title,
     int? xpEarned,
     int? journeyXpEarned,
     int? tilesUnlocked,
@@ -125,6 +133,7 @@ class Journey {
       encodedRoute: encodedRoute ?? this.encodedRoute,
       distanceMeters: distanceMeters ?? this.distanceMeters,
       durationSeconds: durationSeconds ?? this.durationSeconds,
+      title: title ?? this.title,
       xpEarned: xpEarned ?? this.xpEarned,
       journeyXpEarned: journeyXpEarned ?? this.journeyXpEarned,
       tilesUnlocked: tilesUnlocked ?? this.tilesUnlocked,
@@ -150,6 +159,7 @@ class Journey {
       encodedRoute: data['encodedRoute'] as String,
       distanceMeters: (data['distanceMeters'] as num).toDouble(),
       durationSeconds: data['durationSeconds'] as int,
+      title: data['title'] as String?,
       xpEarned: data['xpEarned'] as int?,
       journeyXpEarned:
           (data['journeyXpEarned'] as num?)?.toInt() ??
@@ -171,6 +181,7 @@ class Journey {
       'encodedRoute': encodedRoute,
       'distanceMeters': distanceMeters,
       'durationSeconds': durationSeconds,
+      if (title != null && title!.trim().isNotEmpty) 'title': title!.trim(),
       'xpEarned': xpEarned,
       'journeyXpEarned': journeyXpEarned,
       'tilesUnlocked': tilesUnlocked,

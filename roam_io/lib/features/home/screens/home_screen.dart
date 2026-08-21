@@ -2,8 +2,7 @@
  * Author: Sanjevan Rajasegar
  * Last Updated: 10 August 2026
  * Description:
- *   Home destination showing persisted own/followed activities and a temporary
- *   real Firestore test-activity creator.
+ *   Home destination showing persisted own/followed activities.
  */
 
 import 'package:flutter/material.dart';
@@ -11,9 +10,7 @@ import 'package:provider/provider.dart';
 
 import '../../../shared/widgets/app_bottom_nav_bar.dart';
 import '../../../shared/widgets/app_page_header.dart';
-import '../../../shared/widgets/app_toast.dart';
 import '../../../theme/app_surfaces.dart';
-import '../../activity_feed/data/activity_creation_service.dart';
 import '../../activity_feed/data/activity_feed_service.dart';
 import '../../activity_feed/data/comment_like_service.dart';
 import '../../activity_feed/data/comment_service.dart';
@@ -23,7 +20,6 @@ import '../../activity_feed/screens/activity_detail_screen.dart';
 import '../../activity_feed/screens/comments_screen.dart';
 import '../../activity_feed/widgets/activity_feed_card.dart';
 import '../../auth/providers/auth_provider.dart';
-import '../../profile/domain/profile_model.dart';
 import '../../social/data/follow_service.dart';
 import '../../journeys/widgets/journey_share_sheet.dart';
 
@@ -35,7 +31,6 @@ class HomeScreen extends StatefulWidget {
     this.commentLikeService,
     this.kudosService,
     this.activityFeedService,
-    this.activityCreationService,
     this.followService,
   });
 
@@ -44,7 +39,6 @@ class HomeScreen extends StatefulWidget {
   final CommentLikeService? commentLikeService;
   final KudosService? kudosService;
   final ActivityFeedService? activityFeedService;
-  final ActivityCreationService? activityCreationService;
   final FollowService? followService;
 
   @override
@@ -52,19 +46,10 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen> {
-  late final ActivityCreationService _activityCreationService;
   Stream<List<ActivityFeedItem>>? _realActivitiesStream;
   String? _realActivitiesStreamUserId;
   ActivityFeedService? _realActivitiesStreamActivityService;
   FollowService? _realActivitiesStreamFollowService;
-  var _isCreatingTestActivity = false;
-
-  @override
-  void initState() {
-    super.initState();
-    _activityCreationService =
-        widget.activityCreationService ?? ActivityCreationService();
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -77,7 +62,6 @@ class _HomeScreenState extends State<HomeScreen> {
     } on ProviderNotFoundException {
       currentUserId = null;
     }
-    final profile = _currentProfile(context);
     final realActivitiesStream = _homeActivitiesStream(currentUserId);
 
     return Container(
@@ -87,22 +71,7 @@ class _HomeScreenState extends State<HomeScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            AppPageHeader(
-              title: 'Home',
-              trailing: IconButton.filledTonal(
-                tooltip: 'Test Activity',
-                visualDensity: VisualDensity.compact,
-                onPressed: currentUserId == null || _isCreatingTestActivity
-                    ? null
-                    : () => _createTestActivity(currentUserId!, profile),
-                icon: _isCreatingTestActivity
-                    ? const SizedBox.square(
-                        dimension: 18,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      )
-                    : const Icon(Icons.add_rounded),
-              ),
-            ),
+            const AppPageHeader(title: 'Home'),
             Expanded(
               child: StreamBuilder<List<ActivityFeedItem>>(
                 stream: realActivitiesStream,
@@ -156,14 +125,6 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  ProfileModel? _currentProfile(BuildContext context) {
-    try {
-      return context.watch<AuthProvider>().currentProfile;
-    } on ProviderNotFoundException {
-      return null;
-    }
-  }
-
   Stream<List<ActivityFeedItem>> _homeActivitiesStream(String? currentUserId) {
     final activityFeedService = widget.activityFeedService;
     final followService = widget.followService;
@@ -207,34 +168,6 @@ class _HomeScreenState extends State<HomeScreen> {
     _realActivitiesStreamActivityService = activityFeedService;
     _realActivitiesStreamFollowService = followService;
     return _realActivitiesStream!;
-  }
-
-  Future<void> _createTestActivity(
-    String currentUserId,
-    ProfileModel? profile,
-  ) async {
-    setState(() {
-      _isCreatingTestActivity = true;
-    });
-    try {
-      await _activityCreationService.createTestActivityForUser(
-        userId: currentUserId,
-        fallbackProfile: profile,
-      );
-    } catch (error, stackTrace) {
-      debugPrint(
-        '[HomeScreen] create test activity failed $error\n$stackTrace',
-      );
-      if (mounted) {
-        AppToast.error(context, 'Could not create test activity.');
-      }
-    } finally {
-      if (mounted) {
-        setState(() {
-          _isCreatingTestActivity = false;
-        });
-      }
-    }
   }
 }
 

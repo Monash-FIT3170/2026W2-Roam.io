@@ -343,6 +343,31 @@ function testActivityData(activityId, ownerId, overrides = {}) {
   };
 }
 
+function journeyActivityData(sourceJourneyId, ownerId, overrides = {}) {
+  return testActivityData(`journey_${sourceJourneyId}`, ownerId, {
+    title: 'Morning Journey',
+    kind: 'journey',
+    sourceJourneyId,
+    encodedRoute: '_p~iF~ps|U_ulLnnqC_mqNvxq`@',
+    routeBounds: {
+      southwestLatitude: -37.8136,
+      southwestLongitude: 144.9631,
+      northeastLatitude: -37.8115,
+      northeastLongitude: 144.9700,
+    },
+    journeyStartTime: '2026-08-10T00:00:00.000Z',
+    journeyEndTime: '2026-08-10T00:30:00.000Z',
+    transportMode: 'walk',
+    media: [],
+    metrics: [
+      { label: 'Time', value: '30m 0s' },
+      { label: 'Tiles Unlocked', value: '3' },
+      { label: 'XP Gained', value: '+182 XP' },
+    ],
+    ...overrides,
+  });
+}
+
 function activityOwnerQuery(db, ownerId) {
   return db
     .collection('activities')
@@ -365,6 +390,48 @@ async function runActivityCreateRulesTests() {
         .collection('activities')
         .doc('owner-generated-1')
         .set(testActivityData('owner-generated-1', 'owner')),
+    );
+    await assertSucceeds(
+      ownerDb
+        .collection('profiles')
+        .doc('owner')
+        .collection('journeys')
+        .doc('journey-1')
+        .set({
+          userId: 'owner',
+          startTime: '2026-08-10T00:00:00.000Z',
+          endTime: '2026-08-10T00:30:00.000Z',
+          startLocation: {},
+          endLocation: {},
+          transportMode: 'walk',
+          encodedRoute: '_p~iF~ps|U_ulLnnqC_mqNvxq`@',
+          distanceMeters: 3200,
+          durationSeconds: 1800,
+        }),
+    );
+    await assertSucceeds(
+      ownerDb
+        .collection('activities')
+        .doc('journey_journey-1')
+        .set(journeyActivityData('journey-1', 'owner')),
+    );
+    await assertFails(
+      ownerDb
+        .collection('activities')
+        .doc('journey_other-journey')
+        .set(journeyActivityData('journey-1', 'owner')),
+    );
+    await assertFails(
+      ownerDb
+        .collection('activities')
+        .doc('journey_missing-journey')
+        .set(journeyActivityData('missing-journey', 'owner')),
+    );
+    await assertFails(
+      ownerDb
+        .collection('activities')
+        .doc('journey_journey-1-wrong-owner')
+        .set(journeyActivityData('journey-1-wrong-owner', 'viewer')),
     );
     await assertFails(
       ownerDb

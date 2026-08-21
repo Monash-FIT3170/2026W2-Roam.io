@@ -1,3 +1,11 @@
+/*
+ * Author: Sanjevan Rajasegar
+ * Last Updated: 19 August 2026
+ * Description:
+ *   Shared ActivityKit model used by both Runner and the Live Activity
+ *   extension.
+ */
+
 import ActivityKit
 import Foundation
 

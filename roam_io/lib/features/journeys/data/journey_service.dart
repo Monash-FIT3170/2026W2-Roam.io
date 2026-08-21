@@ -115,6 +115,17 @@ class JourneyService {
     ).doc(journeyId).update({field: location.toMap()});
   }
 
+  /// Updates the reviewed title of a saved journey.
+  Future<void> updateJourneyTitle({
+    required String userId,
+    required String journeyId,
+    required String title,
+  }) {
+    return _journeysCollection(
+      userId,
+    ).doc(journeyId).update({'title': title.trim()});
+  }
+
   /// Deletes a journey.
   Future<void> deleteJourney({
     required String userId,

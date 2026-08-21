@@ -131,6 +131,71 @@ void main() {
     await geo.dispose();
   });
 
+  test(
+    'can persist a reviewed journey without resetting for publish retry',
+    () async {
+      final firestore = FakeFirebaseFirestore();
+      final service = JourneyService(firestore: firestore);
+      final geo = _StreamingGeoLocatorService();
+      final liveActivity = _FakeLiveActivityGateway();
+      final controller = JourneyController(
+        journeyService: service,
+        trackingService: JourneyTrackingService(geoLocatorService: geo),
+        liveActivityService: liveActivity,
+      );
+
+      controller.beginJourneySetup();
+      controller.setStartLocation(
+        const JourneyLocation(
+          latLng: LatLng(-37.8136, 144.9631),
+          displayName: 'Start',
+        ),
+      );
+      await controller.startTracking();
+      geo.addPosition(-37.8125, 144.9631);
+      await Future<void>.delayed(Duration.zero);
+      await controller.stopTracking();
+      controller.setEndLocation(
+        const JourneyLocation(
+          latLng: LatLng(-37.8115, 144.9631),
+          displayName: 'End',
+        ),
+      );
+      controller.proceedToReview();
+
+      final first = await controller.saveJourney(
+        'user-1',
+        title: 'Morning Journey',
+        resetAfterSave: false,
+      );
+      final second = await controller.saveJourney(
+        'user-1',
+        title: 'Renamed Journey',
+        resetAfterSave: false,
+      );
+
+      expect(first, isNotNull);
+      expect(second?.id, first?.id);
+      expect(second?.title, 'Renamed Journey');
+      expect(controller.currentPhase, JourneyPhase.reviewing);
+      expect(controller.persistedReviewedJourney?.id, first?.id);
+      expect(controller.reviewedJourneyXpAwarded, isFalse);
+      controller.markReviewedJourneyXpAwarded();
+      expect(controller.reviewedJourneyXpAwarded, isTrue);
+
+      final journeys = await controller.getJourneys('user-1');
+      expect(journeys, hasLength(1));
+      expect(journeys.single.title, 'Renamed Journey');
+
+      controller.clearReviewedJourney();
+      expect(controller.currentPhase, JourneyPhase.idle);
+
+      controller.dispose();
+      await liveActivity.dispose();
+      await geo.dispose();
+    },
+  );
+
   test('rejects invalid state transitions and incomplete journeys', () async {
     final geo = _StreamingGeoLocatorService();
     final liveActivity = _FakeLiveActivityGateway();

@@ -365,6 +365,8 @@ class ActivityFeedService {
       );
       final metrics = _metricsFromData(id, data['metrics']);
       if (metrics == null) return null;
+      final media = _mediaFromData(id, data['media']);
+      if (media == null) return null;
       return ActivityFeedItem(
         id: id,
         ownerId: ownerId,
@@ -376,6 +378,13 @@ class ActivityFeedService {
         kind: ActivityFeedKindParsing.fromWireValue(kind),
         metrics: metrics,
         showMapPreview: showMapPreview,
+        sourceJourneyId: _optionalString(id, data, 'sourceJourneyId'),
+        encodedRoute: _optionalString(id, data, 'encodedRoute'),
+        routeBounds: _routeBoundsFromData(id, data['routeBounds']),
+        journeyStartTime: _optionalDate(id, data, 'journeyStartTime'),
+        journeyEndTime: _optionalDate(id, data, 'journeyEndTime'),
+        transportMode: _optionalString(id, data, 'transportMode'),
+        media: media,
       );
     } catch (error, stackTrace) {
       debugPrint(
@@ -492,6 +501,96 @@ class ActivityFeedService {
     return metrics;
   }
 
+  List<String>? _mediaFromData(String docId, Object? value) {
+    if (value == null) return const <String>[];
+    if (value is! List) {
+      debugPrint(
+        '[ActivityFeedService] activity parse failed documentId=$docId '
+        'field=media expected=list actualType=${_typeName(value)} value=$value',
+      );
+      return null;
+    }
+    final media = <String>[];
+    for (var index = 0; index < value.length; index += 1) {
+      final item = value[index];
+      if (item is! String) {
+        debugPrint(
+          '[ActivityFeedService] activity parse failed documentId=$docId '
+          'field=media[$index] expected=string actualType=${_typeName(item)} '
+          'value=$item',
+        );
+        return null;
+      }
+      if (item.isNotEmpty) media.add(item);
+    }
+    return media;
+  }
+
+  ActivityRouteBounds? _routeBoundsFromData(String docId, Object? value) {
+    if (value == null) return null;
+    if (value is! Map) {
+      throw _ActivityFieldParseException(
+        docId: docId,
+        field: 'routeBounds',
+        value: value,
+        message: 'expected map or null',
+      );
+    }
+    final southwestLatitude = _optionalDouble(
+      docId,
+      value,
+      'routeBounds.southwestLatitude',
+      'southwestLatitude',
+    );
+    final southwestLongitude = _optionalDouble(
+      docId,
+      value,
+      'routeBounds.southwestLongitude',
+      'southwestLongitude',
+    );
+    final northeastLatitude = _optionalDouble(
+      docId,
+      value,
+      'routeBounds.northeastLatitude',
+      'northeastLatitude',
+    );
+    final northeastLongitude = _optionalDouble(
+      docId,
+      value,
+      'routeBounds.northeastLongitude',
+      'northeastLongitude',
+    );
+    if (southwestLatitude == null ||
+        southwestLongitude == null ||
+        northeastLatitude == null ||
+        northeastLongitude == null) {
+      return null;
+    }
+    return ActivityRouteBounds(
+      southwestLatitude: southwestLatitude,
+      southwestLongitude: southwestLongitude,
+      northeastLatitude: northeastLatitude,
+      northeastLongitude: northeastLongitude,
+    );
+  }
+
+  double? _optionalDouble(
+    String docId,
+    Map<dynamic, dynamic> data,
+    String fieldLabel,
+    String key,
+  ) {
+    final value = data[key];
+    if (value == null) return null;
+    if (value is num) return value.toDouble();
+    throw _ActivityFieldParseException(
+      docId: docId,
+      field: fieldLabel,
+      value: value,
+      message: 'expected number or null',
+    );
+  }
+
   DateTime? _parseDate(String docId, Object? value) {
     if (value is Timestamp) return value.toDate();
     if (value is String) {
@@ -504,6 +603,26 @@ class ActivityFeedService {
       'actualType=${_typeName(value)} value=$value',
     );
     return null;
+  }
+
+  DateTime? _optionalDate(
+    String docId,
+    Map<String, dynamic> data,
+    String field,
+  ) {
+    final value = data[field];
+    if (value == null) return null;
+    if (value is Timestamp) return value.toDate();
+    if (value is String) {
+      final parsed = DateTime.tryParse(value);
+      if (parsed != null) return parsed;
+    }
+    throw _ActivityFieldParseException(
+      docId: docId,
+      field: field,
+      value: value,
+      message: 'expected Timestamp, ISO string, or null',
+    );
   }
 
   String _formatDate(DateTime value) {

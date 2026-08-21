@@ -1,3 +1,11 @@
+/*
+ * Author: Sanjevan Rajasegar
+ * Last Updated: 19 August 2026
+ * Description:
+ *   Owns the ActivityKit lifecycle for the currently tracked Journey in the
+ *   Runner app target.
+ */
+
 import ActivityKit
 import Foundation
 

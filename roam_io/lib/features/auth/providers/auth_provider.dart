@@ -1,6 +1,6 @@
 /*
  * Author: Sanjevan Rajasegar
- * Last Updated: 6 August 2026
+ * Last Updated: 20 August 2026
  * Description:
  *   Manages authentication, profile XP, level-up state, and Settings account
  *   edit actions exposed to the widget tree. XP awards return an explicit
@@ -40,6 +40,7 @@ class AuthProvider extends ChangeNotifier {
   ProfilePhotoUploadResult? _lastProfilePhotoUploadResult;
   int? _pendingLevelUp;
   String? _pendingUnlockToastMessage;
+  bool _deferLevelUpCelebration = false;
 
   AuthViewState get viewState => _viewState;
   bool get isBusy => _isBusy;
@@ -56,6 +57,22 @@ class AuthProvider extends ChangeNotifier {
   SocialPrivacySettings get socialPrivacy =>
       _currentProfile?.privacy ?? const SocialPrivacySettings();
   int? get pendingLevelUp => _pendingLevelUp;
+  bool get deferLevelUpCelebration => _deferLevelUpCelebration;
+
+  /// Temporarily defers the global level-up overlay while another confirmed
+  /// success transition is presenting.
+  void deferLevelUpCelebrationOverlay() {
+    if (_deferLevelUpCelebration) return;
+    _deferLevelUpCelebration = true;
+    notifyListeners();
+  }
+
+  /// Allows any pending level-up overlay to show again.
+  void resumeLevelUpCelebrationOverlay() {
+    if (!_deferLevelUpCelebration) return;
+    _deferLevelUpCelebration = false;
+    notifyListeners();
+  }
 
   /// Clears the current user-facing error message.
   void clearError() {

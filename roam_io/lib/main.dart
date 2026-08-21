@@ -1,6 +1,6 @@
 /*
  * Author: Alvin Liong
- * Last Modified: 4/05/2026
+ * Last Modified: 20 August 2026
  * Description:
  *   Initializes Firebase, wires app-wide authentication state, and launches
  *   the root Roam.io application widget.
@@ -57,7 +57,9 @@ class _MyAppState extends State<MyApp> {
         builder: (context, auth, _) {
           // Listen for level-up events
           WidgetsBinding.instance.addPostFrameCallback((_) {
-            if (auth.pendingLevelUp != null && _levelUpOverlay == null) {
+            if (!auth.deferLevelUpCelebration &&
+                auth.pendingLevelUp != null &&
+                _levelUpOverlay == null) {
               final unlockToast = auth.takePendingUnlockToast();
               _showLevelUpCelebration(
                 auth.pendingLevelUp!,

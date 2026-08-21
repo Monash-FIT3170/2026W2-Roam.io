@@ -56,6 +56,8 @@ class JourneyController extends ChangeNotifier {
   double _distanceMeters = 0.0;
   int _tilesUnlocked = 0;
   int _tileXpEarned = 0;
+  Journey? _persistedReviewedJourney;
+  bool _reviewedJourneyXpAwarded = false;
   String? _errorMessage;
 
   StreamSubscription<List<LatLng>>? _routeSubscription;
@@ -81,6 +83,8 @@ class JourneyController extends ChangeNotifier {
   int get journeyXpEarned =>
       ((_distanceMeters / 100).round() * _transportMode.xpMultiplier).round();
   int get totalXpEarned => journeyXpEarned + _tileXpEarned;
+  Journey? get persistedReviewedJourney => _persistedReviewedJourney;
+  bool get reviewedJourneyXpAwarded => _reviewedJourneyXpAwarded;
   String? get errorMessage => _errorMessage;
 
   bool get isTracking => _currentPhase == JourneyPhase.tracking;
@@ -460,8 +464,15 @@ class JourneyController extends ChangeNotifier {
     );
   }
 
-  /// Saves the journey to Firestore.
-  Future<Journey?> saveJourney(String userId) async {
+  /// Saves the reviewed journey to Firestore.
+  ///
+  /// When [resetAfterSave] is false the review state remains available so
+  /// downstream publishing can retry without creating duplicate Journey docs.
+  Future<Journey?> saveJourney(
+    String userId, {
+    String? title,
+    bool resetAfterSave = true,
+  }) async {
     if (_currentPhase != JourneyPhase.reviewing) {
       debugPrint('[JourneyController] Cannot save: not reviewing');
       return null;
@@ -490,6 +501,30 @@ class JourneyController extends ChangeNotifier {
     }
 
     try {
+      final reviewedTitle = title?.trim();
+      final existing = _persistedReviewedJourney;
+      if (existing != null) {
+        var resolved = existing;
+        if (reviewedTitle != null &&
+            reviewedTitle.isNotEmpty &&
+            reviewedTitle != existing.title) {
+          await _journeyService.updateJourneyTitle(
+            userId: userId,
+            journeyId: existing.id,
+            title: reviewedTitle,
+          );
+          resolved = existing.copyWith(title: reviewedTitle);
+          _persistedReviewedJourney = resolved;
+        }
+        if (resetAfterSave) {
+          _resetState();
+        } else {
+          _errorMessage = null;
+          notifyListeners();
+        }
+        return resolved;
+      }
+
       // Calculate XP based on distance and transport mode
       final distanceXp = journeyXpEarned;
       final totalXp = totalXpEarned;
@@ -508,6 +543,7 @@ class JourneyController extends ChangeNotifier {
         encodedRoute: encodedRoute,
         distanceMeters: _distanceMeters,
         durationSeconds: elapsedDuration.inSeconds,
+        title: reviewedTitle,
         xpEarned: totalXp,
         journeyXpEarned: distanceXp,
         tilesUnlocked: _tilesUnlocked,
@@ -515,9 +551,14 @@ class JourneyController extends ChangeNotifier {
       );
 
       final savedJourney = await _journeyService.saveJourney(journey);
+      _persistedReviewedJourney = savedJourney;
 
-      // Reset to idle
-      _resetState();
+      if (resetAfterSave) {
+        _resetState();
+      } else {
+        _errorMessage = null;
+        notifyListeners();
+      }
 
       debugPrint('[JourneyController] Journey saved: ${savedJourney.id}');
       return savedJourney;
@@ -527,6 +568,17 @@ class JourneyController extends ChangeNotifier {
       debugPrint('[JourneyController] Failed to save: $e');
       return null;
     }
+  }
+
+  /// Marks reviewed Journey XP as awarded so retrying activity publishing does
+  /// not duplicate the distance/mode XP award.
+  void markReviewedJourneyXpAwarded() {
+    _reviewedJourneyXpAwarded = true;
+  }
+
+  /// Clears a completed review flow after its Journey is safely handled.
+  void clearReviewedJourney() {
+    _resetState();
   }
 
   // ─────────────────────────────────────────────────────────────────────────
@@ -566,6 +618,8 @@ class JourneyController extends ChangeNotifier {
     _distanceMeters = 0.0;
     _tilesUnlocked = 0;
     _tileXpEarned = 0;
+    _persistedReviewedJourney = null;
+    _reviewedJourneyXpAwarded = false;
     _errorMessage = null;
     _routeSubscription = null;
     _distanceSubscription = null;

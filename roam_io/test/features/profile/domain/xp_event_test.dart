@@ -41,8 +41,10 @@ void main() {
     test('parses known and unknown wire values', () {
       expect(XpEventSource.fromWire('visit'), XpEventSource.visit);
       expect(XpEventSource.fromWire('tileUnlock'), XpEventSource.tileUnlock);
+      expect(XpEventSource.fromWire('journey'), XpEventSource.journey);
       expect(XpEventSource.fromWire('other'), XpEventSource.unknown);
       expect(XpEventSource.visit.wireValue, 'visit');
+      expect(XpEventSource.journey.wireValue, 'journey');
     });
   });
 }
