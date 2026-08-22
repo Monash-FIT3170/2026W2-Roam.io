@@ -35,41 +35,59 @@ class JourneyShareSheet extends StatefulWidget {
   }
 
   static Future<void> shareFromActivity(
-      BuildContext context, ActivityFeedItem activity) async {
+    BuildContext context,
+    ActivityFeedItem activity,
+  ) async {
     try {
       final journeyService = JourneyService();
-      Journey? journey = await journeyService.getJourneyById(
-          userId: activity.ownerId, journeyId: activity.id);
+      var journey = await journeyService.getJourneyById(
+        userId: activity.ownerId,
+        journeyId: activity.id,
+      );
 
       if (journey == null) {
         // Fallback for test activities or missing journeys: create a mock journey
         int durationSeconds = 1800; // default 30 min
-        double distanceMeters = 5000; // default 5km
+        final double distanceMeters = 5000; // default 5km
         int xpEarned = 150;
-        
+
         for (final metric in activity.metrics) {
           final val = metric.value.toLowerCase();
           if (metric.label.toLowerCase() == 'time') {
             int mins = 0;
             int secs = 0;
             final mMatch = RegExp(r'(\d+)m').firstMatch(val);
-            if (mMatch != null) mins = int.tryParse(mMatch.group(1) ?? '0') ?? 0;
+            if (mMatch != null) {
+              mins = int.tryParse(mMatch.group(1) ?? '0') ?? 0;
+            }
             final sMatch = RegExp(r'(\d+)s').firstMatch(val);
-            if (sMatch != null) secs = int.tryParse(sMatch.group(1) ?? '0') ?? 0;
+            if (sMatch != null) {
+              secs = int.tryParse(sMatch.group(1) ?? '0') ?? 0;
+            }
             if (mins > 0 || secs > 0) durationSeconds = mins * 60 + secs;
           } else if (metric.label.toLowerCase() == 'xp gained') {
             final xMatch = RegExp(r'(\d+)').firstMatch(val);
-            if (xMatch != null) xpEarned = int.tryParse(xMatch.group(1) ?? '0') ?? 0;
+            if (xMatch != null) {
+              xpEarned = int.tryParse(xMatch.group(1) ?? '0') ?? 0;
+            }
           }
         }
 
         journey = Journey(
           id: activity.id,
           userId: activity.ownerId,
-          startTime: DateTime.now().subtract(Duration(seconds: durationSeconds)),
+          startTime: DateTime.now().subtract(
+            Duration(seconds: durationSeconds),
+          ),
           endTime: DateTime.now(),
-          startLocation: const JourneyLocation(latLng: LatLng(-37.8136, 144.9631), displayName: 'Start Location'),
-          endLocation: const JourneyLocation(latLng: LatLng(-37.8140, 144.9640), displayName: 'End Location'),
+          startLocation: const JourneyLocation(
+            latLng: LatLng(-37.8136, 144.9631),
+            displayName: 'Start Location',
+          ),
+          endLocation: const JourneyLocation(
+            latLng: LatLng(-37.8140, 144.9640),
+            displayName: 'End Location',
+          ),
           transportMode: TransportMode.walk,
           encodedRoute: '', // Blank route for test activities
           distanceMeters: distanceMeters,
@@ -86,8 +104,7 @@ class JourneyShareSheet extends StatefulWidget {
       }
     } catch (e) {
       if (context.mounted) {
-        AppToast.error(
-            context, 'Failed to load journey for sharing.');
+        AppToast.error(context, 'Failed to load journey for sharing.');
       }
     }
   }
@@ -128,8 +145,10 @@ class _JourneyShareSheetState extends State<JourneyShareSheet> {
     try {
       // Small delay to ensure the UI is fully rendered before capture
       await Future.delayed(const Duration(milliseconds: 50));
-      
-      final boundary = _cardKeys[_currentIndex].currentContext?.findRenderObject() as RenderRepaintBoundary?;
+
+      final boundary =
+          _cardKeys[_currentIndex].currentContext?.findRenderObject()
+              as RenderRepaintBoundary?;
       if (boundary == null) return;
 
       final image = await boundary.toImage(pixelRatio: 3.0);
@@ -142,16 +161,13 @@ class _JourneyShareSheetState extends State<JourneyShareSheet> {
 
       final xFile = XFile(file.path, mimeType: 'image/png');
       await SharePlus.instance.share(
-        ShareParams(
-          text: 'Check out my journey on Roam.io!',
-          files: [xFile],
-        ),
+        ShareParams(text: 'Check out my journey on Roam.io!', files: [xFile]),
       );
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to share: $e')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Failed to share: $e')));
       }
     } finally {
       if (mounted) {
@@ -192,9 +208,9 @@ class _JourneyShareSheetState extends State<JourneyShareSheet> {
                 const SizedBox(width: 48), // Balance close button
                 Text(
                   'Share Journey',
-                  style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                    fontWeight: FontWeight.w800,
-                  ),
+                  style: Theme.of(
+                    context,
+                  ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w800),
                 ),
                 IconButton(
                   icon: const Icon(Icons.close),
@@ -205,7 +221,10 @@ class _JourneyShareSheetState extends State<JourneyShareSheet> {
             Expanded(
               child: Center(
                 child: SingleChildScrollView(
-                  padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 24,
+                    vertical: 12,
+                  ),
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
@@ -214,7 +233,8 @@ class _JourneyShareSheetState extends State<JourneyShareSheet> {
                         aspectRatio: 9 / 16,
                         child: PageView.builder(
                           controller: _pageController,
-                          onPageChanged: (index) => setState(() => _currentIndex = index),
+                          onPageChanged: (index) =>
+                              setState(() => _currentIndex = index),
                           itemCount: _backgroundOptions.length,
                           itemBuilder: (context, index) {
                             return RepaintBoundary(
@@ -228,7 +248,7 @@ class _JourneyShareSheetState extends State<JourneyShareSheet> {
                         ),
                       ),
                       const SizedBox(height: 32),
-                      
+
                       // Background Selector
                       Text(
                         'Background Color',
@@ -251,7 +271,9 @@ class _JourneyShareSheetState extends State<JourneyShareSheet> {
                               );
                             },
                             child: Container(
-                              margin: const EdgeInsets.symmetric(horizontal: 12),
+                              margin: const EdgeInsets.symmetric(
+                                horizontal: 12,
+                              ),
                               width: 48,
                               height: 48,
                               decoration: BoxDecoration(
@@ -265,15 +287,15 @@ class _JourneyShareSheetState extends State<JourneyShareSheet> {
                                         width: 3,
                                       )
                                     : (color == Colors.white
-                                        ? Border.all(color: Colors.grey[300]!)
-                                        : null),
+                                          ? Border.all(color: Colors.grey[300]!)
+                                          : null),
                                 boxShadow: [
                                   if (isSelected)
                                     BoxShadow(
                                       color: color.withValues(alpha: 0.5),
                                       blurRadius: 8,
                                       spreadRadius: 2,
-                                    )
+                                    ),
                                 ],
                               ),
                             ),

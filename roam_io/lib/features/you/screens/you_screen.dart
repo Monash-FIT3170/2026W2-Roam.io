@@ -1,6 +1,6 @@
 /*
  * Author: Sanjevan Rajasegar
- * Last Updated: 10 August 2026
+ * Last Updated: 22 August 2026
  * Description:
  *   Provides the You destination with Profile and Activities tabs. Profile
  *   analytics are owned by YouAnalyticsProvider bound to the authenticated
@@ -86,6 +86,9 @@ class _YouScreenState extends State<YouScreen>
   late final FollowService _followService;
   late final ActivityFeedService? _activityFeedService;
   ProfileGraphMetric _selectedGraphMetric = ProfileGraphMetric.locationsVisited;
+  Stream<List<ActivityFeedItem>>? _profileMediaActivitiesStream;
+  String? _profileMediaActivitiesStreamUserId;
+  ActivityFeedService? _profileMediaActivitiesStreamService;
 
   @override
   void initState() {
@@ -122,6 +125,31 @@ class _YouScreenState extends State<YouScreen>
     });
   }
 
+  Stream<List<ActivityFeedItem>>? _ownedProfileMediaActivitiesStream(
+    String? currentUserId,
+  ) {
+    final activityFeedService = _activityFeedService;
+    if (currentUserId == null || activityFeedService == null) {
+      _profileMediaActivitiesStream = null;
+      _profileMediaActivitiesStreamUserId = null;
+      _profileMediaActivitiesStreamService = null;
+      return null;
+    }
+
+    final hasCachedStream =
+        _profileMediaActivitiesStream != null &&
+        _profileMediaActivitiesStreamUserId == currentUserId &&
+        identical(_profileMediaActivitiesStreamService, activityFeedService);
+    if (hasCachedStream) return _profileMediaActivitiesStream;
+
+    _profileMediaActivitiesStream = activityFeedService.watchActivitiesOwnedBy(
+      currentUserId,
+    );
+    _profileMediaActivitiesStreamUserId = currentUserId;
+    _profileMediaActivitiesStreamService = activityFeedService;
+    return _profileMediaActivitiesStream;
+  }
+
   @override
   Widget build(BuildContext context) {
     return ChangeNotifierProvider<YouAnalyticsProvider>.value(
@@ -153,6 +181,8 @@ class _YouScreenState extends State<YouScreen>
                           profile: profile,
                           currentUserId: uid,
                           followService: _followService,
+                          mediaActivitiesStream:
+                              _ownedProfileMediaActivitiesStream(uid),
                           selectedGraphMetric: _selectedGraphMetric,
                           onGraphMetricSelected: _selectGraphMetric,
                         ),
@@ -277,6 +307,7 @@ class _ProfileTab extends StatelessWidget {
     required this.profile,
     required this.currentUserId,
     required this.followService,
+    required this.mediaActivitiesStream,
     required this.selectedGraphMetric,
     required this.onGraphMetricSelected,
   });
@@ -284,6 +315,7 @@ class _ProfileTab extends StatelessWidget {
   final ProfileModel? profile;
   final String? currentUserId;
   final FollowService followService;
+  final Stream<List<ActivityFeedItem>>? mediaActivitiesStream;
   final ProfileGraphMetric selectedGraphMetric;
   final ValueChanged<ProfileGraphMetric> onGraphMetricSelected;
 
@@ -341,6 +373,9 @@ class _ProfileTab extends StatelessWidget {
       recentVisitsReady: analytics.recentVisitsReady,
       recentVisitsError: analytics.recentVisitsError,
       visitsError: analytics.visitsError,
+      mediaProfileId: currentUserId,
+      currentUserId: currentUserId,
+      mediaActivitiesStream: mediaActivitiesStream,
       bottomPadding: bottomClearance + 12,
     );
   }

@@ -1,10 +1,10 @@
 /*
  * Author: Sanjevan Rajasegar
- * Last Updated: 10 August 2026
+ * Last Updated: 21 August 2026
  * Description:
  *   Regression tests for You screen tabs, profile identity XP progress,
  *   full-width social/exploration stats, metric line graphs, owned activities
- *   (Kudos + comments + Share on the card; no engagement on detail), and
+ *   (Glaze + comments + Share on the card; no engagement on detail), and
  *   location states.
  */
 
@@ -20,6 +20,7 @@ import 'package:roam_io/features/activity_feed/data/comment_service.dart';
 import 'package:roam_io/features/activity_feed/models/activity_comment.dart';
 import 'package:roam_io/features/activity_feed/models/activity_feed_item.dart';
 import 'package:roam_io/features/activity_feed/screens/comments_screen.dart';
+import 'package:roam_io/features/activity_feed/widgets/activity_map_preview.dart';
 import 'package:roam_io/features/you/screens/you_screen.dart';
 import 'package:roam_io/features/auth/data/auth_repository.dart';
 import 'package:roam_io/features/auth/providers/auth_provider.dart';
@@ -366,6 +367,7 @@ void main() {
     await tester.tap(find.text('Activities'));
     await tester.pumpAndSettle();
     expect(find.text('No activities yet'), findsNothing);
+    expect(find.text('View Media'), findsNothing);
     expect(find.text("Sanjevan's Test Activity"), findsOneWidget);
     expect(find.text('Other user activity'), findsNothing);
     expect(find.text('10/8/2026 at 0:00'), findsOneWidget);
@@ -373,26 +375,28 @@ void main() {
     expect(find.text('Locations Visited'), findsOneWidget);
     expect(find.text('3'), findsOneWidget);
     expect(find.text('+120 XP'), findsOneWidget);
-    expect(find.text('Map preview'), findsOneWidget);
+    expect(find.text('Map preview'), findsNothing);
+    expect(find.byType(ActivityMapPreview), findsOneWidget);
     expect(find.text('Morning Weight Training'), findsNothing);
     expect(find.text('Traveller'), findsOneWidget);
-    expect(find.text('Kudos'), findsOneWidget);
+    expect(find.text('Glaze'), findsOneWidget);
     expect(find.text('Share'), findsOneWidget);
     expect(find.text('0 comments'), findsOneWidget);
 
     await tester.tap(find.byIcon(Icons.more_horiz_rounded));
     await tester.pumpAndSettle();
     expect(find.text("Sanjevan's Test Activity"), findsOneWidget);
-    expect(find.text('Journey route map'), findsOneWidget);
-    expect(find.text('Kudos'), findsOneWidget);
+    expect(find.text('Journey route map'), findsNothing);
+    expect(find.byType(ActivityMapPreview), findsOneWidget);
+    expect(find.text('Glaze'), findsOneWidget);
     expect(find.text('0 comments'), findsOneWidget);
     expect(find.text('Share'), findsOneWidget);
     await tester.pageBack();
     await tester.pumpAndSettle();
 
-    // Personal card still exposes Kudos + Comments + Share after detail pop.
+    // Personal card still exposes Glaze + Comments + Share after detail pop.
     expect(find.text('0 comments'), findsOneWidget);
-    expect(find.text('Kudos'), findsOneWidget);
+    expect(find.text('Glaze'), findsOneWidget);
     expect(find.text('Share'), findsOneWidget);
 
     await tester.ensureVisible(find.text('0 comments'));
@@ -408,6 +412,62 @@ void main() {
     expect(find.text('Traveller'), findsOneWidget);
 
     await comments.dispose();
+    provider.dispose();
+  });
+
+  testWidgets('shows profile media preview outside the Activities tab', (
+    tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(400, 1400));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+
+    final provider = AuthProvider(
+      authRepository: _FakeAuthRepository(_buildProfile(xp: 75)),
+    );
+    await provider.refreshCurrentUser();
+    final firestore = FakeFirebaseFirestore();
+    await _seedYouActivity(
+      firestore,
+      activityId: 'media-activity',
+      ownerId: 'user-1',
+      title: 'Media Journey',
+      media: [
+        {
+          'id': 'media_0',
+          'type': 'photo',
+          'url': 'https://example.com/media.jpg',
+          'storagePath': 'activity_media/user-1/media-activity/media_0.jpg',
+          'order': 0,
+          'createdAt': DateTime.utc(2026, 8, 10).toIso8601String(),
+        },
+      ],
+    );
+
+    await tester.pumpWidget(
+      ChangeNotifierProvider<AuthProvider>.value(
+        value: provider,
+        child: MaterialApp(
+          home: Scaffold(
+            body: YouScreen(
+              visitService: _FakeVisitService(totalVisitCount: 0),
+              visitedRegionService: _FakeVisitedRegionService(<String>{}),
+              activityFeedService: ActivityFeedService(firestore: firestore),
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Media'), findsOneWidget);
+    expect(find.text('View all media'), findsOneWidget);
+
+    await tester.tap(find.text('Activities'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('View Media'), findsNothing);
+    expect(find.text('Media Journey'), findsOneWidget);
+
     provider.dispose();
   });
 
@@ -510,12 +570,13 @@ void main() {
       await tester.tap(find.text('Activities'));
       await tester.pumpAndSettle();
 
-      expect(activityFeedService.watchOwnedCalls, 1);
+      final callsAfterOpeningActivities = activityFeedService.watchOwnedCalls;
+      expect(callsAfterOpeningActivities, greaterThanOrEqualTo(1));
 
       await tester.pumpWidget(widget());
       await tester.pumpAndSettle();
 
-      expect(activityFeedService.watchOwnedCalls, 1);
+      expect(activityFeedService.watchOwnedCalls, callsAfterOpeningActivities);
 
       await comments.dispose();
       provider.dispose();
@@ -668,7 +729,7 @@ void main() {
 
     await tester.tap(find.text('Activities'));
     await tester.pumpAndSettle();
-    expect(find.text('Kudos'), findsOneWidget);
+    expect(find.text('Glaze'), findsOneWidget);
     expect(find.text('0 comments'), findsOneWidget);
     expect(find.text('Share'), findsOneWidget);
 
@@ -686,7 +747,7 @@ void main() {
     await tester.pageBack();
     await tester.pumpAndSettle();
     expect(find.text('1 comment'), findsOneWidget);
-    expect(find.text('Kudos'), findsOneWidget);
+    expect(find.text('Glaze'), findsOneWidget);
     expect(find.text('Share'), findsOneWidget);
 
     await comments.dispose();
@@ -992,8 +1053,9 @@ void main() {
 
       await tester.tap(find.byIcon(Icons.more_horiz_rounded));
       await tester.pumpAndSettle();
-      expect(find.text('Journey route map'), findsOneWidget);
-      expect(find.text('Kudos'), findsOneWidget);
+      expect(find.text('Journey route map'), findsNothing);
+      expect(find.byType(ActivityMapPreview), findsOneWidget);
+      expect(find.text('Glaze'), findsOneWidget);
       expect(find.text('Comments'), findsOneWidget);
       expect(find.text('Share'), findsOneWidget);
 
@@ -1094,6 +1156,7 @@ Future<void> _seedYouActivity(
   required String ownerId,
   required String title,
   DateTime? createdAt,
+  List<Map<String, dynamic>> media = const <Map<String, dynamic>>[],
 }) {
   return firestore.collection('activities').doc(activityId).set({
     'activityId': activityId,
@@ -1104,6 +1167,9 @@ Future<void> _seedYouActivity(
     'title': title,
     'kind': 'exploration',
     'showMapPreview': true,
+    'encodedRoute': _encodedRoute,
+    'routeBounds': _routeBounds,
+    'media': media,
     'createdAt': (createdAt ?? DateTime(2026, 8, 10)).toIso8601String(),
     'metrics': [
       {'label': 'Time', 'value': '12m 34s'},
@@ -1112,6 +1178,15 @@ Future<void> _seedYouActivity(
     ],
   });
 }
+
+const _encodedRoute = '_p~iF~ps|U_ulLnnqC_mqNvxq`@';
+
+const _routeBounds = {
+  'southwestLatitude': 38.5,
+  'southwestLongitude': -126.453,
+  'northeastLatitude': 43.252,
+  'northeastLongitude': -120.2,
+};
 
 class _FakeAuthRepository implements AuthRepository {
   _FakeAuthRepository(this._profile)

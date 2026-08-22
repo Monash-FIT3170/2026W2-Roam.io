@@ -1,6 +1,6 @@
 /*
  * Author: Sanjevan Rajasegar
- * Last Updated: 6 August 2026
+ * Last Updated: 22 August 2026
  * Description:
  *   Widget tests for ActivityFeedCard and ActivityDetailScreen — centred
  *   metrics, live comment counts, privacy engagement flags, and personal
@@ -8,14 +8,25 @@
  */
 
 import 'dart:async';
+import 'dart:typed_data';
 
+import 'package:fake_cloud_firestore/fake_cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:google_maps_flutter/google_maps_flutter.dart';
+import 'package:roam_io/features/activity_feed/data/activity_mutation_service.dart';
+import 'package:roam_io/features/activity_feed/domain/activity_route.dart';
 import 'package:roam_io/features/activity_feed/models/activity_comment.dart';
 import 'package:roam_io/features/activity_feed/models/activity_feed_item.dart';
 import 'package:roam_io/features/activity_feed/screens/activity_detail_screen.dart';
 import 'package:roam_io/features/activity_feed/widgets/activity_feed_card.dart';
 import 'package:roam_io/features/activity_feed/widgets/activity_map_preview.dart';
+import 'package:roam_io/features/activity_feed/widgets/activity_media_carousel.dart';
+import 'package:roam_io/features/activity_feed/widgets/route_marker_icons.dart';
+import 'package:roam_io/features/journeys/domain/transport_mode.dart';
+import 'package:roam_io/features/map/data/journey_map_snapshot_service.dart';
+import 'package:roam_io/features/map/data/visited_region_service.dart';
+import 'package:roam_io/features/profile/domain/visited_polygon_record.dart';
 
 void main() {
   testWidgets('persisted activity card shows metrics and map preview', (
@@ -25,6 +36,10 @@ void main() {
     addTearDown(() => tester.binding.setSurfaceSize(null));
 
     final activity = _testActivity();
+    final snapshotService = _FakeJourneyMapSnapshotService();
+    final visitedRegionService = _FakeVisitedRegionService({
+      'user-1': {'tile_visited'},
+    });
 
     await tester.pumpWidget(
       MaterialApp(
@@ -36,6 +51,9 @@ void main() {
               showComments: true,
               showShare: true,
               commentCountStream: Stream<int>.value(0),
+              mapSnapshotService: snapshotService,
+              visitedRegionService: visitedRegionService,
+              endpointMarkerIcons: _testEndpointIcons,
             ),
           ),
         ),
@@ -49,9 +67,37 @@ void main() {
     expect(find.text('Tiles Unlocked'), findsOneWidget);
     expect(find.text('4'), findsOneWidget);
     expect(find.text('+200 XP'), findsOneWidget);
-    expect(find.text('Map preview'), findsOneWidget);
+    expect(find.text('Map preview'), findsNothing);
     expect(find.byType(ActivityMapPreview), findsOneWidget);
-    expect(find.text('Kudos'), findsOneWidget);
+    final map = tester.widget<GoogleMap>(find.byType(GoogleMap));
+    expect(map.polylines, hasLength(1));
+    expect(map.polylines.single.points, _decodedRoutePoints);
+    expect(map.polylines.single.color, TransportMode.walk.routeColor);
+    expect(map.polylines.single.zIndex, 20);
+    expect(map.markers, hasLength(2));
+    expect(map.markers.every((marker) => marker.zIndexInt == 30), isTrue);
+    expect(
+      map.markers.every(
+        (marker) => marker.anchor == RouteMarkerIcons.flagAnchor,
+      ),
+      isTrue,
+    );
+    expect(map.polygons, hasLength(2));
+    expect(
+      map.polygons.any((polygon) => polygon.polygonId.value == 'tile_fog'),
+      isTrue,
+    );
+    expect(snapshotService.loadedVisitedRegionIds, {'tile_visited'});
+    expect(visitedRegionService.loadedProfileIds, ['user-1']);
+    expect(map.scrollGesturesEnabled, isFalse);
+    expect(map.zoomGesturesEnabled, isFalse);
+    expect(map.rotateGesturesEnabled, isFalse);
+    expect(map.tiltGesturesEnabled, isFalse);
+    expect(map.mapToolbarEnabled, isFalse);
+    expect(map.myLocationEnabled, isFalse);
+    expect(map.myLocationButtonEnabled, isFalse);
+    expect(map.zoomControlsEnabled, isFalse);
+    expect(find.text('Glaze'), findsOneWidget);
     expect(find.text('0 comments'), findsOneWidget);
     expect(find.text('Share'), findsOneWidget);
     // Full labels — no ellipsis clipping on the three-action row.
@@ -100,7 +146,7 @@ void main() {
     expect(find.text('Tiles Unlocked'), findsOneWidget);
     expect(find.text('3'), findsOneWidget);
     expect(find.text('Share'), findsNothing);
-    expect(find.text('Kudos'), findsOneWidget);
+    expect(find.text('Glaze'), findsOneWidget);
     expect(find.text('0 comments'), findsOneWidget);
 
     counts.add(1);
@@ -112,6 +158,53 @@ void main() {
     expect(find.text('2 comments'), findsOneWidget);
 
     await counts.close();
+  });
+
+  testWidgets('activity card carousel shows media first and route map last', (
+    tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(400, 1200));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+
+    final activity = _testActivity(
+      media: [
+        _testMedia(id: 'video-1', order: 0, type: ActivityMediaType.video),
+        _testMedia(id: 'video-2', order: 1, type: ActivityMediaType.video),
+      ],
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: SingleChildScrollView(
+            child: ActivityFeedCard.fromItem(
+              activity,
+              showKudos: false,
+              showComments: false,
+              showShare: false,
+              mapSnapshotService: _FakeJourneyMapSnapshotService(),
+              visitedRegionService: _FakeVisitedRegionService({
+                'user-1': {'tile_visited'},
+              }),
+              endpointMarkerIcons: _testEndpointIcons,
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.byType(ActivityMediaCarousel), findsOneWidget);
+    expect(find.byIcon(Icons.videocam_outlined), findsWidgets);
+
+    await tester.drag(find.byType(PageView), const Offset(-360, 0));
+    await tester.pumpAndSettle();
+    await tester.drag(find.byType(PageView), const Offset(-360, 0));
+    await tester.pumpAndSettle();
+
+    expect(find.byType(ActivityMapPreview), findsOneWidget);
+    final map = tester.widget<GoogleMap>(find.byType(GoogleMap));
+    expect(map.polylines.single.points, _decodedRoutePoints);
   });
 
   testWidgets('formatCommentCount uses singular and plural forms', (
@@ -136,7 +229,11 @@ void main() {
 
       expect(find.text('Traveller Activity 1'), findsOneWidget);
       expect(find.text('August 3, 2026 at 10:07 AM'), findsOneWidget);
-      expect(find.text('Journey route map'), findsOneWidget);
+      expect(find.text('Journey route map'), findsNothing);
+      expect(
+        find.byKey(const ValueKey('activity_route_map_detail')),
+        findsOneWidget,
+      );
 
       await tester.scrollUntilVisible(
         find.text('47m 51s'),
@@ -146,22 +243,237 @@ void main() {
       expect(find.text('47m 51s'), findsOneWidget);
       expect(find.text('4'), findsOneWidget);
       expect(find.text('+200 XP'), findsOneWidget);
-      expect(find.text('Kudos'), findsNothing);
+      expect(find.text('Glaze'), findsNothing);
       expect(find.text('Comment'), findsNothing);
       expect(find.text('0 comments'), findsNothing);
       expect(find.text('Share'), findsNothing);
     },
   );
+
+  testWidgets('detail visual carousel shows route first when media exists', (
+    tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(400, 1400));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: ActivityDetailScreen(
+          activity: _testActivity(
+            media: [
+              _testMedia(
+                id: 'detail-video',
+                order: 0,
+                type: ActivityMediaType.video,
+              ),
+            ],
+          ),
+          endpointMarkerIcons: _testEndpointIcons,
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.byType(ActivityMediaCarousel), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey('activity_route_map_detail')),
+      findsOneWidget,
+    );
+    expect(find.byType(ActivityMapPreview), findsOneWidget);
+
+    await tester.drag(find.byType(PageView), const Offset(-360, 0));
+    await tester.pumpAndSettle();
+    expect(find.byIcon(Icons.videocam_outlined), findsOneWidget);
+  });
+
+  testWidgets('legacy activity without a usable route omits the map visual', (
+    tester,
+  ) async {
+    final activity = _testActivity(encodedRoute: null, routeBounds: null);
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: ActivityFeedCard.fromItem(
+            activity,
+            commentCountStream: Stream<int>.value(0),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.byType(ActivityMapPreview), findsNothing);
+    expect(find.byType(GoogleMap), findsNothing);
+    expect(find.text('Map preview'), findsNothing);
+  });
+
+  testWidgets(
+    'map preview keeps skeleton and ignores stale snapshot results after route switch',
+    (tester) async {
+      await tester.binding.setSurfaceSize(const Size(400, 600));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+
+      final service = _QueuedJourneyMapSnapshotService();
+      final routeA = ActivityRoute.fromPoints(const [
+        LatLng(38.5, -120.2),
+        LatLng(38.6, -120.3),
+      ])!;
+      final routeB = ActivityRoute.fromPoints(const [
+        LatLng(40.7, -120.95),
+        LatLng(40.8, -121.05),
+      ])!;
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: ActivityMapPreview(
+              route: routeA,
+              visitedRegionIds: const {'tile_a'},
+              mapSnapshotService: service,
+              endpointMarkerIcons: _testEndpointIcons,
+            ),
+          ),
+        ),
+      );
+      await tester.pump();
+      expect(service.calls, hasLength(1));
+      expect(find.byType(CircularProgressIndicator), findsOneWidget);
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: ActivityMapPreview(
+              route: routeB,
+              visitedRegionIds: const {'tile_b'},
+              mapSnapshotService: service,
+              endpointMarkerIcons: _testEndpointIcons,
+            ),
+          ),
+        ),
+      );
+      await tester.pump();
+      expect(service.calls, hasLength(2));
+
+      service.complete(
+        0,
+        JourneyMapSnapshotOverlay(
+          loadedBounds: routeA.bounds,
+          tilePolygons: {_tilePolygon(id: 'tile_a')},
+        ),
+      );
+      await tester.pump();
+
+      expect(find.byType(CircularProgressIndicator), findsOneWidget);
+      var map = tester.widget<GoogleMap>(find.byType(GoogleMap));
+      expect(
+        map.polygons.any((polygon) => polygon.polygonId.value == 'tile_a'),
+        isFalse,
+      );
+
+      service.complete(
+        1,
+        JourneyMapSnapshotOverlay(
+          loadedBounds: routeB.bounds,
+          tilePolygons: {_tilePolygon(id: 'tile_b')},
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.byType(CircularProgressIndicator), findsNothing);
+      map = tester.widget<GoogleMap>(find.byType(GoogleMap));
+      expect(
+        map.polygons.map((polygon) => polygon.polygonId.value),
+        contains('tile_b'),
+      );
+      expect(
+        map.polygons.map((polygon) => polygon.polygonId.value),
+        isNot(contains('tile_a')),
+      );
+      expect(map.onCameraIdle, isNotNull);
+    },
+  );
+
+  testWidgets('detail map opens interactive expanded route screen', (
+    tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(400, 1200));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: ActivityDetailScreen(
+          activity: _testActivity(),
+          endpointMarkerIcons: _testEndpointIcons,
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final detailMap = find.byKey(const ValueKey('activity_route_map_detail'));
+    expect(detailMap, findsOneWidget);
+    final detailSize = tester.getSize(detailMap);
+    expect(detailSize.height, greaterThan(220));
+
+    await tester.tap(find.byKey(const ValueKey('activity_route_map_open')));
+    await tester.pumpAndSettle();
+
+    final expandedMap = find.byKey(
+      const ValueKey('activity_route_map_expanded'),
+    );
+    expect(expandedMap, findsOneWidget);
+    final map = tester.widget<GoogleMap>(
+      find.descendant(of: expandedMap, matching: find.byType(GoogleMap)),
+    );
+    expect(map.markers, hasLength(2));
+    expect(map.polylines, hasLength(1));
+    expect(map.scrollGesturesEnabled, isTrue);
+    expect(map.zoomGesturesEnabled, isTrue);
+    expect(map.rotateGesturesEnabled, isTrue);
+    expect(map.tiltGesturesEnabled, isTrue);
+  });
+
+  testWidgets('owner edit media controls use native library and no arrows', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: ActivityDetailScreen(
+          activity: _testActivity(),
+          currentUserId: 'user-1',
+          mutationService: ActivityMutationService(
+            firestore: FakeFirebaseFirestore(),
+          ),
+        ),
+      ),
+    );
+
+    await tester.tap(find.byType(PopupMenuButton<String>));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Edit'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Edit Activity'), findsOneWidget);
+    expect(find.text('Photo Library'), findsOneWidget);
+    expect(find.byTooltip('Take photo'), findsOneWidget);
+    expect(find.byTooltip('Record video'), findsOneWidget);
+    expect(find.byIcon(Icons.arrow_upward), findsNothing);
+    expect(find.byIcon(Icons.arrow_downward), findsNothing);
+  });
 }
 
 ActivityFeedItem _testActivity({
   String id = 'activity-1',
   String title = 'Traveller Activity 1',
+  String? encodedRoute = _encodedRoute,
+  ActivityRouteBounds? routeBounds = _routeBounds,
   List<ActivityFeedMetric> metrics = const [
     ActivityFeedMetric(label: 'Time', value: '47m 51s'),
     ActivityFeedMetric(label: 'Tiles Unlocked', value: '4'),
     ActivityFeedMetric(label: 'XP Gained', value: '+200 XP'),
   ],
+  String? transportMode = 'walk',
+  List<ActivityMediaItem> media = const <ActivityMediaItem>[],
 }) {
   return ActivityFeedItem(
     id: id,
@@ -172,6 +484,147 @@ ActivityFeedItem _testActivity({
     title: title,
     kind: ActivityFeedKind.journey,
     showMapPreview: true,
+    encodedRoute: encodedRoute,
+    routeBounds: routeBounds,
+    transportMode: transportMode,
+    media: media,
     metrics: metrics,
+  );
+}
+
+ActivityMediaItem _testMedia({
+  required String id,
+  required int order,
+  ActivityMediaType type = ActivityMediaType.photo,
+}) {
+  return ActivityMediaItem(
+    id: id,
+    type: type,
+    url:
+        'https://example.com/$id.${type == ActivityMediaType.video ? 'mp4' : 'jpg'}',
+    storagePath: 'activity_media/user-1/activity-1/$id',
+    order: order,
+    createdAt: DateTime.utc(2026, 8, 22, 10, order),
+  );
+}
+
+const _encodedRoute = '_p~iF~ps|U_ulLnnqC_mqNvxq`@';
+const _decodedRoutePoints = [
+  LatLng(38.5, -120.2),
+  LatLng(40.7, -120.95),
+  LatLng(43.252, -126.453),
+];
+
+const _routeBounds = ActivityRouteBounds(
+  southwestLatitude: 38.5,
+  southwestLongitude: -126.453,
+  northeastLatitude: 43.252,
+  northeastLongitude: -120.2,
+);
+
+final _testEndpointIcons = RouteEndpointMarkerIcons(
+  start: BitmapDescriptor.bytes(Uint8List.fromList([1, 2, 3])),
+  finish: BitmapDescriptor.bytes(Uint8List.fromList([4, 5, 6])),
+);
+
+class _QueuedSnapshotCall {
+  _QueuedSnapshotCall();
+
+  final completer = Completer<JourneyMapSnapshotOverlay>();
+}
+
+class _QueuedJourneyMapSnapshotService extends JourneyMapSnapshotService {
+  final calls = <_QueuedSnapshotCall>[];
+
+  @override
+  Future<JourneyMapSnapshotOverlay> loadRouteSnapshotOverlay({
+    required ActivityRoute route,
+    required Set<String> visitedRegionIds,
+    String? currentRegionId,
+    LatLngBounds? viewportBounds,
+  }) {
+    final call = _QueuedSnapshotCall();
+    calls.add(call);
+    return call.completer.future;
+  }
+
+  void complete(int index, JourneyMapSnapshotOverlay overlay) {
+    calls[index].completer.complete(overlay);
+  }
+}
+
+class _FakeJourneyMapSnapshotService extends JourneyMapSnapshotService {
+  Set<String>? loadedVisitedRegionIds;
+
+  @override
+  Future<JourneyMapSnapshotOverlay> loadRouteSnapshotOverlay({
+    required ActivityRoute route,
+    required Set<String> visitedRegionIds,
+    String? currentRegionId,
+    LatLngBounds? viewportBounds,
+  }) async {
+    loadedVisitedRegionIds = visitedRegionIds;
+    return JourneyMapSnapshotOverlay(
+      loadedBounds: route.bounds,
+      tilePolygons: {
+        _tilePolygon(id: 'tile_visited'),
+        _tilePolygon(id: 'tile_fog', fillColor: const Color(0xCC000000)),
+      },
+    );
+  }
+}
+
+class _FakeVisitedRegionService implements VisitedRegionService {
+  _FakeVisitedRegionService(this.regionIdsByProfile);
+
+  final Map<String, Set<String>> regionIdsByProfile;
+  final List<String> loadedProfileIds = [];
+
+  @override
+  Future<Set<String>> loadVisitedRegionIds() async => const <String>{};
+
+  @override
+  Stream<Set<String>> watchVisitedRegionIds() {
+    return Stream<Set<String>>.value(const <String>{});
+  }
+
+  @override
+  Stream<List<VisitedPolygonRecord>> watchVisitedPolygonRecords({
+    String? profileId,
+  }) {
+    final resolvedProfileId = profileId ?? '';
+    loadedProfileIds.add(resolvedProfileId);
+    return Stream<List<VisitedPolygonRecord>>.value(
+      (regionIdsByProfile[resolvedProfileId] ?? const <String>{})
+          .map(
+            (regionId) => VisitedPolygonRecord(
+              profileId: resolvedProfileId,
+              polygonId: regionId,
+              visitedAt: DateTime(2026, 8, 21),
+            ),
+          )
+          .toList(growable: false),
+    );
+  }
+
+  @override
+  Future<bool> markVisited(String regionId, {DateTime? visitedAt}) async =>
+      true;
+}
+
+Polygon _tilePolygon({
+  required String id,
+  Color fillColor = const Color(0x30FFFFFF),
+}) {
+  return Polygon(
+    polygonId: PolygonId(id),
+    points: const [
+      LatLng(38.49, -120.21),
+      LatLng(38.49, -120.19),
+      LatLng(38.51, -120.19),
+      LatLng(38.51, -120.21),
+    ],
+    fillColor: fillColor,
+    zIndex: 5,
   );
 }

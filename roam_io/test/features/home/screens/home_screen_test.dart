@@ -1,6 +1,6 @@
 /*
  * Author: Sanjevan Rajasegar
- * Last Updated: 10 August 2026
+ * Last Updated: 21 August 2026
  * Description:
  *   Widget tests for the real Firestore-backed Home activity feed and Comment
  *   navigation.
@@ -18,6 +18,7 @@ import 'package:roam_io/features/activity_feed/data/comment_service.dart';
 import 'package:roam_io/features/activity_feed/models/activity_comment.dart';
 import 'package:roam_io/features/activity_feed/models/activity_feed_item.dart';
 import 'package:roam_io/features/activity_feed/screens/activity_detail_screen.dart';
+import 'package:roam_io/features/activity_feed/widgets/activity_map_preview.dart';
 import 'package:roam_io/features/activity_feed/screens/comments_screen.dart';
 import 'package:roam_io/features/auth/data/auth_repository.dart';
 import 'package:roam_io/features/auth/providers/auth_provider.dart';
@@ -156,8 +157,9 @@ void main() {
 
     expect(find.byType(ActivityDetailScreen), findsOneWidget);
     expect(find.text('Traveller Activity 1'), findsOneWidget);
-    expect(find.text('Journey route map'), findsOneWidget);
-    expect(find.text('Kudos'), findsOneWidget);
+    expect(find.text('Journey route map'), findsNothing);
+    expect(find.byType(ActivityMapPreview), findsOneWidget);
+    expect(find.text('Glaze'), findsOneWidget);
     expect(find.text('0 comments'), findsOneWidget);
     expect(find.text('Share'), findsNothing);
 
@@ -373,12 +375,23 @@ Future<void> _seedActivity(
     'title': title,
     'kind': 'exploration',
     'showMapPreview': true,
+    'encodedRoute': _encodedRoute,
+    'routeBounds': _routeBounds,
     'createdAt': (createdAt ?? DateTime(2026, 8, 10)).toIso8601String(),
     'metrics': [
       {'label': 'XP Gained', 'value': '+120 XP'},
     ],
   });
 }
+
+const _encodedRoute = '_p~iF~ps|U_ulLnnqC_mqNvxq`@';
+
+const _routeBounds = {
+  'southwestLatitude': 38.5,
+  'southwestLongitude': -126.453,
+  'northeastLatitude': 43.252,
+  'northeastLongitude': -120.2,
+};
 
 class _FailingActivityFeedService extends ActivityFeedService {
   _FailingActivityFeedService() : super(firestore: FakeFirebaseFirestore());

@@ -1,15 +1,18 @@
 /*
  * Author: Sanjevan Rajasegar
- * Last Updated: 19 August 2026
+ * Last Updated: 22 August 2026
  * Description:
  *   Service tests for creating real persisted Journey activities and reading
  *   activity feed documents.
  */
 
+import 'dart:typed_data';
+
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:fake_cloud_firestore/fake_cloud_firestore.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:roam_io/features/activity_feed/data/activity_creation_service.dart';
 import 'package:roam_io/features/activity_feed/data/activity_feed_service.dart';
 import 'package:roam_io/features/activity_feed/models/activity_feed_item.dart';
@@ -18,6 +21,7 @@ import 'package:roam_io/features/journeys/domain/journey.dart';
 import 'package:roam_io/features/journeys/domain/journey_location.dart';
 import 'package:roam_io/features/journeys/domain/transport_mode.dart';
 import 'package:roam_io/features/profile/domain/profile_model.dart';
+import 'package:roam_io/services/storage_service.dart';
 
 void main() {
   test(
@@ -87,6 +91,87 @@ void main() {
       expect(data.containsKey('kudos'), isFalse);
       expect(data.containsKey('kudosCount'), isFalse);
       expect(data.containsKey('commentCount'), isFalse);
+    },
+  );
+
+  test(
+    'adds selected media when retrying against an existing idempotent activity',
+    () async {
+      final firestore = FakeFirebaseFirestore();
+      final journey = _journey();
+      await firestore.collection('activities').doc('journey_journey-1').set({
+        'activityId': 'journey_journey-1',
+        'ownerId': 'user-1',
+        'profileId': 'user-1',
+        'displayName': 'Traveller',
+        'username': 'traveller',
+        'title': 'Creek Loop',
+        'kind': 'journey',
+        'sourceJourneyId': 'journey-1',
+        'encodedRoute': journey.encodedRoute,
+        'journeyStartTime': journey.startTime.toUtc().toIso8601String(),
+        'journeyEndTime': journey.endTime.toUtc().toIso8601String(),
+        'transportMode': 'walk',
+        'media': const <Map<String, dynamic>>[],
+        'showMapPreview': true,
+        'createdAt': DateTime.utc(2026, 8, 10).toIso8601String(),
+        'metrics': [
+          {'label': 'XP Gained', 'value': '+182 XP'},
+        ],
+      });
+      final uploaded = <String>[];
+      final service = ActivityCreationService(
+        firestore: firestore,
+        storageService: StorageService(
+          activityMediaUploadOverride:
+              ({
+                required uid,
+                required activityId,
+                required mediaId,
+                required bytes,
+                required filename,
+                required mediaType,
+              }) async {
+                uploaded.add('$uid/$activityId/$mediaId/$filename/$mediaType');
+                return ActivityMediaUploadResult(
+                  url: 'https://example.com/$mediaId.jpg',
+                  storagePath: 'activity_media/$uid/$activityId/$mediaId.jpg',
+                );
+              },
+        ),
+      );
+
+      final activity = await service.createJourneyActivity(
+        journey: journey,
+        title: 'Ignored Retry Title',
+        mediaSelections: [
+          PendingActivityMedia(
+            file: XFile.fromData(
+              Uint8List.fromList([1, 2, 3]),
+              name: 'route-photo.jpg',
+              mimeType: 'image/jpeg',
+            ),
+            type: ActivityMediaType.photo,
+          ),
+        ],
+      );
+
+      expect(uploaded, hasLength(1));
+      expect(activity.title, 'Creek Loop');
+      expect(activity.media, hasLength(1));
+      expect(activity.media.single.url, startsWith('https://example.com/'));
+
+      final data =
+          (await firestore
+                  .collection('activities')
+                  .doc('journey_journey-1')
+                  .get())
+              .data()!;
+      final media = data['media'] as List<dynamic>;
+      expect(media, hasLength(1));
+      expect(media.single['type'], 'photo');
+      expect(media.single['url'], activity.media.single.url);
+      expect(media.single['storagePath'], activity.media.single.storagePath);
     },
   );
 

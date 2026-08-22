@@ -9,9 +9,9 @@ class LeaderboardService {
     FirebaseFirestore? firestore,
     JourneyService? journeyService,
     FollowService? followService,
-  })  : _firestore = firestore ?? FirebaseFirestore.instance,
-        _journeyService = journeyService ?? JourneyService(),
-        _followService = followService ?? FollowService();
+  }) : _firestore = firestore ?? FirebaseFirestore.instance,
+       _journeyService = journeyService ?? JourneyService(),
+       _followService = followService ?? FollowService();
 
   final FirebaseFirestore _firestore;
   final JourneyService _journeyService;
@@ -20,10 +20,12 @@ class LeaderboardService {
   Future<List<LeaderboardEntry>> getLeaderboard(String currentUserId) async {
     // 1. Get following IDs
     List<String> userIds = [currentUserId];
-    
+
     // watchFollowingIds returns a stream, we take the first value
     try {
-      final following = await _followService.watchFollowingIds(currentUserId).first;
+      final following = await _followService
+          .watchFollowingIds(currentUserId)
+          .first;
       userIds.addAll(following);
     } catch (e) {
       // In case the stream fails or is empty, we just continue with current user
@@ -34,20 +36,26 @@ class LeaderboardService {
 
     // 2. Fetch data for each user
     final thirtyDaysAgo = DateTime.now().subtract(const Duration(days: 30));
-    
+
     final List<LeaderboardEntry> entries = [];
-    
+
     for (final id in userIds) {
       // Fetch profile
-      final profileDoc = await _firestore.collection('public_profiles').doc(id).get();
+      final profileDoc = await _firestore
+          .collection('public_profiles')
+          .doc(id)
+          .get();
       if (!profileDoc.exists) continue;
-      
+
       final data = profileDoc.data()!;
       final displayName = data['displayName'] as String? ?? 'Unknown';
       final photoUrl = data['photoUrl'] as String?;
 
       // Fetch journeys
-      final journeys = await _journeyService.getJourneysSince(id, thirtyDaysAgo);
+      final journeys = await _journeyService.getJourneysSince(
+        id,
+        thirtyDaysAgo,
+      );
 
       int xpEarned = 0;
 

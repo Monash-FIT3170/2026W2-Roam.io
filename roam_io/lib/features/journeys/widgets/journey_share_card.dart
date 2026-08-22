@@ -75,7 +75,7 @@ class JourneyShareCard extends StatelessWidget {
                           ),
                         ),
                       ),
-                      
+
                       // Stats area
                       Padding(
                         padding: const EdgeInsets.all(20),
@@ -95,14 +95,22 @@ class JourneyShareCard extends StatelessWidget {
                               mainAxisAlignment: MainAxisAlignment.spaceBetween,
                               children: [
                                 _StatWidget(
-                                  value: journey.formattedDistance.split(' ').first,
-                                  unit: journey.formattedDistance.split(' ').last,
+                                  value: journey.formattedDistance
+                                      .split(' ')
+                                      .first,
+                                  unit: journey.formattedDistance
+                                      .split(' ')
+                                      .last,
                                 ),
                                 _StatWidget(
-                                  value: journey.durationSeconds >= 3600 
-                                      ? (journey.durationSeconds / 3600).toStringAsFixed(1)
-                                      : (journey.durationSeconds / 60).toStringAsFixed(0),
-                                  unit: journey.durationSeconds >= 3600 ? 'hrs' : 'min',
+                                  value: journey.durationSeconds >= 3600
+                                      ? (journey.durationSeconds / 3600)
+                                            .toStringAsFixed(1)
+                                      : (journey.durationSeconds / 60)
+                                            .toStringAsFixed(0),
+                                  unit: journey.durationSeconds >= 3600
+                                      ? 'hrs'
+                                      : 'min',
                                 ),
                                 if (journey.xpEarned != null)
                                   _StatWidget(
@@ -157,7 +165,7 @@ class JourneyShareCard extends StatelessWidget {
                                   ],
                                 ),
                               ],
-                            )
+                            ),
                           ],
                         ),
                       ),
@@ -175,10 +183,10 @@ class JourneyShareCard extends StatelessWidget {
 
 class _StatWidget extends StatelessWidget {
   const _StatWidget({required this.value, required this.unit});
-  
+
   final String value;
   final String unit;
-  
+
   @override
   Widget build(BuildContext context) {
     return Column(
@@ -244,7 +252,7 @@ class RoutePainter extends CustomPainter {
     final double scaleX = size.width / lngRange;
     final double scaleY = size.height / latRange;
     final double scale = math.min(scaleX, scaleY);
-    
+
     // Center the map in the canvas
     final mapWidth = lngRange * scale;
     final mapHeight = latRange * scale;
@@ -279,27 +287,31 @@ class RoutePainter extends CustomPainter {
       ..strokeCap = StrokeCap.round
       ..strokeJoin = StrokeJoin.round
       ..style = PaintingStyle.stroke;
-      
+
     final shadowPath = path.shift(const Offset(0, 3));
     canvas.drawPath(shadowPath, shadowPaint);
-    
+
     // Draw the actual route
     canvas.drawPath(path, paint);
-    
+
     // Draw start/end markers
     if (points.isNotEmpty) {
       final startP = points.first;
       final startX = offsetX + (startP.longitude - minLng) * scale;
       final startY = offsetY + (maxLat - startP.latitude) * scale;
-      
+
       final endP = points.last;
       final endX = offsetX + (endP.longitude - minLng) * scale;
       final endY = offsetY + (maxLat - endP.latitude) * scale;
-      
+
       final startMarkerPaint = Paint()..color = AppColors.sage;
       canvas.drawCircle(Offset(startX, startY), 6.0, startMarkerPaint);
-      canvas.drawCircle(Offset(startX, startY), 3.0, Paint()..color = Colors.white);
-      
+      canvas.drawCircle(
+        Offset(startX, startY),
+        3.0,
+        Paint()..color = Colors.white,
+      );
+
       final endMarkerPaint = Paint()..color = AppColors.clay;
       canvas.drawCircle(Offset(endX, endY), 6.0, endMarkerPaint);
       canvas.drawCircle(Offset(endX, endY), 3.0, Paint()..color = Colors.white);
@@ -308,6 +320,7 @@ class RoutePainter extends CustomPainter {
 
   @override
   bool shouldRepaint(covariant RoutePainter oldDelegate) {
-    return oldDelegate.encodedRoute != encodedRoute || oldDelegate.routeColor != routeColor;
+    return oldDelegate.encodedRoute != encodedRoute ||
+        oldDelegate.routeColor != routeColor;
   }
 }

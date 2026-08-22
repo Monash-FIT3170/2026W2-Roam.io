@@ -1,17 +1,25 @@
 /*
  * Author: Sanjevan Rajasegar
- * Last Modified: 21 August 2026
+ * Last Modified: 22 August 2026
  * Description:
  *   Page for reviewing completed Journey metrics, route media, and activity
  *   title before saving or discarding the resulting activity.
  */
 
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
+import 'package:image_picker/image_picker.dart';
 
 import '../../../shared/widgets/app_page_transition.dart';
 import '../../../theme/app_colours.dart';
 import '../../../theme/app_surfaces.dart';
+import '../../activity_feed/domain/activity_route.dart';
+import '../../activity_feed/models/activity_media_item.dart';
+import '../../activity_feed/widgets/activity_map_preview.dart';
+import '../../activity_feed/widgets/route_marker_icons.dart';
+import '../../map/data/journey_map_snapshot_service.dart';
 import '../domain/journey_location.dart';
 import '../domain/journey_title_generator.dart';
 import '../domain/transport_mode.dart';
@@ -27,10 +35,15 @@ enum JourneySummaryAction {
 
 /// Result returned when the journey summary sheet is completed.
 class JourneySummaryResult {
-  const JourneySummaryResult({required this.action, required this.title});
+  const JourneySummaryResult({
+    required this.action,
+    required this.title,
+    this.media = const <PendingActivityMedia>[],
+  });
 
   final JourneySummaryAction action;
   final String title;
+  final List<PendingActivityMedia> media;
 }
 
 /// Page for reviewing a completed Journey before saving its activity.
@@ -47,12 +60,16 @@ class JourneySummarySheet extends StatefulWidget {
     this.initialTitle,
     this.xpEarned,
     this.tilesUnlocked = 0,
+    this.visitedRegionIds = const <String>{},
+    this.currentRegionId,
+    JourneyMapSnapshotService? mapSnapshotService,
+    this.endpointMarkerIcons,
     required this.onUpdateStartName,
     required this.onUpdateEndName,
     this.userId,
     this.onUpdateStartLocation,
     this.onUpdateEndLocation,
-  });
+  }) : _mapSnapshotService = mapSnapshotService;
 
   final JourneyLocation startLocation;
   final JourneyLocation endLocation;
@@ -64,6 +81,10 @@ class JourneySummarySheet extends StatefulWidget {
   final String? initialTitle;
   final int? xpEarned;
   final int tilesUnlocked;
+  final Set<String> visitedRegionIds;
+  final String? currentRegionId;
+  final JourneyMapSnapshotService? _mapSnapshotService;
+  final RouteEndpointMarkerIcons? endpointMarkerIcons;
   final ValueChanged<String> onUpdateStartName;
   final ValueChanged<String> onUpdateEndName;
   final String? userId;
@@ -83,6 +104,10 @@ class JourneySummarySheet extends StatefulWidget {
     String? initialTitle,
     int? xpEarned,
     int tilesUnlocked = 0,
+    Set<String> visitedRegionIds = const <String>{},
+    String? currentRegionId,
+    JourneyMapSnapshotService? mapSnapshotService,
+    RouteEndpointMarkerIcons? endpointMarkerIcons,
     required ValueChanged<String> onUpdateStartName,
     required ValueChanged<String> onUpdateEndName,
     String? userId,
@@ -103,6 +128,10 @@ class JourneySummarySheet extends StatefulWidget {
           initialTitle: initialTitle,
           xpEarned: xpEarned,
           tilesUnlocked: tilesUnlocked,
+          visitedRegionIds: visitedRegionIds,
+          currentRegionId: currentRegionId,
+          mapSnapshotService: mapSnapshotService,
+          endpointMarkerIcons: endpointMarkerIcons,
           onUpdateStartName: onUpdateStartName,
           onUpdateEndName: onUpdateEndName,
           userId: userId,
@@ -119,6 +148,9 @@ class JourneySummarySheet extends StatefulWidget {
 
 class _JourneySummarySheetState extends State<JourneySummarySheet> {
   late TextEditingController _titleController;
+  late final ActivityRoute? _route;
+  final _imagePicker = ImagePicker();
+  final _selectedMedia = <PendingActivityMedia>[];
 
   @override
   void initState() {
@@ -131,6 +163,7 @@ class _JourneySummarySheetState extends State<JourneySummarySheet> {
           ? widget.initialTitle!.trim()
           : generatedTitle,
     );
+    _route = ActivityRoute.fromPoints(widget.routePoints);
   }
 
   @override
@@ -163,6 +196,7 @@ class _JourneySummarySheetState extends State<JourneySummarySheet> {
       title: title.isEmpty
           ? generateJourneyTitle(widget.startTime ?? DateTime.now())
           : title,
+      media: List<PendingActivityMedia>.unmodifiable(_selectedMedia),
     );
   }
 
@@ -302,7 +336,15 @@ class _JourneySummarySheetState extends State<JourneySummarySheet> {
                   ),
                 ),
                 const SizedBox(height: 12),
-                _JourneyRoutePreview(routePoints: widget.routePoints),
+                ActivityMapPreview(
+                  route: _route,
+                  visitedRegionIds: widget.visitedRegionIds,
+                  currentRegionId: widget.currentRegionId,
+                  mapSnapshotService: widget._mapSnapshotService,
+                  transportMode: widget.transportMode,
+                  showEndpoints: true,
+                  endpointMarkerIcons: widget.endpointMarkerIcons,
+                ),
 
                 const SizedBox(height: 24),
 
@@ -314,7 +356,7 @@ class _JourneySummarySheetState extends State<JourneySummarySheet> {
                   ),
                 ),
                 const SizedBox(height: 12),
-                _buildMediaPlaceholder(context),
+                _buildMediaPicker(context),
 
                 const SizedBox(height: 32),
 
@@ -399,8 +441,10 @@ class _JourneySummarySheetState extends State<JourneySummarySheet> {
     );
   }
 
-  Widget _buildMediaPlaceholder(BuildContext context) {
+  Widget _buildMediaPicker(BuildContext context) {
     final theme = Theme.of(context);
+    final remainingSlots = 3 - _selectedMedia.length;
+    final canAddMedia = remainingSlots > 0;
 
     return Container(
       width: double.infinity,
@@ -410,25 +454,201 @@ class _JourneySummarySheetState extends State<JourneySummarySheet> {
         borderRadius: BorderRadius.circular(12),
         border: Border.all(color: AppSurfaces.border(context)),
       ),
-      child: Row(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(
-            Icons.add_photo_alternate_outlined,
-            color: AppSurfaces.textMuted(context),
+          Row(
+            children: [
+              Text(
+                'Media',
+                style: theme.textTheme.titleSmall?.copyWith(
+                  color: AppSurfaces.textPrimary(context),
+                  fontWeight: FontWeight.w900,
+                ),
+              ),
+              const Spacer(),
+              Text(
+                '${_selectedMedia.length}/3',
+                style: theme.textTheme.labelLarge?.copyWith(
+                  color: AppSurfaces.textMuted(context),
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+            ],
           ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Text(
-              'Add media coming soon',
-              style: theme.textTheme.bodyMedium?.copyWith(
-                color: AppSurfaces.textMuted(context),
-                fontWeight: FontWeight.w700,
+          const SizedBox(height: 12),
+          if (_selectedMedia.isNotEmpty) ...[
+            SizedBox(
+              height: 106,
+              child: ReorderableListView.builder(
+                scrollDirection: Axis.horizontal,
+                buildDefaultDragHandles: false,
+                itemCount: _selectedMedia.length,
+                onReorder: _reorderMedia,
+                proxyDecorator: (child, _, animation) {
+                  return ScaleTransition(
+                    scale: Tween<double>(begin: 1, end: 1.04).animate(
+                      CurvedAnimation(
+                        parent: animation,
+                        curve: Curves.easeOutCubic,
+                      ),
+                    ),
+                    child: child,
+                  );
+                },
+                itemBuilder: (context, index) => Padding(
+                  key: ValueKey<String>(
+                    'pending-media-${_selectedMedia[index].file.path}',
+                  ),
+                  padding: EdgeInsets.only(
+                    right: index == _selectedMedia.length - 1 ? 0 : 10,
+                  ),
+                  child: ReorderableDragStartListener(
+                    index: index,
+                    child: _PendingMediaTile(
+                      media: _selectedMedia[index],
+                      onRemove: () => _removeMedia(index),
+                    ),
+                  ),
+                ),
               ),
             ),
+            const SizedBox(height: 12),
+          ],
+          if (_selectedMedia.isEmpty)
+            _PhotoLibraryTile(enabled: canAddMedia, onTap: _chooseFromLibrary)
+          else
+            OutlinedButton.icon(
+              onPressed: canAddMedia ? _chooseFromLibrary : null,
+              icon: const Icon(Icons.photo_library_outlined),
+              label: const Text('Photo Library'),
+            ),
+          const SizedBox(height: 10),
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  canAddMedia ? 'Add photos or videos' : 'Media limit reached',
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: AppSurfaces.textMuted(context),
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 10),
+              IconButton.filledTonal(
+                tooltip: 'Take photo',
+                onPressed: canAddMedia ? _takePhoto : null,
+                icon: const Icon(Icons.photo_camera_outlined),
+              ),
+              const SizedBox(width: 6),
+              IconButton.filledTonal(
+                tooltip: 'Record video',
+                onPressed: canAddMedia ? _takeVideo : null,
+                icon: const Icon(Icons.videocam_outlined),
+              ),
+            ],
           ),
         ],
       ),
     );
+  }
+
+  Future<void> _chooseFromLibrary() async {
+    final remainingSlots = 3 - _selectedMedia.length;
+    if (remainingSlots <= 0) return;
+
+    final picked = remainingSlots == 1
+        ? [
+            if (await _imagePicker.pickMedia(
+                  maxWidth: 1920,
+                  maxHeight: 1920,
+                  imageQuality: 85,
+                )
+                case final XFile file)
+              file,
+          ]
+        : await _imagePicker.pickMultipleMedia(
+            maxWidth: 1920,
+            maxHeight: 1920,
+            imageQuality: 85,
+            limit: remainingSlots,
+          );
+    _addPickedMedia(picked);
+  }
+
+  Future<void> _takePhoto() async {
+    if (_selectedMedia.length >= 3) return;
+    final file = await _imagePicker.pickImage(
+      source: ImageSource.camera,
+      maxWidth: 1920,
+      maxHeight: 1920,
+      imageQuality: 85,
+    );
+    if (file != null) {
+      _addPickedMedia([file], explicitType: ActivityMediaType.photo);
+    }
+  }
+
+  Future<void> _takeVideo() async {
+    if (_selectedMedia.length >= 3) return;
+    final file = await _imagePicker.pickVideo(
+      source: ImageSource.camera,
+      maxDuration: const Duration(minutes: 2),
+    );
+    if (file != null) {
+      _addPickedMedia([file], explicitType: ActivityMediaType.video);
+    }
+  }
+
+  void _addPickedMedia(List<XFile> files, {ActivityMediaType? explicitType}) {
+    if (files.isEmpty || !mounted) return;
+    final remainingSlots = 3 - _selectedMedia.length;
+    if (remainingSlots <= 0) return;
+    final accepted = files.take(remainingSlots).toList(growable: false);
+    setState(() {
+      _selectedMedia.addAll(
+        accepted.map(
+          (file) => PendingActivityMedia(
+            file: file,
+            type: explicitType ?? _inferMediaType(file),
+          ),
+        ),
+      );
+    });
+    if (files.length > accepted.length) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('You can add up to 3 media items.')),
+      );
+    }
+  }
+
+  ActivityMediaType _inferMediaType(XFile file) {
+    final mimeType = file.mimeType?.toLowerCase();
+    if (mimeType?.startsWith('video/') == true) {
+      return ActivityMediaType.video;
+    }
+    final name = file.name.toLowerCase();
+    if (name.endsWith('.mp4') ||
+        name.endsWith('.mov') ||
+        name.endsWith('.m4v') ||
+        name.endsWith('.avi') ||
+        name.endsWith('.webm')) {
+      return ActivityMediaType.video;
+    }
+    return ActivityMediaType.photo;
+  }
+
+  void _removeMedia(int index) {
+    setState(() => _selectedMedia.removeAt(index));
+  }
+
+  void _reorderMedia(int oldIndex, int newIndex) {
+    setState(() {
+      if (newIndex > oldIndex) newIndex -= 1;
+      final item = _selectedMedia.removeAt(oldIndex);
+      _selectedMedia.insert(newIndex, item);
+    });
   }
 
   Widget _buildStatItem(
@@ -462,127 +682,105 @@ class _JourneySummarySheetState extends State<JourneySummarySheet> {
   }
 }
 
-class _JourneyRoutePreview extends StatelessWidget {
-  const _JourneyRoutePreview({required this.routePoints});
+class _PendingMediaTile extends StatelessWidget {
+  const _PendingMediaTile({required this.media, required this.onRemove});
 
-  final List<LatLng> routePoints;
+  final PendingActivityMedia media;
+  final VoidCallback onRemove;
 
   @override
   Widget build(BuildContext context) {
-    return AspectRatio(
-      aspectRatio: 16 / 9,
+    return SizedBox(
+      width: 118,
       child: DecoratedBox(
         decoration: BoxDecoration(
-          color: AppSurfaces.softCard(context),
+          color: AppSurfaces.card(context),
           borderRadius: BorderRadius.circular(12),
           border: Border.all(color: AppSurfaces.border(context)),
         ),
-        child: CustomPaint(
-          painter: _JourneyRoutePreviewPainter(
-            points: routePoints,
-            routeColor: AppColors.sage,
-            mutedColor: AppSurfaces.textSubtle(context),
-          ),
-          child: Center(
-            child: routePoints.length < 2
-                ? Text(
-                    'Route recorded',
-                    style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                      color: AppSurfaces.textMuted(context),
-                      fontWeight: FontWeight.w800,
-                    ),
-                  )
-                : const SizedBox.shrink(),
-          ),
+        child: Stack(
+          children: [
+            Positioned.fill(
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(12),
+                child: media.isVideo
+                    ? const Center(child: Icon(Icons.play_circle_outline))
+                    : Image.file(File(media.file.path), fit: BoxFit.cover),
+              ),
+            ),
+            if (media.isVideo)
+              const Positioned(
+                left: 8,
+                bottom: 8,
+                child: Icon(Icons.videocam, color: Colors.white),
+              ),
+            Positioned(
+              top: 4,
+              right: 4,
+              child: IconButton.filledTonal(
+                visualDensity: VisualDensity.compact,
+                onPressed: onRemove,
+                icon: const Icon(Icons.close, size: 16),
+              ),
+            ),
+          ],
         ),
       ),
     );
   }
 }
 
-class _JourneyRoutePreviewPainter extends CustomPainter {
-  const _JourneyRoutePreviewPainter({
-    required this.points,
-    required this.routeColor,
-    required this.mutedColor,
-  });
+class _PhotoLibraryTile extends StatelessWidget {
+  const _PhotoLibraryTile({required this.enabled, required this.onTap});
 
-  final List<LatLng> points;
-  final Color routeColor;
-  final Color mutedColor;
+  final bool enabled;
+  final VoidCallback onTap;
 
   @override
-  void paint(Canvas canvas, Size size) {
-    if (points.length < 2) {
-      final paint = Paint()
-        ..color = mutedColor.withValues(alpha: 0.35)
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = 2;
-      canvas.drawRRect(
-        RRect.fromRectAndRadius(
-          Offset.zero & size,
-          const Radius.circular(12),
-        ).deflate(18),
-        paint,
-      );
-      return;
-    }
-
-    var minLat = points.first.latitude;
-    var maxLat = points.first.latitude;
-    var minLng = points.first.longitude;
-    var maxLng = points.first.longitude;
-    for (final point in points.skip(1)) {
-      minLat = point.latitude < minLat ? point.latitude : minLat;
-      maxLat = point.latitude > maxLat ? point.latitude : maxLat;
-      minLng = point.longitude < minLng ? point.longitude : minLng;
-      maxLng = point.longitude > maxLng ? point.longitude : maxLng;
-    }
-
-    const padding = 20.0;
-    final drawSize = Size(
-      (size.width - padding * 2).clamp(1, double.infinity).toDouble(),
-      (size.height - padding * 2).clamp(1, double.infinity).toDouble(),
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Material(
+      color: AppSurfaces.card(context),
+      borderRadius: BorderRadius.circular(14),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(14),
+        onTap: enabled ? onTap : null,
+        child: Container(
+          width: double.infinity,
+          padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 22),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: AppSurfaces.border(context)),
+          ),
+          child: Column(
+            children: [
+              Icon(
+                Icons.photo_library_outlined,
+                size: 34,
+                color: enabled
+                    ? AppColors.sage
+                    : AppSurfaces.textMuted(context),
+              ),
+              const SizedBox(height: 10),
+              Text(
+                'Photo Library',
+                style: theme.textTheme.titleSmall?.copyWith(
+                  color: AppSurfaces.textPrimary(context),
+                  fontWeight: FontWeight.w900,
+                ),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                'Add photos or videos',
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: AppSurfaces.textMuted(context),
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
     );
-    final latSpan = (maxLat - minLat).abs();
-    final lngSpan = (maxLng - minLng).abs();
-    final safeLatSpan = latSpan == 0 ? 0.00001 : latSpan;
-    final safeLngSpan = lngSpan == 0 ? 0.00001 : lngSpan;
-
-    Offset mapPoint(LatLng point) {
-      final x =
-          padding + ((point.longitude - minLng) / safeLngSpan) * drawSize.width;
-      final y =
-          padding + ((maxLat - point.latitude) / safeLatSpan) * drawSize.height;
-      return Offset(x, y);
-    }
-
-    final firstPoint = mapPoint(points.first);
-    final path = Path()..moveTo(firstPoint.dx, firstPoint.dy);
-    for (final point in points.skip(1)) {
-      final offset = mapPoint(point);
-      path.lineTo(offset.dx, offset.dy);
-    }
-
-    final routePaint = Paint()
-      ..color = routeColor
-      ..style = PaintingStyle.stroke
-      ..strokeCap = StrokeCap.round
-      ..strokeJoin = StrokeJoin.round
-      ..strokeWidth = 5;
-    canvas.drawPath(path, routePaint);
-
-    final endpointPaint = Paint()
-      ..color = routeColor
-      ..style = PaintingStyle.fill;
-    canvas.drawCircle(mapPoint(points.first), 5, endpointPaint);
-    canvas.drawCircle(mapPoint(points.last), 5, endpointPaint);
-  }
-
-  @override
-  bool shouldRepaint(covariant _JourneyRoutePreviewPainter oldDelegate) {
-    return oldDelegate.points != points ||
-        oldDelegate.routeColor != routeColor ||
-        oldDelegate.mutedColor != mutedColor;
   }
 }

@@ -1,6 +1,6 @@
 /*
  * Author: Sanjevan Rajasegar
- * Last Updated: 16 August 2026 — Sanjevan Rajasegar
+ * Last Updated: 21 August 2026 — Sanjevan Rajasegar
  * Description:
  *   Firestore rules tests for profile activity reads, follows, activity
  *   creation, counters, and interaction subcollections.
@@ -409,6 +409,34 @@ async function runActivityCreateRulesTests() {
           durationSeconds: 1800,
         }),
     );
+    await assertSucceeds(ownerDb.collection('public_profiles').doc('owner').get());
+    await assertSucceeds(
+      ownerDb
+        .collection('profiles')
+        .doc('owner')
+        .collection('journeys')
+        .doc('journey-transaction')
+        .set({
+          userId: 'owner',
+          startTime: '2026-08-10T00:00:00.000Z',
+          endTime: '2026-08-10T00:30:00.000Z',
+          startLocation: {},
+          endLocation: {},
+          transportMode: 'walk',
+          encodedRoute: '_p~iF~ps|U_ulLnnqC_mqNvxq`@',
+          distanceMeters: 3200,
+          durationSeconds: 1800,
+        }),
+    );
+    await assertSucceeds(
+      ownerDb.runTransaction(async (transaction) => {
+        const activityRef = ownerDb.collection('activities').doc('journey_journey-transaction');
+        const publicProfileRef = ownerDb.collection('public_profiles').doc('owner');
+        await transaction.get(activityRef);
+        await transaction.get(publicProfileRef);
+        transaction.set(activityRef, journeyActivityData('journey-transaction', 'owner'));
+      }),
+    );
     await assertSucceeds(
       ownerDb
         .collection('activities')
@@ -432,6 +460,66 @@ async function runActivityCreateRulesTests() {
         .collection('activities')
         .doc('journey_journey-1-wrong-owner')
         .set(journeyActivityData('journey-1-wrong-owner', 'viewer')),
+    );
+    await assertFails(
+      ownerDb
+        .collection('activities')
+        .doc('journey_journey-1')
+        .set(journeyActivityData('journey-1', 'owner', {
+          unexpectedField: true,
+        })),
+    );
+    await assertFails(
+      ownerDb
+        .collection('activities')
+        .doc('journey_journey-1')
+        .set(journeyActivityData('journey-1', 'owner', {
+          routeBounds: {
+            southwestLatitude: -37.8136,
+            southwestLongitude: 144.9631,
+            northeastLatitude: -37.8115,
+          },
+        })),
+    );
+    await assertFails(
+      ownerDb
+        .collection('activities')
+        .doc('journey_journey-1')
+        .set(journeyActivityData('journey-1', 'owner', {
+          routeBounds: {
+            southwestLatitude: -37.8136,
+            southwestLongitude: 144.9631,
+            northeastLatitude: -37.8115,
+            northeastLongitude: 144.9700,
+            extra: 1,
+          },
+        })),
+    );
+    await assertFails(
+      ownerDb
+        .collection('activities')
+        .doc('journey_journey-1')
+        .set(journeyActivityData('journey-1', 'owner', {
+          routeBounds: {
+            southwestLatitude: 'bad',
+            southwestLongitude: 144.9631,
+            northeastLatitude: -37.8115,
+            northeastLongitude: 144.9700,
+          },
+        })),
+    );
+    await assertFails(
+      ownerDb
+        .collection('activities')
+        .doc('journey_journey-1')
+        .set(journeyActivityData('journey-1', 'owner', {
+          routeBounds: {
+            southwestLatitude: -37.8115,
+            southwestLongitude: 144.9631,
+            northeastLatitude: -37.8136,
+            northeastLongitude: 144.9700,
+          },
+        })),
     );
     await assertFails(
       ownerDb
@@ -602,6 +690,15 @@ async function runActivityInteractionRulesTests() {
         activityId: 'activity-1',
         activityOwnerId: 'owner',
         userId: 'viewer',
+        createdAt,
+      }),
+    );
+    const ownerDb = testEnv.authenticatedContext('owner').firestore();
+    await assertFails(
+      ownerDb.collection('activities').doc('activity-1').collection('kudos').doc('owner').set({
+        activityId: 'activity-1',
+        activityOwnerId: 'owner',
+        userId: 'owner',
         createdAt,
       }),
     );

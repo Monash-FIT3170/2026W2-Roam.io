@@ -1,6 +1,6 @@
 /*
- * Author: Sam Sutherland
- * Last Modified: 13/08/2026
+ * Author: Sanjevan Rajasegar
+ * Last Modified: 22 August 2026
  * Description:
  *   Manages Android and iOS system notifications, including initialisation,
  *   permission requests, notification actions, categories and channels.
@@ -352,7 +352,7 @@ class _NotificationChannelConfiguration {
 const _socialChannel = _NotificationChannelConfiguration(
   id: 'social_notifications',
   name: 'Social notifications',
-  description: 'Friend requests, follows, comments and Kudos',
+  description: 'Friend requests, follows, comments and Glaze',
   importance: Importance.high,
   priority: Priority.high,
 );

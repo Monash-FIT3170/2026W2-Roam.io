@@ -1,6 +1,6 @@
 /*
  * Author: Sanjevan Rajasegar
- * Last Updated: 19 August 2026
+ * Last Updated: 22 August 2026
  * Description:
  *   Creates real persisted social activity documents from completed app
  *   events such as Journeys.
@@ -9,17 +9,59 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/foundation.dart';
 
+import '../../../services/storage_service.dart';
 import '../../journeys/data/polyline_codec.dart';
 import '../../journeys/domain/journey.dart';
 import '../../profile/domain/profile_model.dart';
 import '../models/activity_feed_item.dart';
 
+/// Shared input for publishing social activities from completed app events.
+class CreateActivityInput {
+  const CreateActivityInput({
+    required this.activityId,
+    required this.ownerId,
+    required this.title,
+    required this.kind,
+    required this.metrics,
+    this.sourceJourneyId,
+    this.encodedRoute,
+    this.routeBounds,
+    this.journeyStartTime,
+    this.journeyEndTime,
+    this.transportMode,
+    this.sourceSidequestId,
+    this.sidequestCompletedAt,
+    this.showMapPreview = false,
+    this.mediaSelections = const <PendingActivityMedia>[],
+  });
+
+  final String activityId;
+  final String ownerId;
+  final String title;
+  final ActivityFeedKind kind;
+  final List<ActivityFeedMetric> metrics;
+  final String? sourceJourneyId;
+  final String? encodedRoute;
+  final Map<String, dynamic>? routeBounds;
+  final DateTime? journeyStartTime;
+  final DateTime? journeyEndTime;
+  final String? transportMode;
+  final String? sourceSidequestId;
+  final DateTime? sidequestCompletedAt;
+  final bool showMapPreview;
+  final List<PendingActivityMedia> mediaSelections;
+}
+
 /// Creates persisted activity feed documents from real domain sources.
 class ActivityCreationService {
-  ActivityCreationService({FirebaseFirestore? firestore})
-    : _firestore = firestore ?? FirebaseFirestore.instance;
+  ActivityCreationService({
+    FirebaseFirestore? firestore,
+    StorageService? storageService,
+  }) : _firestore = firestore ?? FirebaseFirestore.instance,
+       _storageService = storageService ?? StorageService();
 
   final FirebaseFirestore _firestore;
+  final StorageService _storageService;
 
   CollectionReference<Map<String, dynamic>> get _activities =>
       _firestore.collection('activities');
@@ -32,6 +74,7 @@ class ActivityCreationService {
     required Journey journey,
     required String title,
     ProfileModel? fallbackProfile,
+    List<PendingActivityMedia> mediaSelections = const <PendingActivityMedia>[],
   }) async {
     if (journey.userId.isEmpty) {
       throw ArgumentError.value(
@@ -49,27 +92,240 @@ class ActivityCreationService {
     }
 
     final activityId = 'journey_${journey.id}';
-    final activityRef = _activities.doc(activityId);
-    final publicProfileRef = _publicProfiles.doc(journey.userId);
-    final now = DateTime.now().toUtc();
-
-    final data = await _runCreateJourneyTransaction(
-      activityRef: activityRef,
-      publicProfileRef: publicProfileRef,
-      journey: journey,
-      title: title,
+    final routeBounds = _routeBoundsData(journey.encodedRoute);
+    return _createActivity(
+      input: CreateActivityInput(
+        activityId: activityId,
+        ownerId: journey.userId,
+        title: _nonEmpty(title) ?? journey.displayTitle,
+        kind: ActivityFeedKind.journey,
+        sourceJourneyId: journey.id,
+        encodedRoute: journey.encodedRoute,
+        routeBounds: routeBounds,
+        journeyStartTime: journey.startTime,
+        journeyEndTime: journey.endTime,
+        transportMode: journey.transportMode.name,
+        showMapPreview: true,
+        mediaSelections: mediaSelections,
+        metrics: [
+          ActivityFeedMetric(
+            label: 'Time',
+            value: _formatDuration(journey.durationSeconds),
+          ),
+          ActivityFeedMetric(
+            label: 'Tiles Unlocked',
+            value: '${journey.tilesUnlocked}',
+          ),
+          ActivityFeedMetric(
+            label: 'XP Gained',
+            value: '+${journey.xpEarned ?? 0} XP',
+          ),
+        ],
+      ),
       fallbackProfile: fallbackProfile,
-      now: now,
     );
-
-    return _activityFromData(activityRef.id, data);
   }
 
-  Future<Map<String, dynamic>> _runCreateJourneyTransaction({
+  /// Adapter for teammate-owned sidequest completion code.
+  ///
+  /// Call this only after the sidequest completion has been committed. Required
+  /// fields are owner id, deterministic source sidequest id, display title,
+  /// metrics, completion timestamp, optional media, and fallback profile.
+  Future<ActivityFeedItem> createSidequestActivity({
+    required String ownerId,
+    required String sourceSidequestId,
+    required String title,
+    required List<ActivityFeedMetric> metrics,
+    required DateTime completedAt,
+    ProfileModel? fallbackProfile,
+    List<PendingActivityMedia> mediaSelections = const <PendingActivityMedia>[],
+  }) {
+    if (ownerId.isEmpty) {
+      throw ArgumentError.value(ownerId, 'ownerId', 'Owner id is required');
+    }
+    if (sourceSidequestId.isEmpty) {
+      throw ArgumentError.value(
+        sourceSidequestId,
+        'sourceSidequestId',
+        'Sidequest id is required',
+      );
+    }
+    return _createActivity(
+      input: CreateActivityInput(
+        activityId: 'sidequest_$sourceSidequestId',
+        ownerId: ownerId,
+        title: _nonEmpty(title) ?? 'Completed Sidequest',
+        kind: ActivityFeedKind.sidequest,
+        sourceSidequestId: sourceSidequestId,
+        sidequestCompletedAt: completedAt,
+        mediaSelections: mediaSelections,
+        metrics: metrics,
+      ),
+      fallbackProfile: fallbackProfile,
+    );
+  }
+
+  Future<ActivityFeedItem> _createActivity({
+    required CreateActivityInput input,
+    required ProfileModel? fallbackProfile,
+  }) async {
+    if (input.ownerId.isEmpty) {
+      throw ArgumentError.value(
+        input.ownerId,
+        'ownerId',
+        'User id is required',
+      );
+    }
+
+    final activityRef = _activities.doc(input.activityId);
+    final existing = await activityRef.get();
+    final existingData = existing.data();
+    if (existingData != null) {
+      return _activityFromData(
+        activityRef.id,
+        await _reconcileExistingActivityMedia(
+          activityRef: activityRef,
+          existingData: existingData,
+          input: input,
+        ),
+      );
+    }
+
+    final uploadedMedia = <ActivityMediaItem>[];
+    try {
+      uploadedMedia.addAll(
+        await _uploadActivityMedia(
+          ownerId: input.ownerId,
+          activityId: input.activityId,
+          selections: input.mediaSelections,
+        ),
+      );
+    } catch (_) {
+      await _cleanupUploadedMedia(uploadedMedia);
+      rethrow;
+    }
+
+    final publicProfileRef = _publicProfiles.doc(input.ownerId);
+    final now = DateTime.now().toUtc();
+
+    try {
+      final data = await _runCreateActivityTransaction(
+        activityRef: activityRef,
+        publicProfileRef: publicProfileRef,
+        input: input,
+        media: uploadedMedia,
+        fallbackProfile: fallbackProfile,
+        now: now,
+      );
+      if (!_createdWithUploadedMedia(data, uploadedMedia)) {
+        await _cleanupUploadedMedia(uploadedMedia);
+      }
+      return _activityFromData(activityRef.id, data);
+    } catch (_) {
+      await _cleanupUploadedMedia(uploadedMedia);
+      rethrow;
+    }
+  }
+
+  bool _createdWithUploadedMedia(
+    Map<String, dynamic> data,
+    List<ActivityMediaItem> uploadedMedia,
+  ) {
+    if (uploadedMedia.isEmpty) return true;
+    final stored = data['media'];
+    if (stored is! List || stored.length != uploadedMedia.length) return false;
+    final uploadedIds = uploadedMedia.map((item) => item.id).toSet();
+    final storedIds = stored
+        .whereType<Map>()
+        .map((item) => item['id'])
+        .whereType<String>()
+        .toSet();
+    return storedIds.containsAll(uploadedIds);
+  }
+
+  Future<Map<String, dynamic>> _reconcileExistingActivityMedia({
+    required DocumentReference<Map<String, dynamic>> activityRef,
+    required Map<String, dynamic> existingData,
+    required CreateActivityInput input,
+  }) async {
+    if (input.mediaSelections.isEmpty ||
+        existingData['ownerId'] != input.ownerId) {
+      return existingData;
+    }
+
+    final existingMedia = _mediaFromData(existingData['media']);
+    if (existingMedia.isNotEmpty || existingMedia.length >= 3) {
+      return existingData;
+    }
+
+    final uploadedMedia = <ActivityMediaItem>[];
+    try {
+      uploadedMedia.addAll(
+        await _uploadActivityMedia(
+          ownerId: input.ownerId,
+          activityId: input.activityId,
+          selections: input.mediaSelections,
+          startIndex: existingMedia.length,
+        ),
+      );
+    } catch (_) {
+      await _cleanupUploadedMedia(uploadedMedia);
+      rethrow;
+    }
+
+    if (uploadedMedia.isEmpty) return existingData;
+
+    try {
+      final reconciled = await _firestore.runTransaction<Map<String, dynamic>>((
+        transaction,
+      ) async {
+        final snapshot = await transaction.get(activityRef);
+        final latestData = snapshot.data();
+        if (latestData == null || latestData['ownerId'] != input.ownerId) {
+          return existingData;
+        }
+        final latestMedia = _mediaFromData(latestData['media']);
+        if (latestMedia.isNotEmpty || latestMedia.length >= 3) {
+          return latestData;
+        }
+        final combined = [
+          ...latestMedia,
+          ...uploadedMedia,
+        ].take(3).toList(growable: false);
+        final normalized = <ActivityMediaItem>[
+          for (var index = 0; index < combined.length; index += 1)
+            ActivityMediaItem(
+              id: combined[index].id,
+              type: combined[index].type,
+              url: combined[index].url,
+              storagePath: combined[index].storagePath,
+              order: index,
+              createdAt: combined[index].createdAt,
+              thumbnailUrl: combined[index].thumbnailUrl,
+            ),
+        ];
+        final nextData = Map<String, dynamic>.from(latestData)
+          ..['media'] = normalized
+              .map((item) => item.toMap())
+              .toList(growable: false);
+        transaction.update(activityRef, {'media': nextData['media']});
+        return nextData;
+      });
+      if (!_createdWithUploadedMedia(reconciled, uploadedMedia)) {
+        await _cleanupUploadedMedia(uploadedMedia);
+      }
+      return reconciled;
+    } catch (_) {
+      await _cleanupUploadedMedia(uploadedMedia);
+      rethrow;
+    }
+  }
+
+  Future<Map<String, dynamic>> _runCreateActivityTransaction({
     required DocumentReference<Map<String, dynamic>> activityRef,
     required DocumentReference<Map<String, dynamic>> publicProfileRef,
-    required Journey journey,
-    required String title,
+    required CreateActivityInput input,
+    required List<ActivityMediaItem> media,
     required ProfileModel? fallbackProfile,
     required DateTime now,
   }) async {
@@ -86,38 +342,60 @@ class ActivityCreationService {
         );
         final publicProfileDoc = await transaction.get(publicProfileRef);
         final identity = _activityIdentity(
-          userId: journey.userId,
+          userId: input.ownerId,
           publicProfileData: publicProfileDoc.data(),
           fallbackProfile: fallbackProfile,
         );
-        final routeBounds = _routeBoundsData(journey.encodedRoute);
         final activity = <String, dynamic>{
           'activityId': activityRef.id,
-          'ownerId': journey.userId,
-          'profileId': journey.userId,
+          'ownerId': input.ownerId,
+          'profileId': input.ownerId,
           'displayName': identity.displayName,
           'username': identity.username,
-          'title': _nonEmpty(title) ?? journey.displayTitle,
-          'kind': ActivityFeedKind.journey.name,
-          'sourceJourneyId': journey.id,
-          'encodedRoute': journey.encodedRoute,
-          ...?routeBounds == null
+          'title': input.title,
+          'kind': input.kind.name,
+          ...?input.sourceJourneyId == null
               ? null
-              : <String, dynamic>{'routeBounds': routeBounds},
-          'journeyStartTime': journey.startTime.toUtc().toIso8601String(),
-          'journeyEndTime': journey.endTime.toUtc().toIso8601String(),
-          'transportMode': journey.transportMode.name,
-          'media': const <String>[],
-          'showMapPreview': true,
+              : <String, dynamic>{'sourceJourneyId': input.sourceJourneyId},
+          ...?input.encodedRoute == null
+              ? null
+              : <String, dynamic>{'encodedRoute': input.encodedRoute},
+          ...?input.routeBounds == null
+              ? null
+              : <String, dynamic>{'routeBounds': input.routeBounds},
+          ...?input.journeyStartTime == null
+              ? null
+              : <String, dynamic>{
+                  'journeyStartTime': input.journeyStartTime!
+                      .toUtc()
+                      .toIso8601String(),
+                },
+          ...?input.journeyEndTime == null
+              ? null
+              : <String, dynamic>{
+                  'journeyEndTime': input.journeyEndTime!
+                      .toUtc()
+                      .toIso8601String(),
+                },
+          ...?input.transportMode == null
+              ? null
+              : <String, dynamic>{'transportMode': input.transportMode},
+          ...?input.sourceSidequestId == null
+              ? null
+              : <String, dynamic>{'sourceSidequestId': input.sourceSidequestId},
+          ...?input.sidequestCompletedAt == null
+              ? null
+              : <String, dynamic>{
+                  'sidequestCompletedAt': input.sidequestCompletedAt!
+                      .toUtc()
+                      .toIso8601String(),
+                },
+          'media': media.map((item) => item.toMap()).toList(growable: false),
+          'showMapPreview': input.showMapPreview,
           'createdAt': now.toIso8601String(),
-          'metrics': [
-            {
-              'label': 'Time',
-              'value': _formatDuration(journey.durationSeconds),
-            },
-            {'label': 'Tiles Unlocked', 'value': '${journey.tilesUnlocked}'},
-            {'label': 'XP Gained', 'value': '+${journey.xpEarned ?? 0} XP'},
-          ],
+          'metrics': input.metrics
+              .map((metric) => {'label': metric.label, 'value': metric.value})
+              .toList(growable: false),
         };
         final photoUrl = identity.photoUrl;
         if (photoUrl != null && photoUrl.isNotEmpty) {
@@ -132,10 +410,68 @@ class ActivityCreationService {
         '[ActivityCreationService] create journey activity failed '
         'publicProfilePath=${publicProfileRef.path} '
         'activityPath=${activityRef.path} '
-        'journeyId=${journey.id} code=${error.code} '
+        'activityId=${input.activityId} code=${error.code} '
         'message=${error.message}\n$stackTrace',
       );
       rethrow;
+    }
+  }
+
+  Future<List<ActivityMediaItem>> _uploadActivityMedia({
+    required String ownerId,
+    required String activityId,
+    required List<PendingActivityMedia> selections,
+    int startIndex = 0,
+  }) async {
+    final remainingSlots = 3 - startIndex;
+    if (remainingSlots <= 0) return const <ActivityMediaItem>[];
+    final limited = selections.take(remainingSlots).toList(growable: false);
+    final uploaded = <ActivityMediaItem>[];
+    final now = DateTime.now().toUtc();
+    try {
+      for (var index = 0; index < limited.length; index += 1) {
+        final selection = limited[index];
+        final order = startIndex + index;
+        final mediaId = 'media_${order}_${now.microsecondsSinceEpoch}';
+        final bytes = await selection.file.readAsBytes();
+        final result = await _storageService.uploadActivityMedia(
+          uid: ownerId,
+          activityId: activityId,
+          mediaId: mediaId,
+          bytes: bytes,
+          filename: selection.file.name,
+          mediaType: selection.type.name,
+        );
+        uploaded.add(
+          ActivityMediaItem(
+            id: mediaId,
+            type: selection.type,
+            url: result.url,
+            storagePath: result.storagePath,
+            order: order,
+            createdAt: now,
+          ),
+        );
+      }
+    } catch (_) {
+      await _cleanupUploadedMedia(uploaded);
+      rethrow;
+    }
+    return uploaded;
+  }
+
+  Future<void> _cleanupUploadedMedia(List<ActivityMediaItem> media) async {
+    for (final item in media) {
+      try {
+        await _storageService.deleteActivityMedia(
+          storagePath: item.storagePath,
+        );
+      } catch (error) {
+        debugPrint(
+          '[ActivityCreationService] orphan media cleanup failed '
+          'path=${item.storagePath} error=$error',
+        );
+      }
     }
   }
 
@@ -228,6 +564,7 @@ class ActivityCreationService {
       timestampLabel: createdAt == null
           ? 'Recently'
           : '${createdAt.toLocal().day}/${createdAt.toLocal().month}/${createdAt.toLocal().year}',
+      createdAt: createdAt,
       title: data['title'] as String,
       kind: ActivityFeedKindParsing.fromWireValue(data['kind'] as String),
       showMapPreview: data['showMapPreview'] as bool? ?? true,
@@ -241,9 +578,7 @@ class ActivityCreationService {
         data['journeyEndTime'] as String? ?? '',
       ),
       transportMode: data['transportMode'] as String?,
-      media:
-          (data['media'] as List?)?.whereType<String>().toList() ??
-          const <String>[],
+      media: _mediaFromData(data['media']),
       metrics: (data['metrics'] as List)
           .whereType<Map>()
           .map(
@@ -254,6 +589,51 @@ class ActivityCreationService {
           )
           .toList(growable: false),
     );
+  }
+
+  List<ActivityMediaItem> _mediaFromData(Object? value) {
+    if (value is! List) return const <ActivityMediaItem>[];
+    final media = <ActivityMediaItem>[];
+    for (var index = 0; index < value.length; index += 1) {
+      final item = value[index];
+      if (item is String) {
+        if (item.isNotEmpty) {
+          media.add(ActivityMediaItem.legacyUrl(item, index));
+        }
+        continue;
+      }
+      if (item is! Map) continue;
+      final id = item['id'];
+      final type = item['type'];
+      final url = item['url'];
+      final storagePath = item['storagePath'];
+      final order = item['order'];
+      final createdAt = item['createdAt'];
+      if (id is! String ||
+          type is! String ||
+          url is! String ||
+          storagePath is! String ||
+          order is! num) {
+        continue;
+      }
+      final parsedCreatedAt = createdAt is Timestamp
+          ? createdAt.toDate()
+          : DateTime.tryParse(createdAt as String? ?? '');
+      if (parsedCreatedAt == null) continue;
+      media.add(
+        ActivityMediaItem(
+          id: id,
+          type: ActivityMediaType.fromWireValue(type),
+          url: url,
+          storagePath: storagePath,
+          order: order.toInt(),
+          createdAt: parsedCreatedAt,
+          thumbnailUrl: item['thumbnailUrl'] as String?,
+        ),
+      );
+    }
+    media.sort((a, b) => a.order.compareTo(b.order));
+    return media;
   }
 
   ActivityRouteBounds? _routeBoundsFromData(Object? value) {

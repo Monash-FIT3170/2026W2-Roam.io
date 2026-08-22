@@ -1,6 +1,6 @@
 /*
  * Author: Sanjevan Rajasegar
- * Last Updated: 10 August 2026
+ * Last Updated: 22 August 2026
  * Description:
  *   Social notifications list for public follows, private follow requests, and
  *   request acceptance. Opening marks unread notifications read. Private
@@ -225,7 +225,7 @@ class _FollowNotificationRow extends StatelessWidget {
           SocialNotificationType.followRequestAccepted =>
             ' accepted your follow request · $relative',
           SocialNotificationType.activityKudos =>
-            ' gave Kudos to your activity · $relative',
+            ' gave Glaze to your activity · $relative',
           SocialNotificationType.activityComment =>
             notification.isActivityReplyOnOwnedActivity
                 ? ' replied to a comment on your activity · $relative'

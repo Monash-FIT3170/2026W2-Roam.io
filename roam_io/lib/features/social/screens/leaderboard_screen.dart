@@ -48,7 +48,9 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
             return const Center(child: CircularProgressIndicator());
           }
           if (snapshot.hasError) {
-            return Center(child: Text('Error loading leaderboards: ${snapshot.error}'));
+            return Center(
+              child: Text('Error loading leaderboards: ${snapshot.error}'),
+            );
           }
 
           final entries = snapshot.data ?? [];
@@ -58,7 +60,9 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
             children: [
               if (entries.isEmpty)
                 const Expanded(
-                  child: Center(child: Text('No activity found in the last 30 days.')),
+                  child: Center(
+                    child: Text('No activity found in the last 30 days.'),
+                  ),
                 )
               else ...[
                 // Top Leader Highlights
@@ -77,23 +81,37 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
                           ),
                           const Positioned(
                             bottom: -12,
-                            child: Icon(Icons.workspace_premium, color: Colors.amber, size: 36),
+                            child: Icon(
+                              Icons.workspace_premium,
+                              color: Colors.amber,
+                              size: 36,
+                            ),
                           ),
                         ],
                       ),
                       const SizedBox(height: 24),
                       Text(
                         _formatMetric(entries.first),
-                        style: const TextStyle(fontSize: 32, fontWeight: FontWeight.bold),
+                        style: const TextStyle(
+                          fontSize: 32,
+                          fontWeight: FontWeight.bold,
+                        ),
                       ),
                       const Text(
                         '#1 Leader',
-                        style: TextStyle(fontSize: 14, color: Colors.grey, fontWeight: FontWeight.w600),
+                        style: TextStyle(
+                          fontSize: 14,
+                          color: Colors.grey,
+                          fontWeight: FontWeight.w600,
+                        ),
                       ),
                       const SizedBox(height: 4),
                       Text(
                         entries.first.displayName,
-                        style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                        style: const TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                        ),
                       ),
                     ],
                   ),
@@ -105,7 +123,8 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
                 Expanded(
                   child: ListView.separated(
                     itemCount: entries.length,
-                    separatorBuilder: (context, index) => const Divider(height: 1),
+                    separatorBuilder: (context, index) =>
+                        const Divider(height: 1),
                     itemBuilder: (context, index) {
                       final entry = entries[index];
                       return ListTile(
@@ -120,7 +139,9 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
                                 style: TextStyle(
                                   fontWeight: FontWeight.bold,
                                   fontSize: 16,
-                                  color: index == 0 ? Colors.amber : Colors.black87,
+                                  color: index == 0
+                                      ? Colors.amber
+                                      : Colors.black87,
                                 ),
                               ),
                             ),
@@ -148,7 +169,7 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
                     },
                   ),
                 ),
-              ]
+              ],
             ],
           );
         },

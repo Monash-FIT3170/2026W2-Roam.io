@@ -1,6 +1,6 @@
 /*
  * Author: Sanjevan Rajasegar
- * Last Updated: 10 August 2026
+ * Last Updated: 22 August 2026
  * Description:
  *   Tests the reusable notification templates to ensure each template
  *   produces the expected type, content, actions, duration and metadata.
@@ -52,12 +52,12 @@ void main() {
       expect(notification.actions, isEmpty);
     });
 
-    test('kudos creates a short notification', () {
+    test('kudos creates a short Glaze notification', () {
       final notification = NotificationTemplates.kudos('Alex');
 
       expect(notification.type, NotificationType.kudos);
-      expect(notification.title, 'Kudos Received');
-      expect(notification.body, 'Alex gave you Kudos.');
+      expect(notification.title, 'Glaze Received');
+      expect(notification.body, 'Alex gave you Glaze.');
       expect(notification.displayDuration, const Duration(seconds: 3));
     });
 
@@ -76,7 +76,7 @@ void main() {
       final commentLike = NotificationTemplates.commentLike('Nathan');
 
       expect(kudos.type, NotificationType.kudos);
-      expect(kudos.body, 'Nathan gave Kudos to your activity');
+      expect(kudos.body, 'Nathan gave Glaze to your activity');
       expect(comment.type, NotificationType.comment);
       expect(comment.body, 'Nathan commented on your activity');
       expect(reply.type, NotificationType.commentReply);

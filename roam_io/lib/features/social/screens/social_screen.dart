@@ -68,7 +68,9 @@ class SocialScreen extends StatelessWidget {
               child: InkWell(
                 onTap: () {
                   Navigator.of(context).push(
-                    MaterialPageRoute(builder: (_) => const LeaderboardScreen()),
+                    MaterialPageRoute(
+                      builder: (_) => const LeaderboardScreen(),
+                    ),
                   );
                 },
                 borderRadius: BorderRadius.circular(16),
@@ -86,7 +88,11 @@ class SocialScreen extends StatelessWidget {
                           color: Colors.white.withValues(alpha: 0.2),
                           shape: BoxShape.circle,
                         ),
-                        child: const Icon(Icons.leaderboard, color: Colors.white, size: 28),
+                        child: const Icon(
+                          Icons.leaderboard,
+                          color: Colors.white,
+                          size: 28,
+                        ),
                       ),
                       const SizedBox(width: 16),
                       const Expanded(

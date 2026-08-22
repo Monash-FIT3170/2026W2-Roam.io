@@ -182,8 +182,8 @@ void main() {
     final notification = AppNotification(
       id: 'kudos-1',
       type: NotificationType.kudos,
-      title: 'Kudos Received',
-      body: 'Alex gave you Kudos.',
+      title: 'Glaze Received',
+      body: 'Alex gave you Glaze.',
       timestamp: DateTime(2026, 8, 1),
     );
 

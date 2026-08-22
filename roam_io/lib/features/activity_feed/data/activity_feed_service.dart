@@ -1,6 +1,6 @@
 /*
  * Author: Sanjevan Rajasegar
- * Last Updated: 10 August 2026
+ * Last Updated: 21 August 2026
  * Description:
  *   Reads persisted public activity feed documents for profile and Home feeds.
  */
@@ -374,6 +374,7 @@ class ActivityFeedService {
         username: _optionalString(id, data, 'username'),
         photoUrl: _optionalString(id, data, 'photoUrl'),
         timestampLabel: _formatDate(createdAt),
+        createdAt: createdAt,
         title: title,
         kind: ActivityFeedKindParsing.fromWireValue(kind),
         metrics: metrics,
@@ -501,8 +502,8 @@ class ActivityFeedService {
     return metrics;
   }
 
-  List<String>? _mediaFromData(String docId, Object? value) {
-    if (value == null) return const <String>[];
+  List<ActivityMediaItem>? _mediaFromData(String docId, Object? value) {
+    if (value == null) return const <ActivityMediaItem>[];
     if (value is! List) {
       debugPrint(
         '[ActivityFeedService] activity parse failed documentId=$docId '
@@ -510,20 +511,83 @@ class ActivityFeedService {
       );
       return null;
     }
-    final media = <String>[];
+    final media = <ActivityMediaItem>[];
     for (var index = 0; index < value.length; index += 1) {
       final item = value[index];
-      if (item is! String) {
+      if (item is String) {
+        if (item.isNotEmpty) {
+          media.add(ActivityMediaItem.legacyUrl(item, index));
+        }
+        continue;
+      }
+
+      if (item is! Map) {
         debugPrint(
           '[ActivityFeedService] activity parse failed documentId=$docId '
-          'field=media[$index] expected=string actualType=${_typeName(item)} '
+          'field=media[$index] expected=string|map actualType=${_typeName(item)} '
           'value=$item',
         );
         return null;
       }
-      if (item.isNotEmpty) media.add(item);
+
+      final parsed = _mediaItemFromData(docId, index, item);
+      if (parsed == null) return null;
+      media.add(parsed);
     }
+    media.sort((a, b) => a.order.compareTo(b.order));
     return media;
+  }
+
+  ActivityMediaItem? _mediaItemFromData(
+    String docId,
+    int index,
+    Map<dynamic, dynamic> data,
+  ) {
+    final id = data['id'];
+    final type = data['type'];
+    final url = data['url'];
+    final storagePath = data['storagePath'];
+    final order = data['order'];
+    final createdAt = data['createdAt'];
+    final thumbnailUrl = data['thumbnailUrl'];
+    if (id is! String ||
+        id.isEmpty ||
+        type is! String ||
+        url is! String ||
+        url.isEmpty ||
+        storagePath is! String ||
+        order is! num ||
+        (thumbnailUrl != null && thumbnailUrl is! String)) {
+      debugPrint(
+        '[ActivityFeedService] activity parse failed documentId=$docId '
+        'field=media[$index] malformed structured item value=$data',
+      );
+      return null;
+    }
+    final parsedCreatedAt = _parseOptionalMediaDate(createdAt);
+    if (parsedCreatedAt == null) {
+      debugPrint(
+        '[ActivityFeedService] activity parse failed documentId=$docId '
+        'field=media[$index].createdAt expected=Timestamp|ISO string '
+        'value=$createdAt',
+      );
+      return null;
+    }
+    return ActivityMediaItem(
+      id: id,
+      type: ActivityMediaType.fromWireValue(type),
+      url: url,
+      storagePath: storagePath,
+      order: order.toInt(),
+      createdAt: parsedCreatedAt,
+      thumbnailUrl: thumbnailUrl,
+    );
+  }
+
+  DateTime? _parseOptionalMediaDate(Object? value) {
+    if (value is Timestamp) return value.toDate();
+    if (value is String) return DateTime.tryParse(value);
+    return null;
   }
 
   ActivityRouteBounds? _routeBoundsFromData(String docId, Object? value) {

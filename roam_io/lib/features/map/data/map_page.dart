@@ -1,6 +1,6 @@
 /*
  * Author: Sanjevan Rajasegar
- * Last Updated: 20 August 2026
+ * Last Updated: 21 August 2026
  * Description:
  *   Hosts the map screen and wires widget lifecycle to the map controller. This
  *   file keeps UI thin while controller setup, visit XP wiring, heatmap
@@ -17,6 +17,7 @@ import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:provider/provider.dart';
 
 import '../../activity_feed/data/activity_creation_service.dart';
+import '../../activity_feed/models/activity_media_item.dart';
 import '../../auth/providers/auth_provider.dart';
 import '../../journeys/data/journey_controller.dart';
 import '../../journeys/data/polyline_codec.dart';
@@ -579,6 +580,8 @@ class _MapPageState extends State<MapPage> {
       initialTitle: journeyController.persistedReviewedJourney?.title,
       xpEarned: journeyController.totalXpEarned,
       tilesUnlocked: journeyController.tilesUnlocked,
+      visitedRegionIds: _mapController.visitedRegionIds,
+      currentRegionId: _mapController.currentRegion?.id,
       onUpdateStartName: journeyController.updateStartLocationName,
       onUpdateEndName: journeyController.updateEndLocationName,
       userId: userId,
@@ -589,7 +592,10 @@ class _MapPageState extends State<MapPage> {
 
     switch (summaryResult.action) {
       case JourneySummaryAction.save:
-        await _saveReviewedJourneyActivity(summaryResult.title);
+        await _saveReviewedJourneyActivity(
+          summaryResult.title,
+          media: summaryResult.media,
+        );
         break;
       case JourneySummaryAction.discard:
         await _discardReviewedJourneyActivity(summaryResult.title);
@@ -597,7 +603,10 @@ class _MapPageState extends State<MapPage> {
     }
   }
 
-  Future<void> _saveReviewedJourneyActivity(String title) async {
+  Future<void> _saveReviewedJourneyActivity(
+    String title, {
+    required List<PendingActivityMedia> media,
+  }) async {
     final journeyController = context.read<JourneyController>();
     final authProvider = context.read<AuthProvider>();
     final userId = authProvider.currentUser?.uid;
@@ -642,6 +651,7 @@ class _MapPageState extends State<MapPage> {
         journey: savedJourney,
         title: title,
         fallbackProfile: authProvider.currentProfile,
+        mediaSelections: media,
       );
     } catch (error, stackTrace) {
       debugPrint(
