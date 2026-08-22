@@ -30,6 +30,9 @@ class Journey {
     this.journeyXpEarned,
     this.tilesUnlocked = 0,
     this.tileXpEarned = 0,
+    this.unlockedTileIds = const [],
+    this.areaUnlockedSquareMetres = 0,
+    this.tilesPerKm,
   });
 
   /// Unique identifier for this journey.
@@ -78,6 +81,15 @@ class Journey {
   /// XP already awarded as those tiles were unlocked.
   final int tileXpEarned;
 
+  /// SA1 polygon IDs first unlocked while tracking this journey.
+  final List<String> unlockedTileIds;
+
+  /// Sum of unlocked tile areas recorded during this journey.
+  final double areaUnlockedSquareMetres;
+
+  /// New tiles unlocked per kilometre travelled.
+  final double? tilesPerKm;
+
   /// Returns the distance formatted as a string (e.g., "3.2 km").
   String get formattedDistance {
     if (distanceMeters >= 1000) {
@@ -121,6 +133,9 @@ class Journey {
     int? journeyXpEarned,
     int? tilesUnlocked,
     int? tileXpEarned,
+    List<String>? unlockedTileIds,
+    double? areaUnlockedSquareMetres,
+    double? tilesPerKm,
   }) {
     return Journey(
       id: id ?? this.id,
@@ -138,6 +153,10 @@ class Journey {
       journeyXpEarned: journeyXpEarned ?? this.journeyXpEarned,
       tilesUnlocked: tilesUnlocked ?? this.tilesUnlocked,
       tileXpEarned: tileXpEarned ?? this.tileXpEarned,
+      unlockedTileIds: unlockedTileIds ?? this.unlockedTileIds,
+      areaUnlockedSquareMetres:
+          areaUnlockedSquareMetres ?? this.areaUnlockedSquareMetres,
+      tilesPerKm: tilesPerKm ?? this.tilesPerKm,
     );
   }
 
@@ -166,6 +185,14 @@ class Journey {
           (data['xpEarned'] as num?)?.toInt(),
       tilesUnlocked: (data['tilesUnlocked'] as num?)?.toInt() ?? 0,
       tileXpEarned: (data['tileXpEarned'] as num?)?.toInt() ?? 0,
+      unlockedTileIds:
+          (data['unlockedTileIds'] as List<dynamic>?)
+              ?.map((value) => '$value')
+              .toList() ??
+          const [],
+      areaUnlockedSquareMetres:
+          (data['areaUnlockedSquareMetres'] as num?)?.toDouble() ?? 0,
+      tilesPerKm: (data['tilesPerKm'] as num?)?.toDouble(),
     );
   }
 
@@ -186,6 +213,9 @@ class Journey {
       'journeyXpEarned': journeyXpEarned,
       'tilesUnlocked': tilesUnlocked,
       'tileXpEarned': tileXpEarned,
+      'unlockedTileIds': unlockedTileIds,
+      'areaUnlockedSquareMetres': areaUnlockedSquareMetres,
+      if (tilesPerKm != null) 'tilesPerKm': tilesPerKm,
     };
   }
 

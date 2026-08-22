@@ -313,6 +313,14 @@ class _MapPageState extends State<MapPage> {
 
     // Update active journey polyline when route changes
     if (journeyController.routePoints.isNotEmpty) {
+      // Journey tracking owns the freshest GPS route while it is active. Feed
+      // that point through the map's existing follow-camera behavior as well
+      // as drawing the route.
+      if (journeyController.isTracking) {
+        _mapController.followTrackedLocation(
+          journeyController.routePoints.last,
+        );
+      }
       _activeJourneyPolyline = {
         Polyline(
           polylineId: const PolylineId('active_journey'),
@@ -343,14 +351,18 @@ class _MapPageState extends State<MapPage> {
   void _showRegionUnlockReward(RegionPolygon region, int xpAwarded) {
     if (!mounted) return;
 
-    context.read<JourneyController>().recordTileUnlocked(xpAwarded);
+    context.read<JourneyController>().recordTileUnlocked(
+      polygonId: region.id,
+      xpAwarded: xpAwarded,
+      areaSquareMetres: region.areaSquareMetres,
+    );
 
     final message = 'Unlocked New Region +$xpAwarded XP';
     final auth = context.read<AuthProvider>();
 
     // When XP triggers a level-up, show the unlock toast inside the celebration
     // overlay (below the centered content) instead of as a scaffold snackbar.
-    if (auth.pendingLevelUp != null) {
+    if (auth.pendingXpCelebration != null) {
       auth.stageUnlockToast(message);
       return;
     }
@@ -453,6 +465,12 @@ class _MapPageState extends State<MapPage> {
     journeyController.setStartLocation(result.startLocation);
     journeyController.setTransportMode(result.transportMode);
     await journeyController.startTracking();
+
+    // Entering journey mode must not leave the camera in a previously panned
+    // state. Resume the normal live-location following behavior immediately.
+    if (journeyController.isTracking) {
+      await _mapController.recenterOnUser();
+    }
   }
 
   Future<void> _endJourneyFlow() async {

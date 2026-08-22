@@ -1,12 +1,9 @@
 /*
  * Author: Sanjevan Rajasegar
- * Last Updated: 6 August 2026
+ * Last Updated: 16 August 2026
  * Description:
- *   You screen card for up to five recent visits. Accepts the latest visit
- *   list from YouAnalyticsProvider so data survives Profile tab remounts.
- *   Shrink-wrapping Column avoids Scaffold(extendBody: true) MediaQuery bottom
- *   padding inflating empty beige space; parent Profile scroll handles nav
- *   clearance.
+ *   Stats card for up to five recent visits, titled inside the card like
+ *   Recent awards on the XP tab.
  */
 
 import 'package:flutter/material.dart';
@@ -15,11 +12,12 @@ import '../../map/data/visit.dart';
 import '../../profile/domain/xp_reward_config.dart';
 import '../../../theme/app_colours.dart';
 import '../../../theme/app_surfaces.dart';
+import 'stats_section_card.dart';
 
 /// Maximum visit rows shown in the Recent Visited Locations card.
 const int kRecentVisitedLocationsLimit = 5;
 
-/// Card shell matching personal progress containers on the You screen.
+/// Card shell for recent visits on the Locations stats category.
 class RecentVisitedLocationsCard extends StatelessWidget {
   const RecentVisitedLocationsCard({
     super.key,
@@ -34,41 +32,23 @@ class RecentVisitedLocationsCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(vertical: 8),
-      decoration: BoxDecoration(
-        color: AppSurfaces.card(context),
-        borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: AppSurfaces.border(context)),
-        boxShadow: [
-          BoxShadow(
-            color: AppSurfaces.shadow(context),
-            blurRadius: 12,
-            offset: const Offset(0, 6),
-          ),
-        ],
-      ),
-      child: _buildBody(context),
-    );
+    return StatsSectionCard(title: 'Recent visits', child: _buildBody(context));
   }
 
   Widget _buildBody(BuildContext context) {
     if (error != null) {
-      return Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
-        child: Text(
-          'Could not load recent visits. Try again later.',
-          textAlign: TextAlign.center,
-          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-            color: AppSurfaces.textMuted(context),
-          ),
+      return Text(
+        'Could not load recent visits. Try again later.',
+        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+          color: AppSurfaces.textMuted(context),
+          fontWeight: FontWeight.w600,
         ),
       );
     }
 
     if (isLoading) {
       return const Padding(
-        padding: EdgeInsets.symmetric(vertical: 28),
+        padding: EdgeInsets.symmetric(vertical: 16),
         child: Center(
           child: SizedBox(
             width: 28,
@@ -82,15 +62,11 @@ class RecentVisitedLocationsCard extends StatelessWidget {
     final limited = visits.take(kRecentVisitedLocationsLimit).toList();
 
     if (limited.isEmpty) {
-      return Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 22),
-        child: Text(
-          'No visits yet. Mark places on the map to see them here.',
-          textAlign: TextAlign.center,
-          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-            color: AppSurfaces.textMuted(context),
-            fontWeight: FontWeight.w600,
-          ),
+      return Text(
+        'No visits yet. Mark places on the map to see them here.',
+        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+          color: AppSurfaces.textMuted(context),
+          fontWeight: FontWeight.w600,
         ),
       );
     }
@@ -99,11 +75,7 @@ class RecentVisitedLocationsCard extends StatelessWidget {
       mainAxisSize: MainAxisSize.min,
       children: [
         for (var index = 0; index < limited.length; index++) ...[
-          if (index > 0)
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 24),
-              child: Divider(color: AppSurfaces.border(context), height: 1),
-            ),
+          if (index > 0) Divider(color: AppSurfaces.border(context), height: 1),
           _VisitRow(visit: limited[index]),
         ],
       ],
@@ -122,7 +94,7 @@ class _VisitRow extends StatelessWidget {
     final colorScheme = theme.colorScheme;
 
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 10),
+      padding: const EdgeInsets.symmetric(vertical: 10),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [

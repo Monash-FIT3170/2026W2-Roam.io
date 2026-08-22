@@ -61,7 +61,7 @@ class RecordingVisitService extends VisitService {
       Set<int>.from(_ids);
 
   @override
-  Future<void> markVisited({
+  Future<VisitWriteResult> markVisited({
     required String userId,
     required PlaceOfInterest place,
     String? customName,
@@ -74,7 +74,7 @@ class RecordingVisitService extends VisitService {
       throw err;
     }
     _ids.add(place.id);
-    await super.markVisited(
+    return super.markVisited(
       userId: userId,
       place: place,
       customName: customName,
@@ -102,7 +102,12 @@ class FakeVisitedRegionService extends VisitedRegionService {
   Future<Set<String>> loadVisitedRegionIds() async => <String>{};
 
   @override
-  Future<bool> markVisited(String regionId, {DateTime? visitedAt}) async {
+  Future<bool> markVisited(
+    String regionId, {
+    DateTime? visitedAt,
+    double? areaSquareMetres,
+    String? name,
+  }) async {
     markVisitedCalls++;
     return markVisitedResult;
   }

@@ -20,12 +20,12 @@ void main() {
       final geo = _StreamingGeoLocatorService();
       final liveActivity = _FakeLiveActivityGateway();
       final controller = JourneyController(
-        journeyService: JourneyService(firestore: FakeFirebaseFirestore()),
+        journeyService: JourneyService(firestore: firestore),
         trackingService: JourneyTrackingService(geoLocatorService: geo),
         liveActivityService: liveActivity,
       );
 
-      controller.recordTileUnlocked(50);
+      controller.recordTileUnlocked(polygonId: 'tile-1', xpAwarded: 50);
       expect(controller.tilesUnlocked, 0);
 
       controller.beginJourneySetup();
@@ -49,7 +49,7 @@ void main() {
       expect(liveActivity.updated.last.xpEarned, controller.totalXpEarned);
 
       await controller.stopTracking();
-      controller.recordTileUnlocked(50);
+      controller.recordTileUnlocked(polygonId: 'tile-1', xpAwarded: 50);
       expect(controller.tilesUnlocked, 2);
       expect(liveActivity.stopped, hasLength(1));
 
@@ -85,7 +85,11 @@ void main() {
     await controller.startTracking();
     geo.addPosition(-37.8125, 144.9631);
     await Future<void>.delayed(Duration.zero);
-    controller.recordTileUnlocked(50);
+    controller.recordTileUnlocked(
+      polygonId: 'tile-save',
+      xpAwarded: 50,
+      areaSquareMetres: 1000,
+    );
     await controller.stopTracking();
     controller.setEndLocation(end);
     controller.proceedToReview();
@@ -101,7 +105,10 @@ void main() {
     final saved = await controller.saveJourney('user-1');
 
     expect(saved, isNotNull);
-    expect(saved?.xpEarned, saved!.journeyXpEarned! + 50);
+    expect(saved!.xpEarned, saved.journeyXpEarned! + 50);
+    expect(saved.tilesUnlocked, 1);
+    expect(saved.unlockedTileIds, ['tile-save']);
+    expect(saved.areaUnlockedSquareMetres, 1000);
     expect(controller.currentPhase, JourneyPhase.idle);
 
     final journeys = await controller.getJourneys('user-1');
@@ -200,7 +207,7 @@ void main() {
     final geo = _StreamingGeoLocatorService();
     final liveActivity = _FakeLiveActivityGateway();
     final controller = JourneyController(
-      journeyService: JourneyService(firestore: FakeFirebaseFirestore()),
+      journeyService: JourneyService(firestore: firestore),
       trackingService: JourneyTrackingService(geoLocatorService: geo),
       liveActivityService: liveActivity,
     );
@@ -241,7 +248,7 @@ void main() {
       final trackingService = JourneyTrackingService(geoLocatorService: geo);
       final liveActivity = _FakeLiveActivityGateway();
       final controller = JourneyController(
-        journeyService: JourneyService(firestore: FakeFirebaseFirestore()),
+        journeyService: JourneyService(firestore: firestore),
         trackingService: trackingService,
         liveActivityService: liveActivity,
       );

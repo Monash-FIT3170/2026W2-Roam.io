@@ -20,6 +20,7 @@ import '../../../notifications/services/live_activity_service.dart';
 import 'journey_service.dart';
 import 'journey_tracking_service.dart';
 import 'polyline_codec.dart';
+import '../../you/services/stats_summary_service.dart';
 
 /// Controller for managing the journey lifecycle and state.
 class JourneyController extends ChangeNotifier {
@@ -187,6 +188,8 @@ class JourneyController extends ChangeNotifier {
       _distanceMeters = 0.0;
       _tilesUnlocked = 0;
       _tileXpEarned = 0;
+      _unlockedTileIds.clear();
+      _areaUnlockedSquareMetres = 0;
 
       _subscribeToTrackingUpdates();
 
@@ -209,10 +212,20 @@ class JourneyController extends ChangeNotifier {
   }
 
   /// Records XP from a tile first unlocked while this journey is tracking.
-  void recordTileUnlocked(int xpAwarded) {
+  void recordTileUnlocked({
+    required String polygonId,
+    required int xpAwarded,
+    double? areaSquareMetres,
+  }) {
     if (!isTracking || xpAwarded <= 0) return;
+    if (_unlockedTileIds.contains(polygonId)) return;
+
     _tilesUnlocked += 1;
     _tileXpEarned += xpAwarded;
+    _unlockedTileIds.add(polygonId);
+    if (areaSquareMetres != null && areaSquareMetres > 0) {
+      _areaUnlockedSquareMetres += areaSquareMetres;
+    }
     notifyListeners();
     unawaited(_syncLiveActivity());
   }
@@ -531,6 +544,11 @@ class JourneyController extends ChangeNotifier {
 
       // Encode the route for efficient storage
       final encodedRoute = PolylineCodec.encode(_routePoints);
+      final tilesPerKm = _distanceMeters >= 1000
+          ? _tilesUnlocked / (_distanceMeters / 1000)
+          : _tilesUnlocked > 0
+          ? _tilesUnlocked.toDouble()
+          : null;
 
       final journey = Journey(
         id: '', // Will be assigned by Firestore
@@ -548,6 +566,9 @@ class JourneyController extends ChangeNotifier {
         journeyXpEarned: distanceXp,
         tilesUnlocked: _tilesUnlocked,
         tileXpEarned: _tileXpEarned,
+        unlockedTileIds: List<String>.from(_unlockedTileIds),
+        areaUnlockedSquareMetres: _areaUnlockedSquareMetres,
+        tilesPerKm: tilesPerKm,
       );
 
       final savedJourney = await _journeyService.saveJourney(journey);
