@@ -1087,13 +1087,13 @@ void main() {
     await _openYouTab(tester, 'Activities');
     expect(find.text("Sanjevan's Test Activity"), findsOneWidget);
 
-      await tester.tap(find.byIcon(Icons.more_horiz_rounded));
-      await tester.pumpAndSettle();
-      expect(find.text('Journey route map'), findsNothing);
-      expect(find.byType(ActivityMapPreview), findsOneWidget);
-      expect(find.text('Glaze'), findsOneWidget);
-      expect(find.text('Comments'), findsOneWidget);
-      expect(find.text('Share'), findsOneWidget);
+    await tester.tap(find.byIcon(Icons.more_horiz_rounded));
+    await tester.pumpAndSettle();
+    expect(find.text('Journey route map'), findsNothing);
+    expect(find.byType(ActivityMapPreview), findsOneWidget);
+    expect(find.text('Glaze'), findsOneWidget);
+    expect(find.text('Comments'), findsOneWidget);
+    expect(find.text('Share'), findsOneWidget);
 
     await tester.pageBack();
     await tester.pumpAndSettle();
