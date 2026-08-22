@@ -67,7 +67,6 @@ class AuthProvider extends ChangeNotifier {
 
   SocialPrivacySettings get socialPrivacy =>
       _currentProfile?.privacy ?? const SocialPrivacySettings();
-  int? get pendingLevelUp => _pendingLevelUp;
   bool get deferLevelUpCelebration => _deferLevelUpCelebration;
 
   /// Temporarily defers the global level-up overlay while another confirmed

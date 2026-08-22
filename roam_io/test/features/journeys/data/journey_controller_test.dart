@@ -17,6 +17,7 @@ void main() {
   test(
     'tile unlock XP is counted only while journey tracking is active',
     () async {
+      final firestore = FakeFirebaseFirestore();
       final geo = _StreamingGeoLocatorService();
       final liveActivity = _FakeLiveActivityGateway();
       final controller = JourneyController(
@@ -37,8 +38,8 @@ void main() {
       );
       await controller.startTracking();
 
-      controller.recordTileUnlocked(50);
-      controller.recordTileUnlocked(50);
+      controller.recordTileUnlocked(polygonId: 'tile-1', xpAwarded: 50);
+      controller.recordTileUnlocked(polygonId: 'tile-2', xpAwarded: 50);
       await Future<void>.delayed(Duration.zero);
 
       expect(controller.tilesUnlocked, 2);
@@ -204,6 +205,7 @@ void main() {
   );
 
   test('rejects invalid state transitions and incomplete journeys', () async {
+    final firestore = FakeFirebaseFirestore();
     final geo = _StreamingGeoLocatorService();
     final liveActivity = _FakeLiveActivityGateway();
     final controller = JourneyController(
@@ -244,6 +246,7 @@ void main() {
   test(
     'continuing an ended journey resumes and preserves its progress',
     () async {
+      final firestore = FakeFirebaseFirestore();
       final geo = _StreamingGeoLocatorService();
       final trackingService = JourneyTrackingService(geoLocatorService: geo);
       final liveActivity = _FakeLiveActivityGateway();

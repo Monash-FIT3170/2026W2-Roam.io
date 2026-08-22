@@ -20,7 +20,6 @@ import '../../../notifications/services/live_activity_service.dart';
 import 'journey_service.dart';
 import 'journey_tracking_service.dart';
 import 'polyline_codec.dart';
-import '../../you/services/stats_summary_service.dart';
 
 /// Controller for managing the journey lifecycle and state.
 class JourneyController extends ChangeNotifier {
@@ -57,6 +56,8 @@ class JourneyController extends ChangeNotifier {
   double _distanceMeters = 0.0;
   int _tilesUnlocked = 0;
   int _tileXpEarned = 0;
+  final List<String> _unlockedTileIds = <String>[];
+  double _areaUnlockedSquareMetres = 0;
   Journey? _persistedReviewedJourney;
   bool _reviewedJourneyXpAwarded = false;
   String? _errorMessage;
@@ -639,6 +640,8 @@ class JourneyController extends ChangeNotifier {
     _distanceMeters = 0.0;
     _tilesUnlocked = 0;
     _tileXpEarned = 0;
+    _unlockedTileIds.clear();
+    _areaUnlockedSquareMetres = 0;
     _persistedReviewedJourney = null;
     _reviewedJourneyXpAwarded = false;
     _errorMessage = null;

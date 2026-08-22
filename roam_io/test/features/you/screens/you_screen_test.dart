@@ -18,6 +18,7 @@ import 'package:provider/provider.dart';
 import 'package:roam_io/features/activity_feed/data/activity_feed_service.dart';
 import 'package:roam_io/features/activity_feed/data/comment_service.dart';
 import 'package:roam_io/features/activity_feed/models/activity_comment.dart';
+import 'package:roam_io/features/activity_feed/models/activity_feed_item.dart';
 import 'package:roam_io/features/activity_feed/screens/comments_screen.dart';
 import 'package:roam_io/features/activity_feed/widgets/activity_map_preview.dart';
 import 'package:roam_io/features/you/screens/you_screen.dart';
@@ -459,7 +460,7 @@ void main() {
     provider.dispose();
   });
 
-  testWidgets('shows profile media preview outside the Activities tab', (
+  testWidgets('keeps profile tab header-only when owned media exists', (
     tester,
   ) async {
     await tester.binding.setSurfaceSize(const Size(400, 1400));
@@ -492,7 +493,7 @@ void main() {
         value: provider,
         child: MaterialApp(
           home: Scaffold(
-            body: YouScreen(
+            body: _testYouScreen(
               visitService: _FakeVisitService(totalVisitCount: 0),
               visitedRegionService: _FakeVisitedRegionService(<String>{}),
               activityFeedService: ActivityFeedService(firestore: firestore),
@@ -503,8 +504,8 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    expect(find.text('Media'), findsOneWidget);
-    expect(find.text('View all media'), findsOneWidget);
+    expect(find.text('Media'), findsNothing);
+    expect(find.text('View all media'), findsNothing);
 
     await tester.tap(find.text('Activities'));
     await tester.pumpAndSettle();
@@ -533,7 +534,7 @@ void main() {
         value: provider,
         child: MaterialApp(
           home: Scaffold(
-            body: YouScreen(
+            body: _testYouScreen(
               visitService: _FakeVisitService(totalVisitCount: 0),
               visitedRegionService: _FakeVisitedRegionService(<String>{}),
               commentService: comments,
@@ -598,7 +599,7 @@ void main() {
           value: provider,
           child: MaterialApp(
             home: Scaffold(
-              body: YouScreen(
+              body: _testYouScreen(
                 visitService: _FakeVisitService(totalVisitCount: 0),
                 visitedRegionService: _FakeVisitedRegionService(<String>{}),
                 commentService: comments,
@@ -666,7 +667,7 @@ void main() {
         value: provider,
         child: MaterialApp(
           home: Scaffold(
-            body: YouScreen(
+            body: _testYouScreen(
               visitService: _FakeVisitService(totalVisitCount: 0),
               visitedRegionService: _FakeVisitedRegionService(<String>{}),
               commentService: comments,
@@ -714,7 +715,7 @@ void main() {
         value: provider,
         child: MaterialApp(
           home: Scaffold(
-            body: YouScreen(
+            body: _testYouScreen(
               visitService: _FakeVisitService(totalVisitCount: 0),
               visitedRegionService: _FakeVisitedRegionService(<String>{}),
               commentService: comments,
@@ -1092,7 +1093,7 @@ void main() {
     expect(find.text('Journey route map'), findsNothing);
     expect(find.byType(ActivityMapPreview), findsOneWidget);
     expect(find.text('Glaze'), findsOneWidget);
-    expect(find.text('Comments'), findsOneWidget);
+    expect(find.text('0 comments'), findsOneWidget);
     expect(find.text('Share'), findsOneWidget);
 
     await tester.pageBack();
@@ -1172,12 +1173,17 @@ DateTime _mondayOnOrBefore(DateTime date) {
   return day.subtract(Duration(days: day.weekday - DateTime.monday));
 }
 
-ProfileModel _buildProfile({required int xp}) {
+ProfileModel _buildProfile({
+  required int xp,
+  String uid = 'user-1',
+  String username = 'traveller',
+  String displayName = 'Traveller',
+}) {
   return ProfileModel(
-    uid: 'user-1',
-    username: 'traveller',
-    displayName: 'Traveller',
-    email: 'traveller@example.com',
+    uid: uid,
+    username: username,
+    displayName: displayName,
+    email: '$username@example.com',
     createdAt: DateTime(2026, 5, 1, 10),
     updatedAt: DateTime(2026, 5, 1, 11),
     xp: xp,
@@ -1224,13 +1230,11 @@ const _routeBounds = {
 };
 
 class _FakeAuthRepository implements AuthRepository {
-  _FakeAuthRepository(this._profile);
+  _FakeAuthRepository(this._profile)
+    : _user = _FakeUser(uid: _profile.uid, email: _profile.email);
 
   final ProfileModel _profile;
-  final _FakeUser _user = _FakeUser(
-    uid: 'user-1',
-    email: 'traveller@example.com',
-  );
+  final _FakeUser _user;
 
   @override
   Stream<firebase_auth.User?> authStateChanges() =>
@@ -1247,6 +1251,18 @@ class _FakeAuthRepository implements AuthRepository {
 
   @override
   dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+}
+
+class _CountingYouActivityFeedService extends ActivityFeedService {
+  _CountingYouActivityFeedService() : super(firestore: FakeFirebaseFirestore());
+
+  int watchOwnedCalls = 0;
+
+  @override
+  Stream<List<ActivityFeedItem>> watchActivitiesOwnedBy(String ownerId) {
+    watchOwnedCalls += 1;
+    return Stream<List<ActivityFeedItem>>.value(const <ActivityFeedItem>[]);
+  }
 }
 
 class _FakeVisitService implements VisitService {

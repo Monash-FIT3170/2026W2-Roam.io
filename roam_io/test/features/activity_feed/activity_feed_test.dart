@@ -26,6 +26,7 @@ import 'package:roam_io/features/activity_feed/widgets/route_marker_icons.dart';
 import 'package:roam_io/features/journeys/domain/transport_mode.dart';
 import 'package:roam_io/features/map/data/journey_map_snapshot_service.dart';
 import 'package:roam_io/features/map/data/visited_region_service.dart';
+import 'package:roam_io/features/profile/domain/visited_polygon_meta.dart';
 import 'package:roam_io/features/profile/domain/visited_polygon_record.dart';
 
 void main() {
@@ -608,8 +609,24 @@ class _FakeVisitedRegionService implements VisitedRegionService {
   }
 
   @override
-  Future<bool> markVisited(String regionId, {DateTime? visitedAt}) async =>
-      true;
+  Stream<Map<String, VisitedPolygonMeta>> watchVisitedPolygonMeta() {
+    return Stream<Map<String, VisitedPolygonMeta>>.value(
+      const <String, VisitedPolygonMeta>{},
+    );
+  }
+
+  @override
+  Stream<Map<String, int>> watchPolygonEntryCounts() {
+    return Stream<Map<String, int>>.value(const <String, int>{});
+  }
+
+  @override
+  Future<bool> markVisited(
+    String regionId, {
+    DateTime? visitedAt,
+    double? areaSquareMetres,
+    String? name,
+  }) async => true;
 }
 
 Polygon _tilePolygon({

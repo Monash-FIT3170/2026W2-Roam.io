@@ -29,11 +29,19 @@ import '../../map/data/visit_service.dart';
 import '../../map/data/visited_region_service.dart';
 import '../../profile/domain/profile_model.dart';
 import '../../profile/domain/xp_event.dart';
+import '../../profile/widgets/profile_dashboard.dart';
 import '../../social/data/follow_service.dart';
 import '../../social/data/social_notification_coordinator.dart';
 import '../../social/screens/notifications_screen.dart';
 import '../../journeys/widgets/journey_share_sheet.dart';
-import '../providers/you_analytics_provider.dart';
+import '../milestones/milestone_service.dart';
+import '../milestones/milestones_provider.dart';
+import '../milestones/milestones_screen.dart';
+import '../providers/stats_analytics_provider.dart';
+import '../services/home_base_service.dart';
+import '../services/stats_summary_service.dart';
+import '../widgets/profile_header.dart';
+import 'stats_screen.dart';
 
 /// Displays personal profile analytics and the user's own activity area.
 class YouScreen extends StatefulWidget {
@@ -354,30 +362,18 @@ class _ProfileTab extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final analytics = context.watch<StatsAnalyticsProvider>();
     final bottomClearance = AppBottomNavBar.clearanceFromScreenBottom(context);
 
     return SingleChildScrollView(
       padding: EdgeInsets.fromLTRB(24, 14, 24, bottomClearance + 12),
       child: ProfileHeader(
         profile: profile,
-        followingCount: followingCount,
-        followerCount: followerCount,
-        tileCount: tileCount,
-        journeyCount: journeyCount,
+        followingCount: analytics.followingCount,
+        followerCount: analytics.followerCount,
+        tileCount: analytics.tileCount ?? 0,
+        journeyCount: analytics.journeys.length,
       ),
-      visits: analytics.visits,
-      recentVisits: analytics.recentVisits,
-      tileRecords: analytics.tileRecords,
-      xpEvents: analytics.xpEvents,
-      selectedMetric: selectedGraphMetric,
-      onMetricSelected: onGraphMetricSelected,
-      recentVisitsReady: analytics.recentVisitsReady,
-      recentVisitsError: analytics.recentVisitsError,
-      visitsError: analytics.visitsError,
-      mediaProfileId: currentUserId,
-      currentUserId: currentUserId,
-      mediaActivitiesStream: mediaActivitiesStream,
-      bottomPadding: bottomClearance + 12,
     );
   }
 }
