@@ -1,6 +1,6 @@
 /*
  * Author: Sanjevan Rajasegar
- * Last Updated: 10 August 2026
+ * Last Updated: 22 August 2026
  * Description:
  *   Displays a read-only public profile for another registered user loaded
  *   from public_profiles/{selectedUserId}. Analytics bind exclusively to
@@ -218,6 +218,7 @@ class _OtherUserProfileScreenState extends State<OtherUserProfileScreen>
                                     currentUserId: currentUserId,
                                     followService: _followService,
                                     friendshipService: _friendshipService,
+                                    activityFeedService: _activityFeedService,
                                     selectedMetric: _selectedGraphMetric,
                                     onMetricSelected: _selectGraphMetric,
                                   )
@@ -313,6 +314,7 @@ class _ExternalProfileDashboard extends StatelessWidget {
     required this.currentUserId,
     required this.followService,
     required this.friendshipService,
+    required this.activityFeedService,
     required this.selectedMetric,
     required this.onMetricSelected,
   });
@@ -321,6 +323,7 @@ class _ExternalProfileDashboard extends StatelessWidget {
   final String? currentUserId;
   final FollowService followService;
   final FriendshipService friendshipService;
+  final ActivityFeedService activityFeedService;
   final ProfileGraphMetric selectedMetric;
   final ValueChanged<ProfileGraphMetric> onMetricSelected;
 
@@ -384,6 +387,10 @@ class _ExternalProfileDashboard extends StatelessWidget {
       recentVisitsReady: analytics.recentVisitsReady,
       recentVisitsError: analytics.recentVisitsError,
       visitsError: analytics.visitsError,
+      mediaProfileId: profile.uid,
+      currentUserId: currentUserId,
+      mediaActivitiesStream: activityFeedService
+          .watchPublicActivitiesForProfile(profile.uid),
       bottomPadding: _routeBottomPadding(context),
     );
   }

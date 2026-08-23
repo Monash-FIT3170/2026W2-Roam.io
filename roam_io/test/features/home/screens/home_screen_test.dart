@@ -1,9 +1,9 @@
 /*
  * Author: Sanjevan Rajasegar
- * Last Updated: 10 August 2026
+ * Last Updated: 21 August 2026
  * Description:
- *   Widget tests for the real Firestore-backed Home activity feed, temporary
- *   test activity creator, and Comment navigation.
+ *   Widget tests for the real Firestore-backed Home activity feed and Comment
+ *   navigation.
  */
 
 import 'dart:async';
@@ -13,12 +13,12 @@ import 'package:firebase_auth/firebase_auth.dart' as firebase_auth;
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:provider/provider.dart';
-import 'package:roam_io/features/activity_feed/data/activity_creation_service.dart';
 import 'package:roam_io/features/activity_feed/data/activity_feed_service.dart';
 import 'package:roam_io/features/activity_feed/data/comment_service.dart';
 import 'package:roam_io/features/activity_feed/models/activity_comment.dart';
 import 'package:roam_io/features/activity_feed/models/activity_feed_item.dart';
 import 'package:roam_io/features/activity_feed/screens/activity_detail_screen.dart';
+import 'package:roam_io/features/activity_feed/widgets/activity_map_preview.dart';
 import 'package:roam_io/features/activity_feed/screens/comments_screen.dart';
 import 'package:roam_io/features/auth/data/auth_repository.dart';
 import 'package:roam_io/features/auth/providers/auth_provider.dart';
@@ -39,54 +39,6 @@ void main() {
     expect(find.text('No activities yet'), findsOneWidget);
     expect(find.text('Journeys'), findsNothing);
     expect(find.text('Quests'), findsNothing);
-
-    await harness.dispose();
-  });
-
-  testWidgets('Test Activity button creates real sequential activities', (
-    tester,
-  ) async {
-    await tester.binding.setSurfaceSize(const Size(400, 1200));
-    addTearDown(() => tester.binding.setSurfaceSize(null));
-
-    final firestore = FakeFirebaseFirestore();
-    await _seedPublicProfile(firestore, uid: 'user-1');
-    final harness = await _pumpHome(tester, firestore: firestore);
-
-    await tester.tap(find.byTooltip('Test Activity'));
-    await tester.pumpAndSettle();
-    await tester.tap(find.byTooltip('Test Activity'));
-    await tester.pumpAndSettle();
-
-    expect(find.text('Traveller Activity 2'), findsOneWidget);
-    expect(find.text('Traveller Activity 1'), findsOneWidget);
-    expect(
-      tester.getTopLeft(find.text('Traveller Activity 2')).dy,
-      lessThan(tester.getTopLeft(find.text('Traveller Activity 1')).dy),
-    );
-
-    final snapshot = await firestore.collection('activities').get();
-    expect(snapshot.docs, hasLength(2));
-    final titles = snapshot.docs.map((doc) => doc.data()['title']).toSet();
-    expect(
-      titles,
-      containsAll(<String>['Traveller Activity 1', 'Traveller Activity 2']),
-    );
-    for (final doc in snapshot.docs) {
-      final data = doc.data();
-      expect(data['activityId'], doc.id);
-      expect(data['ownerId'], 'user-1');
-      expect(data['profileId'], 'user-1');
-      expect(doc.id, isNot(data['title']));
-      expect(data.containsKey('kudos'), isFalse);
-      expect(data.containsKey('kudosCount'), isFalse);
-      expect(data.containsKey('commentCount'), isFalse);
-    }
-    final counter = await firestore
-        .collection('activity_counters')
-        .doc('user-1')
-        .get();
-    expect(counter.data()?['lastTestActivityNumber'], 2);
 
     await harness.dispose();
   });
@@ -176,8 +128,7 @@ void main() {
 
     expect(activityFeedService.watchHomeCalls, 1);
 
-    await tester.tap(find.byTooltip('Test Activity'));
-    await tester.pumpAndSettle();
+    await tester.pump();
 
     expect(activityFeedService.watchHomeCalls, 1);
 
@@ -206,8 +157,9 @@ void main() {
 
     expect(find.byType(ActivityDetailScreen), findsOneWidget);
     expect(find.text('Traveller Activity 1'), findsOneWidget);
-    expect(find.text('Journey route map'), findsOneWidget);
-    expect(find.text('Kudos'), findsOneWidget);
+    expect(find.text('Journey route map'), findsNothing);
+    expect(find.byType(ActivityMapPreview), findsOneWidget);
+    expect(find.text('Glaze'), findsOneWidget);
     expect(find.text('0 comments'), findsOneWidget);
     expect(find.text('Share'), findsNothing);
 
@@ -377,9 +329,6 @@ Future<_HomeHarness> _pumpHome(
             activityFeedService:
                 activityFeedService ??
                 ActivityFeedService(firestore: resolvedFirestore),
-            activityCreationService: ActivityCreationService(
-              firestore: resolvedFirestore,
-            ),
             followService:
                 followService ?? FollowService(firestore: resolvedFirestore),
             commentService: comments,
@@ -426,12 +375,23 @@ Future<void> _seedActivity(
     'title': title,
     'kind': 'exploration',
     'showMapPreview': true,
+    'encodedRoute': _encodedRoute,
+    'routeBounds': _routeBounds,
     'createdAt': (createdAt ?? DateTime(2026, 8, 10)).toIso8601String(),
     'metrics': [
       {'label': 'XP Gained', 'value': '+120 XP'},
     ],
   });
 }
+
+const _encodedRoute = '_p~iF~ps|U_ulLnnqC_mqNvxq`@';
+
+const _routeBounds = {
+  'southwestLatitude': 38.5,
+  'southwestLongitude': -126.453,
+  'northeastLatitude': 43.252,
+  'northeastLongitude': -120.2,
+};
 
 class _FailingActivityFeedService extends ActivityFeedService {
   _FailingActivityFeedService() : super(firestore: FakeFirebaseFirestore());

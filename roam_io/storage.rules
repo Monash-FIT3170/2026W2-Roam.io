@@ -1,6 +1,42 @@
 rules_version = '2';
 service firebase.storage {
   match /b/{bucket}/o {
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function publicProfilePath(userId) {
+      return /databases/(default)/documents/public_profiles/$(userId);
+    }
+
+    function activityPath(activityId) {
+      return /databases/(default)/documents/activities/$(activityId);
+    }
+
+    function canViewProfileActivity(profileId) {
+      return isSignedIn() &&
+        (
+          request.auth.uid == profileId ||
+          (
+            firestore.exists(publicProfilePath(profileId)) &&
+            !firestore.get(publicProfilePath(profileId)).data.isPrivateAccount
+          ) ||
+          firestore.exists(/databases/(default)/documents/follows/$(request.auth.uid + '_' + profileId))
+        );
+    }
+
+    function canReadActivityMedia(userId, activityId) {
+      return isSignedIn() &&
+        (
+          request.auth.uid == userId ||
+          (
+            firestore.exists(activityPath(activityId)) &&
+            firestore.get(activityPath(activityId)).data.ownerId == userId &&
+            canViewProfileActivity(userId)
+          )
+        );
+    }
+
     // Profile photos - users can only read/write their own
     match /profile_photos/{userId}/{allPaths=**} {
       allow read: if request.auth != null;
@@ -17,6 +53,12 @@ service firebase.storage {
     match /custom_location_media/{userId}/{allPaths=**} {
       allow read: if request.auth != null;
       allow write: if request.auth != null && request.auth.uid == userId;
+    }
+
+    // Media attached to published social activities.
+    match /activity_media/{userId}/{activityId}/{allPaths=**} {
+      allow read: if canReadActivityMedia(userId, activityId);
+      allow write, delete: if isSignedIn() && request.auth.uid == userId;
     }
   }
 }

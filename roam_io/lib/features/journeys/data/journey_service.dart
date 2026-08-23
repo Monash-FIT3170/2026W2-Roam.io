@@ -60,6 +60,16 @@ class JourneyService {
     return snapshot.docs.map((doc) => Journey.fromFirestore(doc)).toList();
   }
 
+  /// Gets all journeys for a user that started after the given date.
+  Future<List<Journey>> getJourneysSince(String userId, DateTime since) async {
+    final snapshot = await _journeysCollection(userId)
+        .where('startTime', isGreaterThanOrEqualTo: Timestamp.fromDate(since))
+        .orderBy('startTime', descending: true)
+        .get();
+
+    return snapshot.docs.map((doc) => Journey.fromFirestore(doc)).toList();
+  }
+
   /// Gets a single journey by ID.
   Future<Journey?> getJourneyById({
     required String userId,
@@ -103,6 +113,17 @@ class JourneyService {
     return _journeysCollection(
       userId,
     ).doc(journeyId).update({field: location.toMap()});
+  }
+
+  /// Updates the reviewed title of a saved journey.
+  Future<void> updateJourneyTitle({
+    required String userId,
+    required String journeyId,
+    required String title,
+  }) {
+    return _journeysCollection(
+      userId,
+    ).doc(journeyId).update({'title': title.trim()});
   }
 
   /// Deletes a journey.

@@ -1,6 +1,6 @@
 /*
  * Author: Sam Sutherland
- * Last Modified: 01/08/2026
+ * Last Modified: 13/08/2026
  * Description:
  *   Provides a single public import for the notification module's models,
  *   services, templates, and widgets.
@@ -17,3 +17,4 @@ export 'templates/notification_templates.dart';
 
 export 'widgets/notification_banner.dart';
 export 'widgets/notification_overlay.dart';
+export 'services/live_activity_service.dart';

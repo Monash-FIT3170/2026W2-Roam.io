@@ -1,12 +1,13 @@
 /*
  * Author: Sanjevan Rajasegar
- * Last Updated: 10 August 2026
+ * Last Updated: 22 August 2026
  * Description:
  *   Service tests for activity-specific Kudos, comments/replies, comment
  *   likes, and persistent social notification rows.
  */
 
 import 'package:fake_cloud_firestore/fake_cloud_firestore.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:roam_io/features/activity_feed/data/comment_like_service.dart';
 import 'package:roam_io/features/activity_feed/data/comment_service.dart';
@@ -15,7 +16,7 @@ import 'package:roam_io/features/social/domain/social_notification.dart';
 
 void main() {
   test(
-    'Kudos toggles per user/activity and writes one active notification',
+    'Glaze toggles per user/activity and writes one active notification',
     () async {
       final firestore = FakeFirebaseFirestore();
       await _seedActivity(
@@ -104,6 +105,70 @@ void main() {
       );
     },
   );
+
+  test('owners cannot Glaze their own activity', () async {
+    final firestore = FakeFirebaseFirestore();
+    await _seedActivity(firestore, activityId: 'activity-1', ownerId: 'owner');
+    final kudos = KudosService(firestore: firestore);
+
+    await expectLater(
+      kudos.toggleKudos(
+        activityId: 'activity-1',
+        activityOwnerId: 'owner',
+        userId: 'owner',
+      ),
+      throwsA(
+        isA<FirebaseException>().having(
+          (error) => error.code,
+          'code',
+          'permission-denied',
+        ),
+      ),
+    );
+    expect(await kudos.watchKudosCount('activity-1').first, 0);
+  });
+
+  test('watchGlazers deduplicates real profile rows', () async {
+    final firestore = FakeFirebaseFirestore();
+    await _seedActivity(firestore, activityId: 'activity-1', ownerId: 'owner');
+    await firestore.collection('public_profiles').doc('actor').set({
+      'displayName': 'Alex Traveller',
+      'username': 'alex',
+      'photoUrl': 'https://example.com/alex.jpg',
+    });
+    await firestore.collection('public_profiles').doc('actor-2').set({
+      'displayName': '',
+      'username': 'sam',
+    });
+    await firestore
+        .collection('activities')
+        .doc('activity-1')
+        .collection('kudos')
+        .doc('actor')
+        .set({'userId': 'actor'});
+    await firestore
+        .collection('activities')
+        .doc('activity-1')
+        .collection('kudos')
+        .doc('actor-duplicate')
+        .set({'userId': 'actor'});
+    await firestore
+        .collection('activities')
+        .doc('activity-1')
+        .collection('kudos')
+        .doc('actor-2')
+        .set({'userId': 'actor-2'});
+
+    final glazers = await KudosService(
+      firestore: firestore,
+    ).watchGlazers('activity-1').first;
+
+    expect(glazers.map((glazer) => glazer.userId), ['actor', 'actor-2']);
+    expect(glazers.first.displayName, 'Alex Traveller');
+    expect(glazers.first.username, 'alex');
+    expect(glazers.first.photoUrl, 'https://example.com/alex.jpg');
+    expect(glazers.last.displayName, 'Roam.io user');
+  });
 
   test(
     'comments and replies notify the correct recipients without self rows',

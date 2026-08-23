@@ -6,8 +6,11 @@
  *   interactions are emitted as NotificationActionEvent objects.
  */
 
+import 'package:flutter/foundation.dart';
+import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:roam_io/notifications/notification.dart';
+import 'package:roam_io/notifications/services/app_lifecycle_service.dart';
 
 void main() {
   // Initialises the Flutter test environment required by services that use
@@ -15,6 +18,52 @@ void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
   group('NotificationService', () {
+    test('show emits in-app notification while app is foregrounded', () async {
+      AppLifecycleService.instance.didChangeAppLifecycleState(
+        AppLifecycleState.resumed,
+      );
+      final notification = AppNotification(
+        id: 'foreground-notification',
+        type: NotificationType.kudos,
+        title: 'Glaze Received',
+        body: 'Alex gave you Glaze.',
+        timestamp: DateTime(2026, 8, 1),
+      );
+
+      final eventFuture = NotificationService.instance.notifications.first;
+
+      await NotificationService.instance.show(notification);
+
+      final event = await eventFuture;
+
+      expect(event, same(notification));
+    });
+
+    test(
+      'show completes device notification path while app is backgrounded',
+      () async {
+        debugDefaultTargetPlatformOverride = TargetPlatform.macOS;
+        addTearDown(() => debugDefaultTargetPlatformOverride = null);
+        AppLifecycleService.instance.didChangeAppLifecycleState(
+          AppLifecycleState.paused,
+        );
+        final notification = AppNotification(
+          id: 'background-notification',
+          type: NotificationType.kudos,
+          title: 'Glaze Received',
+          body: 'Alex gave you Glaze.',
+          timestamp: DateTime(2026, 8, 1),
+          showInApp: false,
+          showOnDevice: true,
+        );
+
+        await expectLater(
+          NotificationService.instance.show(notification),
+          completes,
+        );
+      },
+    );
+
     test('handleAction emits a NotificationActionEvent', () async {
       // Arrange: create a notification and an associated action.
       final notification = AppNotification(
@@ -74,6 +123,29 @@ void main() {
       expect(event.notification.id, 'activity-notification');
       expect(event.action.type, NotificationActionType.pause);
       expect(event.action.label, 'Pause');
+    });
+
+    test('handleTap emits a NotificationTapEvent', () async {
+      final notification = AppNotification(
+        id: 'tap-notification',
+        type: NotificationType.comment,
+        title: 'New Comment',
+        body: 'Alex commented on your activity.',
+        timestamp: DateTime(2026, 8, 1),
+      );
+
+      final eventFuture = NotificationService.instance.tapEvents.first;
+
+      NotificationService.instance.handleTap(notification: notification);
+
+      final event = await eventFuture;
+
+      expect(event.notification, same(notification));
+      expect(event.notification.id, 'tap-notification');
+    });
+
+    test('dispose closes notification streams', () async {
+      await expectLater(NotificationService.instance.dispose(), completes);
     });
   });
 }

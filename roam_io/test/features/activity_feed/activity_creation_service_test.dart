@@ -1,21 +1,31 @@
 /*
  * Author: Sanjevan Rajasegar
- * Last Updated: 10 August 2026
+ * Last Updated: 22 August 2026
  * Description:
- *   Service tests for creating real persisted test activities with per-user
- *   counters and public profile identity.
+ *   Service tests for creating real persisted Journey activities and reading
+ *   activity feed documents.
  */
 
-import 'package:fake_cloud_firestore/fake_cloud_firestore.dart';
+import 'dart:typed_data';
+
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:fake_cloud_firestore/fake_cloud_firestore.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:google_maps_flutter/google_maps_flutter.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:roam_io/features/activity_feed/data/activity_creation_service.dart';
 import 'package:roam_io/features/activity_feed/data/activity_feed_service.dart';
+import 'package:roam_io/features/activity_feed/models/activity_feed_item.dart';
+import 'package:roam_io/features/journeys/data/polyline_codec.dart';
+import 'package:roam_io/features/journeys/domain/journey.dart';
+import 'package:roam_io/features/journeys/domain/journey_location.dart';
+import 'package:roam_io/features/journeys/domain/transport_mode.dart';
 import 'package:roam_io/features/profile/domain/profile_model.dart';
+import 'package:roam_io/services/storage_service.dart';
 
 void main() {
   test(
-    'creates sequential activity docs from public profile identity',
+    'creates an idempotent Journey activity with real Journey data',
     () async {
       final firestore = FakeFirebaseFirestore();
       await firestore.collection('public_profiles').doc('user-1').set({
@@ -29,42 +39,139 @@ void main() {
         'updatedAt': DateTime(2026, 8, 10).toIso8601String(),
       });
       final service = ActivityCreationService(firestore: firestore);
+      final journey = _journey();
 
-      final first = await service.createTestActivityForUser(userId: 'user-1');
-      final second = await service.createTestActivityForUser(userId: 'user-1');
+      final first = await service.createJourneyActivity(
+        journey: journey,
+        title: 'Creek Loop',
+      );
+      final second = await service.createJourneyActivity(
+        journey: journey,
+        title: 'Updated Title',
+      );
 
-      expect(first.title, 'Traveller Activity 1');
-      expect(second.title, 'Traveller Activity 2');
-      expect(first.id, isNot(second.id));
-      expect(first.id, isNot(first.title));
+      expect(first.id, 'journey_journey-1');
+      expect(second.id, first.id);
+      expect(second.title, 'Creek Loop');
+      expect(first.kind, ActivityFeedKind.journey);
+      expect(first.sourceJourneyId, 'journey-1');
+      expect(first.encodedRoute, journey.encodedRoute);
+      expect(first.routeBounds?.southwestLatitude, closeTo(-37.8136, 0.00001));
+      expect(first.routeBounds?.northeastLatitude, closeTo(-37.8115, 0.00001));
+      expect(first.journeyStartTime, journey.startTime.toUtc());
+      expect(first.journeyEndTime, journey.endTime.toUtc());
+      expect(first.transportMode, 'walk');
+      expect(first.media, isEmpty);
 
       final docs = await firestore.collection('activities').get();
-      expect(docs.docs, hasLength(2));
-      final secondDoc = await firestore
-          .collection('activities')
-          .doc(second.id)
-          .get();
-      final data = secondDoc.data()!;
-      expect(data['activityId'], second.id);
+      expect(docs.docs, hasLength(1));
+      final data = docs.docs.single.data();
+      expect(data['activityId'], 'journey_journey-1');
       expect(data['ownerId'], 'user-1');
       expect(data['profileId'], 'user-1');
       expect(data['displayName'], 'Traveller');
       expect(data['username'], 'traveller');
       expect(data['photoUrl'], 'https://example.com/avatar.png');
-      expect(data['title'], 'Traveller Activity 2');
-      expect(data['kind'], 'exploration');
-      expect(data['showMapPreview'], isTrue);
-      expect(data['metrics'], isA<List>());
+      expect(data['title'], 'Creek Loop');
+      expect(data['kind'], 'journey');
+      expect(data['sourceJourneyId'], 'journey-1');
+      expect(data['encodedRoute'], journey.encodedRoute);
+      expect(
+        data['journeyStartTime'],
+        journey.startTime.toUtc().toIso8601String(),
+      );
+      expect(data['journeyEndTime'], journey.endTime.toUtc().toIso8601String());
+      expect(data['transportMode'], 'walk');
+      expect(data['media'], isEmpty);
+      expect(data['metrics'], [
+        {'label': 'Time', 'value': '30m 0s'},
+        {'label': 'Tiles Unlocked', 'value': '3'},
+        {'label': 'XP Gained', 'value': '+182 XP'},
+      ]);
       expect(data.containsKey('kudos'), isFalse);
       expect(data.containsKey('kudosCount'), isFalse);
       expect(data.containsKey('commentCount'), isFalse);
+    },
+  );
 
-      final counter = await firestore
-          .collection('activity_counters')
-          .doc('user-1')
-          .get();
-      expect(counter.data()?['ownerId'], 'user-1');
-      expect(counter.data()?['lastTestActivityNumber'], 2);
+  test(
+    'adds selected media when retrying against an existing idempotent activity',
+    () async {
+      final firestore = FakeFirebaseFirestore();
+      final journey = _journey();
+      await firestore.collection('activities').doc('journey_journey-1').set({
+        'activityId': 'journey_journey-1',
+        'ownerId': 'user-1',
+        'profileId': 'user-1',
+        'displayName': 'Traveller',
+        'username': 'traveller',
+        'title': 'Creek Loop',
+        'kind': 'journey',
+        'sourceJourneyId': 'journey-1',
+        'encodedRoute': journey.encodedRoute,
+        'journeyStartTime': journey.startTime.toUtc().toIso8601String(),
+        'journeyEndTime': journey.endTime.toUtc().toIso8601String(),
+        'transportMode': 'walk',
+        'media': const <Map<String, dynamic>>[],
+        'showMapPreview': true,
+        'createdAt': DateTime.utc(2026, 8, 10).toIso8601String(),
+        'metrics': [
+          {'label': 'XP Gained', 'value': '+182 XP'},
+        ],
+      });
+      final uploaded = <String>[];
+      final service = ActivityCreationService(
+        firestore: firestore,
+        storageService: StorageService(
+          activityMediaUploadOverride:
+              ({
+                required uid,
+                required activityId,
+                required mediaId,
+                required bytes,
+                required filename,
+                required mediaType,
+              }) async {
+                uploaded.add('$uid/$activityId/$mediaId/$filename/$mediaType');
+                return ActivityMediaUploadResult(
+                  url: 'https://example.com/$mediaId.jpg',
+                  storagePath: 'activity_media/$uid/$activityId/$mediaId.jpg',
+                );
+              },
+        ),
+      );
+
+      final activity = await service.createJourneyActivity(
+        journey: journey,
+        title: 'Ignored Retry Title',
+        mediaSelections: [
+          PendingActivityMedia(
+            file: XFile.fromData(
+              Uint8List.fromList([1, 2, 3]),
+              name: 'route-photo.jpg',
+              mimeType: 'image/jpeg',
+            ),
+            type: ActivityMediaType.photo,
+          ),
+        ],
+      );
+
+      expect(uploaded, hasLength(1));
+      expect(activity.title, 'Creek Loop');
+      expect(activity.media, hasLength(1));
+      expect(activity.media.single.url, startsWith('https://example.com/'));
+
+      final data =
+          (await firestore
+                  .collection('activities')
+                  .doc('journey_journey-1')
+                  .get())
+              .data()!;
+      final media = data['media'] as List<dynamic>;
+      expect(media, hasLength(1));
+      expect(media.single['type'], 'photo');
+      expect(media.single['url'], activity.media.single.url);
+      expect(media.single['storagePath'], activity.media.single.storagePath);
     },
   );
 
@@ -74,8 +181,9 @@ void main() {
       final firestore = FakeFirebaseFirestore();
       final service = ActivityCreationService(firestore: firestore);
 
-      final activity = await service.createTestActivityForUser(
-        userId: 'user-1',
+      final activity = await service.createJourneyActivity(
+        journey: _journey(),
+        title: 'Fallback Journey',
         fallbackProfile: ProfileModel(
           uid: 'user-1',
           username: 'fallback_user',
@@ -86,7 +194,7 @@ void main() {
         ),
       );
 
-      expect(activity.title, 'Fallback User Activity 1');
+      expect(activity.title, 'Fallback Journey');
       final doc = await firestore
           .collection('activities')
           .doc(activity.id)
@@ -107,7 +215,13 @@ void main() {
         'displayName': 'Traveller',
         'username': 'traveller',
         'title': 'Traveller Activity 1',
-        'kind': 'exploration',
+        'kind': 'journey',
+        'sourceJourneyId': 'journey-1',
+        'encodedRoute': _encodedRoute,
+        'journeyStartTime': DateTime.utc(2026, 8, 10).toIso8601String(),
+        'journeyEndTime': DateTime.utc(2026, 8, 10, 0, 30).toIso8601String(),
+        'transportMode': 'walk',
+        'media': const <String>[],
         'showMapPreview': true,
         'createdAt': Timestamp.fromDate(DateTime.utc(2026, 8, 10)),
         'metrics': [
@@ -135,6 +249,40 @@ void main() {
       expect(activities, hasLength(1));
       expect(activities.single.id, 'valid-activity');
       expect(activities.single.title, 'Traveller Activity 1');
+      expect(activities.single.sourceJourneyId, 'journey-1');
+      expect(activities.single.media, isEmpty);
     },
+  );
+}
+
+final _encodedRoute = PolylineCodec.encode(const [
+  LatLng(-37.8136, 144.9631),
+  LatLng(-37.8125, 144.9631),
+  LatLng(-37.8115, 144.9631),
+]);
+
+Journey _journey() {
+  return Journey(
+    id: 'journey-1',
+    userId: 'user-1',
+    startTime: DateTime.utc(2026, 8, 10, 7),
+    endTime: DateTime.utc(2026, 8, 10, 7, 30),
+    startLocation: const JourneyLocation(
+      latLng: LatLng(-37.8136, 144.9631),
+      displayName: 'Creek entrance',
+    ),
+    endLocation: const JourneyLocation(
+      latLng: LatLng(-37.8115, 144.9631),
+      displayName: 'Park lookout',
+    ),
+    transportMode: TransportMode.walk,
+    encodedRoute: _encodedRoute,
+    distanceMeters: 3200,
+    durationSeconds: 1800,
+    title: 'Creek Loop',
+    xpEarned: 182,
+    journeyXpEarned: 32,
+    tilesUnlocked: 3,
+    tileXpEarned: 150,
   );
 }

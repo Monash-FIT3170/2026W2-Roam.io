@@ -1,10 +1,14 @@
 /*
  * Author: Sanjevan Rajasegar
- * Last Updated: 10 August 2026
+ * Last Updated: 22 August 2026
  * Description:
  *   Presentation activity feed item used by persisted Home, You, external
  *   profile, and detail activity surfaces.
  */
+
+import 'activity_media_item.dart';
+
+export 'activity_media_item.dart';
 
 /// Kind of activity represented in the feed UI.
 enum ActivityFeedKind { journey, sidequest, exploration }
@@ -26,6 +30,21 @@ class ActivityFeedMetric {
   final String value;
 }
 
+/// Stored bounds for a recorded activity route.
+class ActivityRouteBounds {
+  const ActivityRouteBounds({
+    required this.southwestLatitude,
+    required this.southwestLongitude,
+    required this.northeastLatitude,
+    required this.northeastLongitude,
+  });
+
+  final double southwestLatitude;
+  final double southwestLongitude;
+  final double northeastLatitude;
+  final double northeastLongitude;
+}
+
 /// UI model for an activity feed entry.
 class ActivityFeedItem {
   const ActivityFeedItem({
@@ -36,9 +55,17 @@ class ActivityFeedItem {
     required this.title,
     required this.kind,
     required this.metrics,
+    this.createdAt,
     this.username,
     this.photoUrl,
     this.showMapPreview = true,
+    this.sourceJourneyId,
+    this.encodedRoute,
+    this.routeBounds,
+    this.journeyStartTime,
+    this.journeyEndTime,
+    this.transportMode,
+    this.media = const <ActivityMediaItem>[],
   });
 
   final String id;
@@ -47,10 +74,22 @@ class ActivityFeedItem {
   final String? username;
   final String? photoUrl;
   final String timestampLabel;
+  final DateTime? createdAt;
   final String title;
   final ActivityFeedKind kind;
   final List<ActivityFeedMetric> metrics;
   final bool showMapPreview;
+  final String? sourceJourneyId;
+  final String? encodedRoute;
+  final ActivityRouteBounds? routeBounds;
+  final DateTime? journeyStartTime;
+  final DateTime? journeyEndTime;
+  final String? transportMode;
+  final List<ActivityMediaItem> media;
+
+  List<String> get mediaUrls => media.map((item) => item.url).toList();
+
+  bool get hasMedia => media.isNotEmpty;
 
   /// Returns a copy with optional identity fields overridden (e.g. signed-in user).
   ActivityFeedItem copyWith({
@@ -67,10 +106,18 @@ class ActivityFeedItem {
       username: username ?? this.username,
       photoUrl: photoUrl ?? this.photoUrl,
       timestampLabel: timestampLabel,
+      createdAt: createdAt,
       title: title,
       kind: kind,
       metrics: metrics,
       showMapPreview: showMapPreview,
+      sourceJourneyId: sourceJourneyId,
+      encodedRoute: encodedRoute,
+      routeBounds: routeBounds,
+      journeyStartTime: journeyStartTime,
+      journeyEndTime: journeyEndTime,
+      transportMode: transportMode,
+      media: media,
     );
   }
 }

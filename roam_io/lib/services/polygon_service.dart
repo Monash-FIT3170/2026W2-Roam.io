@@ -178,10 +178,12 @@ class PolygonService {
         if (snapshot.docs.isNotEmpty) {
           return snapshot.docs.first.reference;
         }
+        // coverage:ignore-start
       } on FirebaseException {
         // Some environments deny collection queries for this collection, so we
         // fall back to the uid-keyed document shape instead of hard-failing.
       }
+      // coverage:ignore-end
     }
 
     return null;
