@@ -1,6 +1,6 @@
 /*
  * Author: Sanjevan Rajasegar
- * Last Updated: 7 August 2026
+ * Last Updated: 21 August 2026
  * Description:
  *   Loads and persists visited region IDs and timestamped unlock records while
  *   preserving first-time unlock results for duplicate XP prevention.
@@ -187,5 +187,15 @@ class VisitedRegionService {
       areaSquareMetres: areaSquareMetres,
       name: name,
     );
+  }
+}
+
+/// Non-breaking helpers for loading visited region ids for a specific profile.
+extension VisitedRegionServiceProfileReads on VisitedRegionService {
+  Future<Set<String>> loadVisitedRegionIdsForProfile(String profileId) async {
+    final records = await watchVisitedPolygonRecords(
+      profileId: profileId,
+    ).first;
+    return records.map((record) => record.polygonId).toSet();
   }
 }

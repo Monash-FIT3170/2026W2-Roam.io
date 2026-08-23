@@ -202,6 +202,29 @@ void main() {
       expect(provider.pendingLevelUp, isNull);
       provider.dispose();
     });
+
+    test('can defer and resume level-up celebration overlay', () async {
+      final repo = _XpTrackingRepository(
+        user: FakeFirebaseUser(uid: 'u1', email: 't@t.com'),
+        initialProfile: ProfileModel(
+          uid: 'u1',
+          username: 't',
+          displayName: 'T',
+          email: 't@t.com',
+          createdAt: DateTime(2026, 5, 1),
+          updatedAt: DateTime(2026, 5, 1),
+        ),
+      );
+      final provider = AuthProvider(authRepository: repo);
+
+      expect(provider.deferLevelUpCelebration, isFalse);
+      provider.deferLevelUpCelebrationOverlay();
+      expect(provider.deferLevelUpCelebration, isTrue);
+      provider.resumeLevelUpCelebrationOverlay();
+      expect(provider.deferLevelUpCelebration, isFalse);
+
+      provider.dispose();
+    });
   });
 }
 

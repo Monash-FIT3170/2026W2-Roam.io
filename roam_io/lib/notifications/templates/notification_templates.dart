@@ -1,6 +1,6 @@
 /*
  * Author: Sanjevan Rajasegar
- * Last Updated: 10 August 2026
+ * Last Updated: 22 August 2026
  * Description:
  *   Outlines the different notification templates used throughout the application. 
  *   Each template corresponds to a specific notification type and provides a consistent structure.
@@ -12,7 +12,7 @@ import '../models/notification_type.dart';
 
 /// Factory collection for the notification types currently supported by the application.
 class NotificationTemplates {
-  NotificationTemplates._();
+  NotificationTemplates._(); // coverage:ignore-line
 
   /// Creates a notification for a new friend request from [username].
   static AppNotification friendRequest(
@@ -54,15 +54,15 @@ class NotificationTemplates {
     );
   }
 
-  /// Creates a brief notification indicating that [username] gave the user Kudos.
+  /// Creates a brief notification indicating that [username] gave the user Glaze.
   static AppNotification kudos(String username) {
     final now = DateTime.now();
 
     return AppNotification(
       id: now.microsecondsSinceEpoch.toString(),
       type: NotificationType.kudos,
-      title: 'Kudos Received',
-      body: '$username gave you Kudos.',
+      title: 'Glaze Received',
+      body: '$username gave you Glaze.',
       timestamp: now,
       displayDuration: const Duration(seconds: 3),
     );
@@ -79,8 +79,8 @@ class NotificationTemplates {
     return AppNotification(
       id: notificationId ?? now.microsecondsSinceEpoch.toString(),
       type: NotificationType.kudos,
-      title: 'Kudos Received',
-      body: '$username gave Kudos to your activity',
+      title: 'Glaze Received',
+      body: '$username gave Glaze to your activity',
       timestamp: now,
       showOnDevice: false,
       displayDuration: const Duration(seconds: 5),

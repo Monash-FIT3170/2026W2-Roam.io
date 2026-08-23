@@ -4,6 +4,7 @@ import '../../../theme/app_colours.dart';
 import '../../../theme/app_surfaces.dart';
 import '../domain/journey.dart';
 import '../domain/journey_location.dart';
+import 'journey_share_sheet.dart';
 
 /// Read-only summary for a journey selected from journey history.
 class PastJourneySummarySheet extends StatelessWidget {
@@ -89,6 +90,16 @@ class PastJourneySummarySheet extends StatelessWidget {
                         color: AppSurfaces.textPrimary(context),
                       ),
                     ),
+                  ),
+                  IconButton(
+                    tooltip: 'Share',
+                    onPressed: () {
+                      JourneyShareSheet.show(
+                        context: context,
+                        journey: journey,
+                      );
+                    },
+                    icon: const Icon(Icons.ios_share),
                   ),
                   IconButton(
                     tooltip: 'Close',

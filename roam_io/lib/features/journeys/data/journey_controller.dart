@@ -1,9 +1,9 @@
 /*
  * Author: GitHub Copilot
- * Last Modified: 30/07/2026
+ * Last Modified: 13/08/2026
  * Description:
  *   Central state management for the journey feature. Implements a state
- *   machine to coordinate the journey workflow: setup → tracking → completing → review.
+ *   machine to coordinate the journey workflow: setup → tracking/paused → completing → review.
  */
 
 import 'dart:async';
@@ -16,24 +16,29 @@ import '../domain/journey.dart';
 import '../domain/journey_location.dart';
 import '../domain/journey_phase.dart';
 import '../domain/transport_mode.dart';
+import '../../../notifications/services/live_activity_service.dart';
 import 'journey_service.dart';
 import 'journey_tracking_service.dart';
 import 'polyline_codec.dart';
-import '../../you/services/stats_summary_service.dart';
 
 /// Controller for managing the journey lifecycle and state.
 class JourneyController extends ChangeNotifier {
   JourneyController({
     JourneyService? journeyService,
     JourneyTrackingService? trackingService,
-    StatsSummaryService? statsSummaryService,
+    LiveActivityGateway? liveActivityService,
   }) : _journeyService = journeyService ?? JourneyService(),
        _trackingService = trackingService ?? JourneyTrackingService(),
-       _statsSummaryService = statsSummaryService ?? StatsSummaryService();
+       _liveActivityService =
+           liveActivityService ?? LiveActivityService.instance {
+    _liveActionSubscription = _liveActivityService.actions.listen(
+      _handleLiveActivityAction,
+    );
+  }
 
   final JourneyService _journeyService;
   final JourneyTrackingService _trackingService;
-  final StatsSummaryService _statsSummaryService;
+  final LiveActivityGateway _liveActivityService;
 
   // ─────────────────────────────────────────────────────────────────────────
   // State
@@ -45,16 +50,23 @@ class JourneyController extends ChangeNotifier {
   TransportMode _transportMode = TransportMode.walk;
   DateTime? _startTime;
   DateTime? _endTime;
+  DateTime? _pausedAt;
+  Duration _totalPausedDuration = Duration.zero;
   List<LatLng> _routePoints = [];
   double _distanceMeters = 0.0;
   int _tilesUnlocked = 0;
   int _tileXpEarned = 0;
-  final List<String> _unlockedTileIds = [];
+  final List<String> _unlockedTileIds = <String>[];
   double _areaUnlockedSquareMetres = 0;
+  Journey? _persistedReviewedJourney;
+  bool _reviewedJourneyXpAwarded = false;
   String? _errorMessage;
 
   StreamSubscription<List<LatLng>>? _routeSubscription;
   StreamSubscription<double>? _distanceSubscription;
+  StreamSubscription<LiveActivityAction>? _liveActionSubscription;
+  Timer? _elapsedTimer;
+  int _liveUpdateTick = 0;
 
   // ─────────────────────────────────────────────────────────────────────────
   // Getters
@@ -73,16 +85,23 @@ class JourneyController extends ChangeNotifier {
   int get journeyXpEarned =>
       ((_distanceMeters / 100).round() * _transportMode.xpMultiplier).round();
   int get totalXpEarned => journeyXpEarned + _tileXpEarned;
+  Journey? get persistedReviewedJourney => _persistedReviewedJourney;
+  bool get reviewedJourneyXpAwarded => _reviewedJourneyXpAwarded;
   String? get errorMessage => _errorMessage;
 
   bool get isTracking => _currentPhase == JourneyPhase.tracking;
+  bool get isPaused => _currentPhase == JourneyPhase.paused;
   bool get hasActiveJourney => _currentPhase != JourneyPhase.idle;
 
   /// Returns the elapsed duration since journey start.
   Duration get elapsedDuration {
     if (_startTime == null) return Duration.zero;
-    final end = _endTime ?? DateTime.now();
-    return end.difference(_startTime!);
+
+    final end = _endTime ?? _pausedAt ?? DateTime.now();
+    final rawDuration = end.difference(_startTime!);
+    final activeDuration = rawDuration - _totalPausedDuration;
+
+    return activeDuration.isNegative ? Duration.zero : activeDuration;
   }
 
   /// Returns formatted elapsed time string.
@@ -162,6 +181,9 @@ class JourneyController extends ChangeNotifier {
 
     try {
       _startTime = DateTime.now();
+      _endTime = null;
+      _pausedAt = null;
+      _totalPausedDuration = Duration.zero;
       _currentPhase = JourneyPhase.tracking;
       _routePoints = [];
       _distanceMeters = 0.0;
@@ -176,6 +198,9 @@ class JourneyController extends ChangeNotifier {
       await _trackingService.startTracking(
         initialPosition: _startLocation!.latLng,
       );
+
+      _startElapsedTimer();
+      await _liveActivityService.startJourney(_liveJourneyState);
 
       notifyListeners();
       debugPrint('[JourneyController] Tracking started');
@@ -203,31 +228,78 @@ class JourneyController extends ChangeNotifier {
       _areaUnlockedSquareMetres += areaSquareMetres;
     }
     notifyListeners();
+    unawaited(_syncLiveActivity());
   }
 
-  /// Resumes the current journey after the user backs out of ending it.
-  ///
-  /// Preserves the original start time, route, and accumulated distance.
-  Future<void> resumeTracking() async {
-    if (_currentPhase != JourneyPhase.completing) {
-      debugPrint('[JourneyController] Cannot resume: not completing');
+  /// Pauses the active journey without clearing route or distance progress.
+  Future<void> pauseTracking() async {
+    if (_currentPhase != JourneyPhase.tracking) {
+      debugPrint('[JourneyController] Cannot pause: not tracking');
       return;
     }
 
     try {
-      _subscribeToTrackingUpdates();
+      await _trackingService.pauseTracking();
+      _pausedAt = DateTime.now();
+      _currentPhase = JourneyPhase.paused;
+      _errorMessage = null;
+      _elapsedTimer?.cancel();
+      _elapsedTimer = null;
+
+      await _liveActivityService.pauseJourney(_liveJourneyState);
+      notifyListeners();
+      debugPrint('[JourneyController] Tracking paused');
+    } catch (e) {
+      _errorMessage = 'Failed to pause tracking: $e';
+      notifyListeners();
+      debugPrint('[JourneyController] Failed to pause tracking: $e');
+    }
+  }
+
+  /// Resumes the current journey after a pause or after backing out of ending it.
+  ///
+  /// Preserves the original start time, route, and accumulated distance.
+  Future<void> resumeTracking() async {
+    final wasPaused = _currentPhase == JourneyPhase.paused;
+    final wasCompleting = _currentPhase == JourneyPhase.completing;
+
+    if (!wasPaused && !wasCompleting) {
+      debugPrint('[JourneyController] Cannot resume: journey is not paused');
+      return;
+    }
+
+    try {
+      if (wasCompleting) {
+        _subscribeToTrackingUpdates();
+      }
+
       await _trackingService.resumeTracking();
 
+      if (_pausedAt != null) {
+        _totalPausedDuration += DateTime.now().difference(_pausedAt!);
+      }
+
+      _pausedAt = null;
       _endTime = null;
       _currentPhase = JourneyPhase.tracking;
       _errorMessage = null;
+      _startElapsedTimer();
+
+      if (wasCompleting) {
+        await _liveActivityService.startJourney(_liveJourneyState);
+      } else {
+        await _liveActivityService.resumeJourney(_liveJourneyState);
+      }
+
       notifyListeners();
       debugPrint('[JourneyController] Tracking resumed');
     } catch (e) {
-      await _routeSubscription?.cancel();
-      await _distanceSubscription?.cancel();
-      _routeSubscription = null;
-      _distanceSubscription = null;
+      if (wasCompleting) {
+        await _routeSubscription?.cancel();
+        await _distanceSubscription?.cancel();
+        _routeSubscription = null;
+        _distanceSubscription = null;
+      }
       _errorMessage = 'Failed to resume tracking: $e';
       notifyListeners();
       debugPrint('[JourneyController] Failed to resume tracking: $e');
@@ -243,6 +315,7 @@ class JourneyController extends ChangeNotifier {
     _distanceSubscription = _trackingService.distanceStream.listen((distance) {
       _distanceMeters = distance;
       notifyListeners();
+      unawaited(_syncLiveActivity());
     });
   }
 
@@ -252,12 +325,23 @@ class JourneyController extends ChangeNotifier {
 
   /// Stops GPS tracking and moves to the completing phase.
   Future<void> stopTracking() async {
-    if (_currentPhase != JourneyPhase.tracking) {
-      debugPrint('[JourneyController] Cannot stop: not tracking');
+    if (_currentPhase != JourneyPhase.tracking &&
+        _currentPhase != JourneyPhase.paused) {
+      debugPrint('[JourneyController] Cannot stop: journey is not active');
       return;
     }
 
-    _endTime = DateTime.now();
+    final wasPaused = _currentPhase == JourneyPhase.paused;
+    final now = DateTime.now();
+    if (wasPaused && _pausedAt != null) {
+      _totalPausedDuration += now.difference(_pausedAt!);
+    }
+    _pausedAt = null;
+    _endTime = now;
+
+    // Treat the completing flow as a paused interval if the user chooses to
+    // continue the same journey from the end sheet.
+    _pausedAt = now;
 
     // Stop the tracking service and get final points
     final finalPoints = await _trackingService.stopTracking();
@@ -269,8 +353,11 @@ class JourneyController extends ChangeNotifier {
     await _distanceSubscription?.cancel();
     _routeSubscription = null;
     _distanceSubscription = null;
+    _elapsedTimer?.cancel();
+    _elapsedTimer = null;
 
     _currentPhase = JourneyPhase.completing;
+    await _liveActivityService.stopJourney(_liveJourneyState);
     notifyListeners();
 
     debugPrint(
@@ -391,8 +478,15 @@ class JourneyController extends ChangeNotifier {
     );
   }
 
-  /// Saves the journey to Firestore.
-  Future<Journey?> saveJourney(String userId) async {
+  /// Saves the reviewed journey to Firestore.
+  ///
+  /// When [resetAfterSave] is false the review state remains available so
+  /// downstream publishing can retry without creating duplicate Journey docs.
+  Future<Journey?> saveJourney(
+    String userId, {
+    String? title,
+    bool resetAfterSave = true,
+  }) async {
     if (_currentPhase != JourneyPhase.reviewing) {
       debugPrint('[JourneyController] Cannot save: not reviewing');
       return null;
@@ -421,6 +515,30 @@ class JourneyController extends ChangeNotifier {
     }
 
     try {
+      final reviewedTitle = title?.trim();
+      final existing = _persistedReviewedJourney;
+      if (existing != null) {
+        var resolved = existing;
+        if (reviewedTitle != null &&
+            reviewedTitle.isNotEmpty &&
+            reviewedTitle != existing.title) {
+          await _journeyService.updateJourneyTitle(
+            userId: userId,
+            journeyId: existing.id,
+            title: reviewedTitle,
+          );
+          resolved = existing.copyWith(title: reviewedTitle);
+          _persistedReviewedJourney = resolved;
+        }
+        if (resetAfterSave) {
+          _resetState();
+        } else {
+          _errorMessage = null;
+          notifyListeners();
+        }
+        return resolved;
+      }
+
       // Calculate XP based on distance and transport mode
       final distanceXp = journeyXpEarned;
       final totalXp = totalXpEarned;
@@ -444,6 +562,7 @@ class JourneyController extends ChangeNotifier {
         encodedRoute: encodedRoute,
         distanceMeters: _distanceMeters,
         durationSeconds: elapsedDuration.inSeconds,
+        title: reviewedTitle,
         xpEarned: totalXp,
         journeyXpEarned: distanceXp,
         tilesUnlocked: _tilesUnlocked,
@@ -454,15 +573,14 @@ class JourneyController extends ChangeNotifier {
       );
 
       final savedJourney = await _journeyService.saveJourney(journey);
+      _persistedReviewedJourney = savedJourney;
 
-      await _statsSummaryService.recordJourney(
-        uid: userId,
-        distanceMeters: _distanceMeters,
-        durationSeconds: elapsedDuration.inSeconds,
-      );
-
-      // Reset to idle
-      _resetState();
+      if (resetAfterSave) {
+        _resetState();
+      } else {
+        _errorMessage = null;
+        notifyListeners();
+      }
 
       debugPrint('[JourneyController] Journey saved: ${savedJourney.id}');
       return savedJourney;
@@ -472,6 +590,17 @@ class JourneyController extends ChangeNotifier {
       debugPrint('[JourneyController] Failed to save: $e');
       return null;
     }
+  }
+
+  /// Marks reviewed Journey XP as awarded so retrying activity publishing does
+  /// not duplicate the distance/mode XP award.
+  void markReviewedJourneyXpAwarded() {
+    _reviewedJourneyXpAwarded = true;
+  }
+
+  /// Clears a completed review flow after its Journey is safely handled.
+  void clearReviewedJourney() {
+    _resetState();
   }
 
   // ─────────────────────────────────────────────────────────────────────────
@@ -486,6 +615,12 @@ class JourneyController extends ChangeNotifier {
 
     await _routeSubscription?.cancel();
     await _distanceSubscription?.cancel();
+    _elapsedTimer?.cancel();
+    _elapsedTimer = null;
+
+    if (_startTime != null) {
+      await _liveActivityService.stopJourney(_liveJourneyState);
+    }
 
     _resetState();
     debugPrint('[JourneyController] Journey cancelled');
@@ -499,16 +634,73 @@ class JourneyController extends ChangeNotifier {
     _transportMode = TransportMode.walk;
     _startTime = null;
     _endTime = null;
+    _pausedAt = null;
+    _totalPausedDuration = Duration.zero;
     _routePoints = [];
     _distanceMeters = 0.0;
     _tilesUnlocked = 0;
     _tileXpEarned = 0;
     _unlockedTileIds.clear();
     _areaUnlockedSquareMetres = 0;
+    _persistedReviewedJourney = null;
+    _reviewedJourneyXpAwarded = false;
     _errorMessage = null;
     _routeSubscription = null;
     _distanceSubscription = null;
+    _elapsedTimer?.cancel();
+    _elapsedTimer = null;
+    _liveUpdateTick = 0;
     notifyListeners();
+  }
+
+  LiveJourneyState get _liveJourneyState {
+    return LiveJourneyState(
+      journeyId: _startTime?.microsecondsSinceEpoch.toString() ?? 'journey',
+      transportMode: _transportMode.displayName,
+      startTime: _startTime ?? DateTime.now(),
+      elapsedSeconds: elapsedDuration.inSeconds,
+      distanceMeters: _distanceMeters,
+      tilesUnlocked: _tilesUnlocked,
+      xpEarned: totalXpEarned,
+      isPaused: _currentPhase == JourneyPhase.paused,
+    );
+  }
+
+  void _startElapsedTimer() {
+    _elapsedTimer?.cancel();
+    _liveUpdateTick = 0;
+    _elapsedTimer = Timer.periodic(const Duration(seconds: 1), (_) {
+      if (_currentPhase != JourneyPhase.tracking) return;
+
+      notifyListeners();
+      _liveUpdateTick += 1;
+      if (_liveUpdateTick >= 15) {
+        _liveUpdateTick = 0;
+        unawaited(_syncLiveActivity());
+      }
+    });
+  }
+
+  Future<void> _syncLiveActivity() async {
+    if (_currentPhase != JourneyPhase.tracking &&
+        _currentPhase != JourneyPhase.paused) {
+      return;
+    }
+
+    await _liveActivityService.updateJourney(_liveJourneyState);
+  }
+
+  void _handleLiveActivityAction(LiveActivityAction action) {
+    switch (action) {
+      case LiveActivityAction.pause:
+        unawaited(pauseTracking());
+      case LiveActivityAction.resume:
+        unawaited(resumeTracking());
+      case LiveActivityAction.stop:
+        unawaited(stopTracking());
+      case LiveActivityAction.open:
+        break;
+    }
   }
 
   // ─────────────────────────────────────────────────────────────────────────
@@ -541,6 +733,15 @@ class JourneyController extends ChangeNotifier {
   void dispose() {
     _routeSubscription?.cancel();
     _distanceSubscription?.cancel();
+    _liveActionSubscription?.cancel();
+    _elapsedTimer?.cancel();
+
+    // Avoid leaving a stale system-level Live Activity behind if the Journey
+    // controller is disposed while a Journey is still active.
+    if (_startTime != null) {
+      unawaited(_liveActivityService.stopJourney(_liveJourneyState));
+    }
+
     _trackingService.dispose();
     super.dispose();
   }

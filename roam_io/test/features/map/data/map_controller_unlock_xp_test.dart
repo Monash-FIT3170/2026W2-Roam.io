@@ -360,7 +360,9 @@ class _FakeGeoLocatorService implements GeoLocatorService {
   }
 
   @override
-  Future<Stream<Position>> getLocationUpdates() async {
+  Future<Stream<Position>> getLocationUpdates({
+    bool allowBackgroundUpdates = false,
+  }) async {
     return const Stream<Position>.empty();
   }
 

@@ -2,7 +2,12 @@
   "permissions": {
     "allow": [
       "Bash(FL=/Users/amarpritsingh/dev/flutter/packages/flutter/lib; grep -rn \"export 'package:vector_math\" $FL/*.dart $FL/src/painting/*.dart 2>/dev/null | head)",
-      "Read(//Users/amarpritsingh/dev/flutter/packages/flutter/lib/**)"
+      "Read(//Users/amarpritsingh/dev/flutter/packages/flutter/lib/**)",
+      "Bash(grep -rn *)",
+      "Bash(echo \"EXIT:$?\")",
+      "Bash(flutter analyze *)",
+      "Bash(flutter test *)",
+      "Bash(git log *)"
     ]
   }
 }
