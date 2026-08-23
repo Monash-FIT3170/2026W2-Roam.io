@@ -223,6 +223,7 @@ class MapController extends ChangeNotifier {
     unawaited(_locationUpdatesSubscription?.cancel());
     _locationUpdatesSubscription = null;
     _googleMapController?.dispose();
+    fogController.onFogReturnCompleted = null;
     fogController.dispose();
   }
 
