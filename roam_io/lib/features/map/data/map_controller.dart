@@ -804,6 +804,9 @@ class MapController extends ChangeNotifier {
       _visitedRegionIds = <String>{};
       _fogClearedRegionIds = <String>{};
       _visitCountsByRegion = <String, int>{};
+      await _visitedRegionService.refreshFogDecayWarnings(
+        difficulty: _fogDecayDifficulty,
+      );
       return;
     }
 

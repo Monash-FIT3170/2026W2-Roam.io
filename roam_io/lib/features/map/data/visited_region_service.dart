@@ -72,7 +72,14 @@ class VisitedRegionService {
     DateTime? now,
   }) async {
     final user = _resolvedAuth.currentUser;
-    if (user == null) return;
+    if (user == null) {
+      await _fogDecayWarningService.refreshWarnings(
+        locations: const <VisitedPolygonMeta>[],
+        difficulty: difficulty,
+        now: now ?? DateTime.now(),
+      );
+      return;
+    }
     final metadata = await _loadExplorationMetadata(user.uid);
     await _fogDecayWarningService.refreshWarnings(
       locations: metadata.values,
