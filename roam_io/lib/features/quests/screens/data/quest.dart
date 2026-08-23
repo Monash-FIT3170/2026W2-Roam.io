@@ -23,6 +23,7 @@ class Quest {
     this.latitude,
     this.longitude,
     this.verificationRadiusMetres,
+    this.verificationPrompt,
     this.imageUrl,
     this.estimatedMinutes,
     this.availableFrom,
@@ -46,6 +47,7 @@ class Quest {
   final double? latitude;
   final double? longitude;
   final double? verificationRadiusMetres;
+  final String? verificationPrompt;
 
   final String? imageUrl;
   final int? estimatedMinutes;
@@ -93,6 +95,7 @@ class Quest {
       longitude: (data['longitude'] as num?)?.toDouble(),
       verificationRadiusMetres:
           (data['verificationRadiusMetres'] as num?)?.toDouble(),
+      verificationPrompt: data['verificationPrompt'] as String?,
       imageUrl: data['imageUrl'] as String?,
       estimatedMinutes: (data['estimatedMinutes'] as num?)?.toInt(),
       availableFrom: _parseDate(data['availableFrom']),
@@ -116,6 +119,7 @@ class Quest {
       'verificationRadiusMetres': verificationRadiusMetres,
       'imageUrl': imageUrl,
       'estimatedMinutes': estimatedMinutes,
+      'verificationPrompt': verificationPrompt,
       'availableFrom': availableFrom == null
           ? null
           : Timestamp.fromDate(availableFrom!),
