@@ -17,6 +17,7 @@ import 'package:google_maps_flutter/google_maps_flutter.dart';
 
 import '../domain/exploration_mode.dart';
 import '../fog/fog_controller.dart';
+import '../fog/fog_decay_difficulty.dart';
 import '../../profile/domain/xp_reward_config.dart';
 import 'geolocator_service.dart';
 import 'map_viewport_policy.dart';
@@ -51,6 +52,7 @@ class MapController extends ChangeNotifier {
     MapViewportPolicy? viewportPolicy,
     PolygonService? polygonService,
     ExplorationStatsService? explorationStatsService,
+    FogDecayDifficulty fogDecayDifficulty = FogDecayDifficulty.quarterly,
   }) : _geoLocatorService = geoLocatorService ?? GeoLocatorService(),
        _regionService = regionService ?? RegionService(),
        _visitService = visitService ?? VisitService(),
@@ -61,7 +63,8 @@ class MapController extends ChangeNotifier {
        _placeMarkerManager = placeMarkerManager ?? PlaceMarkerManager(),
        _viewportPolicy = viewportPolicy ?? MapViewportPolicy(),
        _polygonService = polygonService,
-       _explorationStatsService = explorationStatsService;
+       _explorationStatsService = explorationStatsService,
+       _fogDecayDifficulty = fogDecayDifficulty;
 
   final GeoLocatorService _geoLocatorService;
   final RegionService _regionService;
@@ -74,6 +77,7 @@ class MapController extends ChangeNotifier {
   final MapViewportPolicy _viewportPolicy;
   PolygonService? _polygonService;
   ExplorationStatsService? _explorationStatsService;
+  FogDecayDifficulty _fogDecayDifficulty;
 
   PolygonService get _resolvedPolygonService =>
       _polygonService ??= PolygonService();
@@ -85,6 +89,7 @@ class MapController extends ChangeNotifier {
 
   GoogleMapController? _googleMapController;
   StreamSubscription<Position>? _locationUpdatesSubscription;
+  Timer? _fogDecayRefreshTimer;
 
   /// Fog of war state, consumed by the FogOverlay stacked above the map.
   final FogController fogController = FogController();
@@ -94,6 +99,7 @@ class MapController extends ChangeNotifier {
 
   Set<int> _visitedPlaceIds = {};
   Set<String> _visitedRegionIds = <String>{};
+  Set<String> _fogClearedRegionIds = <String>{};
   Map<String, int> _visitCountsByRegion = <String, int>{};
   Map<String, int> _entryCountsByRegion = <String, int>{};
   Set<String> _visibleViewportRegionIds = <String>{};
@@ -132,6 +138,7 @@ class MapController extends ChangeNotifier {
   ExplorationMode get currentMode => _currentMode;
   Set<int> get visitedPlaceIds => Set.unmodifiable(_visitedPlaceIds);
   Set<String> get visitedRegionIds => Set.unmodifiable(_visitedRegionIds);
+  Set<String> get fogClearedRegionIds => Set.unmodifiable(_fogClearedRegionIds);
   Map<String, int> get visitCountsByRegion =>
       Map<String, int>.unmodifiable(_visitCountsByRegion);
 
@@ -165,6 +172,7 @@ class MapController extends ChangeNotifier {
 
     await PlaceOfInterest.preloadIcons();
     await _loadUserVisitState();
+    _startFogDecayRefresh();
 
     _placeMarkerManager.setVisitedPlaceIds(_visitedPlaceIds);
     _refreshCachedPolygonsStyles();
@@ -208,6 +216,8 @@ class MapController extends ChangeNotifier {
   }
 
   void disposeController() {
+    _fogDecayRefreshTimer?.cancel();
+    _fogDecayRefreshTimer = null;
     unawaited(_locationUpdatesSubscription?.cancel());
     _locationUpdatesSubscription = null;
     _googleMapController?.dispose();
@@ -399,13 +409,13 @@ class MapController extends ChangeNotifier {
   /// persisted, because the dissipation animation needs its path to know where
   /// to tear.
   bool _isRegionCleared(String regionId) {
-    return _visitedRegionIds.contains(regionId) ||
+    return _fogClearedRegionIds.contains(regionId) ||
         currentRegion?.id == regionId;
   }
 
   /// Every region whose fog is cleared, used to narrow the viewport request.
   Set<String> _clearedRegionIds() {
-    return <String>{..._visitedRegionIds, ?currentRegion?.id};
+    return <String>{..._fogClearedRegionIds, ?currentRegion?.id};
   }
 
   void onRegionTapped(String regionId, String regionName) {
@@ -792,6 +802,7 @@ class MapController extends ChangeNotifier {
     if (_userId == null) {
       _visitedPlaceIds = {};
       _visitedRegionIds = <String>{};
+      _fogClearedRegionIds = <String>{};
       _visitCountsByRegion = <String, int>{};
       return;
     }
@@ -825,12 +836,48 @@ class MapController extends ChangeNotifier {
 
     try {
       _visitedRegionIds = await _visitedRegionService.loadVisitedRegionIds();
+      _fogClearedRegionIds = await _visitedRegionService
+          .loadFogClearedRegionIds(difficulty: _fogDecayDifficulty);
       debugPrint(
         '[MapController] Loaded ${_visitedRegionIds.length} visited regions',
       );
     } catch (error) {
       debugPrint('[MapController] Error loading visited regions: $error');
     }
+  }
+
+  void _startFogDecayRefresh() {
+    _fogDecayRefreshTimer?.cancel();
+    _fogDecayRefreshTimer = Timer.periodic(
+      const Duration(minutes: 15),
+      (_) => unawaited(refreshFogDecayState()),
+    );
+  }
+
+  /// Recomputes visual fog from persisted timestamps without changing history.
+  Future<void> refreshFogDecayState() async {
+    if (_userId == null) return;
+    try {
+      final clearedIds = await _visitedRegionService.loadFogClearedRegionIds(
+        difficulty: _fogDecayDifficulty,
+      );
+      _fogClearedRegionIds = clearedIds;
+      fogController.retainClearedRegions(<String>{
+        ...clearedIds,
+        ?currentRegion?.id,
+      });
+      notifyListeners();
+    } catch (error) {
+      debugPrint('[MapController] Error refreshing fog decay state: $error');
+    }
+  }
+
+  /// Applies a changed preference and immediately recomputes visible fog.
+  Future<void> updateFogDecayDifficulty(FogDecayDifficulty difficulty) async {
+    if (_fogDecayDifficulty == difficulty) return;
+    _fogDecayDifficulty = difficulty;
+    await refreshFogDecayState();
+    await loadViewportRegions(force: true);
   }
 
   Future<void> _loadVisitCountsByRegion() async {
@@ -896,6 +943,7 @@ class MapController extends ChangeNotifier {
     final regionId = region.id;
 
     if (_visitedRegionIds.contains(regionId)) {
+      _fogClearedRegionIds.add(regionId);
       return false;
     }
 
@@ -908,6 +956,7 @@ class MapController extends ChangeNotifier {
       }
 
       _visitedRegionIds.add(regionId);
+      _fogClearedRegionIds.add(regionId);
 
       final xpResult = await _awardUnlockXp(region);
 

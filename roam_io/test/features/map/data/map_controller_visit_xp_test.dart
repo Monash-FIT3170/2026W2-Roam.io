@@ -15,6 +15,7 @@ import 'package:geolocator/geolocator.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:roam_io/features/map/data/geolocator_service.dart';
 import 'package:roam_io/features/map/data/map_controller.dart';
+import 'package:roam_io/features/map/fog/fog_decay_difficulty.dart';
 import 'package:roam_io/features/map/data/place_of_interest.dart';
 import 'package:roam_io/features/map/data/visited_region_service.dart';
 import 'package:roam_io/features/map/data/visit_service.dart';
@@ -169,6 +170,12 @@ PlaceOfInterest _place({required int id, required String regionId}) {
 class _TestVisitedRegionService implements VisitedRegionService {
   @override
   Future<Set<String>> loadVisitedRegionIds() async => <String>{};
+
+  @override
+  Future<Set<String>> loadFogClearedRegionIds({
+    required FogDecayDifficulty difficulty,
+    DateTime? now,
+  }) async => <String>{};
 
   @override
   Future<bool> markVisited(

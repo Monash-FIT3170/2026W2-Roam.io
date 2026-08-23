@@ -10,15 +10,22 @@ import 'package:firebase_auth/firebase_auth.dart';
 import '../../../services/polygon_service.dart';
 import '../../profile/domain/visited_polygon_meta.dart';
 import '../../profile/domain/visited_polygon_record.dart';
+import '../fog/fog_decay_difficulty.dart';
+import '../fog/fog_decay_service.dart';
 
 /// Persists region visits and reports whether each visit is a new unlock.
 class VisitedRegionService {
-  VisitedRegionService({FirebaseAuth? auth, PolygonService? polygonService})
-    : _auth = auth,
-      _polygonService = polygonService ?? PolygonService();
+  VisitedRegionService({
+    FirebaseAuth? auth,
+    PolygonService? polygonService,
+    FogDecayService fogDecayService = const FogDecayService(),
+  }) : _auth = auth,
+       _polygonService = polygonService ?? PolygonService(),
+       _fogDecayService = fogDecayService;
 
   final FirebaseAuth? _auth;
   final PolygonService _polygonService;
+  final FogDecayService _fogDecayService;
 
   FirebaseAuth get _resolvedAuth => _auth ?? FirebaseAuth.instance;
 
@@ -35,6 +42,39 @@ class VisitedRegionService {
     );
 
     return records.map((record) => record.polygonId).toSet();
+  }
+
+  /// Loads only explored regions whose fog clearing has not yet expired.
+  /// Historical exploration records remain untouched.
+  Future<Set<String>> loadFogClearedRegionIds({
+    required FogDecayDifficulty difficulty,
+    DateTime? now,
+  }) async {
+    final user = _resolvedAuth.currentUser;
+    if (user == null) return <String>{};
+
+    final results = await Future.wait<Object>(<Future<Object>>[
+      _polygonService.getVisitedPolygonMeta(profileId: user.uid),
+      _polygonService.getVisitedPolygonRecords(profileId: user.uid),
+    ]);
+    final metadata = Map<String, VisitedPolygonMeta>.from(
+      results[0] as Map<String, VisitedPolygonMeta>,
+    );
+    final records = results[1] as List<VisitedPolygonRecord>;
+    for (final record in records) {
+      metadata.putIfAbsent(
+        record.polygonId,
+        () => VisitedPolygonMeta(
+          polygonId: record.polygonId,
+          visitedAt: record.visitedAt,
+        ),
+      );
+    }
+    return _fogDecayService.refreshFogDecayState(
+      locations: metadata.values,
+      difficulty: difficulty,
+      now: now ?? DateTime.now(),
+    );
   }
 
   // Streams the set of region IDs the user has visited. Emits an empty set if

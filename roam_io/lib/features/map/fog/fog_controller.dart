@@ -125,6 +125,22 @@ class FogController extends ChangeNotifier {
     if (added) notifyListeners();
   }
 
+  /// Re-fogs any cached region that is no longer in [regionIds].
+  void retainClearedRegions(Set<String> regionIds) {
+    final geometry = _geometry;
+    if (geometry == null) return;
+
+    final removedIds = geometry.regionIds
+        .where((id) => !regionIds.contains(id))
+        .toList();
+    if (removedIds.isEmpty) return;
+
+    for (final id in removedIds) {
+      geometry.remove(id);
+    }
+    notifyListeners();
+  }
+
   /// Starts the blow-away animation for a newly unlocked region.
   ///
   /// [userLatLng] is the tear origin, so the clouds part from where the user

@@ -35,6 +35,7 @@ import '../../../shared/widgets/app_toast.dart';
 import '../../../theme/app_colours.dart';
 import '../../../theme/app_surfaces.dart';
 import '../fog/fog_overlay.dart';
+import '../fog/fog_decay_difficulty.dart';
 import '../widgets/map_render.dart';
 import '../widgets/mode_toggle_chip.dart';
 import 'map_controller.dart';
@@ -122,15 +123,18 @@ class _MapPageState extends State<MapPage> {
   Set<Polyline> _savedJourneyPolylines = {};
   Set<Marker> _journeyMarkers = {};
   StreamSubscription<List<Journey>>? _journeysSubscription;
+  FogDecayDifficulty? _lastFogDecayDifficulty;
 
   @override
   void initState() {
     super.initState();
 
     final authProvider = context.read<AuthProvider>();
+    _lastFogDecayDifficulty = authProvider.fogDecayDifficulty;
 
     // Own the controller for this page and start its setup work once mounted.
     _mapController = MapController(
+      fogDecayDifficulty: authProvider.fogDecayDifficulty,
       tileUnlockXpService: TileUnlockXpService(
         addXp: (xp) => authProvider.addXp(xp, source: XpEventSource.tileUnlock),
       ),
@@ -158,6 +162,15 @@ class _MapPageState extends State<MapPage> {
       // Load saved journeys
       _loadSavedJourneys();
     });
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final difficulty = context.watch<AuthProvider>().fogDecayDifficulty;
+    if (_lastFogDecayDifficulty == difficulty) return;
+    _lastFogDecayDifficulty = difficulty;
+    unawaited(_mapController.updateFogDecayDifficulty(difficulty));
   }
 
   /// Loads saved journeys and displays them on the map.
