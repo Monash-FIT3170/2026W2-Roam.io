@@ -224,6 +224,9 @@ class PolygonService {
       final currentEntryMap =
           (currentData?['entry_counts'] as Map<String, dynamic>?) ??
           <String, dynamic>{};
+      final currentPolygonMap =
+          (currentData?[_visitedPolygonsMapField] as Map<String, dynamic>?) ??
+          <String, dynamic>{};
 
       final currentCountDynamic = currentEntryMap[polygonId];
       final currentCount = currentCountDynamic is num
@@ -254,6 +257,8 @@ class PolygonService {
       transaction.set(document, <String, dynamic>{
         _profileIdFieldName: profileId,
         _userIdFieldName: profileId,
+        // Re-entry affects visual decay metadata, never permanent history.
+        _visitedPolygonsMapField: Map<String, dynamic>.from(currentPolygonMap),
         'entry_counts': updatedEntryMap,
         _visitedPolygonMetaField: updatedMetaMap,
       }, SetOptions(merge: true));
