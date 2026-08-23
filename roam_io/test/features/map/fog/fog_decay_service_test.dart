@@ -93,4 +93,53 @@ void main() {
       contains('region-1'),
     );
   });
+
+  test('only unpresented exact decay events are returned', () {
+    final location = VisitedPolygonMeta(
+      polygonId: 'region-1',
+      visitedAt: DateTime.utc(2026, 1, 1),
+    );
+    final decayAt = DateTime.utc(2026, 1, 31);
+
+    expect(
+      service.getUnpresentedDecayEvents(
+        locations: <VisitedPolygonMeta>[location],
+        presentedDecayAtByLocation: const <String, DateTime>{},
+        difficulty: FogDecayDifficulty.monthly,
+        now: DateTime.utc(2026, 2, 1),
+      ),
+      <String, DateTime>{'region-1': decayAt},
+    );
+    expect(
+      service.getUnpresentedDecayEvents(
+        locations: <VisitedPolygonMeta>[location],
+        presentedDecayAtByLocation: <String, DateTime>{'region-1': decayAt},
+        difficulty: FogDecayDifficulty.monthly,
+        now: DateTime.utc(2026, 2, 1),
+      ),
+      isEmpty,
+    );
+  });
+
+  test(
+    'revisit creates a new decay event after an older one was presented',
+    () {
+      final location = VisitedPolygonMeta(
+        polygonId: 'region-1',
+        visitedAt: DateTime.utc(2026, 1, 1),
+        lastEnteredAt: DateTime.utc(2026, 2, 1),
+      );
+
+      final pending = service.getUnpresentedDecayEvents(
+        locations: <VisitedPolygonMeta>[location],
+        presentedDecayAtByLocation: <String, DateTime>{
+          'region-1': DateTime.utc(2026, 1, 31),
+        },
+        difficulty: FogDecayDifficulty.monthly,
+        now: DateTime.utc(2026, 3, 5),
+      );
+
+      expect(pending['region-1'], DateTime.utc(2026, 3, 3));
+    },
+  );
 }

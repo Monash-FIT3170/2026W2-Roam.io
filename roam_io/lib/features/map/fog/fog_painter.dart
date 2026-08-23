@@ -20,6 +20,7 @@ import 'fog_field.dart';
 import 'fog_geometry.dart';
 import 'fog_palette.dart';
 import 'fog_projection.dart';
+import 'fog_return_transition.dart';
 
 /// Renders the cloud fog sheet over the map.
 class FogPainter extends CustomPainter {
@@ -30,6 +31,7 @@ class FogPainter extends CustomPainter {
     required this.camera,
     required this.elapsed,
     required this.dissolves,
+    this.returnTransition,
     required this.atlas,
     required this.userSpeedMetresPerSecond,
     this.isNight = false,
@@ -42,6 +44,7 @@ class FogPainter extends CustomPainter {
   final CameraPosition camera;
   final Duration elapsed;
   final List<FogDissolve> dissolves;
+  final FogReturnTransition? returnTransition;
   final FogAtlas? atlas;
   final double userSpeedMetresPerSecond;
   final bool isNight;
@@ -154,9 +157,27 @@ class FogPainter extends CustomPainter {
 
     for (final path in geometry.pathsIntersecting(
       worldBounds,
-      excluding: dissolving,
+      excluding: <String>{...dissolving, ...?returnTransition?.regionIds},
     )) {
       canvas.drawPath(path, clearPaint);
+    }
+
+    final returning = returnTransition;
+    if (returning != null) {
+      final opacity = returning.clearOpacityAt(elapsed);
+      if (opacity > 0) {
+        for (final id in returning.regionIds) {
+          final path = geometry.pathFor(id);
+          if (path == null || !path.getBounds().overlaps(worldBounds)) continue;
+          canvas.drawPath(
+            path,
+            Paint()
+              ..blendMode = BlendMode.dstOut
+              ..color = const Color(0xFF000000).withValues(alpha: opacity)
+              ..maskFilter = ui.MaskFilter.blur(BlurStyle.normal, sigma),
+          );
+        }
+      }
     }
 
     // A region mid-dissipation clears gradually, so the map is revealed behind
@@ -190,6 +211,7 @@ class FogPainter extends CustomPainter {
         oldDelegate.atlas != atlas ||
         oldDelegate.geometry.length != geometry.length ||
         oldDelegate.dissolves.length != dissolves.length ||
+        oldDelegate.returnTransition != returnTransition ||
         oldDelegate.userSpeedMetresPerSecond != userSpeedMetresPerSecond ||
         oldDelegate.isNight != isNight;
   }

@@ -116,7 +116,7 @@ class MapPage extends StatefulWidget {
   State<MapPage> createState() => _MapPageState();
 }
 
-class _MapPageState extends State<MapPage> {
+class _MapPageState extends State<MapPage> with WidgetsBindingObserver {
   late final MapController _mapController;
   late final JourneyController _journeyController;
   Set<Polyline> _activeJourneyPolyline = {};
@@ -128,6 +128,7 @@ class _MapPageState extends State<MapPage> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
 
     final authProvider = context.read<AuthProvider>();
     _lastFogDecayDifficulty = authProvider.fogDecayDifficulty;
@@ -162,6 +163,13 @@ class _MapPageState extends State<MapPage> {
       // Load saved journeys
       _loadSavedJourneys();
     });
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      unawaited(_mapController.handleAppResumed());
+    }
   }
 
   @override
@@ -377,6 +385,7 @@ class _MapPageState extends State<MapPage> {
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     // Detach listeners and release controller resources when leaving the page.
     _mapController.onPlaceSelected = null;
     _mapController.onRegionUnlockRewarded = null;

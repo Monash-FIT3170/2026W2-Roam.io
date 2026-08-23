@@ -61,4 +61,27 @@ class FogDecayService {
         .where((id) => !decayed.contains(id))
         .toSet();
   }
+
+  /// Finds expired decay events whose exact [decayAt] has not been presented.
+  Map<String, DateTime> getUnpresentedDecayEvents({
+    required Iterable<VisitedPolygonMeta> locations,
+    required Map<String, DateTime> presentedDecayAtByLocation,
+    required FogDecayDifficulty difficulty,
+    required DateTime now,
+  }) {
+    final pending = <String, DateTime>{};
+    for (final location in locations) {
+      final decayAt = calculateDecayDate(
+        lastExploredAt: location.lastEnteredAt ?? location.visitedAt,
+        difficulty: difficulty,
+      );
+      if (now.isBefore(decayAt)) continue;
+      final presentedAt = presentedDecayAtByLocation[location.polygonId];
+      if (presentedAt != null && presentedAt.isAtSameMomentAs(decayAt)) {
+        continue;
+      }
+      pending[location.polygonId] = decayAt;
+    }
+    return pending;
+  }
 }

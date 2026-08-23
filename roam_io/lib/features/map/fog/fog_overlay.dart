@@ -148,7 +148,8 @@ class _FogOverlayState extends State<FogOverlay>
     // difference is visible.
     final isBusy =
         controller.isCameraMoving || controller.dissolveSet.isNotEmpty;
-    final targetFps = isBusy
+    final hasReturnAnimation = controller.returnTransition != null;
+    final targetFps = isBusy || hasReturnAnimation
         ? FogPalette.activeFramesPerSecond
         : FogPalette.restingFramesPerSecond;
     final minimumInterval = Duration(
@@ -160,6 +161,7 @@ class _FogOverlayState extends State<FogOverlay>
     _lastPaint = elapsed;
     controller.tick(elapsed);
     controller.pruneCompletedDissolves();
+    controller.pruneCompletedFogReturn();
 
     setState(() => _elapsed = elapsed);
   }
@@ -193,6 +195,7 @@ class _FogOverlayState extends State<FogOverlay>
             camera: camera,
             elapsed: _elapsed,
             dissolves: controller.dissolveSet.active,
+            returnTransition: controller.returnTransition,
             atlas: atlas,
             userSpeedMetresPerSecond: controller.userSpeedMetresPerSecond,
             isNight: Theme.of(context).brightness == Brightness.dark,
