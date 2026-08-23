@@ -171,8 +171,12 @@ class _TestVisitedRegionService implements VisitedRegionService {
   Future<Set<String>> loadVisitedRegionIds() async => <String>{};
 
   @override
-  Future<bool> markVisited(String regionId, {DateTime? visitedAt}) async =>
-      true;
+  Future<bool> markVisited(
+    String regionId, {
+    DateTime? visitedAt,
+    double? areaSquareMetres,
+    String? name,
+  }) async => true;
 
   @override
   dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
@@ -216,15 +220,16 @@ class _FixedPositionGeo extends GeoLocatorService {
   Future<Position> getCurrentLocation() async => _position;
 
   @override
-  Future<Stream<Position>> getLocationUpdates() async =>
-      Stream<Position>.fromIterable(const <Position>[]);
+  Future<Stream<Position>> getLocationUpdates({
+    bool allowBackgroundUpdates = false,
+  }) async => Stream<Position>.fromIterable(const <Position>[]);
 }
 
 class _AlwaysThrowingVisitService extends VisitService {
   _AlwaysThrowingVisitService() : super(firestore: FakeFirebaseFirestore());
 
   @override
-  Future<void> markVisited({
+  Future<VisitWriteResult> markVisited({
     required String userId,
     required PlaceOfInterest place,
     String? customName,
@@ -242,7 +247,7 @@ class _FailOnceThenSucceedVisitService extends VisitService {
   var _fail = true;
 
   @override
-  Future<void> markVisited({
+  Future<VisitWriteResult> markVisited({
     required String userId,
     required PlaceOfInterest place,
     String? customName,

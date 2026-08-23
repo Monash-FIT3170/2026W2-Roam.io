@@ -7,6 +7,7 @@
 
 import 'package:fake_cloud_firestore/fake_cloud_firestore.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:roam_io/features/map/data/map_controller.dart';
 import 'package:roam_io/services/polygon_service.dart';
 
@@ -44,6 +45,51 @@ class _FakeVisitedRegionService extends FakeVisitedRegionService {
 }
 
 void main() {
+  group('MapController location following', () {
+    test(
+      'user camera movement pauses following and recenter resumes it',
+      () async {
+        final controller = MapController(
+          geoLocatorService: FakeGeoLocatorService(
+            testPosition(-37.8136, 144.9631),
+          ),
+          visitService: RecordingVisitService(),
+          visitedRegionService: FakeVisitedRegionService(),
+        );
+
+        expect(controller.isFollowingUser, isTrue);
+
+        controller.onCameraMoveStarted();
+        expect(controller.isFollowingUser, isFalse);
+
+        await controller.recenterOnUser();
+        expect(controller.isFollowingUser, isTrue);
+
+        controller.disposeController();
+        controller.dispose();
+      },
+    );
+
+    test('journey locations update the current map center', () {
+      final controller = MapController(
+        geoLocatorService: FakeGeoLocatorService(
+          testPosition(-37.8136, 144.9631),
+        ),
+        visitService: RecordingVisitService(),
+        visitedRegionService: FakeVisitedRegionService(),
+      );
+
+      const trackedLocation = LatLng(-37.8145, 144.9650);
+      controller.followTrackedLocation(trackedLocation);
+
+      expect(controller.center, trackedLocation);
+      expect(controller.isFollowingUser, isTrue);
+
+      controller.disposeController();
+      controller.dispose();
+    });
+  });
+
   group('MapController.checkProximity', () {
     test('returns isNear true when within threshold', () async {
       // Same coordinates as [testPlace] so distance is effectively zero.

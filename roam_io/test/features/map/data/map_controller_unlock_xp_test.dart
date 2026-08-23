@@ -7,6 +7,7 @@
  */
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:fake_cloud_firestore/fake_cloud_firestore.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:roam_io/features/map/data/geolocator_service.dart';
 import 'package:roam_io/features/map/data/map_controller.dart';
@@ -19,6 +20,9 @@ import 'package:roam_io/features/map/data/region_service.dart';
 import 'package:roam_io/features/map/data/tile_unlock_xp_service.dart';
 import 'package:roam_io/features/map/data/visit_service.dart';
 import 'package:roam_io/features/map/data/visited_region_service.dart';
+import 'package:roam_io/features/profile/domain/xp_award_result.dart';
+import 'package:roam_io/features/you/services/exploration_stats_service.dart';
+import 'package:roam_io/services/polygon_service.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -142,8 +146,7 @@ void main() {
         region: _region(areaSquareMetres: 4000000),
         awardedXp: awardedXp,
         feedbackEvents: feedbackEvents,
-        visitedRegionService: _FakeVisitedRegionService(
-          <String>{},
+        explorationStatsService: _FakeExplorationStatsService(
           persistNewUnlocks: false,
         ),
       );
@@ -163,9 +166,8 @@ void main() {
         region: _region(areaSquareMetres: 4000000),
         awardedXp: awardedXp,
         feedbackEvents: feedbackEvents,
-        visitedRegionService: _FakeVisitedRegionService(
-          <String>{},
-          throwOnMarkVisited: true,
+        explorationStatsService: _FakeExplorationStatsService(
+          throwOnRecordUnlock: true,
         ),
       );
 
@@ -202,6 +204,7 @@ void main() {
         region: _region(areaSquareMetres: 4000000),
         awardedXp: awardedXp,
         events: events,
+        explorationStatsService: _FakeExplorationStatsService(events: events),
       );
 
       await controller.initialise(userId: 'user-1');
@@ -274,6 +277,7 @@ MapController _buildController({
   List<String>? feedbackEvents,
   Set<String> visitedRegionIds = const <String>{},
   _FakeVisitedRegionService? visitedRegionService,
+  ExplorationStatsService? explorationStatsService,
   RegionPolygonCache? regionPolygonCache,
   bool throwOnAddXp = false,
   bool didLevelUpOnAddXp = false,
@@ -284,6 +288,12 @@ MapController _buildController({
     placeMarkerManager: PlaceMarkerManager(placesService: _FakePlacesService()),
     visitService: _FakeVisitService(),
     regionPolygonCache: regionPolygonCache,
+    polygonService: PolygonService(firestore: FakeFirebaseFirestore()),
+    explorationStatsService:
+        explorationStatsService ??
+        ExplorationStatsService(
+          polygonService: PolygonService(firestore: FakeFirebaseFirestore()),
+        ),
     visitedRegionService:
         visitedRegionService ??
         _FakeVisitedRegionService(
@@ -297,7 +307,14 @@ MapController _buildController({
         }
         events?.add('xp');
         awardedXp.add(xpToAdd);
-        return didLevelUpOnAddXp;
+        return XpAwardResult.success(
+          amount: xpToAdd,
+          previousXp: 0,
+          newXp: xpToAdd,
+          previousLevel: 1,
+          newLevel: didLevelUpOnAddXp ? 2 : 1,
+          historyRecorded: true,
+        );
       },
     ),
   );
@@ -342,7 +359,9 @@ class _FakeGeoLocatorService implements GeoLocatorService {
   }
 
   @override
-  Future<Stream<Position>> getLocationUpdates() async {
+  Future<Stream<Position>> getLocationUpdates({
+    bool allowBackgroundUpdates = false,
+  }) async {
     return const Stream<Position>.empty();
   }
 
@@ -376,6 +395,15 @@ class _FakePlacesService implements PlacesService {
   }
 
   @override
+  Future<Map<String, List<PlaceOfInterest>>> getPlacesForRegions({
+    required List<String> regionIds,
+  }) async {
+    return {
+      for (final regionId in regionIds) regionId: const <PlaceOfInterest>[],
+    };
+  }
+
+  @override
   dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
 }
 
@@ -396,16 +424,9 @@ class _FakeVisitService implements VisitService {
 }
 
 class _FakeVisitedRegionService implements VisitedRegionService {
-  _FakeVisitedRegionService(
-    this._visitedRegionIds, {
-    this.persistNewUnlocks = true,
-    this.throwOnMarkVisited = false,
-    this.events,
-  });
+  _FakeVisitedRegionService(this._visitedRegionIds, {this.events});
 
   final Set<String> _visitedRegionIds;
-  final bool persistNewUnlocks;
-  final bool throwOnMarkVisited;
   final List<String>? events;
 
   @override
@@ -414,12 +435,13 @@ class _FakeVisitedRegionService implements VisitedRegionService {
   }
 
   @override
-  Future<bool> markVisited(String regionId, {DateTime? visitedAt}) async {
-    if (throwOnMarkVisited) {
-      throw Exception('Could not persist region visit');
-    }
-
-    if (!persistNewUnlocks || _visitedRegionIds.contains(regionId)) {
+  Future<bool> markVisited(
+    String regionId, {
+    DateTime? visitedAt,
+    double? areaSquareMetres,
+    String? name,
+  }) async {
+    if (_visitedRegionIds.contains(regionId)) {
       return false;
     }
 
@@ -430,6 +452,47 @@ class _FakeVisitedRegionService implements VisitedRegionService {
 
   @override
   dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+}
+
+class _FakeExplorationStatsService extends ExplorationStatsService {
+  _FakeExplorationStatsService({
+    this.persistNewUnlocks = true,
+    this.throwOnRecordUnlock = false,
+    this.events,
+  }) : super(
+         polygonService: PolygonService(firestore: FakeFirebaseFirestore()),
+       );
+
+  final bool persistNewUnlocks;
+  final bool throwOnRecordUnlock;
+  final List<String>? events;
+  final Set<String> _unlockedRegionIds = <String>{};
+
+  @override
+  Future<bool> recordUnlock({
+    required String profileId,
+    required RegionPolygon region,
+    DateTime? visitedAt,
+  }) async {
+    if (throwOnRecordUnlock) {
+      throw Exception('Could not persist region visit');
+    }
+
+    if (!persistNewUnlocks || _unlockedRegionIds.contains(region.id)) {
+      return false;
+    }
+
+    _unlockedRegionIds.add(region.id);
+    events?.add('persisted');
+    return true;
+  }
+
+  @override
+  Future<void> recordReentry({
+    required String profileId,
+    required String polygonId,
+    DateTime? enteredAt,
+  }) async {}
 }
 
 const Map<String, dynamic> _polygonGeometry = <String, dynamic>{

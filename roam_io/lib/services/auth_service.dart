@@ -1,9 +1,9 @@
 /*
- * Author: Alvin Liong
- * Last Modified: 1/05/2026
+ * Author: Sanjevan Rajasegar
+ * Last Updated: 5 August 2026
  * Description:
  *   Provides Firebase Authentication operations used by the authentication
- *   repository and app-level auth state.
+ *   repository and app-level auth state, including secure account updates.
  */
 
 import 'package:firebase_auth/firebase_auth.dart';
@@ -84,6 +84,27 @@ class AuthService {
   /// Updates the Firebase Auth display name for the current user.
   Future<void> updateDisplayName(String displayName) async {
     await currentUser?.updateDisplayName(displayName);
+  }
+
+  /// Re-authenticates and asks Firebase to verify a new account email.
+  Future<void> requestEmailChange({
+    required String currentPassword,
+    required String newEmail,
+  }) async {
+    final user = currentUser;
+    if (user == null || user.email == null) {
+      throw FirebaseAuthException(
+        code: 'user-not-found',
+        message: 'No logged in user found.',
+      );
+    }
+
+    final credential = EmailAuthProvider.credential(
+      email: user.email!,
+      password: currentPassword,
+    );
+    await user.reauthenticateWithCredential(credential);
+    await user.verifyBeforeUpdateEmail(newEmail);
   }
 
   /// Refreshes cached user data (e.g., updated emailVerified state).

@@ -1,13 +1,12 @@
 /*
  * Author: Sanjevan Rajasegar
- * Last Modified: 27/05/2026
+ * Last Updated: 6 August 2026
  * Description:
  *   Owns the map feature's state and business logic. This controller resolves
  *   the user's current region, loads viewport polygons and places, caches map
  *   data for redraws, persists visits, awards visit and region unlock XP, and
- *   exposes heatmap styling state for visited tiles. MapPage keeps the widget
- *   layer thin by delegating map lifecycle, location updates, marker updates,
- *   region unlock callbacks, and visit validation to this file.
+ *   exposes heatmap styling state for visited tiles. Unlock XP toasts only fire
+ *   when the canonical XP award succeeds.
  */
 
 import 'dart:async';
@@ -16,6 +15,7 @@ import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 
+import '../domain/exploration_mode.dart';
 import '../../profile/domain/xp_reward_config.dart';
 import 'geolocator_service.dart';
 import 'map_viewport_policy.dart';
@@ -28,6 +28,7 @@ import 'tile_unlock_xp_service.dart';
 import 'visit_service.dart';
 import 'visited_region_service.dart';
 import 'viewport_region_loader.dart';
+import '../../you/services/exploration_stats_service.dart';
 import '../../../services/polygon_service.dart';
 
 enum VisitResult { success, notLoggedIn, alreadyVisited, tooFar, error }
@@ -78,6 +79,7 @@ class MapController extends ChangeNotifier {
     PlaceMarkerManager? placeMarkerManager,
     MapViewportPolicy? viewportPolicy,
     PolygonService? polygonService,
+    ExplorationStatsService? explorationStatsService,
   }) : _geoLocatorService = geoLocatorService ?? GeoLocatorService(),
        _regionService = regionService ?? RegionService(),
        _visitService = visitService ?? VisitService(),
@@ -87,7 +89,8 @@ class MapController extends ChangeNotifier {
        _viewportRegionLoader = viewportRegionLoader ?? ViewportRegionLoader(),
        _placeMarkerManager = placeMarkerManager ?? PlaceMarkerManager(),
        _viewportPolicy = viewportPolicy ?? MapViewportPolicy(),
-       _polygonService = polygonService;
+       _polygonService = polygonService,
+       _explorationStatsService = explorationStatsService;
 
   final GeoLocatorService _geoLocatorService;
   final RegionService _regionService;
@@ -99,9 +102,15 @@ class MapController extends ChangeNotifier {
   final PlaceMarkerManager _placeMarkerManager;
   final MapViewportPolicy _viewportPolicy;
   PolygonService? _polygonService;
+  ExplorationStatsService? _explorationStatsService;
 
   PolygonService get _resolvedPolygonService =>
       _polygonService ??= PolygonService();
+
+  ExplorationStatsService get _resolvedExplorationStatsService =>
+      _explorationStatsService ??= ExplorationStatsService(
+        polygonService: _resolvedPolygonService,
+      );
 
   GoogleMapController? _googleMapController;
   StreamSubscription<Position>? _locationUpdatesSubscription;
@@ -113,10 +122,16 @@ class MapController extends ChangeNotifier {
   Set<String> _visitedRegionIds = <String>{};
   Map<String, int> _visitCountsByRegion = <String, int>{};
   Map<String, int> _entryCountsByRegion = <String, int>{};
+  Set<String> _visibleViewportRegionIds = <String>{};
 
   bool _isHeatmapEnabled = false;
   bool _isResolvingCurrentRegion = false;
   Position? _queuedRegionCheckPosition;
+  Position? _latestPosition;
+  bool _isFollowingUser = true;
+  bool _isProgrammaticCameraMove = false;
+
+  ExplorationMode _currentMode = ExplorationMode.exploration;
 
   double _currentZoom = defaultZoom;
   MapLayerMode _currentLayerMode = MapLayerMode.sa1Detail;
@@ -140,10 +155,20 @@ class MapController extends ChangeNotifier {
   String? get userId => _userId;
   String get mapStyle => _mapStyle;
   bool get isHeatmapEnabled => _isHeatmapEnabled;
+  bool get isFollowingUser => _isFollowingUser;
+  ExplorationMode get currentMode => _currentMode;
   Set<int> get visitedPlaceIds => Set.unmodifiable(_visitedPlaceIds);
   Set<String> get visitedRegionIds => Set.unmodifiable(_visitedRegionIds);
   Map<String, int> get visitCountsByRegion =>
       Map<String, int>.unmodifiable(_visitCountsByRegion);
+
+  /// Sets the current exploration mode and notifies listeners.
+  void setMode(ExplorationMode mode) {
+    if (_currentMode != mode) {
+      _currentMode = mode;
+      notifyListeners();
+    }
+  }
 
   void bindVisitXpAwarding(
     Future<void> Function(int amount)? onVisitXpAwarded,
@@ -211,9 +236,15 @@ class MapController extends ChangeNotifier {
   Future<void> onMapCreated(GoogleMapController controller) async {
     _googleMapController = controller;
 
-    await _googleMapController?.animateCamera(
-      CameraUpdate.newLatLngZoom(center, defaultZoom),
-    );
+    _isProgrammaticCameraMove = true;
+    try {
+      await _googleMapController?.animateCamera(
+        CameraUpdate.newLatLngZoom(center, defaultZoom),
+      );
+    } catch (_) {
+      _isProgrammaticCameraMove = false;
+      rethrow;
+    }
 
     // Initial viewport loading happens after the real user location is resolved.
   }
@@ -232,6 +263,54 @@ class MapController extends ChangeNotifier {
     }
   }
 
+  /// Stops automatic location following when the user moves the map.
+  void onCameraMoveStarted() {
+    if (!_isProgrammaticCameraMove) {
+      _isFollowingUser = false;
+    }
+  }
+
+  Future<void> onCameraIdle() async {
+    _isProgrammaticCameraMove = false;
+    await loadViewportRegions();
+  }
+
+  /// Re-centres the map and resumes following future location updates.
+  Future<void> recenterOnUser() async {
+    _isFollowingUser = true;
+    final position =
+        _latestPosition ?? await _geoLocatorService.getCurrentLocation();
+    _latestPosition = position;
+    await _moveCameraTo(position);
+  }
+
+  /// Keeps the map camera in sync with a location produced by journey
+  /// tracking. A deliberate user camera movement still pauses following until
+  /// [recenterOnUser] is used again.
+  void followTrackedLocation(LatLng location) {
+    center = location;
+    if (_isFollowingUser) {
+      unawaited(_moveCameraToLatLng(location));
+    }
+  }
+
+  Future<void> _moveCameraTo(Position position) async {
+    await _moveCameraToLatLng(LatLng(position.latitude, position.longitude));
+  }
+
+  Future<void> _moveCameraToLatLng(LatLng location) async {
+    final controller = _googleMapController;
+    if (controller == null) return;
+
+    _isProgrammaticCameraMove = true;
+    try {
+      await controller.animateCamera(CameraUpdate.newLatLng(location));
+    } catch (_) {
+      _isProgrammaticCameraMove = false;
+      rethrow;
+    }
+  }
+
   Future<void> loadViewportRegions({bool force = false}) async {
     final controller = _googleMapController;
     if (controller == null) return;
@@ -243,6 +322,9 @@ class MapController extends ChangeNotifier {
 
     if (targetMode == MapLayerMode.sa3Overview) {
       _currentLayerMode = MapLayerMode.sa3Overview;
+      _visibleViewportRegionIds = <String>{};
+      _placeMarkerManager.setVisibleRegionIds(const <String>{});
+      markers = _placeMarkerManager.markers;
       _syncPolygonsForCurrentMode();
       notifyListeners();
       return;
@@ -284,6 +366,12 @@ class MapController extends ChangeNotifier {
       }
 
       _syncPolygonsForCurrentMode();
+      final visibleBounds = await controller.getVisibleRegion();
+      _visibleViewportRegionIds = _regionPolygonCache.regions
+          .where((region) => region.intersectsBounds(visibleBounds))
+          .map((region) => region.id)
+          .toSet();
+      await _syncVisibleUnlockedPlaces();
     } catch (error) {
       message = 'Could not load nearby regions: $error';
       debugPrint('[MapController] Viewport loading error: $error');
@@ -312,6 +400,7 @@ class MapController extends ChangeNotifier {
   Future<double?> getDistanceToPlace(PlaceOfInterest place) async {
     try {
       final position = await _geoLocatorService.getCurrentLocation();
+      _latestPosition = position;
 
       return Geolocator.distanceBetween(
         position.latitude,
@@ -335,6 +424,12 @@ class MapController extends ChangeNotifier {
     }
 
     return (isNear: distance <= visitProximityThreshold, distance: distance);
+  }
+
+  /// Returns the user's current GPS position.
+  /// Throws if location access fails.
+  Future<Position> getCurrentPosition() async {
+    return _geoLocatorService.getCurrentLocation();
   }
 
   Future<VisitResult> markPlaceAsVisited(
@@ -433,9 +528,7 @@ class MapController extends ChangeNotifier {
       _syncPolygonsForCurrentMode();
       notifyListeners();
 
-      await _googleMapController?.animateCamera(
-        CameraUpdate.newLatLngZoom(userCenter, defaultZoom),
-      );
+      await _moveCameraTo(position);
 
       await Future.delayed(const Duration(milliseconds: 350));
       await loadViewportRegions(force: true);
@@ -461,29 +554,46 @@ class MapController extends ChangeNotifier {
     currentRegion = effectiveRegion;
     message = effectiveRegion.name;
 
-    await _markRegionAsVisited(effectiveRegion);
+    final wasNewlyUnlocked = await _markRegionAsVisited(effectiveRegion);
     // Record an entry for heatmap counts (app opened / entered tile).
     await _recordRegionEntry(effectiveRegion);
     _refreshCachedPolygonsStyles();
-
-    await _loadPlacesForRegion(effectiveRegion.id);
+    _visibleViewportRegionIds.add(effectiveRegion.id);
+    if (wasNewlyUnlocked) {
+      _placeMarkerManager.setVisibleRegionIds(
+        _visibleViewportRegionIds.intersection(_visitedRegionIds),
+      );
+      await _placeMarkerManager.loadPlacesForRegion(
+        regionId: effectiveRegion.id,
+        onPlaceTapped: onPlaceTapped,
+      );
+      markers = _placeMarkerManager.markers;
+    }
+    await _syncVisibleUnlockedPlaces();
   }
 
-  Future<void> _loadPlacesForRegion(String regionId) async {
+  Future<void> _syncVisibleUnlockedPlaces() async {
+    final visibleUnlockedRegionIds = _visibleViewportRegionIds.intersection(
+      _visitedRegionIds,
+    );
+    _placeMarkerManager.setVisibleRegionIds(visibleUnlockedRegionIds);
+    markers = _placeMarkerManager.markers;
+
+    if (visibleUnlockedRegionIds.isEmpty) return;
+
     isLoadingPlaces = true;
     notifyListeners();
 
     try {
-      final places = await _placeMarkerManager.loadPlacesForRegion(
-        regionId: regionId,
+      await _placeMarkerManager.loadPlacesForRegions(
+        regionIds: visibleUnlockedRegionIds,
         onPlaceTapped: onPlaceTapped,
       );
 
       markers = _placeMarkerManager.markers;
-      message = 'Loaded ${places.length} places in this region';
     } catch (error) {
-      message = 'Could not load places: $error';
-      debugPrint('[MapController] Places loading error: $error');
+      message = 'Could not load visible places: $error';
+      debugPrint('[MapController] Visible places loading error: $error');
     } finally {
       isLoadingPlaces = false;
       notifyListeners();
@@ -497,13 +607,22 @@ class MapController extends ChangeNotifier {
       final locationUpdates = await _geoLocatorService.getLocationUpdates();
 
       _locationUpdatesSubscription = locationUpdates.listen(
-        _queueRegionCheck,
+        _handleLocationUpdate,
         onError: (Object error) {
           debugPrint('[MapController] Location updates error: $error');
         },
       );
     } catch (error) {
       debugPrint('[MapController] Could not start location updates: $error');
+    }
+  }
+
+  void _handleLocationUpdate(Position position) {
+    _latestPosition = position;
+    center = LatLng(position.latitude, position.longitude);
+    _queueRegionCheck(position);
+    if (_isFollowingUser) {
+      unawaited(_moveCameraTo(position));
     }
   }
 
@@ -697,7 +816,7 @@ class MapController extends ChangeNotifier {
       _entryCountsByRegion.update(region.id, (c) => c + 1, ifAbsent: () => 1);
 
       unawaited(
-        _resolvedPolygonService.incrementPolygonEntryCount(
+        _resolvedExplorationStatsService.recordReentry(
           profileId: _userId!,
           polygonId: region.id,
         ),
@@ -715,7 +834,8 @@ class MapController extends ChangeNotifier {
     }
 
     try {
-      final didPersistVisit = await _visitedRegionService.markVisited(regionId);
+      final didPersistVisit = await _resolvedExplorationStatsService
+          .recordUnlock(profileId: _userId!, region: region);
 
       if (!didPersistVisit) {
         return false;
@@ -725,7 +845,8 @@ class MapController extends ChangeNotifier {
 
       final xpResult = await _awardUnlockXp(region);
 
-      if (xpResult != null) {
+      // Only surface "+XP" feedback when the canonical award actually persisted.
+      if (xpResult != null && xpResult.succeeded) {
         if (xpResult.didLevelUp) {
           onRegionUnlockCelebrationRewarded?.call(region, xpResult.xpAwarded);
         } else {

@@ -1,8 +1,9 @@
 /*
  * Author: Sanjevan Rajasegar
- * Last Modified: 12/05/2026
+ * Last Updated: 5 August 2026
  * Description:
- *   Tests first-time visited region persistence results used for XP idempotency.
+ *   Tests first-time visited region persistence and timestamped unlock streams
+ *   used by XP idempotency and profile analytics.
  */
 
 import 'package:fake_cloud_firestore/fake_cloud_firestore.dart';
@@ -38,6 +39,42 @@ void main() {
       );
 
       expect(await service.markVisited('region-1'), isFalse);
+    });
+  });
+
+  group('VisitedRegionService.watchVisitedPolygonRecords', () {
+    test(
+      'streams timestamped tile unlock records for the signed-in user',
+      () async {
+        final firestore = FakeFirebaseFirestore();
+        final auth = MockFirebaseAuth(
+          mockUser: MockUser(uid: 'user-1'),
+          signedIn: true,
+        );
+        final service = VisitedRegionService(
+          auth: auth,
+          polygonService: PolygonService(firestore: firestore),
+        );
+        final visitedAt = DateTime(2026, 5, 8, 10);
+
+        await service.markVisited('region-1', visitedAt: visitedAt);
+
+        final records = await service.watchVisitedPolygonRecords().first;
+
+        expect(records, hasLength(1));
+        expect(records.single.profileId, 'user-1');
+        expect(records.single.polygonId, 'region-1');
+        expect(records.single.visitedAt, visitedAt);
+      },
+    );
+
+    test('emits an empty list when no user is signed in', () async {
+      final service = VisitedRegionService(
+        auth: MockFirebaseAuth(signedIn: false),
+        polygonService: PolygonService(firestore: FakeFirebaseFirestore()),
+      );
+
+      expect(await service.watchVisitedPolygonRecords().first, isEmpty);
     });
   });
 }

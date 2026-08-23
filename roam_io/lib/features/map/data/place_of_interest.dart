@@ -2,7 +2,10 @@ import 'dart:convert';
 import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
+
+import '../../../theme/app_colours.dart';
 
 enum PlaceCategory {
   foodDrink,
@@ -12,6 +15,7 @@ enum PlaceCategory {
   entertainment,
   healthFitness,
   attraction,
+  publicTransport,
   other;
 
   static PlaceCategory fromString(String value) {
@@ -30,6 +34,8 @@ enum PlaceCategory {
         return PlaceCategory.healthFitness;
       case 'attraction':
         return PlaceCategory.attraction;
+      case 'public_transport':
+        return PlaceCategory.publicTransport;
       default:
         return PlaceCategory.other;
     }
@@ -51,35 +57,16 @@ enum PlaceCategory {
         return 'Health & Fitness';
       case PlaceCategory.attraction:
         return 'Attractions';
+      case PlaceCategory.publicTransport:
+        return 'Public Transport';
       case PlaceCategory.other:
         return 'Other';
     }
   }
 
-  Color get markerColor {
-    switch (this) {
-      case PlaceCategory.foodDrink:
-        return const Color(0xFFFF9800); // Orange
-      case PlaceCategory.nature:
-        return const Color(0xFF4CAF50); // Green
-      case PlaceCategory.culture:
-        return const Color(0xFF9C27B0); // Purple
-      case PlaceCategory.shopping:
-        return const Color(0xFF2196F3); // Blue
-      case PlaceCategory.entertainment:
-        return const Color(0xFFE91E63); // Pink
-      case PlaceCategory.healthFitness:
-        return const Color(0xFFF44336); // Red
-      case PlaceCategory.attraction:
-        return const Color(0xFFFFEB3B); // Yellow
-      case PlaceCategory.other:
-        return const Color(0xFF9E9E9E); // Grey
-    }
-  }
+  Color get markerColor => AppColors.sage;
 
-  double get markerHue {
-    return BitmapDescriptor.hueOrange;
-  }
+  double get markerHue => HSLColor.fromColor(AppColors.sage).hue;
 }
 
 /// Marker size levels based on zoom
@@ -99,6 +86,16 @@ enum MarkerSize {
   }
 }
 
+enum TransportMarkerType {
+  train('icons/train.webp'),
+  bus('icons/bus.webp'),
+  tram('icons/tram.webp');
+
+  const TransportMarkerType(this.assetPath);
+
+  final String assetPath;
+}
+
 class PlaceOfInterest {
   // Cache for circle icons: [category][size] -> icon
   static final Map<PlaceCategory, Map<MarkerSize, BitmapDescriptor>>
@@ -107,6 +104,9 @@ class PlaceOfInterest {
   // Cache for visited icons: [category][size] -> icon (keeps category color with checkmark)
   static final Map<PlaceCategory, Map<MarkerSize, BitmapDescriptor>>
   _visitedIconCache = {};
+
+  static final Map<TransportMarkerType, Map<MarkerSize, BitmapDescriptor>>
+  _transportIconCache = {};
 
   // Current marker size level
   static MarkerSize _currentSize = MarkerSize.medium;
@@ -131,6 +131,37 @@ class PlaceOfInterest {
         );
       }
     }
+
+    for (final transportType in TransportMarkerType.values) {
+      _transportIconCache[transportType] = {};
+      for (final size in MarkerSize.values) {
+        _transportIconCache[transportType]![size] = await _createTransportIcon(
+          transportType.assetPath,
+          size: (size.pixelSize * 1.2).round(),
+        );
+      }
+    }
+  }
+
+  static Future<BitmapDescriptor> _createTransportIcon(
+    String assetPath, {
+    required int size,
+  }) async {
+    final asset = await rootBundle.load(assetPath);
+    final codec = await ui.instantiateImageCodec(
+      asset.buffer.asUint8List(),
+      targetWidth: size,
+      targetHeight: size,
+    );
+    final frame = await codec.getNextFrame();
+    final bytes = await frame.image.toByteData(format: ui.ImageByteFormat.png);
+    codec.dispose();
+    frame.image.dispose();
+    return BitmapDescriptor.bytes(
+      bytes!.buffer.asUint8List(),
+      width: size.toDouble(),
+      height: size.toDouble(),
+    );
   }
 
   /// Update the current marker size based on zoom level.
@@ -267,6 +298,22 @@ class PlaceOfInterest {
     this.photoReference,
   });
 
+  TransportMarkerType? get transportMarkerType {
+    final typeSet = types.toSet();
+    if (typeSet.contains('tram_stop') ||
+        typeSet.contains('light_rail_station')) {
+      return TransportMarkerType.tram;
+    }
+    if (typeSet.contains('train_station') ||
+        typeSet.contains('subway_station')) {
+      return TransportMarkerType.train;
+    }
+    if (typeSet.contains('bus_stop') || typeSet.contains('bus_station')) {
+      return TransportMarkerType.bus;
+    }
+    return null;
+  }
+
   factory PlaceOfInterest.fromJson(Map<String, dynamic> json) {
     final locationJson = json['location'];
     final coords = locationJson is String
@@ -319,8 +366,15 @@ class PlaceOfInterest {
     bool visited = false,
   }) {
     final BitmapDescriptor icon;
+    final transportType = transportMarkerType;
 
-    if (visited) {
+    if (transportType != null) {
+      icon =
+          _transportIconCache[transportType]?[_currentSize] ??
+          BitmapDescriptor.defaultMarkerWithHue(
+            PlaceCategory.publicTransport.markerHue,
+          );
+    } else if (visited) {
       // Use visited icon (category color with checkmark)
       icon =
           _visitedIconCache[category]?[_currentSize] ??

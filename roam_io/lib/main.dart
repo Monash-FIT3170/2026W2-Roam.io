@@ -1,6 +1,6 @@
 /*
  * Author: Alvin Liong
- * Last Modified: 4/05/2026
+ * Last Modified: 20 August 2026
  * Description:
  *   Initializes Firebase, wires app-wide authentication state, and launches
  *   the root Roam.io application widget.
@@ -8,18 +8,26 @@
 
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_native_splash/flutter_native_splash.dart';
 import 'package:provider/provider.dart';
-import 'package:roam_io/features/quests/screens/quests_screen.dart';
 
 import 'features/auth/providers/auth_provider.dart';
-//import 'features/auth/screens/auth_gate_screen.dart';
+import 'features/auth/screens/auth_gate_screen.dart';
+import 'features/journeys/data/journey_controller.dart';
+import 'features/profile/domain/pending_xp_celebration.dart';
 import 'firebase_options.dart';
-import 'shared/widgets/level_up_celebration.dart';
+import 'shared/widgets/xp_progress_celebration.dart';
 import 'theme/app_theme.dart';
+import 'package:roam_io/notifications/services/android_notification_service.dart';
+import 'package:roam_io/notifications/services/app_lifecycle_service.dart';
 
 /// Starts the Flutter app after Firebase has been initialized.
 Future<void> main() async {
-  WidgetsFlutterBinding.ensureInitialized();
+  final widgetsBinding = WidgetsFlutterBinding.ensureInitialized();
+  FlutterNativeSplash.preserve(widgetsBinding: widgetsBinding);
+
+  AppLifecycleService.instance.initialise();
+  await AndroidNotificationService.instance.initialise();
 
   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
   runApp(const MyApp());
@@ -39,19 +47,27 @@ class _MyAppState extends State<MyApp> {
 
   @override
   Widget build(BuildContext context) {
-    return ChangeNotifierProvider<AuthProvider>(
-      create: (_) => AuthProvider(),
+    return MultiProvider(
+      providers: [
+        ChangeNotifierProvider<AuthProvider>(create: (_) => AuthProvider()),
+        ChangeNotifierProvider<JourneyController>(
+          create: (_) => JourneyController(),
+        ),
+      ],
       child: Consumer<AuthProvider>(
         builder: (context, auth, _) {
-          // Listen for level-up events
+          // Listen for XP celebration events (level-up or forced claim overlay).
           WidgetsBinding.instance.addPostFrameCallback((_) {
-            if (auth.pendingLevelUp != null && _levelUpOverlay == null) {
+            if (!auth.deferLevelUpCelebration &&
+                auth.pendingLevelUp != null &&
+                _levelUpOverlay == null) {
               final unlockToast = auth.takePendingUnlockToast();
-              _showLevelUpCelebration(
-                auth.pendingLevelUp!,
-                rewardToastMessage: unlockToast,
-              );
-              auth.clearPendingLevelUp();
+              final pending = auth.pendingXpCelebration!;
+              final celebration = unlockToast == null
+                  ? pending
+                  : pending.withRewardToast(unlockToast);
+              _showXpCelebration(celebration);
+              auth.clearPendingXpCelebration();
             }
           });
 
@@ -62,18 +78,17 @@ class _MyAppState extends State<MyApp> {
             darkTheme: AppTheme.darkTheme,
             themeMode: auth.darkModeEnabled ? ThemeMode.dark : ThemeMode.light,
             navigatorKey: _navigatorKey,
-            home: const QuestsScreen()
+            home: const AuthGateScreen(),
           );
         },
       ),
     );
   }
 
-  void _showLevelUpCelebration(int newLevel, {String? rewardToastMessage}) {
+  void _showXpCelebration(PendingXpCelebration celebration) {
     _levelUpOverlay = OverlayEntry(
-      builder: (context) => LevelUpCelebration(
-        newLevel: newLevel,
-        rewardToastMessage: rewardToastMessage,
+      builder: (context) => XpProgressCelebration(
+        celebration: celebration,
         onDismiss: () {
           _levelUpOverlay?.remove();
           _levelUpOverlay = null;
