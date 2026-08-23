@@ -200,6 +200,10 @@ void main() {
       NotificationType.commentReply: Icons.reply_rounded,
       NotificationType.commentLike: Icons.thumb_up_alt_outlined,
       NotificationType.follow: Icons.person_add_alt_1,
+      NotificationType.followRequest: Icons.person_add_alt_1,
+      NotificationType.followRequestAccepted: Icons.people_outline,
+      NotificationType.error: Icons.error_outline,
+      NotificationType.activity: Icons.directions_walk,
     };
 
     for (final entry in cases.entries) {

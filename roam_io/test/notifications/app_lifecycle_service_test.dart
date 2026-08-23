@@ -16,6 +16,14 @@ void main() {
   group('AppLifecycleService', () {
     final service = AppLifecycleService.instance;
 
+    test('initialise and dispose manage widget binding observer', () {
+      service.initialise();
+
+      expect(service.isInForeground, isA<bool>());
+
+      service.dispose();
+    });
+
     test('reports resumed state as foreground', () {
       // Act: simulate the application becoming active and visible.
       service.didChangeAppLifecycleState(AppLifecycleState.resumed);
