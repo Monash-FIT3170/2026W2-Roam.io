@@ -41,4 +41,7 @@ enum NotificationType {
 
   /// Notifications relating to a live activity (walk, ride, etc.).
   activity,
+
+  /// Warning that explored map regions will soon become fogged again.
+  fogDecay,
 }

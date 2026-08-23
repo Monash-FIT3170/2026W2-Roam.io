@@ -12,6 +12,7 @@ import '../../profile/domain/visited_polygon_meta.dart';
 import '../../profile/domain/visited_polygon_record.dart';
 import '../fog/fog_decay_difficulty.dart';
 import '../fog/fog_decay_service.dart';
+import '../fog/fog_decay_warning_service.dart';
 
 /// Persists region visits and reports whether each visit is a new unlock.
 class VisitedRegionService {
@@ -19,13 +20,17 @@ class VisitedRegionService {
     FirebaseAuth? auth,
     PolygonService? polygonService,
     FogDecayService fogDecayService = const FogDecayService(),
+    FogDecayWarningService? fogDecayWarningService,
   }) : _auth = auth,
        _polygonService = polygonService ?? PolygonService(),
-       _fogDecayService = fogDecayService;
+       _fogDecayService = fogDecayService,
+       _fogDecayWarningService =
+           fogDecayWarningService ?? FogDecayWarningService();
 
   final FirebaseAuth? _auth;
   final PolygonService _polygonService;
   final FogDecayService _fogDecayService;
+  final FogDecayWarningService _fogDecayWarningService;
 
   FirebaseAuth get _resolvedAuth => _auth ?? FirebaseAuth.instance;
 
@@ -53,9 +58,35 @@ class VisitedRegionService {
     final user = _resolvedAuth.currentUser;
     if (user == null) return <String>{};
 
+    final metadata = await _loadExplorationMetadata(user.uid);
+    return _fogDecayService.refreshFogDecayState(
+      locations: metadata.values,
+      difficulty: difficulty,
+      now: now ?? DateTime.now(),
+    );
+  }
+
+  /// Replaces batched warnings after startup, revisit, or difficulty changes.
+  Future<void> refreshFogDecayWarnings({
+    required FogDecayDifficulty difficulty,
+    DateTime? now,
+  }) async {
+    final user = _resolvedAuth.currentUser;
+    if (user == null) return;
+    final metadata = await _loadExplorationMetadata(user.uid);
+    await _fogDecayWarningService.refreshWarnings(
+      locations: metadata.values,
+      difficulty: difficulty,
+      now: now ?? DateTime.now(),
+    );
+  }
+
+  Future<Map<String, VisitedPolygonMeta>> _loadExplorationMetadata(
+    String profileId,
+  ) async {
     final results = await Future.wait<Object>(<Future<Object>>[
-      _polygonService.getVisitedPolygonMeta(profileId: user.uid),
-      _polygonService.getVisitedPolygonRecords(profileId: user.uid),
+      _polygonService.getVisitedPolygonMeta(profileId: profileId),
+      _polygonService.getVisitedPolygonRecords(profileId: profileId),
     ]);
     final metadata = Map<String, VisitedPolygonMeta>.from(
       results[0] as Map<String, VisitedPolygonMeta>,
@@ -70,11 +101,7 @@ class VisitedRegionService {
         ),
       );
     }
-    return _fogDecayService.refreshFogDecayState(
-      locations: metadata.values,
-      difficulty: difficulty,
-      now: now ?? DateTime.now(),
-    );
+    return metadata;
   }
 
   // Streams the set of region IDs the user has visited. Emits an empty set if

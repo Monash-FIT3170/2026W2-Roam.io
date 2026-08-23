@@ -109,6 +109,12 @@ class FakeVisitedRegionService extends VisitedRegionService {
   }) async => <String>{};
 
   @override
+  Future<void> refreshFogDecayWarnings({
+    required FogDecayDifficulty difficulty,
+    DateTime? now,
+  }) async {}
+
+  @override
   Future<bool> markVisited(
     String regionId, {
     DateTime? visitedAt,

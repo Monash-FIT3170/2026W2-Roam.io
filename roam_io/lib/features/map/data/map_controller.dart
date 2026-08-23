@@ -838,6 +838,9 @@ class MapController extends ChangeNotifier {
       _visitedRegionIds = await _visitedRegionService.loadVisitedRegionIds();
       _fogClearedRegionIds = await _visitedRegionService
           .loadFogClearedRegionIds(difficulty: _fogDecayDifficulty);
+      await _visitedRegionService.refreshFogDecayWarnings(
+        difficulty: _fogDecayDifficulty,
+      );
       debugPrint(
         '[MapController] Loaded ${_visitedRegionIds.length} visited regions',
       );
@@ -862,6 +865,9 @@ class MapController extends ChangeNotifier {
         difficulty: _fogDecayDifficulty,
       );
       _fogClearedRegionIds = clearedIds;
+      await _visitedRegionService.refreshFogDecayWarnings(
+        difficulty: _fogDecayDifficulty,
+      );
       fogController.retainClearedRegions(<String>{
         ...clearedIds,
         ?currentRegion?.id,
@@ -928,11 +934,12 @@ class MapController extends ChangeNotifier {
       // Optimistically update local cache so the heatmap updates immediately.
       _entryCountsByRegion.update(region.id, (c) => c + 1, ifAbsent: () => 1);
 
-      unawaited(
-        _resolvedExplorationStatsService.recordReentry(
-          profileId: _userId!,
-          polygonId: region.id,
-        ),
+      await _resolvedExplorationStatsService.recordReentry(
+        profileId: _userId!,
+        polygonId: region.id,
+      );
+      await _visitedRegionService.refreshFogDecayWarnings(
+        difficulty: _fogDecayDifficulty,
       );
     } catch (error) {
       debugPrint('[MapController] Error recording region entry: $error');

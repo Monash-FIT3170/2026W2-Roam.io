@@ -49,6 +49,12 @@ class _FakeVisitedRegionService extends FakeVisitedRegionService {
     required FogDecayDifficulty difficulty,
     DateTime? now,
   }) async => _regionIds;
+
+  @override
+  Future<void> refreshFogDecayWarnings({
+    required FogDecayDifficulty difficulty,
+    DateTime? now,
+  }) async {}
 }
 
 void main() {
