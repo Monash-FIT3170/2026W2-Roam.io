@@ -100,6 +100,7 @@ class MapController extends ChangeNotifier {
   Set<int> _visitedPlaceIds = {};
   Set<String> _visitedRegionIds = <String>{};
   Set<String> _fogClearedRegionIds = <String>{};
+  Map<String, DateTime> _pendingFogReturnEvents = <String, DateTime>{};
   Map<String, int> _visitCountsByRegion = <String, int>{};
   Map<String, int> _entryCountsByRegion = <String, int>{};
   Set<String> _visibleViewportRegionIds = <String>{};
@@ -169,6 +170,7 @@ class MapController extends ChangeNotifier {
   }) async {
     _userId = userId;
     _onVisitXpAwarded = onVisitXpAwarded;
+    fogController.onFogReturnCompleted = _handleFogReturnCompleted;
 
     await PlaceOfInterest.preloadIcons();
     await _loadUserVisitState();
@@ -382,6 +384,7 @@ class MapController extends ChangeNotifier {
         }
 
         fogController.addClearedRegions(clearedRegions);
+        _startPendingFogReturnAnimation();
         message = 'Loaded $newRegionCount new nearby tiles';
       }
 
@@ -803,6 +806,7 @@ class MapController extends ChangeNotifier {
       _visitedPlaceIds = {};
       _visitedRegionIds = <String>{};
       _fogClearedRegionIds = <String>{};
+      _pendingFogReturnEvents = <String, DateTime>{};
       _visitCountsByRegion = <String, int>{};
       await _visitedRegionService.refreshFogDecayWarnings(
         difficulty: _fogDecayDifficulty,
@@ -841,6 +845,9 @@ class MapController extends ChangeNotifier {
       _visitedRegionIds = await _visitedRegionService.loadVisitedRegionIds();
       _fogClearedRegionIds = await _visitedRegionService
           .loadFogClearedRegionIds(difficulty: _fogDecayDifficulty);
+      _pendingFogReturnEvents = await _visitedRegionService
+          .loadUnpresentedFogDecayEvents(difficulty: _fogDecayDifficulty);
+      _fogClearedRegionIds.addAll(_pendingFogReturnEvents.keys);
       await _visitedRegionService.refreshFogDecayWarnings(
         difficulty: _fogDecayDifficulty,
       );
@@ -873,6 +880,7 @@ class MapController extends ChangeNotifier {
       );
       fogController.retainClearedRegions(<String>{
         ...clearedIds,
+        ...?fogController.returnTransition?.regionIds,
         ?currentRegion?.id,
       });
       notifyListeners();
@@ -881,12 +889,46 @@ class MapController extends ChangeNotifier {
     }
   }
 
+  /// Recomputes decay events after the app returns from the background.
+  Future<void> handleAppResumed() async {
+    if (_userId == null) return;
+    final cleared = await _visitedRegionService.loadFogClearedRegionIds(
+      difficulty: _fogDecayDifficulty,
+    );
+    final pending = await _visitedRegionService.loadUnpresentedFogDecayEvents(
+      difficulty: _fogDecayDifficulty,
+    );
+    _pendingFogReturnEvents.addAll(pending);
+    _fogClearedRegionIds = <String>{...cleared, ...pending.keys};
+    await loadViewportRegions(force: true);
+  }
+
+  void _startPendingFogReturnAnimation() {
+    final geometryIds = fogController.geometry?.regionIds.toSet() ?? <String>{};
+    final currentId = currentRegion?.id;
+    final renderable = _pendingFogReturnEvents.keys
+        .where((id) => id != currentId && geometryIds.contains(id))
+        .toSet();
+    if (renderable.isEmpty) return;
+    _fogClearedRegionIds.removeAll(renderable);
+    fogController.startFogReturn(renderable);
+  }
+
+  void _handleFogReturnCompleted(Set<String> regionIds) {
+    final presented = <String, DateTime>{};
+    for (final id in regionIds) {
+      final decayAt = _pendingFogReturnEvents.remove(id);
+      if (decayAt != null) presented[id] = decayAt;
+    }
+    unawaited(_visitedRegionService.markFogDecayEventsPresented(presented));
+  }
+
   /// Applies a changed preference and immediately recomputes visible fog.
   Future<void> updateFogDecayDifficulty(FogDecayDifficulty difficulty) async {
     if (_fogDecayDifficulty == difficulty) return;
     _fogDecayDifficulty = difficulty;
     await refreshFogDecayState();
-    await loadViewportRegions(force: true);
+    await handleAppResumed();
   }
 
   Future<void> _loadVisitCountsByRegion() async {
@@ -954,6 +996,14 @@ class MapController extends ChangeNotifier {
 
     if (_visitedRegionIds.contains(regionId)) {
       _fogClearedRegionIds.add(regionId);
+      final pendingDecay = _pendingFogReturnEvents.remove(regionId);
+      if (pendingDecay != null) {
+        unawaited(
+          _visitedRegionService.markFogDecayEventsPresented(<String, DateTime>{
+            regionId: pendingDecay,
+          }),
+        );
+      }
       return false;
     }
 

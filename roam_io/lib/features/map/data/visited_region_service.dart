@@ -88,6 +88,36 @@ class VisitedRegionService {
     );
   }
 
+  /// Loads expired events that have not yet completed their return animation.
+  Future<Map<String, DateTime>> loadUnpresentedFogDecayEvents({
+    required FogDecayDifficulty difficulty,
+    DateTime? now,
+  }) async {
+    final user = _resolvedAuth.currentUser;
+    if (user == null) return <String, DateTime>{};
+    final results = await Future.wait<Object>(<Future<Object>>[
+      _loadExplorationMetadata(user.uid),
+      _polygonService.getFogDecayPresentedAt(profileId: user.uid),
+    ]);
+    return _fogDecayService.getUnpresentedDecayEvents(
+      locations: (results[0] as Map<String, VisitedPolygonMeta>).values,
+      presentedDecayAtByLocation: results[1] as Map<String, DateTime>,
+      difficulty: difficulty,
+      now: now ?? DateTime.now(),
+    );
+  }
+
+  Future<void> markFogDecayEventsPresented(
+    Map<String, DateTime> decayAtByRegionId,
+  ) async {
+    final user = _resolvedAuth.currentUser;
+    if (user == null || decayAtByRegionId.isEmpty) return;
+    await _polygonService.markFogDecayPresented(
+      profileId: user.uid,
+      decayAtByPolygonId: decayAtByRegionId,
+    );
+  }
+
   Future<Map<String, VisitedPolygonMeta>> _loadExplorationMetadata(
     String profileId,
   ) async {

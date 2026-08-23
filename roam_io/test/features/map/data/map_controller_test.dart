@@ -55,6 +55,17 @@ class _FakeVisitedRegionService extends FakeVisitedRegionService {
     required FogDecayDifficulty difficulty,
     DateTime? now,
   }) async {}
+
+  @override
+  Future<Map<String, DateTime>> loadUnpresentedFogDecayEvents({
+    required FogDecayDifficulty difficulty,
+    DateTime? now,
+  }) async => <String, DateTime>{};
+
+  @override
+  Future<void> markFogDecayEventsPresented(
+    Map<String, DateTime> decayAtByRegionId,
+  ) async {}
 }
 
 void main() {

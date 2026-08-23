@@ -204,6 +204,30 @@ void main() {
       controller.dispose();
     });
 
+    test('fog return batches regions and reports completion once', () {
+      final completed = <Set<String>>[];
+      final controller = FogController()
+        ..setAnchor(_anchor)
+        ..addClearedRegions(<RegionPolygon>[_region('a'), _region('b')])
+        ..onFogReturnCompleted = (ids) => completed.add(ids);
+
+      controller.startFogReturn(<String>{'a', 'b'});
+      expect(controller.returnTransition?.regionIds, <String>{'a', 'b'});
+      expect(controller.pruneCompletedFogReturn(), isFalse);
+
+      controller.tick(const Duration(seconds: 5));
+      expect(controller.pruneCompletedFogReturn(), isTrue);
+      expect(controller.geometry!.contains('a'), isFalse);
+      expect(controller.geometry!.contains('b'), isFalse);
+      expect(completed, <Set<String>>[
+        <String>{'a', 'b'},
+      ]);
+      expect(controller.pruneCompletedFogReturn(), isFalse);
+      expect(completed, hasLength(1));
+
+      controller.dispose();
+    });
+
     test('ignores a non-finite speed rather than corrupting the wind', () {
       final controller = FogController()..setUserSpeed(double.nan);
 

@@ -17,6 +17,7 @@ import 'fog_dissolve.dart';
 import 'fog_geometry.dart';
 import 'fog_palette.dart';
 import 'fog_projection.dart';
+import 'fog_return_transition.dart';
 
 /// Fog state shared between the map controller and the fog overlay.
 class FogController extends ChangeNotifier {
@@ -24,6 +25,8 @@ class FogController extends ChangeNotifier {
   FogGeometry? _geometry;
 
   final FogDissolveSet dissolveSet = FogDissolveSet();
+  FogReturnTransition? _returnTransition;
+  void Function(Set<String> regionIds)? onFogReturnCompleted;
 
   CameraPosition? _camera;
   bool _isCameraMoving = false;
@@ -49,6 +52,7 @@ class FogController extends ChangeNotifier {
   bool get isCameraMoving => _isCameraMoving;
 
   double get userSpeedMetresPerSecond => _userSpeedMetresPerSecond;
+  FogReturnTransition? get returnTransition => _returnTransition;
 
   /// Whether the overlay has enough information to draw.
   ///
@@ -141,6 +145,31 @@ class FogController extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// Starts one combined fog-return transition for all renderable regions.
+  void startFogReturn(Set<String> regionIds) {
+    final geometry = _geometry;
+    if (geometry == null) return;
+    final renderable = regionIds.where(geometry.contains).toSet();
+    if (renderable.isEmpty) return;
+    _returnTransition = FogReturnTransition(
+      regionIds: renderable,
+      startedAt: _clock,
+    );
+    notifyListeners();
+  }
+
+  bool pruneCompletedFogReturn() {
+    final transition = _returnTransition;
+    if (transition == null || !transition.isCompleteAt(_clock)) return false;
+    for (final id in transition.regionIds) {
+      _geometry?.remove(id);
+    }
+    _returnTransition = null;
+    onFogReturnCompleted?.call(transition.regionIds);
+    notifyListeners();
+    return true;
+  }
+
   /// Starts the blow-away animation for a newly unlocked region.
   ///
   /// [userLatLng] is the tear origin, so the clouds part from where the user
@@ -185,6 +214,7 @@ class FogController extends ChangeNotifier {
   void reset() {
     _geometry?.clear();
     dissolveSet.clear();
+    _returnTransition = null;
     _hasLoadedViewport = false;
     notifyListeners();
   }
