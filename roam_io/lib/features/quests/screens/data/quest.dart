@@ -1,12 +1,13 @@
 /*
  * Description:
  *   Represents a quest definition available to all users.
- *   Stores quest details, rewards, location requirements and availability.
+ *   Stores quest details, rewards, location requirements, availability,
+ *   and optional AI photo verification instructions.
  */
 
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:roam_io/features/quests/screens/quest_enums.dart';
 
+import '../quest_enums.dart';
 
 class Quest {
   const Quest({
@@ -47,6 +48,8 @@ class Quest {
   final double? latitude;
   final double? longitude;
   final double? verificationRadiusMetres;
+
+  /// Instructions sent to AI when validating quest photo evidence.
   final String? verificationPrompt;
 
   final String? imageUrl;
@@ -56,6 +59,14 @@ class Quest {
   final DateTime? availableUntil;
 
   bool get isPermanent => availableFrom == null && availableUntil == null;
+
+  bool get requiresPhoto =>
+      verificationType == QuestVerificationType.photo ||
+      verificationType == QuestVerificationType.gpsAndPhoto;
+
+  bool get requiresGps =>
+      verificationType == QuestVerificationType.gps ||
+      verificationType == QuestVerificationType.gpsAndPhoto;
 
   bool isAvailableAt(DateTime now) {
     if (!isActive) return false;
@@ -71,9 +82,7 @@ class Quest {
     return true;
   }
 
-  factory Quest.fromFirestore(
-    DocumentSnapshot<Map<String, dynamic>> document,
-  ) {
+  factory Quest.fromFirestore(DocumentSnapshot<Map<String, dynamic>> document) {
     final data = document.data();
 
     if (data == null) {
@@ -93,8 +102,8 @@ class Quest {
       placeId: (data['placeId'] as num?)?.toInt(),
       latitude: (data['latitude'] as num?)?.toDouble(),
       longitude: (data['longitude'] as num?)?.toDouble(),
-      verificationRadiusMetres:
-          (data['verificationRadiusMetres'] as num?)?.toDouble(),
+      verificationRadiusMetres: (data['verificationRadiusMetres'] as num?)
+          ?.toDouble(),
       verificationPrompt: data['verificationPrompt'] as String?,
       imageUrl: data['imageUrl'] as String?,
       estimatedMinutes: (data['estimatedMinutes'] as num?)?.toInt(),
@@ -104,7 +113,7 @@ class Quest {
   }
 
   Map<String, dynamic> toMap() {
-    return {
+    return <String, dynamic>{
       'title': title,
       'description': description,
       'category': category.name,
@@ -117,9 +126,9 @@ class Quest {
       'latitude': latitude,
       'longitude': longitude,
       'verificationRadiusMetres': verificationRadiusMetres,
+      'verificationPrompt': verificationPrompt,
       'imageUrl': imageUrl,
       'estimatedMinutes': estimatedMinutes,
-      'verificationPrompt': verificationPrompt,
       'availableFrom': availableFrom == null
           ? null
           : Timestamp.fromDate(availableFrom!),

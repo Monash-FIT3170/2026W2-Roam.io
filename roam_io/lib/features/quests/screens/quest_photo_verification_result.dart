@@ -1,3 +1,8 @@
+/*
+ * Description:
+ *   Represents the structured result returned by AI photo verification.
+ */
+
 class QuestPhotoVerificationResult {
   const QuestPhotoVerificationResult({
     required this.verified,
@@ -9,15 +14,12 @@ class QuestPhotoVerificationResult {
   final double confidence;
   final String feedback;
 
-  factory QuestPhotoVerificationResult.fromMap(
-    Map<String, dynamic> map,
-  ) {
+  factory QuestPhotoVerificationResult.fromMap(Map<String, dynamic> map) {
     return QuestPhotoVerificationResult(
       verified: map['verified'] as bool? ?? false,
-      confidence: (map['confidence'] as num?)?.toDouble() ?? 0,
+      confidence: (map['confidence'] as num?)?.toDouble() ?? 0.0,
       feedback:
-          map['feedback'] as String? ??
-          'The photo could not be verified.',
+          map['feedback'] as String? ?? 'The photo could not be verified.',
     );
   }
 }

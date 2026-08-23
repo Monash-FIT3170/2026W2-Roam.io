@@ -1,8 +1,7 @@
 /*
  * Description:
- *   Handles selecting quest proof photos and uploading them to Firebase
- *   Storage. Photos are stored per user and quest so repeated verification
- *   attempts replace the previous proof rather than creating unused files.
+ *   Handles selecting side-quest proof photos and storing successfully
+ *   verified proof images in Firebase Storage.
  */
 
 import 'dart:typed_data';
@@ -11,39 +10,42 @@ import 'package:firebase_storage/firebase_storage.dart';
 import 'package:image_picker/image_picker.dart';
 
 class QuestPhotoSelection {
-  const QuestPhotoSelection({
-    required this.bytes,
-    required this.fileName,
-  });
+  const QuestPhotoSelection({required this.bytes, required this.fileName});
 
   final Uint8List bytes;
   final String fileName;
+
+  String get mimeType {
+    final lowerName = fileName.toLowerCase();
+
+    if (lowerName.endsWith('.png')) {
+      return 'image/png';
+    }
+
+    if (lowerName.endsWith('.heic') || lowerName.endsWith('.heif')) {
+      return 'image/heic';
+    }
+
+    return 'image/jpeg';
+  }
 }
 
 class QuestPhotoService {
-  QuestPhotoService({
-    ImagePicker? imagePicker,
-    FirebaseStorage? storage,
-  }) : _imagePicker = imagePicker ?? ImagePicker(),
-       _storage = storage ?? FirebaseStorage.instance;
+  QuestPhotoService({ImagePicker? imagePicker, FirebaseStorage? storage})
+    : _imagePicker = imagePicker ?? ImagePicker(),
+      _storage = storage ?? FirebaseStorage.instance;
 
   final ImagePicker _imagePicker;
   final FirebaseStorage _storage;
 
-  /// Opens the device camera and returns the selected photo.
   Future<QuestPhotoSelection?> takePhoto() {
     return _pickPhoto(ImageSource.camera);
   }
 
-  /// Opens the device gallery and returns the selected photo.
   Future<QuestPhotoSelection?> chooseFromGallery() {
     return _pickPhoto(ImageSource.gallery);
   }
 
-  /// Uploads the selected proof photo for a quest and returns its download URL.
-  ///
-  /// A stable path is used so retrying verification replaces the previous
-  /// photo instead of creating orphaned uploads.
   Future<String> uploadQuestProof({
     required String userId,
     required String questId,
@@ -57,40 +59,37 @@ class QuestPhotoService {
         .child('proof.jpg');
 
     final metadata = SettableMetadata(
-      contentType: 'image/jpeg',
-      customMetadata: {
+      contentType: photo.mimeType,
+      customMetadata: <String, String>{
         'userId': userId,
         'questId': questId,
         'originalFileName': photo.fileName,
       },
     );
 
-    final uploadTask = await reference.putData(
-      photo.bytes,
-      metadata,
-    );
+    final snapshot = await reference.putData(photo.bytes, metadata);
 
-    return uploadTask.ref.getDownloadURL();
+    return snapshot.ref.getDownloadURL();
   }
 
-  Future<QuestPhotoSelection?> _pickPhoto(
-    ImageSource source,
-  ) async {
-    final pickedFile = await _imagePicker.pickImage(
+  Future<QuestPhotoSelection?> _pickPhoto(ImageSource source) async {
+    final file = await _imagePicker.pickImage(
       source: source,
       imageQuality: 82,
       maxWidth: 1600,
+      maxHeight: 1600,
     );
 
-    if (pickedFile == null) {
+    if (file == null) {
       return null;
     }
 
-    final bytes = await pickedFile.readAsBytes();
+    final bytes = await file.readAsBytes();
 
-    return QuestPhotoSelection(
-      bytes: bytes,
-      fileName: pickedFile.name,
-    );
+    if (bytes.isEmpty) {
+      throw StateError('The selected image contains no data.');
+    }
+
+    return QuestPhotoSelection(bytes: bytes, fileName: file.name);
   }
 }

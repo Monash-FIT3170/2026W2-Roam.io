@@ -1,6 +1,6 @@
 /*
  * Description:
- *   Represents the result of validating a quest completion attempt.
+ *   Represents the final result of checking quest completion evidence.
  */
 
 class QuestVerificationResult {
