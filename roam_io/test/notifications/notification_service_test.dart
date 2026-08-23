@@ -6,6 +6,7 @@
  *   interactions are emitted as NotificationActionEvent objects.
  */
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:roam_io/notifications/notification.dart';
@@ -37,6 +38,31 @@ void main() {
 
       expect(event, same(notification));
     });
+
+    test(
+      'show completes device notification path while app is backgrounded',
+      () async {
+        debugDefaultTargetPlatformOverride = TargetPlatform.macOS;
+        addTearDown(() => debugDefaultTargetPlatformOverride = null);
+        AppLifecycleService.instance.didChangeAppLifecycleState(
+          AppLifecycleState.paused,
+        );
+        final notification = AppNotification(
+          id: 'background-notification',
+          type: NotificationType.kudos,
+          title: 'Glaze Received',
+          body: 'Alex gave you Glaze.',
+          timestamp: DateTime(2026, 8, 1),
+          showInApp: false,
+          showOnDevice: true,
+        );
+
+        await expectLater(
+          NotificationService.instance.show(notification),
+          completes,
+        );
+      },
+    );
 
     test('handleAction emits a NotificationActionEvent', () async {
       // Arrange: create a notification and an associated action.
@@ -116,6 +142,10 @@ void main() {
 
       expect(event.notification, same(notification));
       expect(event.notification.id, 'tap-notification');
+    });
+
+    test('dispose closes notification streams', () async {
+      await expectLater(NotificationService.instance.dispose(), completes);
     });
   });
 }

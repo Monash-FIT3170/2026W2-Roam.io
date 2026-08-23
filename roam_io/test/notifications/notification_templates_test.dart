@@ -188,6 +188,14 @@ void main() {
       expect(notification.data['actorId'], 'follower-123');
     });
 
+    test('followedYou generates an ID when notificationId is omitted', () {
+      final notification = NotificationTemplates.followedYou('Alex');
+
+      expect(notification.id, isNotEmpty);
+      expect(notification.type, NotificationType.follow);
+      expect(notification.data, isEmpty);
+    });
+
     test('followSummary clamps invalid counts to one', () {
       final notification = NotificationTemplates.followSummary(0);
 
@@ -228,6 +236,14 @@ void main() {
       expect(notification.data['requesterId'], 'requester-456');
     });
 
+    test('followRequest generates an ID when notificationId is omitted', () {
+      final notification = NotificationTemplates.followRequest('Jordan');
+
+      expect(notification.id, isNotEmpty);
+      expect(notification.type, NotificationType.followRequest);
+      expect(notification.data, isEmpty);
+    });
+
     test('followRequestAccepted creates accepted notification', () {
       final notification = NotificationTemplates.followRequestAccepted(
         'Casey',
@@ -243,6 +259,19 @@ void main() {
       expect(notification.displayDuration, const Duration(seconds: 5));
       expect(notification.data['actorId'], 'actor-789');
     });
+
+    test(
+      'followRequestAccepted generates an ID when notificationId is omitted',
+      () {
+        final notification = NotificationTemplates.followRequestAccepted(
+          'Casey',
+        );
+
+        expect(notification.id, isNotEmpty);
+        expect(notification.type, NotificationType.followRequestAccepted);
+        expect(notification.data, isEmpty);
+      },
+    );
 
     test('generated notification IDs are not empty', () {
       final notification = NotificationTemplates.kudos('Alex');

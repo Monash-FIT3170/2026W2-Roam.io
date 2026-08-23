@@ -12,7 +12,7 @@ import '../models/notification_type.dart';
 
 /// Factory collection for the notification types currently supported by the application.
 class NotificationTemplates {
-  NotificationTemplates._();
+  NotificationTemplates._(); // coverage:ignore-line
 
   /// Creates a notification for a new friend request from [username].
   static AppNotification friendRequest(
