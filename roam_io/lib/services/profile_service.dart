@@ -13,6 +13,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/foundation.dart';
 
 import '../features/profile/domain/profile_model.dart';
+import '../features/map/fog/fog_decay_difficulty.dart';
 import '../features/profile/domain/xp_award_result.dart';
 import '../features/profile/domain/xp_event.dart';
 import '../features/social/data/friendship_service.dart';
@@ -92,6 +93,17 @@ class ProfileService {
       'themeMode': mode.storageValue,
       // Keep older app builds on the closest fixed equivalent.
       'darkModeEnabled': mode == AppThemeMode.dark,
+      'updatedAt': DateTime.now().toIso8601String(),
+    });
+  }
+
+  /// Updates how long explored areas remain clear before fog may return.
+  Future<void> updateFogDecayDifficulty({
+    required String uid,
+    required FogDecayDifficulty difficulty,
+  }) {
+    return _profiles.doc(uid).update(<String, dynamic>{
+      'fogDecayDifficulty': difficulty.storageValue,
       'updatedAt': DateTime.now().toIso8601String(),
     });
   }

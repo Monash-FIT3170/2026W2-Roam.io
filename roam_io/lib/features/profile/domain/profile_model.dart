@@ -1,6 +1,7 @@
 import 'dart:math' as math;
 
 import '../../../theme/app_theme_mode.dart';
+import '../../map/fog/fog_decay_difficulty.dart';
 import '../../social/domain/social_privacy_settings.dart';
 
 /*
@@ -65,6 +66,7 @@ class ProfileModel {
     required this.createdAt,
     required this.updatedAt,
     AppThemeMode themeMode = AppThemeMode.light,
+    this.fogDecayDifficulty = FogDecayDifficulty.quarterly,
     bool? darkModeEnabled,
     this.privacy = const SocialPrivacySettings(),
     this.xp = 0,
@@ -82,6 +84,7 @@ class ProfileModel {
   final DateTime createdAt;
   final DateTime updatedAt;
   final AppThemeMode themeMode;
+  final FogDecayDifficulty fogDecayDifficulty;
   final SocialPrivacySettings privacy;
   final int xp;
   final int level;
@@ -101,6 +104,7 @@ class ProfileModel {
     DateTime? createdAt,
     DateTime? updatedAt,
     AppThemeMode? themeMode,
+    FogDecayDifficulty? fogDecayDifficulty,
     bool? darkModeEnabled,
     SocialPrivacySettings? privacy,
     int? xp,
@@ -118,6 +122,7 @@ class ProfileModel {
       themeMode: darkModeEnabled == null
           ? (themeMode ?? this.themeMode)
           : (darkModeEnabled ? AppThemeMode.dark : AppThemeMode.light),
+      fogDecayDifficulty: fogDecayDifficulty ?? this.fogDecayDifficulty,
       privacy: privacy ?? this.privacy,
       xp: xp ?? this.xp,
       level: level ?? this.level,
@@ -134,6 +139,7 @@ class ProfileModel {
       'createdAt': createdAt.toIso8601String(),
       'updatedAt': updatedAt.toIso8601String(),
       'themeMode': themeMode.storageValue,
+      'fogDecayDifficulty': fogDecayDifficulty.storageValue,
       // Retained for compatibility with clients that predate Dynamic mode.
       'darkModeEnabled': darkModeEnabled,
       'privacy': privacy.toMap(),
@@ -169,6 +175,9 @@ class ProfileModel {
       themeMode: AppThemeMode.fromStorage(
         map['themeMode'],
         legacyDarkModeEnabled: map['darkModeEnabled'] == true,
+      ),
+      fogDecayDifficulty: FogDecayDifficulty.fromStorage(
+        map['fogDecayDifficulty'],
       ),
       privacy: SocialPrivacySettings.fromMap(map['privacy']),
       xp: (map['xp'] as num?)?.toInt() ?? 0,

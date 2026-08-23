@@ -13,6 +13,7 @@ import 'package:provider/provider.dart';
 import 'package:roam_io/features/auth/data/auth_repository.dart';
 import 'package:roam_io/features/auth/providers/auth_provider.dart';
 import 'package:roam_io/features/profile/domain/profile_model.dart';
+import 'package:roam_io/features/map/fog/fog_decay_difficulty.dart';
 import 'package:roam_io/features/settings/screens/settings_screen.dart';
 import 'package:roam_io/features/settings/widgets/settings_group.dart';
 import 'package:roam_io/theme/app_theme_mode.dart';
@@ -82,6 +83,38 @@ void main() {
     expect(repository.themeModeUpdates, isEmpty);
     provider.dispose();
   });
+
+  for (final difficulty in FogDecayDifficulty.values) {
+    testWidgets('selecting ${difficulty.name} saves the fog decay setting', (
+      tester,
+    ) async {
+      final repository = _FakeAuthRepository(
+        _buildProfile(
+          themeMode: AppThemeMode.light,
+          fogDecayDifficulty: difficulty == FogDecayDifficulty.quarterly
+              ? FogDecayDifficulty.monthly
+              : FogDecayDifficulty.quarterly,
+        ),
+      );
+      final provider = AuthProvider(authRepository: repository);
+
+      await _pumpSettingsScreen(tester, provider);
+      repository.clearRecordedActions();
+
+      final setting = find.text('Fog Decay Difficulty');
+      await tester.ensureVisible(setting);
+      await tester.tap(setting);
+      await tester.pumpAndSettle();
+      await tester.tap(
+        find.byKey(ValueKey<String>('fog-decay-${difficulty.name}')),
+      );
+      await tester.pumpAndSettle();
+
+      expect(repository.fogDecayUpdates, <FogDecayDifficulty>[difficulty]);
+      expect(provider.fogDecayDifficulty, difficulty);
+      provider.dispose();
+    });
+  }
 }
 
 Future<void> _pumpSettingsScreen(
@@ -113,7 +146,10 @@ Finder _switchForRow(String rowTitle) {
   );
 }
 
-ProfileModel _buildProfile({required AppThemeMode themeMode}) {
+ProfileModel _buildProfile({
+  required AppThemeMode themeMode,
+  FogDecayDifficulty fogDecayDifficulty = FogDecayDifficulty.quarterly,
+}) {
   return ProfileModel(
     uid: 'user-1',
     username: 'traveller',
@@ -124,6 +160,7 @@ ProfileModel _buildProfile({required AppThemeMode themeMode}) {
     createdAt: DateTime(2026, 5, 1, 10),
     updatedAt: DateTime(2026, 5, 1, 11),
     themeMode: themeMode,
+    fogDecayDifficulty: fogDecayDifficulty,
   );
 }
 
@@ -150,9 +187,11 @@ class _FakeAuthRepository implements AuthRepository {
   );
 
   final List<AppThemeMode> themeModeUpdates = <AppThemeMode>[];
+  final List<FogDecayDifficulty> fogDecayUpdates = <FogDecayDifficulty>[];
 
   void clearRecordedActions() {
     themeModeUpdates.clear();
+    fogDecayUpdates.clear();
   }
 
   @override
@@ -171,6 +210,11 @@ class _FakeAuthRepository implements AuthRepository {
   @override
   Future<void> updateThemeModePreference(AppThemeMode mode) async {
     themeModeUpdates.add(mode);
+  }
+
+  @override
+  Future<void> updateFogDecayDifficulty(FogDecayDifficulty difficulty) async {
+    fogDecayUpdates.add(difficulty);
   }
 
   @override

@@ -11,6 +11,7 @@ import 'package:crypto/crypto.dart';
 import 'package:image_picker/image_picker.dart';
 
 import '../../profile/domain/profile_model.dart';
+import '../../map/fog/fog_decay_difficulty.dart';
 import '../../profile/domain/xp_award_result.dart';
 import '../../profile/domain/xp_event.dart';
 import '../../social/domain/social_privacy_settings.dart';
@@ -162,6 +163,22 @@ class AuthRepository {
     }
 
     await _profileService.updateThemeModePreference(uid: user.uid, mode: mode);
+  }
+
+  /// Persists the signed-in user's fog decay preference in Firestore.
+  Future<void> updateFogDecayDifficulty(FogDecayDifficulty difficulty) async {
+    final user = currentUser;
+    if (user == null) {
+      throw FirebaseAuthException(
+        code: 'user-not-found',
+        message: 'No logged in user found.',
+      );
+    }
+
+    await _profileService.updateFogDecayDifficulty(
+      uid: user.uid,
+      difficulty: difficulty,
+    );
   }
 
   /// Legacy wrapper retained for older callers and tests.
