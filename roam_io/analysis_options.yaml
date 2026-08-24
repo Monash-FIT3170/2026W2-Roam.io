@@ -15,6 +15,14 @@ analyzer:
     unused_local_variable: error
     dead_code: warning
     invalid_annotation_target: ignore
+  exclude:
+    - build/**
+    - android/**
+    - ios/**
+    - web/**
+    - windows/**
+    - macos/**
+    - linux/**
 
 linter:
   # Project-specific lint rules layered on top of `package:flutter_lints`.
