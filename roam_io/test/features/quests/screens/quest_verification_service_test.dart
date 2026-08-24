@@ -52,7 +52,7 @@ void main() {
     test('GPS verification fails when quest has no location', () async {
       final service = QuestVerificationService();
 
-      final quest = Quest(
+      const quest = Quest(
         id: 'quest-1',
         title: 'No Location',
         description: 'Test',
@@ -91,7 +91,7 @@ void main() {
     test('photo quest fails when no photo bytes supplied', () async {
       final service = QuestVerificationService();
 
-      final quest = Quest(
+      const quest = Quest(
         id: 'photo-quest',
         title: 'Photo Quest',
         description: 'Take a photo.',
@@ -117,7 +117,7 @@ void main() {
       () async {
         final service = QuestVerificationService();
 
-        final quest = Quest(
+        const quest = Quest(
           id: 'combined',
           title: 'Combined Quest',
           description: 'Visit and photograph.',
@@ -150,7 +150,7 @@ void main() {
     test('unsupported verification method returns false', () async {
       final service = QuestVerificationService();
 
-      final quest = Quest(
+      const quest = Quest(
         id: 'manual',
         title: 'Manual Quest',
         description: 'Test',
