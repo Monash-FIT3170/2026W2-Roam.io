@@ -602,6 +602,9 @@ class MapController extends ChangeNotifier {
     currentRegion = effectiveRegion;
     message = effectiveRegion.name;
 
+    final wasVisuallyFogged = !_fogClearedRegionIds.contains(
+      effectiveRegion.id,
+    );
     final wasNewlyUnlocked = await _markRegionAsVisited(effectiveRegion);
     // Record an entry for heatmap counts (app opened / entered tile).
     await _recordRegionEntry(effectiveRegion);
@@ -610,7 +613,7 @@ class MapController extends ChangeNotifier {
 
     _syncFogForCurrentRegion(
       region: effectiveRegion,
-      wasNewlyUnlocked: wasNewlyUnlocked,
+      shouldAnimate: wasNewlyUnlocked || wasVisuallyFogged,
     );
 
     if (wasNewlyUnlocked) {
@@ -628,19 +631,20 @@ class MapController extends ChangeNotifier {
 
   /// Clears the fog over the region the user has just entered.
   ///
-  /// A first unlock blows the clouds away from the user's position; re-entering
-  /// an already-cleared region just ensures its hole exists, with no animation.
+  /// A first unlock or revisit of a decayed region blows clouds away from the
+  /// user's position. Re-entering an already-clear region only ensures its hole
+  /// exists, with no duplicate animation.
   ///
   /// [_latestPosition] is deliberately still null during [_loadInitialRegion],
   /// so a cold start into an unvisited tile clears without animating. Assigning
   /// it there would fire a dissipation nobody asked for every launch.
   void _syncFogForCurrentRegion({
     required RegionPolygon region,
-    required bool wasNewlyUnlocked,
+    required bool shouldAnimate,
   }) {
     final position = _latestPosition;
 
-    if (wasNewlyUnlocked && position != null) {
+    if (shouldAnimate && position != null) {
       fogController.startDissolve(
         region: region,
         userLatLng: LatLng(position.latitude, position.longitude),
