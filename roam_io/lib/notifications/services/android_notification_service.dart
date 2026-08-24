@@ -213,7 +213,7 @@ class AndroidNotificationService {
     });
 
     await _plugin.zonedSchedule(
-      id: _createAndroidId(notification.id),
+      id: _createNotificationId(notification.id),
       title: notification.title,
       body: notification.body,
       scheduledDate: tz.TZDateTime.from(scheduledAt.toUtc(), tz.UTC),
@@ -233,7 +233,7 @@ class AndroidNotificationService {
 
   Future<void> cancelById(String notificationId) async {
     if (!_isSupportedPlatform) return;
-    await _plugin.cancel(id: _createAndroidId(notificationId));
+    await _plugin.cancel(id: _createNotificationId(notificationId));
   }
 
   /// Cancels all system notifications created by the application.
@@ -359,6 +359,7 @@ class AndroidNotificationService {
       case NotificationType.friendAccepted:
       case NotificationType.follow:
       case NotificationType.followRequestAccepted:
+      case NotificationType.fogDecay:
         return null;
     }
   }

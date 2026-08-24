@@ -7,7 +7,17 @@
       "Bash(echo \"EXIT:$?\")",
       "Bash(flutter analyze *)",
       "Bash(flutter test *)",
-      "Bash(git log *)"
+      "Bash(git log *)",
+      "Bash(ls -la /Users/amarpritsingh/Library/Caches/org.swift.swiftpm/artifacts/ 2>/dev/null | head -20; echo \"---\"; du -sh /Users/amarpritsingh/Library/Caches/org.swift.swiftpm 2>/dev/null)",
+      "Read(//Users/amarpritsingh/Library/Caches/org.swift.swiftpm/artifacts/**)",
+      "Bash(flutter build *)",
+      "Bash(flutter devices *)",
+      "Bash(dart format *)",
+      "Bash(python3 -)",
+      "Bash(git -C /Users/amarpritsingh/dev/2026W2-Roam.io stash list)",
+      "Bash(git -C /Users/amarpritsingh/dev/2026W2-Roam.io status --short -- roam_io/lib roam_io/test)",
+      "Bash(git -C /Users/amarpritsingh/dev/2026W2-Roam.io log --oneline -1 -- roam_io/test/features/map/data/journey_map_snapshot_service_test.dart roam_io/lib/features/map/data/region_service.dart)",
+      "Bash(git -C /Users/amarpritsingh/dev/2026W2-Roam.io diff --stat -- roam_io/lib/features/map/fog roam_io/test/features/map/fog)"
     ]
   }
 }

@@ -8,6 +8,7 @@ import 'package:roam_io/features/map/fog/fog_atlas.dart';
 import 'package:roam_io/features/map/fog/fog_controller.dart';
 import 'package:roam_io/features/map/fog/fog_overlay.dart';
 import 'package:roam_io/features/map/fog/fog_painter.dart';
+import 'package:roam_io/features/map/fog/fog_palette.dart';
 import 'package:roam_io/features/map/fog/fog_projection.dart';
 
 const LatLng _anchor = LatLng(-37.8136, 144.9631);
@@ -107,6 +108,104 @@ void main() {
       await tester.pump(const Duration(milliseconds: 500));
 
       expect(controller.clock, greaterThan(Duration.zero));
+
+      controller.dispose();
+    });
+
+    testWidgets('paints every frame while the camera is moving', (
+      tester,
+    ) async {
+      // The symptom this guards: clouds visibly trailing the map during a pan.
+      // Movement used to run through a gate whose interval was the vsync period
+      // itself, so a frame arriving fractionally early was dropped whole and
+      // the fog painted at roughly half the map's rate.
+      final controller = FogController()
+        ..setAnchor(_anchor)
+        ..updateCamera(_camera, isMoving: true)
+        ..markViewportLoaded();
+
+      await _pump(tester, controller, atlas: atlas);
+
+      // 8ms apart: a 120Hz display, where the old gate dropped exactly half.
+      expect(await _paintedFrames(tester, controller, frames: 5), 5);
+
+      controller.dispose();
+    });
+
+    testWidgets('paces itself down once the camera settles', (tester) async {
+      // The other half of the same trade: idle clouds drift slowly enough that
+      // painting every vsync is wasted work.
+      final controller = FogController()
+        ..setAnchor(_anchor)
+        ..updateCamera(_camera)
+        ..markViewportLoaded();
+
+      await _pump(tester, controller, atlas: atlas);
+
+      expect(await _paintedFrames(tester, controller, frames: 5), lessThan(3));
+
+      controller.dispose();
+    });
+
+    testWidgets('sheds the parallax cloud layer while the camera moves', (
+      tester,
+    ) async {
+      // Two cloud layers at roughly 4x full-screen overdraw each are the
+      // overlay's whole fill-rate cost, so the fainter one gives way to a
+      // moving camera — ramped, because cutting it dead pops the fog's density.
+      final controller = FogController()
+        ..setAnchor(_anchor)
+        ..updateCamera(_camera, isMoving: true)
+        ..markViewportLoaded();
+
+      await _pump(tester, controller, atlas: atlas);
+      await tester.pump(const Duration(milliseconds: 16));
+
+      expect(
+        _fogPainter(tester).motionEase,
+        greaterThan(0.0),
+        reason: 'the layer must fade rather than vanish on the first frame',
+      );
+
+      await tester.pump(FogPalette.motionEaseOut);
+      expect(_fogPainter(tester).motionEase, 0.0);
+
+      controller.setCameraMoving(false);
+      await tester.pump(FogPalette.motionEaseIn);
+
+      expect(
+        _fogPainter(tester).motionEase,
+        1.0,
+        reason: 'the layer must come back once the map settles',
+      );
+
+      controller.dispose();
+    });
+
+    testWidgets('keeps animating after the app returns to the foreground', (
+      tester,
+    ) async {
+      // Ticker.start resets elapsed to zero, so a _lastPaint carried across the
+      // pause sits in the future and gates every frame after it — the fog
+      // frozen for as long as the app had previously been open.
+      final controller = FogController()
+        ..setAnchor(_anchor)
+        ..updateCamera(_camera)
+        ..markViewportLoaded();
+
+      await _pump(tester, controller, atlas: atlas);
+      await tester.pump(const Duration(seconds: 2));
+
+      final beforePause = controller.clock;
+      expect(beforePause, greaterThan(Duration.zero));
+
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.paused);
+      await tester.pump();
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 100));
+
+      expect(controller.clock, isNot(beforePause));
 
       controller.dispose();
     });
@@ -260,6 +359,28 @@ final Finder _fogPaintFinder = find.byWidgetPredicate(
 
 FogPainter _fogPainter(WidgetTester tester) {
   return tester.widget<CustomPaint>(_fogPaintFinder).painter! as FogPainter;
+}
+
+/// How many of [frames] vsyncs the overlay actually painted.
+///
+/// Counted off the controller's clock, which only advances on a frame the
+/// overlay did not pace away.
+Future<int> _paintedFrames(
+  WidgetTester tester,
+  FogController controller, {
+  required int frames,
+  Duration interval = const Duration(milliseconds: 8),
+}) async {
+  var painted = 0;
+  var previous = controller.clock;
+
+  for (var i = 0; i < frames; i++) {
+    await tester.pump(interval);
+    if (controller.clock != previous) painted++;
+    previous = controller.clock;
+  }
+
+  return painted;
 }
 
 Future<void> _pump(

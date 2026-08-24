@@ -142,9 +142,52 @@ abstract final class FogPalette {
   /// Per-instance rotation drift, radians per second.
   static const double rotationDriftRate = 0.012;
 
-  /// Frame pacing. Slow clouds do not need 60fps at rest.
+  /// Frame pacing while the fog is idle. Slow clouds do not need 60fps at rest.
+  ///
+  /// Deliberately applied only at rest. Pacing a moving camera below the
+  /// display's refresh rate is what makes the clouds visibly trail the map, so
+  /// movement paints every vsync instead of running through this gate.
   static const int restingFramesPerSecond = 30;
-  static const int activeFramesPerSecond = 60;
+
+  // ---------------------------------------------------------------------------
+  // Motion budget
+  // ---------------------------------------------------------------------------
+
+  /// What the parallax cloud layer is worth while the camera is moving.
+  ///
+  /// The two cloud layers are the overlay's whole fill-rate cost. Sprites are
+  /// twice their cell size on each axis (see [gridSpacingFactor]), so a layer
+  /// is roughly 4x full-screen translucent overdraw on its own, and the
+  /// parallax layer is the one whose [parallaxScaleFactor] lands it mid
+  /// blend-band, generating two grid levels rather than one. Dropping it during
+  /// a pan is the largest saving available here, and a second fainter, slower
+  /// cloud layer is the first thing the eye stops resolving once the map is
+  /// sliding under it.
+  static const double motionParallaxWeight = 0.0;
+
+  /// Hole feather while the camera is moving, as a fraction of
+  /// [holeFeatherRadius]. Every visible cleared region is blurred separately on
+  /// every frame with nothing cached, and motion hides a tighter edge.
+  static const double motionFeatherFactor = 0.35;
+
+  /// Ceiling on the feather radius in local (world) coordinates.
+  ///
+  /// [holeFeatherRadius] is divided by the map scale so the feather holds a
+  /// constant width on screen, but that inflates the local sigma without bound
+  /// as the user zooms out — past 600 at the overview end, for a blur the
+  /// canvas transform then shrinks back down to 18 screen pixels. Clamping
+  /// trades an increasingly tight on-screen feather at low zoom, where cleared
+  /// regions are a few pixels across anyway, for a blur that stays affordable.
+  static const double maxLocalFeatherRadius = 128.0;
+
+  /// How long the parallax layer and the feather take to give way to a moving
+  /// camera, and how long they take to return afterwards.
+  ///
+  /// Cutting them the instant a finger lands would visibly pop the fog's
+  /// density. Out is quicker than in because the frames are wanted immediately;
+  /// the return can afford to be gentle.
+  static const Duration motionEaseOut = Duration(milliseconds: 180);
+  static const Duration motionEaseIn = Duration(milliseconds: 420);
 
   // ---------------------------------------------------------------------------
   // Holes and dissipation
