@@ -484,7 +484,7 @@ class _JourneySummarySheetState extends State<JourneySummarySheet> {
                 scrollDirection: Axis.horizontal,
                 buildDefaultDragHandles: false,
                 itemCount: _selectedMedia.length,
-                onReorder: _reorderMedia,
+                onReorderItem: _reorderMedia,
                 proxyDecorator: (child, _, animation) {
                   return ScaleTransition(
                     scale: Tween<double>(begin: 1, end: 1.04).animate(
