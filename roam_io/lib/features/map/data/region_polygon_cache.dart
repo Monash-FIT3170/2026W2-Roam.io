@@ -22,23 +22,42 @@ import 'region_polygon.dart';
 
 /// Keeps loaded [RegionPolygon] objects and rendered Google Maps polygons in sync.
 class RegionPolygonCache {
+  RegionPolygonCache({this.unvisitedFillColor = transparentFogFill});
+
+  /// Styling for a surface with no cloud layer of its own. See
+  /// [unvisitedFillColor].
+  RegionPolygonCache.staticFog() : unvisitedFillColor = const Color(0xCC000000);
+
   static const Color _visitedStrokeColor = Color(0xFFFFFFFF);
   static const Color _visitedFillColor = Color(0x30FFFFFF);
   static const int _visitedStrokeWidth = 3;
 
   static const Color _currentRegionFillColor = Color(0x30FFFFFF);
 
-  // Unvisited regions render nothing. Fog is no longer a black polygon per
-  // census tile — it is a single animated cloud layer drawn above the map by
-  // FogOverlay, as the screen minus holes for explored ground. Per-tile black
-  // fills produced visible seams and double-blended borders wherever adjacent
-  // SA1 polygons shared an edge, which is exactly what that layer removes.
+  // On the live map, unvisited regions render nothing. Fog there is no longer a
+  // black polygon per census tile — it is a single animated cloud layer drawn
+  // above the map by FogOverlay, as the screen minus holes for explored ground.
+  // Per-tile black fills produced visible seams and double-blended borders
+  // wherever adjacent SA1 polygons shared an edge, which is exactly what that
+  // layer removes.
   //
   // MapController also stops caching unvisited regions altogether, so this
-  // styling is now only reachable for the tile the user is standing in before
-  // its unlock persists — and the current-region branch already claims that.
+  // styling is barely reachable there — only for the tile the user is standing
+  // in before its unlock persists, and the current-region branch claims that.
+  static const Color transparentFogFill = Color(0x00000000);
+
+  /// Per-tile fog fill, for surfaces that have no [FogOverlay] above them.
+  ///
+  /// Defaults to invisible, which is what the live map wants. Static previews
+  /// are the exception: JourneyMapSnapshotService draws a completed route on a
+  /// plain GoogleMap with no cloud layer over it, so without a fill of its own
+  /// the unexplored ground it deliberately loads would render as nothing at
+  /// all. The seam problem that motivated removing these fills does not arise
+  /// there — a preview is a fixed, zoomed-out frame, not a surface the user
+  /// pans across.
+  final Color unvisitedFillColor;
+
   static const Color _unvisitedStrokeColor = Color(0x00000000);
-  static const Color _unvisitedFillColor = Color(0x00000000);
   static const int _unvisitedStrokeWidth = 0;
 
   // Use a yellow->orange->red scale so low counts appear yellow, medium
@@ -233,7 +252,7 @@ class RegionPolygonCache {
     }
 
     if (!isVisited) {
-      return _unvisitedFillColor;
+      return unvisitedFillColor;
     }
 
     if (heatmapIntensity != null) {

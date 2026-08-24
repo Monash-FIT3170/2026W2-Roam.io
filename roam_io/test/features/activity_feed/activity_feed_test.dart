@@ -26,6 +26,7 @@ import 'package:roam_io/features/activity_feed/widgets/route_marker_icons.dart';
 import 'package:roam_io/features/journeys/domain/transport_mode.dart';
 import 'package:roam_io/features/map/data/journey_map_snapshot_service.dart';
 import 'package:roam_io/features/map/data/visited_region_service.dart';
+import 'package:roam_io/features/map/fog/fog_decay_difficulty.dart';
 import 'package:roam_io/features/profile/domain/visited_polygon_meta.dart';
 import 'package:roam_io/features/profile/domain/visited_polygon_record.dart';
 
@@ -627,6 +628,32 @@ class _FakeVisitedRegionService implements VisitedRegionService {
     double? areaSquareMetres,
     String? name,
   }) async => true;
+
+  // Fog decay plays no part in the activity feed, which reads visited polygons
+  // for its route preview and nothing else. Stubbed as "nothing has decayed".
+
+  @override
+  Future<Set<String>> loadFogClearedRegionIds({
+    required FogDecayDifficulty difficulty,
+    DateTime? now,
+  }) async => const <String>{};
+
+  @override
+  Future<void> refreshFogDecayWarnings({
+    required FogDecayDifficulty difficulty,
+    DateTime? now,
+  }) async {}
+
+  @override
+  Future<Map<String, DateTime>> loadUnpresentedFogDecayEvents({
+    required FogDecayDifficulty difficulty,
+    DateTime? now,
+  }) async => const <String, DateTime>{};
+
+  @override
+  Future<void> markFogDecayEventsPresented(
+    Map<String, DateTime> decayAtByRegionId,
+  ) async {}
 }
 
 Polygon _tilePolygon({
