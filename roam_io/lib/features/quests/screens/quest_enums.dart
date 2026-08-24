@@ -36,12 +36,7 @@ extension QuestCategoryX on QuestCategory {
   }
 }
 
-enum QuestDifficulty {
-  easy,
-  medium,
-  hard,
-  epic,
-}
+enum QuestDifficulty { easy, medium, hard, epic }
 
 extension QuestDifficultyX on QuestDifficulty {
   String get displayName {
@@ -54,14 +49,7 @@ extension QuestDifficultyX on QuestDifficulty {
   }
 }
 
-enum QuestStatus {
-  available,
-  active,
-  submitted,
-  completed,
-  rejected,
-  expired,
-}
+enum QuestStatus { available, active, submitted, completed, rejected, expired }
 
 enum QuestVerificationType {
   gps,

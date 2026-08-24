@@ -49,9 +49,7 @@ class _QuestsScreenState extends State<QuestsScreen> {
       'userId=${userId ?? 'not signed in'}',
     );
 
-    await _questController.initialise(
-      userId: userId,
-    );
+    await _questController.initialise(userId: userId);
   }
 
   @override
@@ -86,9 +84,7 @@ class _QuestsContent extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const AppPageHeader(
-              title: 'Side Quests',
-            ),
+            const AppPageHeader(title: 'Side Quests'),
 
             Padding(
               padding: const EdgeInsets.fromLTRB(20, 0, 20, 16),
@@ -101,25 +97,15 @@ class _QuestsContent extends StatelessWidget {
               ),
             ),
 
-            _QuestSummary(
-              controller: controller,
-            ),
+            _QuestSummary(controller: controller),
 
             const SizedBox(height: 18),
 
-            _CategoryFilters(
-              controller: controller,
-            ),
+            _CategoryFilters(controller: controller),
 
             const SizedBox(height: 14),
 
-            Expanded(
-              child: _buildBody(
-                context,
-                controller,
-                bottomClearance,
-              ),
-            ),
+            Expanded(child: _buildBody(context, controller, bottomClearance)),
           ],
         ),
       ),
@@ -140,9 +126,7 @@ class _QuestsContent extends StatelessWidget {
     }
 
     if (controller.errorMessage != null) {
-      return _QuestErrorState(
-        message: controller.errorMessage!,
-      );
+      return _QuestErrorState(message: controller.errorMessage!);
     }
 
     if (controller.quests.isEmpty) {
@@ -151,45 +135,29 @@ class _QuestsContent extends StatelessWidget {
 
     return RefreshIndicator(
       onRefresh: () async {
-        final userId =
-            context.read<AuthProvider>().currentUser?.uid;
+        final userId = context.read<AuthProvider>().currentUser?.uid;
 
-        await controller.loadQuests(
-          userId: userId,
-        );
+        await controller.loadQuests(userId: userId);
       },
       child: ListView.separated(
         physics: const AlwaysScrollableScrollPhysics(),
-        padding: EdgeInsets.fromLTRB(
-          20,
-          2,
-          20,
-          bottomClearance,
-        ),
+        padding: EdgeInsets.fromLTRB(20, 2, 20, bottomClearance),
         itemCount: controller.quests.length,
-        separatorBuilder: (_, _) =>
-            const SizedBox(height: 14),
+        separatorBuilder: (_, _) => const SizedBox(height: 14),
         itemBuilder: (context, index) {
           final quest = controller.quests[index];
 
           return _QuestCard(
             quest: quest,
-            isStarted:
-                controller.isQuestStarted(quest.id),
-            isCompleted:
-                controller.isQuestCompleted(quest.id),
+            isStarted: controller.isQuestStarted(quest.id),
+            isCompleted: controller.isQuestCompleted(quest.id),
             onTap: () {
               Navigator.of(context).push(
                 MaterialPageRoute<void>(
-                  builder: (_) =>
-                      ChangeNotifierProvider<
-                        QuestController
-                      >.value(
-                        value: controller,
-                        child: QuestDetailsScreen(
-                          quest: quest,
-                        ),
-                      ),
+                  builder: (_) => ChangeNotifierProvider<QuestController>.value(
+                    value: controller,
+                    child: QuestDetailsScreen(quest: quest),
+                  ),
                 ),
               );
             },
@@ -201,22 +169,17 @@ class _QuestsContent extends StatelessWidget {
 }
 
 class _QuestSummary extends StatelessWidget {
-  const _QuestSummary({
-    required this.controller,
-  });
+  const _QuestSummary({required this.controller});
 
   final QuestController controller;
 
   @override
   Widget build(BuildContext context) {
     final activeCount = controller.activeQuests.length;
-    final completedCount =
-        controller.completedQuests.length;
+    final completedCount = controller.completedQuests.length;
 
     return Padding(
-      padding: const EdgeInsets.symmetric(
-        horizontal: 20,
-      ),
+      padding: const EdgeInsets.symmetric(horizontal: 20),
       child: Row(
         children: [
           Expanded(
@@ -261,49 +224,32 @@ class _SummaryCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final primary =
-        Theme.of(context).colorScheme.primary;
+    final primary = Theme.of(context).colorScheme.primary;
 
     return Container(
-      padding: const EdgeInsets.symmetric(
-        horizontal: 10,
-        vertical: 12,
-      ),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 12),
       decoration: BoxDecoration(
         color: AppSurfaces.softCard(context),
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(
-          color: AppSurfaces.border(context),
-        ),
+        border: Border.all(color: AppSurfaces.border(context)),
       ),
       child: Column(
         children: [
-          Icon(
-            icon,
-            size: 19,
-            color: primary,
-          ),
+          Icon(icon, size: 19, color: primary),
           const SizedBox(height: 5),
           Text(
             value,
-            style: Theme.of(context)
-                .textTheme
-                .titleMedium
-                ?.copyWith(
-                  fontWeight: FontWeight.w800,
-                ),
+            style: Theme.of(
+              context,
+            ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800),
           ),
           const SizedBox(height: 1),
           Text(
             label,
-            style: Theme.of(context)
-                .textTheme
-                .bodySmall
-                ?.copyWith(
-                  color:
-                      AppSurfaces.textMuted(context),
-                  fontWeight: FontWeight.w600,
-                ),
+            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+              color: AppSurfaces.textMuted(context),
+              fontWeight: FontWeight.w600,
+            ),
           ),
         ],
       ),
@@ -312,9 +258,7 @@ class _SummaryCard extends StatelessWidget {
 }
 
 class _CategoryFilters extends StatelessWidget {
-  const _CategoryFilters({
-    required this.controller,
-  });
+  const _CategoryFilters({required this.controller});
 
   final QuestController controller;
 
@@ -324,14 +268,11 @@ class _CategoryFilters extends StatelessWidget {
       height: 38,
       child: ListView(
         scrollDirection: Axis.horizontal,
-        padding: const EdgeInsets.symmetric(
-          horizontal: 20,
-        ),
+        padding: const EdgeInsets.symmetric(horizontal: 20),
         children: [
           _CategoryChip(
             label: 'All',
-            selected:
-                controller.selectedCategory == null,
+            selected: controller.selectedCategory == null,
             onTap: () {
               controller.selectCategory(null);
             },
@@ -339,17 +280,12 @@ class _CategoryFilters extends StatelessWidget {
           const SizedBox(width: 8),
           ...QuestCategory.values.map(
             (category) => Padding(
-              padding:
-                  const EdgeInsets.only(right: 8),
+              padding: const EdgeInsets.only(right: 8),
               child: _CategoryChip(
                 label: category.displayName,
-                selected:
-                    controller.selectedCategory ==
-                    category,
+                selected: controller.selectedCategory == category,
                 onTap: () {
-                  controller.selectCategory(
-                    category,
-                  );
+                  controller.selectCategory(category);
                 },
               ),
             ),
@@ -373,8 +309,7 @@ class _CategoryChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final primary =
-        Theme.of(context).colorScheme.primary;
+    final primary = Theme.of(context).colorScheme.primary;
 
     return Material(
       color: Colors.transparent,
@@ -382,37 +317,22 @@ class _CategoryChip extends StatelessWidget {
         borderRadius: BorderRadius.circular(20),
         onTap: onTap,
         child: AnimatedContainer(
-          duration:
-              const Duration(milliseconds: 160),
-          padding: const EdgeInsets.symmetric(
-            horizontal: 14,
-          ),
+          duration: const Duration(milliseconds: 160),
+          padding: const EdgeInsets.symmetric(horizontal: 14),
           alignment: Alignment.center,
           decoration: BoxDecoration(
-            color: selected
-                ? primary
-                : AppSurfaces.softCard(context),
-            borderRadius:
-                BorderRadius.circular(20),
+            color: selected ? primary : AppSurfaces.softCard(context),
+            borderRadius: BorderRadius.circular(20),
             border: Border.all(
-              color: selected
-                  ? primary
-                  : AppSurfaces.border(context),
+              color: selected ? primary : AppSurfaces.border(context),
             ),
           ),
           child: Text(
             label,
-            style: Theme.of(context)
-                .textTheme
-                .labelMedium
-                ?.copyWith(
-                  color: selected
-                      ? Colors.white
-                      : AppSurfaces.textPrimary(
-                          context,
-                        ),
-                  fontWeight: FontWeight.w700,
-                ),
+            style: Theme.of(context).textTheme.labelMedium?.copyWith(
+              color: selected ? Colors.white : AppSurfaces.textPrimary(context),
+              fontWeight: FontWeight.w700,
+            ),
           ),
         ),
       ),
@@ -435,18 +355,14 @@ class _QuestCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final accent =
-        _accentForCategory(quest.category);
+    final accent = _accentForCategory(quest.category);
 
     return Container(
       decoration: BoxDecoration(
         color: AppSurfaces.card(context),
         borderRadius: BorderRadius.circular(18),
-        border: Border.all(
-          color: AppSurfaces.border(context),
-        ),
-        boxShadow:
-            AppSurfaces.cardShadow(context),
+        border: Border.all(color: AppSurfaces.border(context)),
+        boxShadow: AppSurfaces.cardShadow(context),
       ),
       child: Material(
         color: Colors.transparent,
@@ -457,8 +373,7 @@ class _QuestCard extends StatelessWidget {
           child: Padding(
             padding: const EdgeInsets.all(16),
             child: Row(
-              crossAxisAlignment:
-                  CrossAxisAlignment.center,
+              crossAxisAlignment: CrossAxisAlignment.center,
               children: [
                 Container(
                   width: 52,
@@ -466,19 +381,12 @@ class _QuestCard extends StatelessWidget {
                   alignment: Alignment.center,
                   decoration: BoxDecoration(
                     color: accent.withValues(
-                      alpha: AppSurfaces.isDark(
-                        context,
-                      )
-                          ? 0.20
-                          : 0.16,
+                      alpha: AppSurfaces.isDark(context) ? 0.20 : 0.16,
                     ),
-                    borderRadius:
-                        BorderRadius.circular(15),
+                    borderRadius: BorderRadius.circular(15),
                   ),
                   child: Icon(
-                    _iconForCategory(
-                      quest.category,
-                    ),
+                    _iconForCategory(quest.category),
                     color: accent,
                     size: 25,
                   ),
@@ -488,8 +396,7 @@ class _QuestCard extends StatelessWidget {
 
                 Expanded(
                   child: Column(
-                    crossAxisAlignment:
-                        CrossAxisAlignment.start,
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Row(
                         children: [
@@ -497,16 +404,9 @@ class _QuestCard extends StatelessWidget {
                             child: Text(
                               quest.title,
                               maxLines: 2,
-                              overflow:
-                                  TextOverflow.ellipsis,
-                              style: Theme.of(context)
-                                  .textTheme
-                                  .titleMedium
-                                  ?.copyWith(
-                                    fontWeight:
-                                        FontWeight
-                                            .w800,
-                                  ),
+                              overflow: TextOverflow.ellipsis,
+                              style: Theme.of(context).textTheme.titleMedium
+                                  ?.copyWith(fontWeight: FontWeight.w800),
                             ),
                           ),
                         ],
@@ -517,17 +417,10 @@ class _QuestCard extends StatelessWidget {
                       Text(
                         '${quest.category.displayName} • '
                         '${quest.difficulty.displayName}',
-                        style: Theme.of(context)
-                            .textTheme
-                            .bodySmall
-                            ?.copyWith(
-                              color:
-                                  AppSurfaces.textMuted(
-                                    context,
-                                  ),
-                              fontWeight:
-                                  FontWeight.w600,
-                            ),
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: AppSurfaces.textMuted(context),
+                          fontWeight: FontWeight.w600,
+                        ),
                       ),
 
                       const SizedBox(height: 10),
@@ -535,30 +428,17 @@ class _QuestCard extends StatelessWidget {
                       Row(
                         children: [
                           _QuestMetaBadge(
-                            icon: Icons
-                                .stars_rounded,
-                            label:
-                                '+${quest.rewardXp} XP',
-                            color:
-                                Theme.of(context)
-                                    .colorScheme
-                                    .primary,
+                            icon: Icons.stars_rounded,
+                            label: '+${quest.rewardXp} XP',
+                            color: Theme.of(context).colorScheme.primary,
                           ),
 
-                          if (quest
-                                  .estimatedMinutes !=
-                              null) ...[
+                          if (quest.estimatedMinutes != null) ...[
                             const SizedBox(width: 8),
                             _QuestMetaBadge(
-                              icon: Icons
-                                  .schedule_rounded,
-                              label:
-                                  '${quest.estimatedMinutes} min',
-                              color:
-                                  AppSurfaces
-                                      .textMuted(
-                                        context,
-                                      ),
+                              icon: Icons.schedule_rounded,
+                              label: '${quest.estimatedMinutes} min',
+                              color: AppSurfaces.textMuted(context),
                             ),
                           ],
                         ],
@@ -569,10 +449,7 @@ class _QuestCard extends StatelessWidget {
 
                 const SizedBox(width: 10),
 
-                _QuestStateIcon(
-                  isStarted: isStarted,
-                  isCompleted: isCompleted,
-                ),
+                _QuestStateIcon(isStarted: isStarted, isCompleted: isCompleted),
               ],
             ),
           ),
@@ -581,61 +458,35 @@ class _QuestCard extends StatelessWidget {
     );
   }
 
-  static Color _accentForCategory(
-    QuestCategory category,
-  ) {
+  static Color _accentForCategory(QuestCategory category) {
     return switch (category) {
-      QuestCategory.adventure =>
-        AppColors.clay,
-      QuestCategory.fitness =>
-        AppColors.clay,
-      QuestCategory.nature =>
-        AppColors.sage,
-      QuestCategory.culture =>
-        AppColors.sage,
-      QuestCategory.food =>
-        AppColors.clay,
-      QuestCategory.social =>
-        AppColors.sage,
-      QuestCategory.history =>
-        AppColors.sage,
-      QuestCategory.photography =>
-        AppColors.clay,
-      QuestCategory.nightlife =>
-        AppColors.clay,
-      QuestCategory.seasonal =>
-        AppColors.sage,
-      QuestCategory.hiddenGem =>
-        AppColors.clay,
+      QuestCategory.adventure => AppColors.clay,
+      QuestCategory.fitness => AppColors.clay,
+      QuestCategory.nature => AppColors.sage,
+      QuestCategory.culture => AppColors.sage,
+      QuestCategory.food => AppColors.clay,
+      QuestCategory.social => AppColors.sage,
+      QuestCategory.history => AppColors.sage,
+      QuestCategory.photography => AppColors.clay,
+      QuestCategory.nightlife => AppColors.clay,
+      QuestCategory.seasonal => AppColors.sage,
+      QuestCategory.hiddenGem => AppColors.clay,
     };
   }
 
-  static IconData _iconForCategory(
-    QuestCategory category,
-  ) {
+  static IconData _iconForCategory(QuestCategory category) {
     return switch (category) {
-      QuestCategory.adventure =>
-        Icons.explore_rounded,
-      QuestCategory.fitness =>
-        Icons.directions_run_rounded,
-      QuestCategory.nature =>
-        Icons.park_rounded,
-      QuestCategory.culture =>
-        Icons.museum_rounded,
-      QuestCategory.food =>
-        Icons.restaurant_rounded,
-      QuestCategory.social =>
-        Icons.groups_rounded,
-      QuestCategory.history =>
-        Icons.account_balance_rounded,
-      QuestCategory.photography =>
-        Icons.photo_camera_rounded,
-      QuestCategory.nightlife =>
-        Icons.nightlife_rounded,
-      QuestCategory.seasonal =>
-        Icons.event_rounded,
-      QuestCategory.hiddenGem =>
-        Icons.diamond_rounded,
+      QuestCategory.adventure => Icons.explore_rounded,
+      QuestCategory.fitness => Icons.directions_run_rounded,
+      QuestCategory.nature => Icons.park_rounded,
+      QuestCategory.culture => Icons.museum_rounded,
+      QuestCategory.food => Icons.restaurant_rounded,
+      QuestCategory.social => Icons.groups_rounded,
+      QuestCategory.history => Icons.account_balance_rounded,
+      QuestCategory.photography => Icons.photo_camera_rounded,
+      QuestCategory.nightlife => Icons.nightlife_rounded,
+      QuestCategory.seasonal => Icons.event_rounded,
+      QuestCategory.hiddenGem => Icons.diamond_rounded,
     };
   }
 }
@@ -656,21 +507,14 @@ class _QuestMetaBadge extends StatelessWidget {
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        Icon(
-          icon,
-          size: 15,
-          color: color,
-        ),
+        Icon(icon, size: 15, color: color),
         const SizedBox(width: 4),
         Text(
           label,
-          style: Theme.of(context)
-              .textTheme
-              .bodySmall
-              ?.copyWith(
-                color: color,
-                fontWeight: FontWeight.w700,
-              ),
+          style: Theme.of(context).textTheme.bodySmall?.copyWith(
+            color: color,
+            fontWeight: FontWeight.w700,
+          ),
         ),
       ],
     );
@@ -678,10 +522,7 @@ class _QuestMetaBadge extends StatelessWidget {
 }
 
 class _QuestStateIcon extends StatelessWidget {
-  const _QuestStateIcon({
-    required this.isStarted,
-    required this.isCompleted,
-  });
+  const _QuestStateIcon({required this.isStarted, required this.isCompleted});
 
   final bool isStarted;
   final bool isCompleted;
@@ -726,8 +567,7 @@ class _EmptyQuestState extends StatelessWidget {
               width: 64,
               height: 64,
               decoration: BoxDecoration(
-                color:
-                    AppSurfaces.softCard(context),
+                color: AppSurfaces.softCard(context),
                 shape: BoxShape.circle,
               ),
               child: const Icon(
@@ -739,27 +579,17 @@ class _EmptyQuestState extends StatelessWidget {
             const SizedBox(height: 16),
             Text(
               'No quests available yet',
-              style: Theme.of(context)
-                  .textTheme
-                  .titleMedium
-                  ?.copyWith(
-                    fontWeight:
-                        FontWeight.w800,
-                  ),
+              style: Theme.of(
+                context,
+              ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800),
             ),
             const SizedBox(height: 5),
             Text(
               'New adventures will appear here.',
               textAlign: TextAlign.center,
-              style: Theme.of(context)
-                  .textTheme
-                  .bodyMedium
-                  ?.copyWith(
-                    color:
-                        AppSurfaces.textMuted(
-                          context,
-                        ),
-                  ),
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                color: AppSurfaces.textMuted(context),
+              ),
             ),
           ],
         ),
@@ -769,9 +599,7 @@ class _EmptyQuestState extends StatelessWidget {
 }
 
 class _QuestErrorState extends StatelessWidget {
-  const _QuestErrorState({
-    required this.message,
-  });
+  const _QuestErrorState({required this.message});
 
   final String message;
 
@@ -792,17 +620,10 @@ class _QuestErrorState extends StatelessWidget {
             Text(
               message,
               textAlign: TextAlign.center,
-              style: Theme.of(context)
-                  .textTheme
-                  .bodyMedium
-                  ?.copyWith(
-                    color:
-                        AppSurfaces.textMuted(
-                          context,
-                        ),
-                    fontWeight:
-                        FontWeight.w600,
-                  ),
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                color: AppSurfaces.textMuted(context),
+                fontWeight: FontWeight.w600,
+              ),
             ),
           ],
         ),

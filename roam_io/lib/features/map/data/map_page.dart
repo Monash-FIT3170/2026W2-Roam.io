@@ -10,11 +10,11 @@
 
 import 'dart:async';
 import 'dart:math' as math;
-import 'dart:ui' as ui; 
-import 'package:flutter/material.dart'; 
+import 'dart:ui' as ui;
+import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:provider/provider.dart';
-import 'package:roam_io/features/quests/screens/quests_screen.dart'; 
+import 'package:roam_io/features/quests/screens/quests_screen.dart';
 
 import '../../activity_feed/data/activity_creation_service.dart';
 import '../../activity_feed/models/activity_media_item.dart';
@@ -185,12 +185,10 @@ class _MapPageState extends State<MapPage> {
   }
 
   void _openSideQuests() {
-  Navigator.of(context).push(
-    MaterialPageRoute<void>(
-      builder: (_) => const QuestsScreen(),
-    ),
-  );
-}
+    Navigator.of(
+      context,
+    ).push(MaterialPageRoute<void>(builder: (_) => const QuestsScreen()));
+  }
 
   /// Creates polylines and markers for saved journeys.
   /// Only creates markers for custom locations (where placeId is null).
@@ -897,9 +895,7 @@ class _MapPageState extends State<MapPage> {
         Positioned(
           left: 16,
           bottom: isLiveJourneyActive ? 220 : 120,
-          child: _SideQuestsButton(
-            onPressed: _openSideQuests,
-          ),
+          child: _SideQuestsButton(onPressed: _openSideQuests),
         ),
         // Start Journey is available only while no Journey is active.
         if (canStartJourney)
@@ -1056,9 +1052,7 @@ class _LegendRow extends StatelessWidget {
 }
 
 class _SideQuestsButton extends StatelessWidget {
-  const _SideQuestsButton({
-    required this.onPressed,
-  });
+  const _SideQuestsButton({required this.onPressed});
 
   final VoidCallback onPressed;
 
@@ -1073,10 +1067,7 @@ class _SideQuestsButton extends StatelessWidget {
         borderRadius: BorderRadius.circular(24),
         onTap: onPressed,
         child: Padding(
-          padding: const EdgeInsets.symmetric(
-            horizontal: 15,
-            vertical: 11,
-          ),
+          padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 11),
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
@@ -1100,7 +1091,6 @@ class _SideQuestsButton extends StatelessWidget {
     );
   }
 }
-
 
 class _HeatmapToggleButton extends StatelessWidget {
   const _HeatmapToggleButton({

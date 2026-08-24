@@ -7,8 +7,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:roam_io/features/quests/screens/quest_enums.dart';
 
-
-
 class UserQuest {
   const UserQuest({
     required this.id,

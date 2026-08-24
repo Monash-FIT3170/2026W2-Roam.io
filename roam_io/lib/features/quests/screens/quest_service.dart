@@ -10,12 +10,9 @@ import 'package:roam_io/features/quests/screens/data/quest.dart';
 import 'package:roam_io/features/quests/screens/data/user_quest.dart';
 import 'package:roam_io/features/quests/screens/quest_enums.dart';
 
-
-
 class QuestService {
-  QuestService({
-    FirebaseFirestore? firestore,
-  }) : _firestore = firestore ?? FirebaseFirestore.instance;
+  QuestService({FirebaseFirestore? firestore})
+    : _firestore = firestore ?? FirebaseFirestore.instance;
 
   final FirebaseFirestore _firestore;
 
@@ -26,10 +23,7 @@ class QuestService {
   CollectionReference<Map<String, dynamic>> _userQuestsCollection(
     String userId,
   ) {
-    return _firestore
-        .collection('profiles')
-        .doc(userId)
-        .collection('quests');
+    return _firestore.collection('profiles').doc(userId).collection('quests');
   }
 
   Future<List<Quest>> getAvailableQuests() async {
@@ -45,33 +39,32 @@ class QuestService {
 
     final now = DateTime.now();
 
-    final quests = snapshot.docs.map((document) {
-      debugPrint(
-        '[QuestService] Quest ${document.id}: ${document.data()}',
-      );
+    final quests = snapshot.docs
+        .map((document) {
+          debugPrint('[QuestService] Quest ${document.id}: ${document.data()}');
 
-      return Quest.fromFirestore(document);
-    }).where((quest) {
-      final available = quest.isAvailableAt(now);
+          return Quest.fromFirestore(document);
+        })
+        .where((quest) {
+          final available = quest.isAvailableAt(now);
 
-      debugPrint(
-        '[QuestService] ${quest.id} available=$available '
-        'active=${quest.isActive} '
-        'from=${quest.availableFrom} '
-        'until=${quest.availableUntil}',
-      );
+          debugPrint(
+            '[QuestService] ${quest.id} available=$available '
+            'active=${quest.isActive} '
+            'from=${quest.availableFrom} '
+            'until=${quest.availableUntil}',
+          );
 
-      return available;
-    }).toList();
+          return available;
+        })
+        .toList();
 
-    debugPrint(
-      '[QuestService] Returning ${quests.length} available quests',
-    );
+    debugPrint('[QuestService] Returning ${quests.length} available quests');
 
     quests.sort((a, b) => b.rewardXp.compareTo(a.rewardXp));
 
     return quests;
-}
+  }
 
   Future<List<Quest>> getQuestsForRegion(String regionId) async {
     final snapshot = await _questsCollection
@@ -102,10 +95,8 @@ class QuestService {
 
     return snapshot.docs
         .map(
-          (document) => UserQuest.fromFirestore(
-            userId: userId,
-            document: document,
-          ),
+          (document) =>
+              UserQuest.fromFirestore(userId: userId, document: document),
         )
         .toList();
   }
@@ -120,20 +111,14 @@ class QuestService {
       return null;
     }
 
-    return UserQuest.fromFirestore(
-      userId: userId,
-      document: document,
-    );
+    return UserQuest.fromFirestore(userId: userId, document: document);
   }
 
   Future<UserQuest> startQuest({
     required String userId,
     required String questId,
   }) async {
-    final existing = await getUserQuest(
-      userId: userId,
-      questId: questId,
-    );
+    final existing = await getUserQuest(userId: userId, questId: questId);
 
     if (existing != null) {
       return existing;
@@ -149,54 +134,45 @@ class QuestService {
       startedAt: now,
     );
 
-    await _userQuestsCollection(userId).doc(questId).set(
-          userQuest.toMap(),
-        );
+    await _userQuestsCollection(userId).doc(questId).set(userQuest.toMap());
 
     return userQuest;
   }
 
   Future<void> completeQuest({
-  required String userId,
-  required Quest quest,
-}) async {
-  final userQuestRef = _userQuestsCollection(userId).doc(quest.id);
-  final profileRef = _firestore.collection('profiles').doc(userId);
+    required String userId,
+    required Quest quest,
+  }) async {
+    final userQuestRef = _userQuestsCollection(userId).doc(quest.id);
+    final profileRef = _firestore.collection('profiles').doc(userId);
 
-  await _firestore.runTransaction((transaction) async {
-    final userQuestSnapshot = await transaction.get(userQuestRef);
-    final profileSnapshot = await transaction.get(profileRef);
+    await _firestore.runTransaction((transaction) async {
+      final userQuestSnapshot = await transaction.get(userQuestRef);
+      final profileSnapshot = await transaction.get(profileRef);
 
-    if (!userQuestSnapshot.exists) {
-      throw StateError('Quest must be started before completion.');
-    }
+      if (!userQuestSnapshot.exists) {
+        throw StateError('Quest must be started before completion.');
+      }
 
-    final userQuestData = userQuestSnapshot.data();
+      final userQuestData = userQuestSnapshot.data();
 
-    if (userQuestData?['status'] == QuestStatus.completed.name) {
-      return;
-    }
+      if (userQuestData?['status'] == QuestStatus.completed.name) {
+        return;
+      }
 
-    final profileData = profileSnapshot.data();
-    final currentXp = (profileData?['xp'] as num?)?.toInt() ?? 0;
+      final profileData = profileSnapshot.data();
+      final currentXp = (profileData?['xp'] as num?)?.toInt() ?? 0;
 
-    transaction.update(
-      userQuestRef,
-      {
+      transaction.update(userQuestRef, {
         'status': QuestStatus.completed.name,
         'completedAt': FieldValue.serverTimestamp(),
-      },
-    );
+      });
 
-    transaction.set(
-      profileRef,
-      {
+      transaction.set(profileRef, {
         'xp': currentXp + quest.rewardXp,
-      },
-      SetOptions(merge: true),
-    );
-  });
-}
+      }, SetOptions(merge: true));
+    });
+  }
 
   Future<void> updateQuestStatus({
     required String userId,
@@ -204,9 +180,7 @@ class QuestService {
     required QuestStatus status,
     String? rejectionReason,
   }) async {
-    final updates = <String, dynamic>{
-      'status': status.name,
-    };
+    final updates = <String, dynamic>{'status': status.name};
 
     if (status == QuestStatus.submitted) {
       updates['submittedAt'] = FieldValue.serverTimestamp();
