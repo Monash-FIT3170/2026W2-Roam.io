@@ -300,7 +300,7 @@ class ActivityDetailScreen extends StatelessWidget {
                         scrollDirection: Axis.horizontal,
                         buildDefaultDragHandles: false,
                         itemCount: editableMedia.length,
-                        onReorderItem: (oldIndex, newIndex) {
+                        onReorder: (oldIndex, newIndex) {
                           setDialogState(() {
                             final item = editableMedia.removeAt(oldIndex);
                             editableMedia.insert(newIndex, item);
@@ -331,7 +331,7 @@ class ActivityDetailScreen extends StatelessWidget {
                         scrollDirection: Axis.horizontal,
                         buildDefaultDragHandles: false,
                         itemCount: pendingMedia.length,
-                        onReorderItem: (oldIndex, newIndex) {
+                        onReorder: (oldIndex, newIndex) {
                           setDialogState(() {
                             final item = pendingMedia.removeAt(oldIndex);
                             pendingMedia.insert(newIndex, item);
