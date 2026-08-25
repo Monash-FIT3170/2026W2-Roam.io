@@ -341,7 +341,16 @@ class _MainShellScreenState extends State<MainShellScreen> {
       value: _socialNotificationCoordinator,
       child: Scaffold(
         extendBody: true,
-        body: IndexedStack(index: selectedIndex, children: pages),
+
+        // IndexedStack keeps every page mounted. TickerMode prevents hidden
+        // tabs, particularly the map's fog overlay, from animating offscreen.
+        body: IndexedStack(
+          index: selectedIndex,
+          children: <Widget>[
+            for (var index = 0; index < pages.length; index++)
+              TickerMode(enabled: index == selectedIndex, child: pages[index]),
+          ],
+        ),
         bottomNavigationBar: Consumer<SocialNotificationCoordinator>(
           builder: (context, coordinator, _) {
             return AppBottomNavBar(

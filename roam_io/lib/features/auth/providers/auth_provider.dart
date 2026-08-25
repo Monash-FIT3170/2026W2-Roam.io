@@ -19,6 +19,8 @@ import '../../profile/domain/profile_model.dart';
 import '../../profile/domain/xp_award_result.dart';
 import '../../profile/domain/xp_event.dart';
 import '../../social/domain/social_privacy_settings.dart';
+import '../../../theme/app_theme_mode.dart';
+import '../../map/fog/fog_decay_difficulty.dart';
 
 /// High-level authentication state used by auth gates and account screens.
 enum AuthViewState { loading, authenticated, unauthenticated }
@@ -54,6 +56,10 @@ class AuthProvider extends ChangeNotifier {
       _lastProfilePhotoUploadResult == ProfilePhotoUploadResult.unchanged;
   bool get isAuthenticated => _currentUser != null;
   bool get isEmailVerified => _currentUser?.emailVerified ?? false;
+  AppThemeMode get themeMode =>
+      _currentProfile?.themeMode ?? AppThemeMode.light;
+  FogDecayDifficulty get fogDecayDifficulty =>
+      _currentProfile?.fogDecayDifficulty ?? FogDecayDifficulty.quarterly;
   bool get darkModeEnabled => _currentProfile?.darkModeEnabled ?? false;
 
   /// Full XP celebration payload (milestone claim or level-up).
@@ -219,15 +225,33 @@ class AuthProvider extends ChangeNotifier {
     );
   }
 
-  /// Persists the user's dark mode preference and updates local profile state.
-  Future<void> updateDarkModePreference(bool enabled) async {
+  /// Persists the user's appearance preference and updates local profile state.
+  Future<void> updateThemeModePreference(AppThemeMode mode) async {
     await _runAuthAction(() async {
-      await _authRepository.updateDarkModePreference(enabled);
+      await _authRepository.updateThemeModePreference(mode);
       _currentProfile = _currentProfile?.copyWith(
-        darkModeEnabled: enabled,
+        themeMode: mode,
         updatedAt: DateTime.now(),
       );
     });
+  }
+
+  /// Persists the fog decay preference and updates local profile state.
+  Future<void> updateFogDecayDifficulty(FogDecayDifficulty difficulty) async {
+    await _runAuthAction(() async {
+      await _authRepository.updateFogDecayDifficulty(difficulty);
+      _currentProfile = _currentProfile?.copyWith(
+        fogDecayDifficulty: difficulty,
+        updatedAt: DateTime.now(),
+      );
+    });
+  }
+
+  /// Legacy wrapper retained for callers that still expose a boolean switch.
+  Future<void> updateDarkModePreference(bool enabled) {
+    return updateThemeModePreference(
+      enabled ? AppThemeMode.dark : AppThemeMode.light,
+    );
   }
 
   /// Persists private-account settings and updates local profile state.

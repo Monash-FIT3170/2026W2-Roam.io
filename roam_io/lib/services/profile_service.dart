@@ -13,11 +13,13 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/foundation.dart';
 
 import '../features/profile/domain/profile_model.dart';
+import '../features/map/fog/fog_decay_difficulty.dart';
 import '../features/profile/domain/xp_award_result.dart';
 import '../features/profile/domain/xp_event.dart';
-import '../features/you/services/stats_summary_service.dart';
 import '../features/social/data/friendship_service.dart';
 import '../features/social/domain/social_privacy_settings.dart';
+import '../features/you/services/stats_summary_service.dart';
+import '../theme/app_theme_mode.dart';
 
 /// Owns reads and writes for Firestore documents in the `profiles` collection.
 class ProfileService {
@@ -82,15 +84,39 @@ class ProfileService {
     }
   }
 
-  /// Updates the user's saved dark mode preference.
+  /// Updates the user's saved Light, Dark, or Dynamic appearance preference.
+  Future<void> updateThemeModePreference({
+    required String uid,
+    required AppThemeMode mode,
+  }) {
+    return _profiles.doc(uid).update(<String, dynamic>{
+      'themeMode': mode.storageValue,
+      // Keep older app builds on the closest fixed equivalent.
+      'darkModeEnabled': mode == AppThemeMode.dark,
+      'updatedAt': DateTime.now().toIso8601String(),
+    });
+  }
+
+  /// Updates how long explored areas remain clear before fog may return.
+  Future<void> updateFogDecayDifficulty({
+    required String uid,
+    required FogDecayDifficulty difficulty,
+  }) {
+    return _profiles.doc(uid).update(<String, dynamic>{
+      'fogDecayDifficulty': difficulty.storageValue,
+      'updatedAt': DateTime.now().toIso8601String(),
+    });
+  }
+
+  /// Legacy wrapper retained for callers that still expose a boolean switch.
   Future<void> updateDarkModePreference({
     required String uid,
     required bool enabled,
   }) {
-    return _profiles.doc(uid).update(<String, dynamic>{
-      'darkModeEnabled': enabled,
-      'updatedAt': DateTime.now().toIso8601String(),
-    });
+    return updateThemeModePreference(
+      uid: uid,
+      mode: enabled ? AppThemeMode.dark : AppThemeMode.light,
+    );
   }
 
   /// Updates the user's private-account setting on the authoritative profile.

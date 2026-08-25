@@ -20,7 +20,11 @@ class JourneyMapSnapshotService {
     RegionPolygonCache? regionPolygonCache,
     MapViewportPolicy? viewportPolicy,
   }) : _regionService = regionService ?? RegionService(),
-       _regionPolygonCache = regionPolygonCache ?? RegionPolygonCache(),
+       // Static fog styling: a Journey preview is a plain GoogleMap with no
+       // FogOverlay above it, so unexplored ground has to carry its own fill or
+       // the preview shows bare basemap where the fog should be.
+       _regionPolygonCache =
+           regionPolygonCache ?? RegionPolygonCache.staticFog(),
        _viewportPolicy = viewportPolicy ?? MapViewportPolicy();
 
   final RegionService _regionService;

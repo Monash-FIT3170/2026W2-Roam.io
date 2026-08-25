@@ -21,6 +21,7 @@ import 'package:roam_io/features/profile/domain/xp_event.dart';
 import 'package:roam_io/services/auth_service.dart';
 import 'package:roam_io/services/profile_service.dart';
 import 'package:roam_io/services/storage_service.dart';
+import 'package:roam_io/theme/app_theme_mode.dart';
 
 void main() {
   late MockUser user;
@@ -181,13 +182,13 @@ void main() {
       expect(await repository.getCurrentUserProfile(), isNull);
     });
 
-    test('updates dark mode, XP, and added XP for the current user', () async {
-      await repository.updateDarkModePreference(true);
+    test('updates theme mode, XP, and added XP for the current user', () async {
+      await repository.updateThemeModePreference(AppThemeMode.dynamic);
       await repository.updateXp(125);
       await repository.addXp(50);
 
-      expect(profileService.darkModeUid, user.uid);
-      expect(profileService.darkModeEnabled, isTrue);
+      expect(profileService.themeModeUid, user.uid);
+      expect(profileService.themeMode, AppThemeMode.dynamic);
       expect(profileService.updatedXpUid, user.uid);
       expect(profileService.updatedXp, 125);
       expect(profileService.addedXpUid, user.uid);
@@ -198,7 +199,7 @@ void main() {
       authService.currentUserValue = null;
 
       await expectLater(
-        repository.updateDarkModePreference(true),
+        repository.updateThemeModePreference(AppThemeMode.dynamic),
         throwsA(isA<firebase_auth.FirebaseAuthException>()),
       );
       await expectLater(
@@ -427,8 +428,8 @@ class _FakeProfileService implements ProfileService {
   String? updatedDisplayName;
   String? updatedUsernameUid;
   String? updatedUsername;
-  String? darkModeUid;
-  bool? darkModeEnabled;
+  String? themeModeUid;
+  AppThemeMode? themeMode;
   String? updatedPhotoUid;
   String? updatedPhotoUrl;
   String? updatedPhotoHash;
@@ -462,12 +463,12 @@ class _FakeProfileService implements ProfileService {
   }
 
   @override
-  Future<void> updateDarkModePreference({
+  Future<void> updateThemeModePreference({
     required String uid,
-    required bool enabled,
+    required AppThemeMode mode,
   }) async {
-    darkModeUid = uid;
-    darkModeEnabled = enabled;
+    themeModeUid = uid;
+    themeMode = mode;
   }
 
   @override

@@ -25,7 +25,7 @@ void main() {
       ]);
       final service = JourneyMapSnapshotService(
         regionService: regionService,
-        regionPolygonCache: RegionPolygonCache(),
+        regionPolygonCache: RegionPolygonCache.staticFog(),
       );
       final route = ActivityRoute.fromPoints(const [
         LatLng(-37.8136, 144.9631),
@@ -86,7 +86,7 @@ void main() {
     () async {
       final service = JourneyMapSnapshotService(
         regionService: _FakeRegionService(const []),
-        regionPolygonCache: RegionPolygonCache(),
+        regionPolygonCache: RegionPolygonCache.staticFog(),
       );
       final route = ActivityRoute.fromPoints(const [
         LatLng(-37.8136, 144.9631),
@@ -108,7 +108,7 @@ void main() {
   test('loads unvisited fog even when no regions have been visited', () async {
     final service = JourneyMapSnapshotService(
       regionService: _FakeRegionService([_region(id: 'fog-tile')]),
-      regionPolygonCache: RegionPolygonCache(),
+      regionPolygonCache: RegionPolygonCache.staticFog(),
     );
     final route = ActivityRoute.fromPoints(const [
       LatLng(-37.8136, 144.9631),
@@ -130,7 +130,7 @@ void main() {
     final regionService = _FakeRegionService([_region(id: 'fog-tile')]);
     final service = JourneyMapSnapshotService(
       regionService: regionService,
-      regionPolygonCache: RegionPolygonCache(),
+      regionPolygonCache: RegionPolygonCache.staticFog(),
     );
     final route = ActivityRoute.fromPoints(const [
       LatLng(-37.8136, 144.9631),
@@ -183,6 +183,7 @@ class _FakeRegionService extends RegionService {
     required double west,
     required double north,
     required double east,
+    Set<String>? regionIds,
   }) async {
     requestedSouth = south;
     requestedWest = west;

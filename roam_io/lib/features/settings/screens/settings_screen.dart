@@ -14,8 +14,10 @@ import 'package:provider/provider.dart';
 import '../../../shared/widgets/app_page_header.dart';
 import '../../../shared/widgets/app_toast.dart';
 import '../../../theme/app_surfaces.dart';
+import '../../../theme/app_theme_mode.dart';
 import '../../auth/providers/auth_provider.dart';
 import '../../auth/screens/change_password_screen.dart';
+import '../../map/fog/fog_decay_difficulty.dart';
 import '../widgets/settings_group.dart';
 import 'change_display_name_screen.dart';
 import 'change_email_screen.dart';
@@ -91,11 +93,55 @@ class _SettingsScreenState extends State<SettingsScreen> {
     }
   }
 
-  /// Persists the user's dark mode preference.
-  Future<void> _toggleDarkMode(bool enabled) async {
+  /// Lets the user choose and persists a fixed or time-aware appearance.
+  Future<void> _chooseThemeMode() async {
     final auth = context.read<AuthProvider>();
-    await auth.updateDarkModePreference(enabled);
+    if (auth.isBusy || auth.currentProfile == null) return;
 
+    final selectedMode = await showModalBottomSheet<AppThemeMode>(
+      context: context,
+      showDragHandle: true,
+      useSafeArea: true,
+      isScrollControlled: true,
+      builder: (sheetContext) => _ThemeModeSheet(
+        selectedMode: auth.themeMode,
+        onSelected: (mode) => Navigator.of(sheetContext).pop(mode),
+      ),
+    );
+
+    if (selectedMode == null || selectedMode == auth.themeMode) return;
+
+    await auth.updateThemeModePreference(selectedMode);
+
+    if (!mounted) return;
+
+    if (auth.errorMessage != null) {
+      AppToast.error(context, auth.errorMessage!);
+    }
+  }
+
+  /// Lets the user choose how quickly explored areas can become fogged again.
+  Future<void> _chooseFogDecayDifficulty() async {
+    final auth = context.read<AuthProvider>();
+    if (auth.isBusy || auth.currentProfile == null) return;
+
+    final selectedDifficulty = await showModalBottomSheet<FogDecayDifficulty>(
+      context: context,
+      showDragHandle: true,
+      useSafeArea: true,
+      isScrollControlled: true,
+      builder: (sheetContext) => _FogDecayDifficultySheet(
+        selectedDifficulty: auth.fogDecayDifficulty,
+        onSelected: (difficulty) => Navigator.of(sheetContext).pop(difficulty),
+      ),
+    );
+
+    if (selectedDifficulty == null ||
+        selectedDifficulty == auth.fogDecayDifficulty) {
+      return;
+    }
+
+    await auth.updateFogDecayDifficulty(selectedDifficulty);
     if (!mounted) return;
 
     if (auth.errorMessage != null) {
@@ -196,15 +242,56 @@ class _SettingsScreenState extends State<SettingsScreen> {
                           title: 'Preferences',
                           children: [
                             SettingsRow(
-                              icon: Icons.dark_mode_outlined,
-                              title: 'Dark Mode',
-                              showChevron: false,
+                              icon: Icons.brightness_auto_outlined,
+                              title: 'Appearance',
+                              onTap: auth.isBusy || profile == null
+                                  ? null
+                                  : _chooseThemeMode,
+                              trailing: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Text(
+                                    _themeModeLabel(auth.themeMode),
+                                    style: theme.textTheme.bodyMedium?.copyWith(
+                                      color: AppSurfaces.textMuted(context),
+                                      fontWeight: FontWeight.w700,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 4),
+                                  Icon(
+                                    Icons.chevron_right_rounded,
+                                    size: 22,
+                                    color: AppSurfaces.textSubtle(context),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            SettingsRow(
+                              icon: Icons.cloud_outlined,
+                              title: 'Fog Decay Difficulty',
+                              onTap: auth.isBusy || profile == null
+                                  ? null
+                                  : _chooseFogDecayDifficulty,
                               showDivider: false,
-                              trailing: Switch(
-                                value: auth.darkModeEnabled,
-                                onChanged: auth.isBusy || profile == null
-                                    ? null
-                                    : _toggleDarkMode,
+                              trailing: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Text(
+                                    _fogDecayDifficultyLabel(
+                                      auth.fogDecayDifficulty,
+                                    ),
+                                    style: theme.textTheme.bodyMedium?.copyWith(
+                                      color: AppSurfaces.textMuted(context),
+                                      fontWeight: FontWeight.w700,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 4),
+                                  Icon(
+                                    Icons.chevron_right_rounded,
+                                    size: 22,
+                                    color: AppSurfaces.textSubtle(context),
+                                  ),
+                                ],
                               ),
                             ),
                           ],
@@ -259,6 +346,254 @@ class _SettingsScreenState extends State<SettingsScreen> {
               ],
             );
           },
+        ),
+      ),
+    );
+  }
+}
+
+String _themeModeLabel(AppThemeMode mode) {
+  return switch (mode) {
+    AppThemeMode.light => 'Light',
+    AppThemeMode.dark => 'Dark',
+    AppThemeMode.dynamic => 'Dynamic',
+  };
+}
+
+String _fogDecayDifficultyLabel(FogDecayDifficulty difficulty) {
+  return switch (difficulty) {
+    FogDecayDifficulty.monthly => 'Monthly',
+    FogDecayDifficulty.quarterly => 'Quarterly',
+    FogDecayDifficulty.yearly => 'Yearly',
+  };
+}
+
+class _FogDecayDifficultySheet extends StatelessWidget {
+  const _FogDecayDifficultySheet({
+    required this.selectedDifficulty,
+    required this.onSelected,
+  });
+
+  final FogDecayDifficulty selectedDifficulty;
+  final ValueChanged<FogDecayDifficulty> onSelected;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
+    return SingleChildScrollView(
+      padding: const EdgeInsets.fromLTRB(20, 0, 20, 24),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Fog Decay Difficulty',
+            style: theme.textTheme.headlineSmall?.copyWith(
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            'Choose how long explored areas remain clear before fog can return.',
+            style: theme.textTheme.bodyMedium?.copyWith(
+              color: AppSurfaces.textMuted(context),
+            ),
+          ),
+          const SizedBox(height: 16),
+          for (final difficulty in FogDecayDifficulty.values)
+            _FogDecayDifficultyOption(
+              difficulty: difficulty,
+              title: _fogDecayDifficultyLabel(difficulty),
+              subtitle: switch (difficulty) {
+                FogDecayDifficulty.monthly =>
+                  'Fog can return after about 1 month',
+                FogDecayDifficulty.quarterly =>
+                  'Fog can return after about 3 months',
+                FogDecayDifficulty.yearly =>
+                  'Fog can return after about 1 year',
+              },
+              selected: selectedDifficulty == difficulty,
+              onTap: onSelected,
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+class _FogDecayDifficultyOption extends StatelessWidget {
+  const _FogDecayDifficultyOption({
+    required this.difficulty,
+    required this.title,
+    required this.subtitle,
+    required this.selected,
+    required this.onTap,
+  });
+
+  final FogDecayDifficulty difficulty;
+  final String title;
+  final String subtitle;
+  final bool selected;
+  final ValueChanged<FogDecayDifficulty> onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Material(
+        color: selected
+            ? theme.colorScheme.primary.withValues(alpha: 0.12)
+            : AppSurfaces.card(context),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
+          side: BorderSide(
+            color: selected
+                ? theme.colorScheme.primary
+                : AppSurfaces.border(context),
+          ),
+        ),
+        clipBehavior: Clip.antiAlias,
+        child: ListTile(
+          key: ValueKey<String>(
+            'fog-decay-${difficulty.storageValue.toLowerCase()}',
+          ),
+          onTap: () => onTap(difficulty),
+          leading: Icon(
+            Icons.cloud_outlined,
+            color: selected
+                ? theme.colorScheme.primary
+                : AppSurfaces.textPrimary(context),
+          ),
+          title: Text(
+            title,
+            style: const TextStyle(fontWeight: FontWeight.w800),
+          ),
+          subtitle: Text(subtitle),
+          trailing: selected
+              ? Icon(Icons.check_circle, color: theme.colorScheme.primary)
+              : const Icon(Icons.circle_outlined),
+        ),
+      ),
+    );
+  }
+}
+
+class _ThemeModeSheet extends StatelessWidget {
+  const _ThemeModeSheet({required this.selectedMode, required this.onSelected});
+
+  final AppThemeMode selectedMode;
+  final ValueChanged<AppThemeMode> onSelected;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
+    return SingleChildScrollView(
+      padding: const EdgeInsets.fromLTRB(20, 0, 20, 24),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Appearance',
+            style: theme.textTheme.headlineSmall?.copyWith(
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            'Choose how Roam.io colours the app, map, and clouds.',
+            style: theme.textTheme.bodyMedium?.copyWith(
+              color: AppSurfaces.textMuted(context),
+            ),
+          ),
+          const SizedBox(height: 16),
+          _ThemeModeOption(
+            mode: AppThemeMode.light,
+            icon: Icons.light_mode_outlined,
+            title: 'Light',
+            subtitle: 'Always use the daytime appearance',
+            selected: selectedMode == AppThemeMode.light,
+            onTap: onSelected,
+          ),
+          _ThemeModeOption(
+            mode: AppThemeMode.dark,
+            icon: Icons.dark_mode_outlined,
+            title: 'Dark',
+            subtitle: 'Always use the low-light appearance',
+            selected: selectedMode == AppThemeMode.dark,
+            onTap: onSelected,
+          ),
+          _ThemeModeOption(
+            mode: AppThemeMode.dynamic,
+            icon: Icons.brightness_auto_outlined,
+            title: 'Dynamic',
+            subtitle: 'Light from 6 AM to 6 PM, dark overnight',
+            selected: selectedMode == AppThemeMode.dynamic,
+            onTap: onSelected,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ThemeModeOption extends StatelessWidget {
+  const _ThemeModeOption({
+    required this.mode,
+    required this.icon,
+    required this.title,
+    required this.subtitle,
+    required this.selected,
+    required this.onTap,
+  });
+
+  final AppThemeMode mode;
+  final IconData icon;
+  final String title;
+  final String subtitle;
+  final bool selected;
+  final ValueChanged<AppThemeMode> onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Material(
+        color: selected
+            ? theme.colorScheme.primary.withValues(alpha: 0.12)
+            : AppSurfaces.card(context),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
+          side: BorderSide(
+            color: selected
+                ? theme.colorScheme.primary
+                : AppSurfaces.border(context),
+          ),
+        ),
+        clipBehavior: Clip.antiAlias,
+        child: ListTile(
+          key: ValueKey<String>('theme-mode-${mode.storageValue}'),
+          onTap: () => onTap(mode),
+          leading: Icon(
+            icon,
+            color: selected
+                ? theme.colorScheme.primary
+                : AppSurfaces.textPrimary(context),
+          ),
+          title: Text(
+            title,
+            style: const TextStyle(fontWeight: FontWeight.w800),
+          ),
+          subtitle: Text(subtitle),
+          trailing: selected
+              ? Icon(Icons.check_circle, color: theme.colorScheme.primary)
+              : const Icon(Icons.circle_outlined),
         ),
       ),
     );

@@ -1,0 +1,72 @@
+Optional backend optimisation for the cloud fog of war — NOT YET DEPLOYED.
+
+Context
+-------
+The fog is now drawn as the whole screen minus holes for explored ground, so
+unexplored region geometry is never rendered. The client already discards it on
+arrival and already sends the `ids` it actually wants, but the deployed function
+destructures only the bounds, so today the full result set is still transferred
+and JSON-parsed on the main isolate before being thrown away.
+
+Applying this patch makes `/regions/viewport` honour that filter. It is purely
+an optimisation: the client works correctly against both versions, so this can
+be deployed whenever the team is ready and needs no client release.
+
+`ids` is optional — omitting it preserves the current behaviour exactly, so any
+other caller is unaffected.
+
+Apply with:  git apply functions/viewport-id-filter.patch
+Deploy with: firebase deploy --only functions
+
+--- a/functions/index.js
++++ b/functions/index.js
+@@ -125,7 +125,7 @@
+ app.post('/regions/viewport', async (req, res) => {
+   try {
+-    const { south, west, north, east } = req.body;
++    const { south, west, north, east, ids } = req.body;
+
+     if ([south, west, north, east].some((value) => value == null)) {
+       return res.status(400).json({
+         error: 'south, west, north, and east are required',
+       });
+     }
+
++    // Callers that only render explored regions pass the ids they want. Without
++    // this the whole viewport is serialised and discarded client-side.
++    const filterIds = Array.isArray(ids) && ids.length > 0 ? ids : null;
++
+     const query = `
+       SELECT
+         id,
+         name,
+         ST_Area(geography(geometry)) AS area_square_metres,
+         ST_AsGeoJSON(geometry) AS geometry
+       FROM regions
+       WHERE ST_Intersects(
+         geometry,
+         ST_MakeEnvelope($1, $2, $3, $4, 4326)
+       )
++      ${filterIds ? 'AND id = ANY($5)' : ''}
+       LIMIT 650;
+     `;
+
+-    const result = await getPool().query(query, [west, south, east, north]);
++    const params = [west, south, east, north];
++    if (filterIds) params.push(filterIds);
++
++    const result = await getPool().query(query, params);
+     return res.json(result.rows);
+   } catch (error) {
+     console.error('Error in /regions/viewport:', error);
+
+Note on the local dev twin
+--------------------------
+spatial-api/index.js has the same handler with LIMIT 80. Apply the equivalent
+change there too, or local and deployed behaviour will keep diverging.
+
+Note on the area contract test
+------------------------------
+test/backend/region_area_query_test.dart reads both files as text and asserts
+they contain `ST_Area(geography(geometry)) AS area_square_metres`. This patch
+leaves that expression untouched, so the test keeps passing.

@@ -47,6 +47,7 @@ dependencies:
   video_player: ^2.8.6
   flutter_native_splash: ^2.4.7
   flutter_local_notifications: ^22.2.0
+  timezone: ^0.11.1
   cached_network_image: ^3.4.1
   path_provider: ^2.1.5
   share_plus: ^12.0.1
@@ -123,6 +124,10 @@ flutter:
     - assets/badges/milestones/visit_viking_3.png
     - assets/badges/milestones/visit_viking_4.png
     - assets/badges/milestones/visit_viking_5.png
+
+    # Cloud sprites for the fog of war. Declared as a directory so new
+    # Day_Fog_*/Night_Fog_* variants only need adding to FogPalette.
+    - assets/fog_of_war/
 
     - icons/
 

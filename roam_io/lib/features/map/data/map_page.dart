@@ -35,7 +35,10 @@ import '../../journeys/widgets/start_journey_sheet.dart';
 import '../../profile/domain/xp_event.dart';
 import '../../../shared/widgets/activity_saved_celebration.dart';
 import '../../../shared/widgets/app_toast.dart';
+import '../../../theme/app_colours.dart';
 import '../../../theme/app_surfaces.dart';
+import '../fog/fog_overlay.dart';
+import '../fog/fog_decay_difficulty.dart';
 import '../widgets/map_render.dart';
 import '../widgets/mode_toggle_chip.dart';
 import 'map_controller.dart';
@@ -118,7 +121,7 @@ class MapPage extends StatefulWidget {
   State<MapPage> createState() => _MapPageState();
 }
 
-class _MapPageState extends State<MapPage> {
+class _MapPageState extends State<MapPage> with WidgetsBindingObserver {
   late final MapController _mapController;
   late final JourneyController _journeyController;
   late final ActivityCreationService _activityCreationService;
@@ -126,19 +129,23 @@ class _MapPageState extends State<MapPage> {
   Set<Polyline> _savedJourneyPolylines = {};
   Set<Marker> _journeyMarkers = {};
   StreamSubscription<List<Journey>>? _journeysSubscription;
+  FogDecayDifficulty? _lastFogDecayDifficulty;
   bool _isOpeningJourneyCompletionFlow = false;
   bool _isSavingReviewedJourneyActivity = false;
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
 
     final authProvider = context.read<AuthProvider>();
+    _lastFogDecayDifficulty = authProvider.fogDecayDifficulty;
     _activityCreationService =
         widget.activityCreationService ?? ActivityCreationService();
 
     // Own the controller for this page and start its setup work once mounted.
     _mapController = MapController(
+      fogDecayDifficulty: authProvider.fogDecayDifficulty,
       tileUnlockXpService: TileUnlockXpService(
         addXp: (xp) => authProvider.addXp(xp, source: XpEventSource.tileUnlock),
       ),
@@ -166,6 +173,22 @@ class _MapPageState extends State<MapPage> {
       // Load saved journeys
       _loadSavedJourneys();
     });
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      unawaited(_mapController.handleAppResumed());
+    }
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final difficulty = context.watch<AuthProvider>().fogDecayDifficulty;
+    if (_lastFogDecayDifficulty == difficulty) return;
+    _lastFogDecayDifficulty = difficulty;
+    unawaited(_mapController.updateFogDecayDifficulty(difficulty));
   }
 
   /// Loads saved journeys and displays them on the map.
@@ -372,6 +395,7 @@ class _MapPageState extends State<MapPage> {
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     // Detach listeners and release controller resources when leaving the page.
     _mapController.onPlaceSelected = null;
     _mapController.onRegionUnlockRewarded = null;
@@ -839,6 +863,10 @@ class _MapPageState extends State<MapPage> {
   Widget build(BuildContext context) {
     final journeyController = context.watch<JourneyController>();
     final isTracking = journeyController.currentPhase == JourneyPhase.tracking;
+    final exploredBoundaryColor =
+        Theme.of(context).brightness == Brightness.dark
+        ? AppColors.lightSage
+        : AppColors.sage;
     final isPaused = journeyController.currentPhase == JourneyPhase.paused;
     final isLiveJourneyActive = isTracking || isPaused;
     final isCompleting =
@@ -850,6 +878,7 @@ class _MapPageState extends State<MapPage> {
 
     // Combine active journey polyline with saved journey polylines
     final allPolylines = <Polyline>{
+      ..._mapController.exploredBoundaryPolylines(exploredBoundaryColor),
       ..._savedJourneyPolylines,
       ..._activeJourneyPolyline,
     };
@@ -862,7 +891,6 @@ class _MapPageState extends State<MapPage> {
         MapRender(
           initialCenter: _mapController.center,
           polygons: _mapController.polygons,
-          mapStyle: _mapController.mapStyle,
           markers: allMarkers,
           polylines: allPolylines,
           myLocationEnabled: _mapController.myLocationEnabled,
@@ -872,6 +900,9 @@ class _MapPageState extends State<MapPage> {
           onCameraMove: _mapController.onCameraMove,
           onCameraMoveStarted: _mapController.onCameraMoveStarted,
         ),
+        // Fog of war. Must sit directly above the map and below every control,
+        // and is an IgnorePointer internally so map gestures pass through.
+        FogOverlay(controller: _mapController.fogController),
         if (_mapController.myLocationEnabled)
           Positioned(
             right: 16,
