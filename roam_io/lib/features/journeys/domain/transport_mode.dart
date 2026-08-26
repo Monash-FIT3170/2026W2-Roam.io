@@ -79,9 +79,10 @@ enum TransportMode {
   Color get routeColor {
     switch (this) {
       case TransportMode.walk:
-      case TransportMode.drive:
       case TransportMode.run:
         return const Color(0xFFD946EF);
+      case TransportMode.drive:
+        return const Color(0xFFEC4899);
       case TransportMode.bus:
         return const Color(0xFFF97316);
       case TransportMode.train:

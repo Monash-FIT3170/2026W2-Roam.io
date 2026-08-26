@@ -439,7 +439,7 @@ class _MapPageState extends State<MapPage> with WidgetsBindingObserver {
       placesService.getNearbyPlaces(
         lat: currentPosition.latitude,
         lng: currentPosition.longitude,
-        radiusMeters: 10,
+        radiusMeters: 200,
       ),
       placesService.getNearbyPlaces(
         lat: currentPosition.latitude,
@@ -465,7 +465,7 @@ class _MapPageState extends State<MapPage> with WidgetsBindingObserver {
     // Get custom saved locations within radius
     final customLocations = await _getNearbySavedLocations(
       currentPosition: currentPosition,
-      radiusMeters: 10,
+      radiusMeters: 200,
       userId: userId,
       journeyController: journeyController,
     );
@@ -552,13 +552,13 @@ class _MapPageState extends State<MapPage> with WidgetsBindingObserver {
     final googlePlaces = await placesService.getNearbyPlaces(
       lat: currentPosition.latitude,
       lng: currentPosition.longitude,
-      radiusMeters: 10,
+      radiusMeters: 200,
     );
 
     // Get custom saved locations within radius.
     final customLocations = await _getNearbySavedLocations(
       currentPosition: currentPosition,
-      radiusMeters: 10,
+      radiusMeters: 200,
       userId: userId,
       journeyController: journeyController,
     );
