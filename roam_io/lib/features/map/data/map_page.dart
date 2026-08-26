@@ -11,10 +11,10 @@
 import 'dart:async';
 import 'dart:math' as math;
 import 'dart:ui' as ui;
-
 import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:provider/provider.dart';
+import 'package:roam_io/features/quests/screens/quests_screen.dart';
 
 import '../../activity_feed/data/activity_creation_service.dart';
 import '../../activity_feed/models/activity_media_item.dart';
@@ -205,6 +205,12 @@ class _MapPageState extends State<MapPage> with WidgetsBindingObserver {
     ) {
       _updateSavedJourneyVisuals(journeys);
     });
+  }
+
+  void _openSideQuests() {
+    Navigator.of(
+      context,
+    ).push(MaterialPageRoute<void>(builder: (_) => const QuestsScreen()));
   }
 
   /// Creates polylines and markers for saved journeys.
@@ -916,6 +922,12 @@ class _MapPageState extends State<MapPage> with WidgetsBindingObserver {
               child: const Icon(Icons.my_location),
             ),
           ),
+
+        Positioned(
+          left: 16,
+          bottom: isLiveJourneyActive ? 220 : 120,
+          child: _SideQuestsButton(onPressed: _openSideQuests),
+        ),
         // Start Journey is available only while no Journey is active.
         if (canStartJourney)
           Positioned(
@@ -1066,6 +1078,47 @@ class _LegendRow extends StatelessWidget {
           ),
         ),
       ],
+    );
+  }
+}
+
+class _SideQuestsButton extends StatelessWidget {
+  const _SideQuestsButton({required this.onPressed});
+
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: AppSurfaces.card(context),
+      elevation: 6,
+      shadowColor: Colors.black.withValues(alpha: 0.18),
+      borderRadius: BorderRadius.circular(24),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(24),
+        onTap: onPressed,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 11),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                Icons.explore_rounded,
+                size: 21,
+                color: Theme.of(context).colorScheme.primary,
+              ),
+              const SizedBox(width: 8),
+              Text(
+                'Side Quests',
+                style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                  color: AppSurfaces.textPrimary(context),
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 }

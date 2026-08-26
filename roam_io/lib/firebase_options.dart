@@ -26,10 +26,7 @@ class DefaultFirebaseOptions {
   /// Selects the Firebase options for the platform currently running the app.
   static FirebaseOptions get currentPlatform {
     if (kIsWeb) {
-      throw UnsupportedError(
-        'DefaultFirebaseOptions have not been configured for web - '
-        'you can reconfigure this by running the FlutterFire CLI again.',
-      );
+      return web;
     }
     switch (defaultTargetPlatform) {
       case TargetPlatform.android:
@@ -65,7 +62,6 @@ class DefaultFirebaseOptions {
     projectId: 'roam-io-71e2c',
     storageBucket: 'roam-io-71e2c.firebasestorage.app',
   );
-
   static const FirebaseOptions ios = FirebaseOptions(
     apiKey: 'AIzaSyCdogEmPxFn2xkKA_vYQcIo7IuDnNh_KTQ',
     appId: '1:593851249003:ios:4bd0eda67b03cdf47b9c2e',
@@ -73,5 +69,15 @@ class DefaultFirebaseOptions {
     projectId: 'roam-io-71e2c',
     storageBucket: 'roam-io-71e2c.firebasestorage.app',
     iosBundleId: 'com.fit3170.roamio',
+  );
+
+  static const FirebaseOptions web = FirebaseOptions(
+    apiKey: 'AIzaSyAW0JdjOemiX5bBdxroMW3UsH5UbusJ-Hs',
+    appId: '1:593851249003:web:a7ce30ccf0e1af917b9c2e',
+    messagingSenderId: '593851249003',
+    projectId: 'roam-io-71e2c',
+    authDomain: 'roam-io-71e2c.firebaseapp.com',
+    storageBucket: 'roam-io-71e2c.firebasestorage.app',
+    measurementId: 'G-Y92Q0BSQ10',
   );
 }
