@@ -21,7 +21,11 @@ import 'quest_details_screen.dart';
 import 'quest_enums.dart';
 
 class QuestsScreen extends StatefulWidget {
-  const QuestsScreen({super.key});
+  const QuestsScreen({super.key, this.controller});
+
+  /// Optional injection point used by tests.
+  /// Production continues to create its own QuestController.
+  final QuestController? controller;
 
   @override
   State<QuestsScreen> createState() => _QuestsScreenState();
@@ -34,7 +38,7 @@ class _QuestsScreenState extends State<QuestsScreen> {
   void initState() {
     super.initState();
 
-    _questController = QuestController();
+    _questController = widget.controller ?? QuestController();
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _loadQuests();
@@ -54,7 +58,9 @@ class _QuestsScreenState extends State<QuestsScreen> {
 
   @override
   void dispose() {
-    _questController.dispose();
+    if (widget.controller == null) {
+      _questController.dispose();
+    }
     super.dispose();
   }
 
