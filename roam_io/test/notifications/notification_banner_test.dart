@@ -1,6 +1,6 @@
 /*
  * Author: Sanjevan Rajasegar
- * Last Modified: 05/08/2026
+ * Last Updated: 10 August 2026
  * Description:
  *   Widget tests for the reusable in-app notification banner, including
  *   green app styling, content, actions, icons, dismissal and tap callbacks.
@@ -182,8 +182,8 @@ void main() {
     final notification = AppNotification(
       id: 'kudos-1',
       type: NotificationType.kudos,
-      title: 'Kudos Received',
-      body: 'Alex gave you Kudos.',
+      title: 'Glaze Received',
+      body: 'Alex gave you Glaze.',
       timestamp: DateTime(2026, 8, 1),
     );
 
@@ -191,5 +191,35 @@ void main() {
 
     expect(find.byType(FilledButton), findsNothing);
     expect(find.byType(TextButton), findsNothing);
+  });
+
+  testWidgets('uses distinct activity interaction icons', (tester) async {
+    final cases = <NotificationType, IconData>{
+      NotificationType.kudos: Icons.thumb_up_alt_outlined,
+      NotificationType.comment: Icons.chat_bubble_outline,
+      NotificationType.commentReply: Icons.reply_rounded,
+      NotificationType.commentLike: Icons.thumb_up_alt_outlined,
+      NotificationType.follow: Icons.person_add_alt_1,
+      NotificationType.followRequest: Icons.person_add_alt_1,
+      NotificationType.followRequestAccepted: Icons.people_outline,
+      NotificationType.error: Icons.error_outline,
+      NotificationType.activity: Icons.directions_walk,
+    };
+
+    for (final entry in cases.entries) {
+      await tester.pumpWidget(
+        buildTestWidget(
+          notification: AppNotification(
+            id: entry.key.name,
+            type: entry.key,
+            title: 'Title',
+            body: 'Body',
+            timestamp: DateTime(2026, 8, 10),
+          ),
+        ),
+      );
+
+      expect(find.byIcon(entry.value), findsOneWidget);
+    }
   });
 }

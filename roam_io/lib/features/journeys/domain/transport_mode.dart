@@ -1,6 +1,6 @@
 /*
- * Author: GitHub Copilot
- * Last Modified: 30/07/2026
+ * Author: Sanjevan Rajasegar
+ * Last Modified: 21 August 2026
  * Description:
  *   Defines the transport modes available for journeys. Each mode has an icon,
  *   display name, and can influence XP calculations.
@@ -79,19 +79,24 @@ enum TransportMode {
   Color get routeColor {
     switch (this) {
       case TransportMode.walk:
-      case TransportMode.run:
-        return Colors.purple;
       case TransportMode.drive:
-        return Colors.pink;
+      case TransportMode.run:
+        return const Color(0xFFD946EF);
       case TransportMode.bus:
-        return Colors.orange;
+        return const Color(0xFFF97316);
       case TransportMode.train:
       case TransportMode.transit:
-        return Colors.blue;
+        return const Color(0xFF2563EB);
       case TransportMode.tram:
       case TransportMode.cycle:
-        return Colors.green;
+        return const Color(0xFF16A34A);
     }
+  }
+
+  /// Parses optional route colour inputs without crashing on future mode names.
+  static Color routeColorForWireValue(String? value) {
+    final mode = tryFromString(value);
+    return mode?.routeColor ?? const Color(0xFF5C734C);
   }
 
   /// Returns the XP multiplier for this transport mode.
@@ -120,5 +125,14 @@ enum TransportMode {
       (mode) => mode.name == value,
       orElse: () => TransportMode.walk,
     );
+  }
+
+  /// Creates a TransportMode from a string value, or null for future modes.
+  static TransportMode? tryFromString(String? value) {
+    if (value == null) return null;
+    for (final mode in TransportMode.values) {
+      if (mode.name == value) return mode;
+    }
+    return null;
   }
 }

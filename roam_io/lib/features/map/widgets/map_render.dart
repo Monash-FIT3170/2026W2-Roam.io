@@ -21,7 +21,6 @@ class MapRender extends StatelessWidget {
     required this.initialCenter,
     required this.polygons,
     required this.onMapCreated,
-    this.mapStyle,
     this.markers = const {},
     this.polylines = const {},
     this.myLocationEnabled = false,
@@ -35,7 +34,6 @@ class MapRender extends StatelessWidget {
   final Set<Marker> markers;
   final Set<Polyline> polylines;
   final Future<void> Function(GoogleMapController) onMapCreated;
-  final String? mapStyle;
   final bool myLocationEnabled;
   final VoidCallback? onCameraIdle;
   final void Function(CameraPosition)? onCameraMove;
@@ -58,6 +56,11 @@ class MapRender extends StatelessWidget {
       myLocationButtonEnabled: false,
       mapToolbarEnabled: false,
       zoomControlsEnabled: false,
+      // The fog overlay reproduces the map's projection in Dart to place cloud
+      // geometry. Rotation is one extra canvas.rotate and stays supported, but
+      // tilt is a perspective projection whose field of view the plugin does
+      // not expose, so a tilted map would slide out of alignment with its fog.
+      tiltGesturesEnabled: false,
       onCameraIdle: onCameraIdle,
       onCameraMove: onCameraMove,
       onCameraMoveStarted: onCameraMoveStarted,

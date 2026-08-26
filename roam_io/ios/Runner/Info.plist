@@ -3,7 +3,7 @@
 <plist version="1.0">
 	<dict>
 		<key>CADisableMinimumFrameDurationOnPhone</key>
-		<true/>
+		<true />
 		<key>CFBundleDevelopmentRegion</key>
 		<string>$(DEVELOPMENT_LANGUAGE)</string>
 		<key>CFBundleDisplayName</key>
@@ -25,14 +25,16 @@
 		<key>CFBundleVersion</key>
 		<string>$(FLUTTER_BUILD_NUMBER)</string>
 		<key>LSRequiresIPhoneOS</key>
-		<true/>
+		<true />
 		<key>NSAppTransportSecurity</key>
 		<dict>
 			<key>NSAllowsLocalNetworking</key>
-			<true/>
+			<true />
 		</dict>
 		<key>NSCameraUsageDescription</key>
 		<string>Roam.io needs access to your camera so you can take a profile picture.</string>
+		<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
+		<string>Roam.io uses your location during an active Journey so route tracking can continue while the app is in the background.</string>
 		<key>NSLocationWhenInUseUsageDescription</key>
 		<string>Roam.io uses your location to unlock nearby map regions.</string>
 		<key>NSMicrophoneUsageDescription</key>
@@ -41,10 +43,14 @@
 		<string>Roam.io needs permission to save profile images to your photo library.</string>
 		<key>NSPhotoLibraryUsageDescription</key>
 		<string>Roam.io needs access to your photo library so you can choose a profile picture.</string>
+		<key>UIBackgroundModes</key>
+		<array>
+			<string>location</string>
+		</array>
 		<key>UIApplicationSceneManifest</key>
 		<dict>
 			<key>UIApplicationSupportsMultipleScenes</key>
-			<false/>
+			<false />
 			<key>UISceneConfigurations</key>
 			<dict>
 				<key>UIWindowSceneSessionRoleApplication</key>
@@ -63,7 +69,7 @@
 			</dict>
 		</dict>
 		<key>UIApplicationSupportsIndirectInputEvents</key>
-		<true/>
+		<true />
 		<key>UILaunchStoryboardName</key>
 		<string>LaunchScreen</string>
 		<key>UIMainStoryboardFile</key>
@@ -82,6 +88,19 @@
 			<string>UIInterfaceOrientationLandscapeRight</string>
 		</array>
 		<key>UIStatusBarHidden</key>
-		<false/>
+		<false />
+		<key>NSSupportsLiveActivities</key>
+		<true />
+		<key>CFBundleURLTypes</key>
+		<array>
+			<dict>
+				<key>CFBundleURLName</key>
+				<string>com.fit3170.roamio.liveactivity</string>
+				<key>CFBundleURLSchemes</key>
+				<array>
+					<string>roamio</string>
+				</array>
+			</dict>
+		</array>
 	</dict>
 </plist>

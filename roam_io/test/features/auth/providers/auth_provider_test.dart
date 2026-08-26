@@ -14,6 +14,7 @@ import 'package:roam_io/features/auth/providers/auth_provider.dart';
 import 'package:roam_io/features/profile/domain/profile_model.dart';
 import 'package:roam_io/features/profile/domain/xp_award_result.dart';
 import 'package:roam_io/features/profile/domain/xp_event.dart';
+import 'package:roam_io/theme/app_theme_mode.dart';
 
 import '../../../support/fake_firebase_user.dart';
 
@@ -201,6 +202,29 @@ void main() {
       expect(provider.pendingLevelUp, isNull);
       provider.dispose();
     });
+
+    test('can defer and resume level-up celebration overlay', () async {
+      final repo = _XpTrackingRepository(
+        user: FakeFirebaseUser(uid: 'u1', email: 't@t.com'),
+        initialProfile: ProfileModel(
+          uid: 'u1',
+          username: 't',
+          displayName: 'T',
+          email: 't@t.com',
+          createdAt: DateTime(2026, 5, 1),
+          updatedAt: DateTime(2026, 5, 1),
+        ),
+      );
+      final provider = AuthProvider(authRepository: repo);
+
+      expect(provider.deferLevelUpCelebration, isFalse);
+      provider.deferLevelUpCelebrationOverlay();
+      expect(provider.deferLevelUpCelebration, isTrue);
+      provider.resumeLevelUpCelebrationOverlay();
+      expect(provider.deferLevelUpCelebration, isFalse);
+
+      provider.dispose();
+    });
   });
 }
 
@@ -226,7 +250,7 @@ class _ThrowingAuthRepository implements AuthRepository {
   }
 
   @override
-  Future<void> updateDarkModePreference(bool enabled) async {
+  Future<void> updateThemeModePreference(AppThemeMode mode) async {
     final fn = onUpdateDarkMode;
     if (fn != null) await fn();
   }

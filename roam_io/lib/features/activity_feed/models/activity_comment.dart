@@ -1,16 +1,15 @@
 /*
  * Author: Sanjevan Rajasegar
- * Last Updated: 6 August 2026
+ * Last Updated: 10 August 2026
  * Description:
  *   Comment model for activity_feed social comments under
- *   activities/{activityId}/comments/{commentId}. Notifications for new
- *   comments are intentionally deferred. createdAt accepts ISO strings or
- *   Firestore Timestamps.
+ *   activities/{activityId}/comments/{commentId}. Replies use parentCommentId
+ *   for one reply level beneath a top-level activity comment.
  */
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 
-/// A single comment on an activity (personal or friend stub).
+/// A single comment on a persisted activity.
 class ActivityComment {
   const ActivityComment({
     required this.id,
@@ -19,6 +18,10 @@ class ActivityComment {
     required this.authorDisplayName,
     required this.text,
     required this.createdAt,
+    this.updatedAt,
+    this.parentCommentId,
+    this.replyToUserId,
+    this.replyToDisplayName,
     this.authorUsername,
     this.authorPhotoUrl,
   });
@@ -31,6 +34,12 @@ class ActivityComment {
   final String? authorPhotoUrl;
   final String text;
   final DateTime createdAt;
+  final DateTime? updatedAt;
+  final String? parentCommentId;
+  final String? replyToUserId;
+  final String? replyToDisplayName;
+
+  bool get isReply => parentCommentId != null && parentCommentId!.isNotEmpty;
 
   factory ActivityComment.fromMap(
     String id,
@@ -40,17 +49,31 @@ class ActivityComment {
     return ActivityComment(
       id: id,
       activityId: activityId,
-      authorId: data['authorId'] as String? ?? '',
-      authorDisplayName: data['authorDisplayName'] as String? ?? 'Traveller',
-      authorUsername: data['authorUsername'] as String?,
-      authorPhotoUrl: data['authorPhotoUrl'] as String?,
-      text: data['text'] as String? ?? '',
+      authorId: _readString(data['authorId']) ?? '',
+      authorDisplayName: _readString(data['authorDisplayName']) ?? 'Traveller',
+      authorUsername: _readString(data['authorUsername']),
+      authorPhotoUrl: _readString(data['authorPhotoUrl']),
+      text: _readString(data['text']) ?? '',
       createdAt: _parseCreatedAt(data['createdAt']),
+      updatedAt: _parseOptionalDate(data['updatedAt']),
+      parentCommentId: _readString(data['parentCommentId']),
+      replyToUserId: _readString(data['replyToUserId']),
+      replyToDisplayName: _readString(data['replyToDisplayName']),
     );
   }
 }
 
+String? _readString(Object? raw) {
+  if (raw == null) return null;
+  if (raw is String) return raw;
+  return raw.toString();
+}
+
 DateTime _parseCreatedAt(Object? raw) {
+  return _parseOptionalDate(raw) ?? DateTime.fromMillisecondsSinceEpoch(0);
+}
+
+DateTime? _parseOptionalDate(Object? raw) {
   if (raw is Timestamp) {
     return raw.toDate();
   }
@@ -58,9 +81,12 @@ DateTime _parseCreatedAt(Object? raw) {
     return raw;
   }
   if (raw is String) {
-    return DateTime.tryParse(raw) ?? DateTime.fromMillisecondsSinceEpoch(0);
+    return DateTime.tryParse(raw);
   }
-  return DateTime.fromMillisecondsSinceEpoch(0);
+  if (raw is int) {
+    return DateTime.fromMillisecondsSinceEpoch(raw);
+  }
+  return null;
 }
 
 /// Formats a comment count with correct singular/plural labelling.

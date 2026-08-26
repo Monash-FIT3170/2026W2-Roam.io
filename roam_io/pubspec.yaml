@@ -47,6 +47,11 @@ dependencies:
   video_player: ^2.8.6
   flutter_native_splash: ^2.4.7
   flutter_local_notifications: ^22.2.0
+  timezone: ^0.11.1
+  cached_network_image: ^3.4.1
+  path_provider: ^2.1.5
+  share_plus: ^12.0.1
+  cloud_functions: ^6.2.0
 
 dev_dependencies:
   flutter_test:
@@ -84,6 +89,46 @@ flutter:
     - assets/map_styles/unvisited_tiles.json
     - assets/logos/roam_io_logo.png
     - assets/logos/roam_io_logo_with_text.png
+    - assets/badges/
+    - assets/badges/milestones/clocked_cruiser_1.png
+    - assets/badges/milestones/clocked_cruiser_2.png
+    - assets/badges/milestones/clocked_cruiser_3.png
+    - assets/badges/milestones/clocked_cruiser_4.png
+    - assets/badges/milestones/clocked_cruiser_5.png
+    - assets/badges/milestones/flame_keeper_1.png
+    - assets/badges/milestones/flame_keeper_2.png
+    - assets/badges/milestones/flame_keeper_3.png
+    - assets/badges/milestones/flame_keeper_4.png
+    - assets/badges/milestones/flame_keeper_5.png
+    - assets/badges/milestones/kilometre_crusader_1.png
+    - assets/badges/milestones/kilometre_crusader_2.png
+    - assets/badges/milestones/kilometre_crusader_3.png
+    - assets/badges/milestones/kilometre_crusader_4.png
+    - assets/badges/milestones/kilometre_crusader_5.png
+    - assets/badges/milestones/map_magnate_1.png
+    - assets/badges/milestones/map_magnate_2.png
+    - assets/badges/milestones/map_magnate_3.png
+    - assets/badges/milestones/map_magnate_4.png
+    - assets/badges/milestones/map_magnate_5.png
+    - assets/badges/milestones/tile_collector_1.png
+    - assets/badges/milestones/tile_collector_2.png
+    - assets/badges/milestones/tile_collector_3.png
+    - assets/badges/milestones/tile_collector_4.png
+    - assets/badges/milestones/tile_collector_5.png
+    - assets/badges/milestones/trip_tally_1.png
+    - assets/badges/milestones/trip_tally_2.png
+    - assets/badges/milestones/trip_tally_3.png
+    - assets/badges/milestones/trip_tally_4.png
+    - assets/badges/milestones/trip_tally_5.png
+    - assets/badges/milestones/visit_viking_1.png
+    - assets/badges/milestones/visit_viking_2.png
+    - assets/badges/milestones/visit_viking_3.png
+    - assets/badges/milestones/visit_viking_4.png
+    - assets/badges/milestones/visit_viking_5.png
+
+    # Cloud sprites for the fog of war. Declared as a directory so new
+    # Day_Fog_*/Night_Fog_* variants only need adding to FogPalette.
+    - assets/fog_of_war/
 
     - icons/
 

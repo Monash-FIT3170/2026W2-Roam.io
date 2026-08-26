@@ -61,4 +61,16 @@ class AppSurfaces {
   static Color shadow(BuildContext context) {
     return Colors.black.withValues(alpha: isDark(context) ? 0.18 : 0.08);
   }
+
+  /// Soft drop shadow used by Stats / You cards (matches milestone cards).
+  static List<BoxShadow> cardShadow(BuildContext context) {
+    return [
+      BoxShadow(
+        color: Colors.black.withValues(alpha: isDark(context) ? 0.22 : 0.09),
+        blurRadius: 10,
+        spreadRadius: 0,
+        offset: const Offset(0, 3),
+      ),
+    ];
+  }
 }

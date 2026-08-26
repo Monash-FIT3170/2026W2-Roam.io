@@ -1,22 +1,30 @@
 /*
  * Author: Sanjevan Rajasegar
- * Last Updated: 6 August 2026
+ * Last Updated: 22 August 2026
  * Description:
- *   Reusable activity feed card for You → Activities (personal) and Home
- *   (friend stubs). Engagement is configurable via showKudos / showComments /
- *   showShare: Home shows Kudos + live comment count (no Share); You personal
- *   cards show Kudos + comments + Share. Action labels scale down instead of
- *   ellipsizing so the full engagement row stays visible. Metrics use
- *   equal-width centre-aligned columns with one-line labels.
+ *   Reusable activity feed card for persisted Home, You, external profile, and
+ *   detail activity surfaces. Engagement is configurable via showKudos /
+ *   showComments / showShare and reads live Firestore subcollection counts.
+ *   Glaze is the product-facing name for persisted Kudos interactions.
  */
 
 import 'package:flutter/material.dart';
 
+import '../../../shared/widgets/app_toast.dart';
 import '../../../theme/app_surfaces.dart';
+import '../../journeys/domain/transport_mode.dart';
+import '../../map/data/journey_map_snapshot_service.dart';
+import '../../map/data/visited_region_service.dart';
+import '../../social/widgets/social_avatar.dart';
 import '../data/comment_service.dart';
+import '../data/kudos_service.dart';
+import '../domain/activity_route.dart';
 import '../models/activity_comment.dart';
 import '../models/activity_feed_item.dart';
+import 'activity_glazers_sheet.dart';
+import 'activity_media_carousel.dart';
 import 'activity_map_preview.dart';
+import 'route_marker_icons.dart';
 
 export '../models/activity_feed_item.dart' show ActivityFeedMetric;
 
@@ -29,11 +37,22 @@ class ActivityFeedCard extends StatelessWidget {
     required this.title,
     required this.metrics,
     this.activityId,
+    this.activityOwnerId,
+    this.currentUserId,
     this.commentService,
+    this.kudosService,
     this.commentCountStream,
     this.photoUrl,
     this.username,
     this.showMapPreview = false,
+    this.route,
+    this.routeTransportMode,
+    this.routeSnapshotProfileId,
+    this.mapSnapshotService,
+    this.visitedRegionService,
+    this.endpointMarkerIcons,
+    this.media = const <ActivityMediaItem>[],
+    this.onMediaTap,
     this.showKudos = true,
     this.showComments = true,
     this.showShare = true,
@@ -41,7 +60,7 @@ class ActivityFeedCard extends StatelessWidget {
     this.onKudosTap,
     this.onCommentTap,
     this.onShareTap,
-    this.kudosLabel = 'Kudos',
+    this.kudosLabel = 'Glaze',
     this.commentLabel = 'Comment',
     this.shareLabel = 'Share',
   });
@@ -51,7 +70,9 @@ class ActivityFeedCard extends StatelessWidget {
     ActivityFeedItem item, {
     Key? key,
     CommentService? commentService,
+    KudosService? kudosService,
     Stream<int>? commentCountStream,
+    String? currentUserId,
     bool showKudos = true,
     bool showComments = true,
     bool showShare = true,
@@ -59,11 +80,24 @@ class ActivityFeedCard extends StatelessWidget {
     VoidCallback? onKudosTap,
     VoidCallback? onCommentTap,
     VoidCallback? onShareTap,
+    JourneyMapSnapshotService? mapSnapshotService,
+    VisitedRegionService? visitedRegionService,
+    RouteEndpointMarkerIcons? endpointMarkerIcons,
   }) {
+    final route = item.showMapPreview
+        ? ActivityRoute.tryCreate(
+            encodedRoute: item.encodedRoute,
+            persistedBounds: item.routeBounds,
+          )
+        : null;
+
     return ActivityFeedCard(
       key: key,
       activityId: item.id,
+      activityOwnerId: item.ownerId,
+      currentUserId: currentUserId,
       commentService: commentService,
+      kudosService: kudosService,
       commentCountStream: commentCountStream,
       displayName: item.displayName,
       username: item.username,
@@ -72,6 +106,13 @@ class ActivityFeedCard extends StatelessWidget {
       title: item.title,
       metrics: item.metrics,
       showMapPreview: item.showMapPreview,
+      route: route,
+      routeTransportMode: TransportMode.tryFromString(item.transportMode),
+      routeSnapshotProfileId: item.ownerId,
+      mapSnapshotService: mapSnapshotService,
+      visitedRegionService: visitedRegionService,
+      endpointMarkerIcons: endpointMarkerIcons,
+      media: item.media,
       showKudos: showKudos,
       showComments: showComments,
       showShare: showShare,
@@ -89,14 +130,25 @@ class ActivityFeedCard extends StatelessWidget {
   final String title;
   final List<ActivityFeedMetric> metrics;
 
-  /// Stable activity id used for live comment counts (stub or production).
+  /// Stable persisted activity id used for live interaction counts.
   final String? activityId;
+  final String? activityOwnerId;
+  final String? currentUserId;
   final CommentService? commentService;
+  final KudosService? kudosService;
 
   /// Injected count stream for tests; production uses [commentService].
   final Stream<int>? commentCountStream;
 
   final bool showMapPreview;
+  final ActivityRoute? route;
+  final TransportMode? routeTransportMode;
+  final String? routeSnapshotProfileId;
+  final JourneyMapSnapshotService? mapSnapshotService;
+  final VisitedRegionService? visitedRegionService;
+  final RouteEndpointMarkerIcons? endpointMarkerIcons;
+  final List<ActivityMediaItem> media;
+  final ValueChanged<int>? onMediaTap;
   final bool showKudos;
   final bool showComments;
   final bool showShare;
@@ -126,11 +178,45 @@ class ActivityFeedCard extends StatelessWidget {
     return Stream<int>.value(0);
   }
 
+  Stream<int>? get _resolvedKudosCountStream {
+    if (!showKudos) return null;
+    final id = activityId;
+    final service = kudosService;
+    if (id != null && service != null) {
+      return service.watchKudosCount(id);
+    }
+    return Stream<int>.value(0);
+  }
+
+  Stream<bool>? get _resolvedHasKudosStream {
+    final id = activityId;
+    final uid = currentUserId;
+    final service = kudosService;
+    if (!showKudos || id == null || uid == null || service == null) {
+      return null;
+    }
+    return service.watchHasGivenKudos(activityId: id, userId: uid);
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final colorScheme = theme.colorScheme;
     final countStream = _resolvedCommentCountStream;
+    final kudosCountStream = _resolvedKudosCountStream;
+    final hasKudosStream = _resolvedHasKudosStream;
+    final routeSlide = showMapPreview && route != null
+        ? ActivityMapPreview(
+            key: ValueKey<String>('activity-card-map-$activityId'),
+            route: route,
+            snapshotProfileId: routeSnapshotProfileId,
+            mapSnapshotService: mapSnapshotService,
+            visitedRegionService: visitedRegionService,
+            transportMode: routeTransportMode,
+            showEndpoints: true,
+            endpointMarkerIcons: endpointMarkerIcons,
+            mapIdentity: activityId,
+          )
+        : null;
 
     return Container(
       width: double.infinity,
@@ -153,26 +239,11 @@ class ActivityFeedCard extends StatelessWidget {
           Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Container(
-                width: 44,
-                height: 44,
-                decoration: BoxDecoration(
-                  color: AppSurfaces.softCard(context),
-                  shape: BoxShape.circle,
-                  border: Border.all(color: colorScheme.primary, width: 1.5),
-                ),
-                child: ClipOval(
-                  child: photoUrl != null && photoUrl!.isNotEmpty
-                      ? Image.network(
-                          photoUrl!,
-                          fit: BoxFit.cover,
-                          errorBuilder: (context, error, stackTrace) => Icon(
-                            Icons.person_rounded,
-                            color: colorScheme.primary,
-                          ),
-                        )
-                      : Icon(Icons.person_rounded, color: colorScheme.primary),
-                ),
+              SocialAvatar(
+                displayName: displayName,
+                photoUrl: photoUrl,
+                radius: 22,
+                borderWidth: 1.5,
               ),
               const SizedBox(width: 12),
               Expanded(
@@ -221,9 +292,13 @@ class ActivityFeedCard extends StatelessWidget {
               fontWeight: FontWeight.w900,
             ),
           ),
-          if (showMapPreview) ...[
+          if (media.isNotEmpty || routeSlide != null) ...[
             const SizedBox(height: 12),
-            const ActivityMapPreview(),
+            ActivityMediaCarousel(
+              media: media,
+              onTap: onMediaTap,
+              routeSlide: routeSlide,
+            ),
           ],
           if (metrics.isNotEmpty) ...[
             const SizedBox(height: 14),
@@ -236,15 +311,18 @@ class ActivityFeedCard extends StatelessWidget {
             Row(
               children: [
                 if (showKudos)
-                  _ActionButton(
-                    icon: Icons.thumb_up_alt_outlined,
-                    label: kudosLabel,
-                    onTap: onKudosTap,
+                  _KudosActionButton(
+                    countStream: kudosCountStream,
+                    hasKudosStream: hasKudosStream,
+                    fallbackLabel: kudosLabel,
+                    activityId: activityId,
+                    onTap: onKudosTap ?? () => _toggleKudos(context),
                   ),
                 if (showComments)
                   _CommentActionButton(
                     countStream: countStream,
                     fallbackLabel: commentLabel,
+                    activityId: activityId,
                     onTap: onCommentTap,
                   ),
                 if (showShare)
@@ -259,6 +337,47 @@ class ActivityFeedCard extends StatelessWidget {
         ],
       ),
     );
+  }
+
+  Future<void> _toggleKudos(BuildContext context) async {
+    final id = activityId;
+    final ownerId = activityOwnerId;
+    final uid = currentUserId;
+    final service = kudosService;
+    if (id == null || ownerId == null || uid == null || service == null) {
+      debugPrint(
+        '[ActivityFeedCard] kudos skipped activityId=$id ownerId=$ownerId '
+        'userId=$uid hasService=${service != null}',
+      );
+      return;
+    }
+    if (uid == ownerId) {
+      await ActivityGlazersSheet.show(
+        context: context,
+        activityId: id,
+        kudosService: service,
+      );
+      return;
+    }
+    debugPrint(
+      '[ActivityFeedCard] toggleKudos activityId=$id ownerId=$ownerId '
+      'userId=$uid',
+    );
+    try {
+      await service.toggleKudos(
+        activityId: id,
+        activityOwnerId: ownerId,
+        userId: uid,
+      );
+    } catch (error, stackTrace) {
+      debugPrint(
+        '[ActivityFeedCard] toggleKudos failed activityId=$id '
+        'error=$error\n$stackTrace',
+      );
+      if (context.mounted) {
+        AppToast.error(context, 'Could not update Glaze. Try again.');
+      }
+    }
   }
 }
 
@@ -325,11 +444,13 @@ class _CommentActionButton extends StatelessWidget {
     required this.countStream,
     required this.fallbackLabel,
     required this.onTap,
+    this.activityId,
   });
 
   final Stream<int>? countStream;
   final String fallbackLabel;
   final VoidCallback? onTap;
+  final String? activityId;
 
   @override
   Widget build(BuildContext context) {
@@ -345,7 +466,27 @@ class _CommentActionButton extends StatelessWidget {
       child: StreamBuilder<int>(
         stream: countStream,
         builder: (context, snapshot) {
-          final count = snapshot.data ?? 0;
+          if (snapshot.hasError) {
+            debugPrint(
+              '[ActivityFeedCard] comment count failed '
+              'activityId=$activityId error=${snapshot.error}',
+            );
+            return _ActionButton(
+              icon: Icons.chat_bubble_outline_rounded,
+              label: 'Comments',
+              onTap: onTap,
+              expand: false,
+            );
+          }
+          if (!snapshot.hasData) {
+            return _ActionButton(
+              icon: Icons.chat_bubble_outline_rounded,
+              label: 'Comments',
+              onTap: onTap,
+              expand: false,
+            );
+          }
+          final count = snapshot.data!;
           return _ActionButton(
             icon: Icons.chat_bubble_outline_rounded,
             label: formatCommentCount(count),
@@ -358,20 +499,99 @@ class _CommentActionButton extends StatelessWidget {
   }
 }
 
+class _KudosActionButton extends StatelessWidget {
+  const _KudosActionButton({
+    required this.countStream,
+    required this.hasKudosStream,
+    required this.fallbackLabel,
+    required this.onTap,
+    this.activityId,
+  });
+
+  final Stream<int>? countStream;
+  final Stream<bool>? hasKudosStream;
+  final String fallbackLabel;
+  final VoidCallback? onTap;
+  final String? activityId;
+
+  @override
+  Widget build(BuildContext context) {
+    if (countStream == null) {
+      return _ActionButton(
+        icon: Icons.thumb_up_alt_outlined,
+        label: fallbackLabel,
+        onTap: onTap,
+      );
+    }
+
+    return Expanded(
+      child: StreamBuilder<int>(
+        stream: countStream,
+        builder: (context, countSnapshot) {
+          if (countSnapshot.hasError) {
+            debugPrint(
+              '[ActivityFeedCard] kudos count failed '
+              'activityId=$activityId error=${countSnapshot.error}',
+            );
+            return _ActionButton(
+              icon: Icons.thumb_up_alt_outlined,
+              label: fallbackLabel,
+              onTap: onTap,
+              expand: false,
+            );
+          }
+          final count = countSnapshot.hasData ? countSnapshot.data! : null;
+          if (hasKudosStream == null) {
+            return _ActionButton(
+              icon: Icons.thumb_up_alt_outlined,
+              label: count == null ? fallbackLabel : _formatKudosCount(count),
+              onTap: onTap,
+              expand: false,
+            );
+          }
+          return StreamBuilder<bool>(
+            stream: hasKudosStream,
+            builder: (context, stateSnapshot) {
+              if (stateSnapshot.hasError) {
+                debugPrint(
+                  '[ActivityFeedCard] hasKudos failed '
+                  'activityId=$activityId error=${stateSnapshot.error}',
+                );
+              }
+              final hasKudos = stateSnapshot.data ?? false;
+              return _ActionButton(
+                icon: hasKudos
+                    ? Icons.thumb_up_alt_rounded
+                    : Icons.thumb_up_alt_outlined,
+                label: count == null ? fallbackLabel : _formatKudosCount(count),
+                onTap: onTap,
+                expand: false,
+                active: hasKudos,
+              );
+            },
+          );
+        },
+      ),
+    );
+  }
+}
+
 /// Equal-width engagement action. Labels scale down instead of ellipsizing so
-/// Kudos / comment counts / Share stay fully readable in a 2- or 3-button row.
+/// Glaze / comment counts / Share stay fully readable in a 2- or 3-button row.
 class _ActionButton extends StatelessWidget {
   const _ActionButton({
     required this.icon,
     required this.label,
     required this.onTap,
     this.expand = true,
+    this.active = false,
   });
 
   final IconData icon;
   final String label;
   final VoidCallback? onTap;
   final bool expand;
+  final bool active;
 
   @override
   Widget build(BuildContext context) {
@@ -388,14 +608,22 @@ class _ActionButton extends StatelessWidget {
             mainAxisAlignment: MainAxisAlignment.center,
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(icon, size: 18, color: AppSurfaces.textMuted(context)),
+              Icon(
+                icon,
+                size: 18,
+                color: active
+                    ? theme.colorScheme.primary
+                    : AppSurfaces.textMuted(context),
+              ),
               const SizedBox(width: 6),
               Text(
                 label,
                 maxLines: 1,
                 softWrap: false,
                 style: theme.textTheme.labelLarge?.copyWith(
-                  color: AppSurfaces.textMuted(context),
+                  color: active
+                      ? theme.colorScheme.primary
+                      : AppSurfaces.textMuted(context),
                   fontWeight: FontWeight.w800,
                 ),
               ),
@@ -410,4 +638,9 @@ class _ActionButton extends StatelessWidget {
     }
     return Expanded(child: content);
   }
+}
+
+String _formatKudosCount(int count) {
+  if (count <= 0) return 'Glaze';
+  return count == 1 ? '1 Glaze' : '$count Glaze';
 }

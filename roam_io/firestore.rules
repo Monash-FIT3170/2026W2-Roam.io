@@ -10,6 +10,615 @@ service cloud.firestore {
         request.resource.data.xp is int;
     }
 
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isPrivateAccount(userId) {
+      return exists(
+        /databases/$(database)/documents/public_profiles/$(userId)
+      )
+      && get(
+        /databases/$(database)/documents/public_profiles/$(userId)
+      ).data.keys().hasAny(['isPrivateAccount'])
+      && get(
+        /databases/$(database)/documents/public_profiles/$(userId)
+      ).data.isPrivateAccount == true;
+    }
+
+    function isApprovedFollower(userId) {
+      return isSignedIn() && exists(
+        /databases/$(database)/documents/follows/$(request.auth.uid + '_' + userId)
+      );
+    }
+
+    function canViewProfileActivity(userId) {
+      return isProfileOwner(userId) ||
+        (isSignedIn() && (!isPrivateAccount(userId) || isApprovedFollower(userId)));
+    }
+
+    function isPairParticipant(data) {
+      return isSignedIn() &&
+        (request.auth.uid == data.senderId || request.auth.uid == data.recipientId);
+    }
+
+    function sortedPairKey(userA, userB) {
+      return userA < userB ? userA + '_' + userB : userB + '_' + userA;
+    }
+
+    function hasPublicProfileFields() {
+      return request.resource.data.keys().hasOnly([
+        'uid',
+        'username',
+        'usernameSearch',
+        'displayName',
+        'displayNameSearch',
+        'photoUrl',
+        'xp',
+        'level',
+        'isPrivateAccount',
+        'createdAt',
+        'updatedAt'
+      ]) &&
+      request.resource.data.uid is string &&
+      request.resource.data.username is string &&
+      request.resource.data.usernameSearch is string &&
+      request.resource.data.displayName is string &&
+      request.resource.data.displayNameSearch is string &&
+      request.resource.data.createdAt is string &&
+      request.resource.data.updatedAt is string &&
+      (!request.resource.data.keys().hasAny(['xp']) ||
+        request.resource.data.xp is int) &&
+      (!request.resource.data.keys().hasAny(['level']) ||
+        request.resource.data.level is int) &&
+      (!request.resource.data.keys().hasAny(['isPrivateAccount']) ||
+        request.resource.data.isPrivateAccount is bool);
+    }
+
+    function hasFriendRequestFields() {
+      return request.resource.data.keys().hasOnly([
+        'pairKey',
+        'senderId',
+        'recipientId',
+        'status',
+        'createdAt',
+        'updatedAt'
+      ]) &&
+      request.resource.data.pairKey is string &&
+      request.resource.data.senderId is string &&
+      request.resource.data.recipientId is string &&
+      request.resource.data.status is string &&
+      request.resource.data.createdAt is string &&
+      request.resource.data.updatedAt is string;
+    }
+
+    function hasFollowFields() {
+      return request.resource.data.keys().hasOnly([
+        'followerId',
+        'followeeId',
+        'createdAt',
+        'source',
+        'acceptedRequestId',
+        'acceptedRequestCreatedAt'
+      ]) &&
+      request.resource.data.followerId is string &&
+      request.resource.data.followeeId is string &&
+      request.resource.data.createdAt is string &&
+      (!request.resource.data.keys().hasAny(['source']) ||
+        request.resource.data.source is string) &&
+      (!request.resource.data.keys().hasAny(['acceptedRequestId']) ||
+        request.resource.data.acceptedRequestId is string) &&
+      (!request.resource.data.keys().hasAny(['acceptedRequestCreatedAt']) ||
+        request.resource.data.acceptedRequestCreatedAt is string);
+    }
+
+    function hasFollowRequestFields() {
+      return request.resource.data.keys().hasOnly([
+        'requesterId',
+        'targetId',
+        'status',
+        'createdAt',
+        'updatedAt'
+      ]) &&
+      request.resource.data.requesterId is string &&
+      request.resource.data.targetId is string &&
+      request.resource.data.status is string &&
+      request.resource.data.createdAt is string &&
+      request.resource.data.updatedAt is string;
+    }
+
+    function hasActivityFields(activityId) {
+      return request.resource.data.keys().hasOnly([
+        'ownerId',
+        'activityId',
+        'profileId',
+        'displayName',
+        'username',
+        'photoUrl',
+        'title',
+        'kind',
+        'sourceJourneyId',
+        'sourceSidequestId',
+        'encodedRoute',
+        'routeBounds',
+        'journeyStartTime',
+        'journeyEndTime',
+        'sidequestCompletedAt',
+        'transportMode',
+        'media',
+        'metrics',
+        'showMapPreview',
+        'createdAt'
+      ]) &&
+      request.resource.data.keys().hasAll([
+        'ownerId',
+        'activityId',
+        'profileId',
+        'displayName',
+        'username',
+        'title',
+        'kind',
+        'metrics',
+        'showMapPreview',
+        'createdAt'
+      ]) &&
+      request.resource.data.activityId == activityId &&
+      request.resource.data.ownerId == request.auth.uid &&
+      request.resource.data.profileId == request.auth.uid &&
+      request.resource.data.displayName is string &&
+      request.resource.data.username is string &&
+      (!request.resource.data.keys().hasAny(['photoUrl']) ||
+        request.resource.data.photoUrl is string) &&
+      request.resource.data.title is string &&
+      request.resource.data.kind is string &&
+      (!request.resource.data.keys().hasAny(['sourceJourneyId']) ||
+        request.resource.data.sourceJourneyId is string) &&
+      (!request.resource.data.keys().hasAny(['sourceSidequestId']) ||
+        request.resource.data.sourceSidequestId is string) &&
+      (!request.resource.data.keys().hasAny(['encodedRoute']) ||
+        request.resource.data.encodedRoute is string) &&
+      (!request.resource.data.keys().hasAny(['routeBounds']) ||
+        hasValidRouteBounds(request.resource.data.routeBounds)) &&
+      (!request.resource.data.keys().hasAny(['journeyStartTime']) ||
+        request.resource.data.journeyStartTime is string) &&
+      (!request.resource.data.keys().hasAny(['journeyEndTime']) ||
+        request.resource.data.journeyEndTime is string) &&
+      (!request.resource.data.keys().hasAny(['sidequestCompletedAt']) ||
+        request.resource.data.sidequestCompletedAt is string) &&
+      (!request.resource.data.keys().hasAny(['transportMode']) ||
+        request.resource.data.transportMode is string) &&
+      (!request.resource.data.keys().hasAny(['media']) ||
+        hasValidActivityMediaList(request.resource.data.media)) &&
+      request.resource.data.metrics is list &&
+      request.resource.data.showMapPreview is bool &&
+      request.resource.data.createdAt is string &&
+      (
+        request.resource.data.kind != 'journey' ||
+        (
+          request.resource.data.keys().hasAll([
+            'sourceJourneyId',
+            'encodedRoute',
+            'journeyStartTime',
+            'journeyEndTime',
+            'transportMode',
+            'media'
+          ]) &&
+          request.resource.data.activityId ==
+            'journey_' + request.resource.data.sourceJourneyId &&
+          exists(
+            /databases/$(database)/documents/profiles/$(request.auth.uid)/journeys/$(request.resource.data.sourceJourneyId)
+          )
+        )
+      ) &&
+      (
+        request.resource.data.kind != 'sidequest' ||
+        (
+          request.resource.data.keys().hasAll([
+            'sourceSidequestId',
+            'sidequestCompletedAt',
+            'media'
+          ]) &&
+          request.resource.data.activityId ==
+            'sidequest_' + request.resource.data.sourceSidequestId &&
+          !request.resource.data.keys().hasAny([
+            'sourceJourneyId',
+            'encodedRoute',
+            'routeBounds',
+            'journeyStartTime',
+            'journeyEndTime',
+            'transportMode'
+          ])
+        )
+      );
+    }
+
+    function hasValidActivityMediaList(media) {
+      return media is list &&
+        media.size() <= 3 &&
+        (media.size() < 1 || hasValidActivityMediaItem(media[0])) &&
+        (media.size() < 2 || hasValidActivityMediaItem(media[1])) &&
+        (media.size() < 3 || hasValidActivityMediaItem(media[2]));
+    }
+
+    function hasValidActivityMediaItem(item) {
+      return item is map &&
+        item.keys().hasOnly([
+          'id',
+          'type',
+          'url',
+          'storagePath',
+          'order',
+          'createdAt',
+          'thumbnailUrl'
+        ]) &&
+        item.keys().hasAll([
+          'id',
+          'type',
+          'url',
+          'storagePath',
+          'order',
+          'createdAt'
+        ]) &&
+        item.id is string &&
+        item.id.size() > 0 &&
+        item.type in ['photo', 'video'] &&
+        item.url is string &&
+        item.url.size() > 0 &&
+        item.storagePath is string &&
+        item.order is int &&
+        item.order >= 0 &&
+        item.order < 3 &&
+        item.createdAt is string &&
+        (!item.keys().hasAny(['thumbnailUrl']) || item.thumbnailUrl is string);
+    }
+
+    function hasActivityEditableUpdate(activityId) {
+      return isSignedIn() &&
+        resource.data.ownerId == request.auth.uid &&
+        request.resource.data.ownerId == resource.data.ownerId &&
+        request.resource.data.profileId == resource.data.profileId &&
+        request.resource.data.activityId == activityId &&
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+          'title',
+          'media'
+        ]) &&
+        request.resource.data.title is string &&
+        hasValidActivityMediaList(request.resource.data.media);
+    }
+
+    function hasValidRouteBounds(bounds) {
+      return bounds is map &&
+        bounds.keys().hasOnly([
+          'southwestLatitude',
+          'southwestLongitude',
+          'northeastLatitude',
+          'northeastLongitude'
+        ]) &&
+        bounds.keys().hasAll([
+          'southwestLatitude',
+          'southwestLongitude',
+          'northeastLatitude',
+          'northeastLongitude'
+        ]) &&
+        bounds.southwestLatitude is number &&
+        bounds.southwestLongitude is number &&
+        bounds.northeastLatitude is number &&
+        bounds.northeastLongitude is number &&
+        bounds.southwestLatitude >= -90 &&
+        bounds.southwestLatitude <= 90 &&
+        bounds.northeastLatitude >= -90 &&
+        bounds.northeastLatitude <= 90 &&
+        bounds.southwestLongitude >= -180 &&
+        bounds.southwestLongitude <= 180 &&
+        bounds.northeastLongitude >= -180 &&
+        bounds.northeastLongitude <= 180 &&
+        bounds.southwestLatitude <= bounds.northeastLatitude &&
+        bounds.southwestLongitude <= bounds.northeastLongitude;
+    }
+
+    function hasActivityCounterFields(userId) {
+      return request.resource.data.keys().hasOnly([
+        'ownerId',
+        'lastTestActivityNumber',
+        'createdAt',
+        'updatedAt'
+      ]) &&
+      request.resource.data.ownerId == userId &&
+      request.resource.data.lastTestActivityNumber is int &&
+      request.resource.data.createdAt is string &&
+      request.resource.data.updatedAt is string;
+    }
+
+    function canReadActivity(data) {
+      return isSignedIn()
+        && (
+          (
+            data.ownerId is string
+            && canViewProfileActivity(data.ownerId)
+          ) ||
+          (
+            data.profileId is string
+            && canViewProfileActivity(data.profileId)
+          )
+        );
+    }
+
+    function canGetActivity(activityId) {
+      return (
+        isSignedIn()
+        && !exists(/databases/$(database)/documents/activities/$(activityId))
+      ) || canReadActivity(resource.data);
+    }
+
+    function isImmediatePublicFollow(followId) {
+      return request.auth.uid == request.resource.data.followerId
+        && !isPrivateAccount(request.resource.data.followeeId)
+        && !request.resource.data.keys().hasAny(['source', 'acceptedRequestId'])
+        && followId == request.resource.data.followerId + '_' +
+          request.resource.data.followeeId;
+    }
+
+    function isAcceptedRequestFollow(followId) {
+      return request.auth.uid == request.resource.data.followeeId
+        && request.resource.data.source == 'follow_request_acceptance'
+        && request.resource.data.acceptedRequestId == followId
+        && followId == request.resource.data.followerId + '_' +
+          request.resource.data.followeeId
+        && exists(
+          /databases/$(database)/documents/follow_requests/$(followId)
+        )
+        && get(
+          /databases/$(database)/documents/follow_requests/$(followId)
+        ).data.requesterId == request.resource.data.followerId
+        && get(
+          /databases/$(database)/documents/follow_requests/$(followId)
+        ).data.targetId == request.resource.data.followeeId
+        && get(
+          /databases/$(database)/documents/follow_requests/$(followId)
+        ).data.status == 'pending'
+        && request.resource.data.acceptedRequestCreatedAt == get(
+          /databases/$(database)/documents/follow_requests/$(followId)
+        ).data.createdAt;
+    }
+
+    function followNotificationId(data, userId) {
+      return 'follow_' + data.actorId + '_' + userId;
+    }
+
+    function requestNotificationId(data, userId) {
+      return 'follow_request_' + data.actorId + '_' + userId;
+    }
+
+    function acceptedNotificationId(data, userId) {
+      return 'follow_request_accepted_' + data.actorId + '_' + userId;
+    }
+
+    function activityKudosNotificationId(data) {
+      return 'activity_kudos_' + data.activityId + '_' + data.actorId;
+    }
+
+    function activityCommentNotificationId(data) {
+      return 'activity_comment_' + data.activityId + '_' + data.commentId;
+    }
+
+    function commentReplyNotificationId(data, userId) {
+      return 'comment_reply_' + data.activityId + '_' + data.commentId + '_' + userId;
+    }
+
+    function activityReplyNotificationId(data, userId) {
+      return 'activity_reply_' + data.activityId + '_' + data.commentId + '_' + userId;
+    }
+
+    function commentLikeNotificationId(data) {
+      return 'comment_like_' + data.activityId + '_' + data.commentId + '_' + data.actorId;
+    }
+
+    function hasNotificationFields(data, userId) {
+      return data.keys().hasOnly([
+          'recipientId',
+          'actorId',
+          'type',
+          'createdAt',
+          'readAt',
+          'activityId',
+          'commentId'
+        ])
+        && data.recipientId == userId
+        && data.actorId is string
+        && data.actorId != userId
+        && data.type in [
+          'follow',
+          'followRequest',
+          'followRequestAccepted',
+          'activityKudos',
+          'activityComment',
+          'commentReply',
+          'commentLike'
+        ]
+        && data.createdAt is string
+        && (data.readAt == null || data.readAt is string)
+        && (!data.keys().hasAny(['activityId']) || data.activityId is string)
+        && (!data.keys().hasAny(['commentId']) || data.commentId is string);
+    }
+
+    function isValidFollowNotificationWrite(notificationId, data, userId) {
+      return data.type == 'follow'
+        && notificationId == followNotificationId(data, userId)
+        && exists(
+          /databases/$(database)/documents/follows/$(data.actorId + '_' + userId)
+        )
+        && get(
+          /databases/$(database)/documents/follows/$(data.actorId + '_' + userId)
+        ).data.createdAt == data.createdAt
+        && (
+          (
+            request.auth.uid == data.actorId
+            && !get(
+              /databases/$(database)/documents/follows/$(data.actorId + '_' + userId)
+            ).data.keys().hasAny(['source'])
+          ) ||
+          (
+            request.auth.uid == userId
+            && get(
+              /databases/$(database)/documents/follows/$(data.actorId + '_' + userId)
+            ).data.source == 'follow_request_acceptance'
+          )
+        );
+    }
+
+    function isValidRequestNotificationWrite(notificationId, data, userId) {
+      return data.type == 'followRequest'
+        && notificationId == requestNotificationId(data, userId)
+        && request.auth.uid == data.actorId
+        && exists(
+          /databases/$(database)/documents/follow_requests/$(data.actorId + '_' + userId)
+        )
+        && get(
+          /databases/$(database)/documents/follow_requests/$(data.actorId + '_' + userId)
+        ).data.createdAt == data.createdAt;
+    }
+
+    function isValidAcceptedNotificationWrite(notificationId, data, userId) {
+      return data.type == 'followRequestAccepted'
+        && notificationId == acceptedNotificationId(data, userId)
+        && request.auth.uid == data.actorId
+        && exists(
+          /databases/$(database)/documents/follows/$(userId + '_' + data.actorId)
+        )
+        && get(
+          /databases/$(database)/documents/follows/$(userId + '_' + data.actorId)
+        ).data.source == 'follow_request_acceptance';
+    }
+
+    function isValidNotificationWrite(notificationId, data, userId) {
+      return hasNotificationFields(data, userId)
+        && (
+          isValidFollowNotificationWrite(notificationId, data, userId)
+          || isValidRequestNotificationWrite(notificationId, data, userId)
+          || isValidAcceptedNotificationWrite(notificationId, data, userId)
+          || isValidActivityNotificationWrite(notificationId, data, userId)
+        );
+    }
+
+    function canInteractWithActivity(activityId) {
+      return isSignedIn()
+        && exists(/databases/$(database)/documents/activities/$(activityId))
+        && (
+          (
+            get(/databases/$(database)/documents/activities/$(activityId)).data.ownerId is string
+            && canViewProfileActivity(
+              get(/databases/$(database)/documents/activities/$(activityId)).data.ownerId
+            )
+          ) ||
+          (
+            get(/databases/$(database)/documents/activities/$(activityId)).data.profileId is string
+            && canViewProfileActivity(
+              get(/databases/$(database)/documents/activities/$(activityId)).data.profileId
+            )
+          )
+        );
+    }
+
+    function isValidActivityNotificationWrite(notificationId, data, userId) {
+      return data.keys().hasAll(['activityId'])
+        && request.auth.uid == data.actorId
+        && (
+          (
+            data.type == 'activityKudos'
+            && notificationId == activityKudosNotificationId(data)
+            && exists(
+              /databases/$(database)/documents/activities/$(data.activityId)/kudos/$(data.actorId)
+            )
+            && get(
+              /databases/$(database)/documents/activities/$(data.activityId)/kudos/$(data.actorId)
+            ).data.createdAt == data.createdAt
+            && (
+              get(
+                /databases/$(database)/documents/activities/$(data.activityId)
+              ).data.ownerId == userId
+              || get(
+                /databases/$(database)/documents/activities/$(data.activityId)
+              ).data.profileId == userId
+            )
+          ) ||
+          (
+            data.type == 'activityComment'
+            && data.keys().hasAll(['commentId'])
+            && (
+              notificationId == activityCommentNotificationId(data)
+              || notificationId == activityReplyNotificationId(data, userId)
+            )
+            && exists(
+              /databases/$(database)/documents/activities/$(data.activityId)/comments/$(data.commentId)
+            )
+            && get(
+              /databases/$(database)/documents/activities/$(data.activityId)/comments/$(data.commentId)
+            ).data.authorId == data.actorId
+            && get(
+              /databases/$(database)/documents/activities/$(data.activityId)/comments/$(data.commentId)
+            ).data.createdAt == data.createdAt
+            && (
+              get(
+                /databases/$(database)/documents/activities/$(data.activityId)
+              ).data.ownerId == userId
+              || get(
+                /databases/$(database)/documents/activities/$(data.activityId)
+              ).data.profileId == userId
+            )
+          ) ||
+          (
+            data.type == 'commentReply'
+            && data.keys().hasAll(['commentId'])
+            && notificationId == commentReplyNotificationId(data, userId)
+            && exists(
+              /databases/$(database)/documents/activities/$(data.activityId)/comments/$(data.commentId)
+            )
+            && get(
+              /databases/$(database)/documents/activities/$(data.activityId)/comments/$(data.commentId)
+            ).data.authorId == data.actorId
+            && get(
+              /databases/$(database)/documents/activities/$(data.activityId)/comments/$(data.commentId)
+            ).data.replyToUserId == userId
+            && get(
+              /databases/$(database)/documents/activities/$(data.activityId)/comments/$(data.commentId)
+            ).data.createdAt == data.createdAt
+          ) ||
+          (
+            data.type == 'commentLike'
+            && data.keys().hasAll(['commentId'])
+            && notificationId == commentLikeNotificationId(data)
+            && exists(
+              /databases/$(database)/documents/activities/$(data.activityId)/comments/$(data.commentId)/likes/$(data.actorId)
+            )
+            && get(
+              /databases/$(database)/documents/activities/$(data.activityId)/comments/$(data.commentId)/likes/$(data.actorId)
+            ).data.createdAt == data.createdAt
+            && get(
+              /databases/$(database)/documents/activities/$(data.activityId)/comments/$(data.commentId)
+            ).data.authorId == userId
+          )
+        );
+    }
+
+    function canDeleteCurrentRelationshipNotification(notificationId, userId) {
+      return (
+          resource.data.type == 'follow'
+          && notificationId == followNotificationId(resource.data, userId)
+          && (
+            request.auth.uid == resource.data.actorId
+            || request.auth.uid == userId
+          )
+        ) ||
+        (
+          resource.data.type == 'followRequest'
+          && notificationId == requestNotificationId(resource.data, userId)
+          && (
+            request.auth.uid == resource.data.actorId
+            || request.auth.uid == userId
+          )
+        );
+    }
+
     match /profiles/{userId} {
       // Only the signed-in owner can read/write their own profile document.
       allow read: if isProfileOwner(userId);
@@ -18,8 +627,8 @@ service cloud.firestore {
       
       // Visits subcollection - tracks places the user has visited
       match /visits/{visitId} {
-        // Only the signed-in owner can read/create/update their own visits.
-        allow read, create, update: if request.auth != null && request.auth.uid == userId;
+        allow read: if canViewProfileActivity(userId);
+        allow create, update: if request.auth != null && request.auth.uid == userId;
         // No deletes - visits are permanent
         allow delete: if false;
       }
@@ -34,14 +643,207 @@ service cloud.firestore {
 
       // Timestamped XP gain events for weekly XP Gained analytics.
       match /xp_events/{eventId} {
+        allow read: if canViewProfileActivity(userId);
+        allow create: if isProfileOwner(userId);
+        allow update, delete: if false;
+      }
+
+      // Append-only visit history for Stats charts.
+      match /visit_events/{eventId} {
         allow read, create: if isProfileOwner(userId);
         allow update, delete: if false;
       }
+
+      // Rollup counters for Stats tab hero numbers.
+      match /stats_summary/{docId} {
+        allow read, create, update: if isProfileOwner(userId);
+        allow delete: if false;
+      }
+
+      // Milestone claim state (one doc per milestone id).
+      match /milestones/{milestoneId} {
+        allow read, create, update: if isProfileOwner(userId);
+        allow delete: if false;
+      }
+
+      // Persistent social inbox (follow notifications). Prefer Cloud Function
+      // creation; clients may create only as the actor for a real follow doc.
+      match /notifications/{notificationId} {
+        allow read: if isProfileOwner(userId);
+        allow create: if isSignedIn()
+          && isValidNotificationWrite(
+            notificationId,
+            request.resource.data,
+            userId
+          );
+        allow update: if isProfileOwner(userId)
+          && (
+            (
+              request.resource.data.diff(resource.data).affectedKeys()
+                .hasOnly(['readAt'])
+              && request.resource.data.recipientId == resource.data.recipientId
+              && request.resource.data.actorId == resource.data.actorId
+              && request.resource.data.type == resource.data.type
+              && request.resource.data.createdAt == resource.data.createdAt
+              && (
+                request.resource.data.readAt == null
+                || request.resource.data.readAt is string
+              )
+            ) ||
+            (
+              isValidNotificationWrite(
+                notificationId,
+                request.resource.data,
+                userId
+              )
+            )
+          );
+        allow delete: if isSignedIn()
+          && canDeleteCurrentRelationshipNotification(notificationId, userId);
+      }
     }
 
+    // Find People prefix queries require signed-in list/read on this
+    // collection. Keep production in sync:
+    // firebase deploy --only firestore:rules --project roam-io-71e2c
+    match /public_profiles/{userId} {
+      allow read: if isSignedIn();
+      allow create, update: if isProfileOwner(userId)
+        && request.resource.data.uid == userId
+        && hasPublicProfileFields();
+      allow delete: if false;
+    }
+
+    match /friend_requests/{requestId} {
+      allow read: if isPairParticipant(resource.data);
+      allow create: if isSignedIn()
+        && hasFriendRequestFields()
+        && request.auth.uid == request.resource.data.senderId
+        && request.resource.data.senderId != request.resource.data.recipientId
+        && !exists(
+          /databases/$(database)/documents/friendships/$(requestId)
+        )
+        && request.resource.data.status == 'pending'
+        && request.resource.data.pairKey ==
+          sortedPairKey(
+            request.resource.data.senderId,
+            request.resource.data.recipientId
+          )
+        && requestId == request.resource.data.pairKey;
+      allow update: if isSignedIn()
+        && hasFriendRequestFields()
+        && request.resource.data.pairKey == resource.data.pairKey
+        && (
+          (
+            resource.data.status == 'pending'
+            && request.auth.uid == resource.data.recipientId
+            && request.resource.data.senderId == resource.data.senderId
+            && request.resource.data.recipientId == resource.data.recipientId
+            && request.resource.data.createdAt == resource.data.createdAt
+            && request.resource.data.status in ['accepted', 'declined']
+          ) ||
+          (
+            resource.data.status == 'declined'
+            && request.auth.uid == request.resource.data.senderId
+            && request.resource.data.senderId != request.resource.data.recipientId
+            && request.resource.data.status == 'pending'
+            && request.resource.data.pairKey ==
+              sortedPairKey(
+                request.resource.data.senderId,
+                request.resource.data.recipientId
+              )
+            && requestId == request.resource.data.pairKey
+            && !exists(
+              /databases/$(database)/documents/friendships/$(requestId)
+            )
+          )
+        );
+      allow delete: if false;
+    }
+
+    match /friendships/{pairKey} {
+      allow read: if isSignedIn() && request.auth.uid in resource.data.memberIds;
+      allow create: if isSignedIn()
+        && request.resource.data.keys().hasOnly([
+          'pairKey',
+          'memberIds',
+          'createdAt',
+          'acceptedRequestId'
+        ])
+        && request.resource.data.pairKey == pairKey
+        && request.resource.data.acceptedRequestId == pairKey
+        && request.resource.data.memberIds is list
+        && request.resource.data.memberIds.size() == 2
+        && request.auth.uid in request.resource.data.memberIds
+        && getAfter(
+          /databases/$(database)/documents/friend_requests/$(pairKey)
+        ).data.status == 'accepted'
+        && getAfter(
+          /databases/$(database)/documents/friend_requests/$(pairKey)
+        ).data.senderId in request.resource.data.memberIds
+        && getAfter(
+          /databases/$(database)/documents/friend_requests/$(pairKey)
+        ).data.recipientId in request.resource.data.memberIds;
+      allow update, delete: if false;
+    }
+
+    match /follows/{followId} {
+      allow read: if isSignedIn();
+      allow create: if isSignedIn()
+        && hasFollowFields()
+        && request.resource.data.followerId != request.resource.data.followeeId
+        && (
+          isImmediatePublicFollow(followId) ||
+          isAcceptedRequestFollow(followId)
+        );
+      // Follower may unfollow; followee may Remove follower.
+      allow delete: if isSignedIn()
+        && followId == resource.data.followerId + '_' + resource.data.followeeId
+        && (
+          resource.data.followerId == request.auth.uid
+          || resource.data.followeeId == request.auth.uid
+        );
+      allow update: if false;
+    }
+
+    match /follow_requests/{requestId} {
+      allow get: if isSignedIn()
+        && (
+          !exists(
+            /databases/$(database)/documents/follow_requests/$(requestId)
+          )
+          || request.auth.uid == resource.data.requesterId
+          || request.auth.uid == resource.data.targetId
+        );
+      allow list: if isSignedIn()
+        && (
+          request.auth.uid == resource.data.requesterId
+          || request.auth.uid == resource.data.targetId
+        );
+      allow create: if isSignedIn()
+        && hasFollowRequestFields()
+        && request.auth.uid == request.resource.data.requesterId
+        && request.resource.data.requesterId != request.resource.data.targetId
+        && request.resource.data.status == 'pending'
+        && requestId == request.resource.data.requesterId + '_' +
+          request.resource.data.targetId
+        && isPrivateAccount(request.resource.data.targetId)
+        && !exists(
+          /databases/$(database)/documents/follows/$(requestId)
+        );
+      allow delete: if isSignedIn()
+        && resource.data.status == 'pending'
+        && requestId == resource.data.requesterId + '_' + resource.data.targetId
+        && (
+          request.auth.uid == resource.data.requesterId
+          || request.auth.uid == resource.data.targetId
+        );
+      allow update: if false;
+    }
+
+
     match /polygons_visited/{userId} {
-      // Users can only read/write their own visited polygon document.
-      allow get: if request.auth != null && request.auth.uid == userId;
+      allow get, list: if canViewProfileActivity(userId);
       allow create: if request.auth != null
         && request.auth.uid == userId
         && request.resource.data.profile_id == request.auth.uid;
@@ -60,25 +862,113 @@ service cloud.firestore {
       allow delete: if false;
     }
 
+    match /activity_counters/{userId} {
+      allow read: if isProfileOwner(userId);
+      allow create, update: if isProfileOwner(userId)
+        && hasActivityCounterFields(userId)
+        && (
+          !exists(/databases/$(database)/documents/activity_counters/$(userId))
+          || request.resource.data.createdAt == resource.data.createdAt
+        );
+      allow delete: if false;
+    }
+
     // Deny all other collections/documents by default for MVP safety.
-    // Activity comments (notifications for comments deferred).
     match /activities/{activityId} {
-      allow read: if request.auth != null;
-      allow write: if false;
+      allow get: if canGetActivity(activityId);
+      allow list: if canReadActivity(resource.data);
+      allow create: if isSignedIn()
+        && hasActivityFields(activityId);
+      allow update: if hasActivityEditableUpdate(activityId);
+      allow delete: if isSignedIn()
+        && resource.data.ownerId == request.auth.uid;
+
+      match /kudos/{userId} {
+        allow read: if canInteractWithActivity(activityId);
+        allow create: if canInteractWithActivity(activityId)
+          && userId == request.auth.uid
+          && request.resource.data.keys().hasOnly([
+            'activityId',
+            'activityOwnerId',
+            'userId',
+            'createdAt'
+          ])
+          && request.resource.data.activityId == activityId
+          && request.resource.data.userId == request.auth.uid
+          && request.resource.data.userId != get(
+            /databases/$(database)/documents/activities/$(activityId)
+          ).data.ownerId
+          && (
+            request.resource.data.activityOwnerId == get(
+              /databases/$(database)/documents/activities/$(activityId)
+            ).data.ownerId
+            || request.resource.data.activityOwnerId == get(
+              /databases/$(database)/documents/activities/$(activityId)
+            ).data.profileId
+          )
+          && request.resource.data.createdAt is string;
+        allow delete: if canInteractWithActivity(activityId)
+          && userId == request.auth.uid
+          && resource.data.userId == request.auth.uid;
+        allow update: if false;
+      }
 
       match /comments/{commentId} {
-        allow read: if request.auth != null;
-        allow create: if request.auth != null
+        allow read: if canInteractWithActivity(activityId);
+        allow create: if canInteractWithActivity(activityId)
           && request.resource.data.authorId == request.auth.uid
+          && request.resource.data.activityId == activityId
           && request.resource.data.text is string
           && request.resource.data.text.size() > 0
-          && request.resource.data.keys().hasAll([
+          && request.resource.data.keys().hasOnly([
+            'activityId',
             'authorId',
             'authorDisplayName',
+            'authorUsername',
+            'authorPhotoUrl',
             'text',
-            'createdAt'
-          ]);
+            'createdAt',
+            'updatedAt',
+            'parentCommentId',
+            'replyToUserId',
+            'replyToDisplayName'
+          ])
+          && request.resource.data.createdAt is string
+          && request.resource.data.updatedAt is string
+          && (
+            request.resource.data.parentCommentId == null ||
+            (
+              request.resource.data.parentCommentId is string
+              && exists(
+                /databases/$(database)/documents/activities/$(activityId)/comments/$(request.resource.data.parentCommentId)
+              )
+            )
+          );
         allow update, delete: if false;
+
+        match /likes/{userId} {
+          allow read: if canInteractWithActivity(activityId);
+          allow create: if canInteractWithActivity(activityId)
+            && userId == request.auth.uid
+            && request.resource.data.keys().hasOnly([
+              'activityId',
+              'commentId',
+              'commentAuthorId',
+              'userId',
+              'createdAt'
+            ])
+            && request.resource.data.activityId == activityId
+            && request.resource.data.commentId == commentId
+            && request.resource.data.userId == request.auth.uid
+            && request.resource.data.commentAuthorId == get(
+              /databases/$(database)/documents/activities/$(activityId)/comments/$(commentId)
+            ).data.authorId
+            && request.resource.data.createdAt is string;
+          allow delete: if canInteractWithActivity(activityId)
+            && userId == request.auth.uid
+            && resource.data.userId == request.auth.uid;
+          allow update: if false;
+        }
       }
     }
 

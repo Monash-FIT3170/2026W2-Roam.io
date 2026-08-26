@@ -1,12 +1,17 @@
 /*
  * Author: Sanjevan Rajasegar
- * Last Modified: 12/05/2026
+ * Last Modified: 7 August 2026
  * Description:
  *   Firebase spatial API that returns region geometry and square-metre area for
- *   map unlock XP rewards.
+ *   map unlock XP rewards, plus Firestore triggers for social follow inbox
+ *   notifications.
  */
 
-const { onRequest } = require('firebase-functions/v2/https');
+const {
+  onRequest,
+  onCall,
+  HttpsError,
+} = require('firebase-functions/v2/https');
 const { defineSecret } = require('firebase-functions/params');
 
 const express = require('express');
@@ -19,8 +24,17 @@ const {
   TRANSPORT_TYPES,
 } = require('./placesapi');
 
+const {
+  onFollowCreated,
+  onFollowDeleted,
+  onFollowRequestCreated,
+  onFollowRequestDeleted,
+  onFollowRequestAccepted,
+} = require('./follow_notifications');
+
 const DATABASE_URL = defineSecret('DATABASE_URL');
 const GOOGLE_PLACES_API_KEY = defineSecret('GOOGLE_PLACES_API_KEY');
+const GEMINI_API_KEY = defineSecret("GEMINI_API_KEY");
 
 const app = express();
 
@@ -503,6 +517,10 @@ app.get('/places/region/:regionId', async (req, res) => {
 
 
 
+
+
+
+
 // get places from already stored ones
 
 app.post('/places/regions', async (req, res) => {
@@ -688,6 +706,193 @@ app.post('/places/nearby', async (req, res) => {
   }
 });
 
+
+exports.verifyQuestPhoto = onCall(
+  {
+    secrets: [GEMINI_API_KEY],
+    timeoutSeconds: 60,
+  },
+  async (request) => {
+    if (!request.auth) {
+      throw new HttpsError(
+        "unauthenticated",
+        "You must be signed in to verify a quest.",
+      );
+    }
+
+    const {
+      questTitle,
+      questDescription,
+      verificationPrompt,
+      imageBase64,
+      mimeType,
+    } = request.data ?? {};
+
+    if (
+      typeof questTitle !== "string" ||
+      typeof verificationPrompt !== "string" ||
+      typeof imageBase64 !== "string" ||
+      imageBase64.length === 0
+    ) {
+      throw new HttpsError(
+        "invalid-argument",
+        "Missing quest verification information.",
+      );
+    }
+
+    const prompt = `
+You are verifying a photo submitted for a location-based side quest.
+
+Quest:
+${questTitle}
+
+Quest description:
+${questDescription ?? ""}
+
+Acceptable visual evidence:
+${verificationPrompt}
+
+Determine whether the submitted image is reasonable visual evidence that
+the user is completing this quest.
+
+The user's physical location is checked separately using GPS, so you do
+not need to determine their exact geographic location from the image.
+
+Be reasonably permissive. The photo does not need to perfectly identify
+the landmark. It only needs to be visually consistent with the quest and
+the acceptable evidence above.
+
+Reject clearly unrelated images, screenshots, blank images, or images
+that provide no reasonable evidence for the quest.
+
+Return ONLY valid JSON in exactly this format:
+
+{
+  "verified": true,
+  "confidence": 0.9,
+  "feedback": "Short user-friendly explanation."
+}
+
+confidence must be between 0 and 1.
+feedback must be one short sentence.
+`;
+
+    try {
+      const response = await fetch(
+        "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash-lite:generateContent",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "x-goog-api-key": GEMINI_API_KEY.value(),
+          },
+          body: JSON.stringify({
+            contents: [
+              {
+                role: "user",
+                parts: [
+                  {
+                    inlineData: {
+                      mimeType:
+                        typeof mimeType === "string"
+                          ? mimeType
+                          : "image/jpeg",
+                      data: imageBase64,
+                    },
+                  },
+                  {
+                    text: prompt,
+                  },
+                ],
+              },
+            ],
+            generationConfig: {
+              responseMimeType: "application/json",
+              temperature: 0.1,
+            },
+          }),
+        },
+      );
+
+      if (!response.ok) {
+        const errorText = await response.text();
+
+        console.error(
+          "[verifyQuestPhoto] Gemini request failed:",
+          response.status,
+          errorText,
+        );
+
+        throw new HttpsError(
+          "internal",
+          "Photo verification service failed.",
+        );
+      }
+
+      const geminiResponse = await response.json();
+
+      const text =
+        geminiResponse?.candidates?.[0]?.content?.parts?.[0]?.text;
+
+      if (typeof text !== "string" || text.length === 0) {
+        console.error(
+          "[verifyQuestPhoto] Invalid Gemini response:",
+          JSON.stringify(geminiResponse),
+        );
+
+        throw new HttpsError(
+          "internal",
+          "Photo verification returned no result.",
+        );
+      }
+
+      const result = JSON.parse(text);
+
+      const verified = result.verified === true;
+
+      const rawConfidence =
+        typeof result.confidence === "number"
+          ? result.confidence
+          : 0;
+
+      const confidence = Math.max(
+        0,
+        Math.min(1, rawConfidence),
+      );
+
+      const feedback =
+        typeof result.feedback === "string"
+          ? result.feedback
+          : verified
+            ? "The photo looks consistent with this quest."
+            : "The photo could not be verified for this quest.";
+
+      console.log(
+        `[verifyQuestPhoto] uid=${request.auth.uid} ` +
+        `quest=${questTitle} verified=${verified} ` +
+        `confidence=${confidence}`,
+      );
+
+      return {
+        verified,
+        confidence,
+        feedback,
+      };
+    } catch (error) {
+      console.error("[verifyQuestPhoto] Error:", error);
+
+      if (error instanceof HttpsError) {
+        throw error;
+      }
+
+      throw new HttpsError(
+        "internal",
+        "Unable to verify the quest photo.",
+      );
+    }
+  },
+);
+
 exports.api = onRequest(
   {
     region: 'australia-southeast1',
@@ -697,3 +902,9 @@ exports.api = onRequest(
   },
   app
 );
+
+exports.onFollowCreated = onFollowCreated;
+exports.onFollowDeleted = onFollowDeleted;
+exports.onFollowRequestCreated = onFollowRequestCreated;
+exports.onFollowRequestDeleted = onFollowRequestDeleted;
+exports.onFollowRequestAccepted = onFollowRequestAccepted;

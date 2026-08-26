@@ -66,7 +66,7 @@ void main() {
     });
 
     test(
-      'keeps unvisited regions fogged even when heatmap intensity exists',
+      'renders nothing for unvisited regions, even with heatmap intensity',
       () {
         final cache = RegionPolygonCache();
 
@@ -80,10 +80,102 @@ void main() {
 
         final polygon = cache.polygons.single;
 
-        expect(polygon.fillColor, const Color(0xCC000000));
+        // Fog is no longer a black polygon per census tile. It is a single
+        // animated cloud layer above the map, drawn as the screen minus holes
+        // for explored ground, so unexplored tiles must contribute nothing —
+        // per-tile fills produced seams and double-blended shared edges.
+        //
+        // Heatmap intensity must still not leak through onto an unvisited tile.
+        expect(polygon.fillColor, const Color(0x00000000));
+        expect(polygon.strokeColor, const Color(0x00000000));
+        expect(polygon.strokeWidth, 0);
       },
     );
+
+    test('keeps every edge around an isolated explored region', () {
+      final cache = RegionPolygonCache();
+      cache.cacheRegion(
+        region: _squareRegion('left', west: 144, east: 145),
+        isVisited: true,
+        isCurrentRegion: false,
+        onRegionTapped: (_, _) {},
+      );
+
+      expect(cache.polygons.single.strokeWidth, 0);
+      final outlines = cache.exploredBoundaryPolylines(<String>{'left'});
+      expect(outlines, hasLength(4));
+      expect(outlines.every((line) => line.width == 3), isTrue);
+    });
+
+    test('uses the requested theme colour for every boundary edge', () {
+      final cache = RegionPolygonCache();
+      cache.cacheRegion(
+        region: _squareRegion('left', west: 144, east: 145),
+        isVisited: true,
+        isCurrentRegion: false,
+        onRegionTapped: (_, _) {},
+      );
+
+      const darkModeSage = Color(0xFF9EB58D);
+      final outlines = cache.exploredBoundaryPolylines(<String>{
+        'left',
+      }, boundaryColor: darkModeSage);
+
+      expect(outlines.every((line) => line.color == darkModeSage), isTrue);
+    });
+
+    test('removes the shared edge between adjacent explored regions', () {
+      final cache = RegionPolygonCache();
+      for (final region in <RegionPolygon>[
+        _squareRegion('left', west: 144, east: 145),
+        _squareRegion('right', west: 145, east: 146),
+      ]) {
+        cache.cacheRegion(
+          region: region,
+          isVisited: true,
+          isCurrentRegion: false,
+          onRegionTapped: (_, _) {},
+        );
+      }
+
+      final outlines = cache.exploredBoundaryPolylines(<String>{
+        'left',
+        'right',
+      });
+
+      expect(outlines, hasLength(6));
+      expect(
+        outlines.where(
+          (line) => line.points.every((point) => point.longitude == 145),
+        ),
+        isEmpty,
+      );
+    });
   });
+}
+
+RegionPolygon _squareRegion(
+  String id, {
+  required double west,
+  required double east,
+}) {
+  return RegionPolygon(
+    id: id,
+    name: id,
+    areaSquareMetres: 1,
+    geometry: <String, dynamic>{
+      'type': 'Polygon',
+      'coordinates': <dynamic>[
+        <dynamic>[
+          <double>[west, -37],
+          <double>[east, -37],
+          <double>[east, -38],
+          <double>[west, -38],
+          <double>[west, -37],
+        ],
+      ],
+    },
+  );
 }
 
 RegionPolygon _region({required double? areaSquareMetres}) {

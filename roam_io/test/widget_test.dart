@@ -8,6 +8,7 @@ import 'package:roam_io/features/journeys/data/journey_controller.dart';
 import 'package:roam_io/features/journeys/screens/journeys_screen.dart';
 import 'package:roam_io/features/profile/domain/profile_model.dart';
 import 'package:roam_io/shared/widgets/level_up_celebration.dart';
+import 'package:roam_io/theme/app_theme_mode.dart';
 
 import 'support/journey_test_harness.dart';
 
@@ -41,6 +42,7 @@ void main() {
       });
 
       expect(profile.darkModeEnabled, isFalse);
+      expect(profile.themeMode, AppThemeMode.light);
       expect(profile.xp, 0);
       expect(profile.level, 1);
     });
@@ -74,8 +76,27 @@ void main() {
       );
 
       expect(profile.toMap()['darkModeEnabled'], isTrue);
+      expect(profile.toMap()['themeMode'], 'dark');
       expect(profile.toMap()['xp'], 25);
       expect(profile.toMap()['level'], 1);
+    });
+
+    test('reads and writes the dynamic appearance preference', () {
+      final profile = ProfileModel.fromMap(<String, dynamic>{
+        'uid': 'user-1',
+        'username': 'traveller',
+        'displayName': 'Traveller',
+        'email': 'traveller@example.com',
+        'createdAt': '2026-05-01T10:00:00.000',
+        'updatedAt': '2026-05-01T10:00:00.000',
+        'themeMode': 'dynamic',
+        'darkModeEnabled': true,
+      });
+
+      expect(profile.themeMode, AppThemeMode.dynamic);
+      expect(profile.darkModeEnabled, isFalse);
+      expect(profile.toMap()['themeMode'], 'dynamic');
+      expect(profile.toMap()['darkModeEnabled'], isFalse);
     });
   });
 
@@ -151,15 +172,17 @@ void main() {
           ),
         ),
       );
-      await tester.pump(const Duration(milliseconds: 900));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 200));
+      // Level 6→7 animation duration is 1100 + 550ms.
+      await tester.pump(const Duration(milliseconds: 1800));
 
-      expect(find.text('LEVEL UP!'), findsOneWidget);
       expect(find.text('Level 7'), findsOneWidget);
+      expect(find.text('LEVEL UP!'), findsOneWidget);
       expect(find.text('Tap to continue'), findsOneWidget);
 
       await tester.tap(find.byType(LevelUpCelebration));
       await tester.pumpAndSettle();
-      await tester.pump(const Duration(seconds: 3));
 
       expect(dismissed, isTrue);
     });

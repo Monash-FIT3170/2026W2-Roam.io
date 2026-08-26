@@ -1,36 +1,68 @@
 /*
  * Author: Sanjevan Rajasegar
- * Last Updated: 6 August 2026
+ * Last Updated: 10 August 2026
  * Description:
- *   Home destination showing a stub friend activity feed. Friend cards expose
- *   Kudos + live comment count only (Share omitted for privacy). Comment opens
- *   the shared Comments page; stubs are temporary and not a production feed.
+ *   Home destination showing persisted own/followed activities.
  */
 
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 
 import '../../../shared/widgets/app_bottom_nav_bar.dart';
 import '../../../shared/widgets/app_page_header.dart';
 import '../../../theme/app_surfaces.dart';
+import '../../activity_feed/data/activity_feed_service.dart';
+import '../../activity_feed/data/comment_like_service.dart';
 import '../../activity_feed/data/comment_service.dart';
-import '../../activity_feed/data/stub_activity_feed_data.dart';
+import '../../activity_feed/data/kudos_service.dart';
+import '../../activity_feed/models/activity_feed_item.dart';
 import '../../activity_feed/screens/activity_detail_screen.dart';
 import '../../activity_feed/screens/comments_screen.dart';
 import '../../activity_feed/widgets/activity_feed_card.dart';
+import '../../auth/providers/auth_provider.dart';
+import '../../social/data/follow_service.dart';
+import '../../journeys/widgets/journey_share_sheet.dart';
 
 /// Top-level Home tab for the friend activity feed foundation.
-class HomeScreen extends StatelessWidget {
-  const HomeScreen({super.key, this.commentService});
+class HomeScreen extends StatefulWidget {
+  const HomeScreen({
+    super.key,
+    this.commentService,
+    this.commentLikeService,
+    this.kudosService,
+    this.activityFeedService,
+    this.followService,
+  });
 
   /// Injected for tests; production receives a shared instance from [MainShellScreen].
   final CommentService? commentService;
+  final CommentLikeService? commentLikeService;
+  final KudosService? kudosService;
+  final ActivityFeedService? activityFeedService;
+  final FollowService? followService;
+
+  @override
+  State<HomeScreen> createState() => _HomeScreenState();
+}
+
+class _HomeScreenState extends State<HomeScreen> {
+  Stream<List<ActivityFeedItem>>? _realActivitiesStream;
+  String? _realActivitiesStreamUserId;
+  ActivityFeedService? _realActivitiesStreamActivityService;
+  FollowService? _realActivitiesStreamFollowService;
 
   @override
   Widget build(BuildContext context) {
     final bottomClearance =
         AppBottomNavBar.clearanceFromScreenBottom(context) + 12;
-    final activities = StubActivityFeedData.friendActivities;
-    final comments = commentService;
+    final comments = widget.commentService;
+    String? currentUserId;
+    try {
+      currentUserId = context.watch<AuthProvider>().currentUser?.uid;
+    } on ProviderNotFoundException {
+      currentUserId = null;
+    }
+    final realActivitiesStream = _homeActivitiesStream(currentUserId);
 
     return Container(
       color: AppSurfaces.pageBackground(context),
@@ -41,34 +73,46 @@ class HomeScreen extends StatelessWidget {
           children: [
             const AppPageHeader(title: 'Home'),
             Expanded(
-              child: ListView.separated(
-                padding: EdgeInsets.fromLTRB(20, 4, 20, bottomClearance),
-                itemCount: activities.length,
-                separatorBuilder: (context, index) =>
-                    const SizedBox(height: 14),
-                itemBuilder: (context, index) {
-                  final activity = activities[index];
-                  return ActivityFeedCard.fromItem(
-                    activity,
-                    commentService: comments,
-                    showShare: false,
-                    onOverflowTap: () {
-                      Navigator.of(context).push(
-                        MaterialPageRoute<void>(
-                          builder: (_) =>
-                              ActivityDetailScreen(activity: activity),
-                        ),
-                      );
-                    },
-                    onKudosTap: () {},
-                    onCommentTap: () {
-                      Navigator.of(context).push(
-                        MaterialPageRoute<void>(
-                          builder: (_) => CommentsScreen(
-                            activityId: activity.id,
-                            commentService: comments,
-                          ),
-                        ),
+              child: StreamBuilder<List<ActivityFeedItem>>(
+                stream: realActivitiesStream,
+                builder: (context, snapshot) {
+                  debugPrint(
+                    '[HomeScreen] activity builder currentUserId=$currentUserId '
+                    'connectionState=${snapshot.connectionState} '
+                    'hasError=${snapshot.hasError} '
+                    'hasData=${snapshot.hasData} '
+                    'renderedCount=${snapshot.data?.length ?? 0} '
+                    'titles=${_activityTitles(snapshot.data)}',
+                  );
+                  if (snapshot.hasError) {
+                    debugPrint(
+                      '[HomeScreen] activity stream failed ${snapshot.error}',
+                    );
+                    return const _HomeEmptyState(
+                      message: 'Could not load activities. Try again.',
+                    );
+                  }
+                  if (snapshot.connectionState == ConnectionState.waiting &&
+                      !snapshot.hasData) {
+                    return const Center(child: CircularProgressIndicator());
+                  }
+                  final activities =
+                      snapshot.data ?? const <ActivityFeedItem>[];
+                  if (activities.isEmpty) {
+                    return const _HomeEmptyState(message: 'No activities yet');
+                  }
+                  return ListView.separated(
+                    padding: EdgeInsets.fromLTRB(20, 4, 20, bottomClearance),
+                    itemCount: activities.length,
+                    separatorBuilder: (context, index) =>
+                        const SizedBox(height: 14),
+                    itemBuilder: (context, index) {
+                      return _HomeActivityCard(
+                        activity: activities[index],
+                        currentUserId: currentUserId,
+                        commentService: comments,
+                        commentLikeService: widget.commentLikeService,
+                        kudosService: widget.kudosService,
                       );
                     },
                   );
@@ -78,6 +122,143 @@ class HomeScreen extends StatelessWidget {
           ],
         ),
       ),
+    );
+  }
+
+  Stream<List<ActivityFeedItem>> _homeActivitiesStream(String? currentUserId) {
+    final activityFeedService = widget.activityFeedService;
+    final followService = widget.followService;
+    if (currentUserId == null ||
+        activityFeedService == null ||
+        followService == null) {
+      if (_realActivitiesStream != null ||
+          _realActivitiesStreamUserId != null ||
+          _realActivitiesStreamActivityService != null ||
+          _realActivitiesStreamFollowService != null) {
+        debugPrint(
+          '[HomeScreen] activity stream cleared currentUserId=$currentUserId '
+          'hasActivityFeedService=${activityFeedService != null} '
+          'hasFollowService=${followService != null}',
+        );
+      }
+      _realActivitiesStream = Stream<List<ActivityFeedItem>>.value(
+        const <ActivityFeedItem>[],
+      );
+      _realActivitiesStreamUserId = null;
+      _realActivitiesStreamActivityService = null;
+      _realActivitiesStreamFollowService = null;
+      return _realActivitiesStream!;
+    }
+
+    final hasCachedStream =
+        _realActivitiesStream != null &&
+        _realActivitiesStreamUserId == currentUserId &&
+        identical(_realActivitiesStreamActivityService, activityFeedService) &&
+        identical(_realActivitiesStreamFollowService, followService);
+    if (hasCachedStream) return _realActivitiesStream!;
+
+    debugPrint(
+      '[HomeScreen] activity stream created currentUserId=$currentUserId',
+    );
+    _realActivitiesStream = activityFeedService.watchHomeActivitiesForUser(
+      userId: currentUserId,
+      followedUserIds: followService.watchFollowingIds(currentUserId),
+    );
+    _realActivitiesStreamUserId = currentUserId;
+    _realActivitiesStreamActivityService = activityFeedService;
+    _realActivitiesStreamFollowService = followService;
+    return _realActivitiesStream!;
+  }
+}
+
+class _HomeEmptyState extends StatelessWidget {
+  const _HomeEmptyState({required this.message});
+
+  final String message;
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(24),
+        child: Text(
+          message,
+          textAlign: TextAlign.center,
+          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+            color: AppSurfaces.textMuted(context),
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+String _activityTitles(List<ActivityFeedItem>? activities) {
+  if (activities == null || activities.isEmpty) return '';
+  return activities.map((activity) => activity.title).join('|');
+}
+
+class _HomeActivityCard extends StatelessWidget {
+  const _HomeActivityCard({
+    required this.activity,
+    required this.currentUserId,
+    required this.commentService,
+    required this.commentLikeService,
+    required this.kudosService,
+  });
+
+  final ActivityFeedItem activity;
+  final String? currentUserId;
+  final CommentService? commentService;
+  final CommentLikeService? commentLikeService;
+  final KudosService? kudosService;
+
+  @override
+  Widget build(BuildContext context) {
+    return ActivityFeedCard.fromItem(
+      activity,
+      commentService: commentService,
+      kudosService: kudosService,
+      currentUserId: currentUserId,
+      showShare: true,
+      onShareTap: () {
+        JourneyShareSheet.shareFromActivity(context, activity);
+      },
+      onOverflowTap: () {
+        debugPrint(
+          '[HomeScreen] open detail activityId=${activity.id} '
+          'ownerId=${activity.ownerId}',
+        );
+        Navigator.of(context).push(
+          MaterialPageRoute<void>(
+            builder: (_) => ActivityDetailScreen(
+              activity: activity,
+              showEngagementActions: true,
+              currentUserId: currentUserId,
+              commentService: commentService,
+              commentLikeService: commentLikeService,
+              kudosService: kudosService,
+            ),
+          ),
+        );
+      },
+      onCommentTap: () {
+        debugPrint(
+          '[HomeScreen] open comments activityId=${activity.id} '
+          'ownerId=${activity.ownerId}',
+        );
+        Navigator.of(context).push(
+          MaterialPageRoute<void>(
+            builder: (_) => CommentsScreen(
+              activityId: activity.id,
+              activityOwnerId: activity.ownerId,
+              commentService: commentService,
+              commentLikeService: commentLikeService,
+            ),
+          ),
+        );
+      },
     );
   }
 }

@@ -1,9 +1,9 @@
 /*
  * Author: Sanjevan Rajasegar
- * Last Modified: 05/08/2026
+ * Last Updated: 10 August 2026
  * Description:
- *   Displays app-styled green in-app notification banners with configurable
- *   icons, actions, dismissal and user interaction.
+ *   Displays cream in-app notification banners with configurable icons,
+ *   actions, dismissal and user interaction (no outline border).
  */
 
 import 'package:flutter/material.dart';
@@ -59,10 +59,6 @@ class NotificationBanner extends StatelessWidget {
             width: double.infinity,
             constraints: const BoxConstraints(maxWidth: 560),
             padding: const EdgeInsets.fromLTRB(16, 14, 8, 12),
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: colourScheme.outlineVariant),
-            ),
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -209,12 +205,18 @@ class _NotificationIcon extends StatelessWidget {
   /// Returns the icon associated with each notification type.
   IconData _iconFor(NotificationType type) {
     return switch (type) {
-      NotificationType.kudos => Icons.favorite_outline,
+      NotificationType.kudos => Icons.thumb_up_alt_outlined,
       NotificationType.comment => Icons.chat_bubble_outline,
+      NotificationType.commentReply => Icons.reply_rounded,
+      NotificationType.commentLike => Icons.thumb_up_alt_outlined,
       NotificationType.friendRequest => Icons.person_add_alt_1,
       NotificationType.friendAccepted => Icons.people_outline,
+      NotificationType.follow => Icons.person_add_alt_1,
+      NotificationType.followRequest => Icons.person_add_alt_1,
+      NotificationType.followRequestAccepted => Icons.people_outline,
       NotificationType.error => Icons.error_outline,
       NotificationType.activity => Icons.directions_walk,
+      NotificationType.fogDecay => Icons.cloud_outlined,
     };
   }
 }

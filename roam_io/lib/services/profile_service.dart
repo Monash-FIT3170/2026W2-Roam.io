@@ -1,19 +1,25 @@
 /*
  * Author: Sanjevan Rajasegar
- * Last Updated: 6 August 2026
+ * Last Updated: 7 August 2026
  * Description:
  *   Provides Firestore profile document operations for account details,
- *   preferences, profile photo metadata, and timestamped XP gain events.
- *   Canonical XP/level on profiles/{uid} is authoritative; xp_events history
- *   is secondary analytics and must never block progression.
+ *   preferences, profile photo metadata, public search projection, and
+ *   timestamped XP gain events. Canonical XP/level on profiles/{uid} is
+ *   authoritative; secondary history/projection writes must never block
+ *   progression.
  */
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/foundation.dart';
 
 import '../features/profile/domain/profile_model.dart';
+import '../features/map/fog/fog_decay_difficulty.dart';
 import '../features/profile/domain/xp_award_result.dart';
 import '../features/profile/domain/xp_event.dart';
+import '../features/social/data/friendship_service.dart';
+import '../features/social/domain/social_privacy_settings.dart';
+import '../features/you/services/stats_summary_service.dart';
+import '../theme/app_theme_mode.dart';
 
 /// Owns reads and writes for Firestore documents in the `profiles` collection.
 class ProfileService {
@@ -23,8 +29,16 @@ class ProfileService {
   ProfileService({
     FirebaseFirestore? firestore,
     Future<void> Function(String uid, XpEvent event)? recordXpEvent,
+    StatsSummaryService? statsSummaryService,
+    FriendshipService? friendshipService,
   }) : _firestore = firestore ?? FirebaseFirestore.instance,
-       _recordXpEventOverride = recordXpEvent;
+       _recordXpEventOverride = recordXpEvent,
+       _statsSummaryService =
+           statsSummaryService ??
+           StatsSummaryService(
+             firestore: firestore ?? FirebaseFirestore.instance,
+           ),
+       _friendshipService = friendshipService;
 
   final FirebaseFirestore _firestore;
 
@@ -32,6 +46,8 @@ class ProfileService {
   /// affecting the canonical progression transaction.
   final Future<void> Function(String uid, XpEvent event)?
   _recordXpEventOverride;
+  final StatsSummaryService _statsSummaryService;
+  final FriendshipService? _friendshipService;
 
   CollectionReference<Map<String, dynamic>> get _profiles =>
       _firestore.collection(_profilesCollectionName);
@@ -41,8 +57,9 @@ class ProfileService {
   }
 
   /// Creates/replaces profile document at `profiles/{uid}`.
-  Future<void> createProfile(ProfileModel profile) {
-    return _profiles.doc(profile.uid).set(profile.toMap());
+  Future<void> createProfile(ProfileModel profile) async {
+    await _profiles.doc(profile.uid).set(profile.toMap());
+    await _trySyncPublicProfile(profile, reason: 'createProfile');
   }
 
   /// Updates editable profile fields and refreshes `updatedAt`.
@@ -51,7 +68,7 @@ class ProfileService {
     required String username,
     required String displayName,
     String? photoUrl,
-  }) {
+  }) async {
     final data = <String, dynamic>{
       'username': username,
       'displayName': displayName,
@@ -60,18 +77,64 @@ class ProfileService {
     if (photoUrl != null) {
       data['photoUrl'] = photoUrl;
     }
-    return _profiles.doc(uid).update(data);
+    await _profiles.doc(uid).update(data);
+    final profile = await getProfile(uid);
+    if (profile != null) {
+      await _trySyncPublicProfile(profile, reason: 'updateProfile');
+    }
   }
 
-  /// Updates the user's saved dark mode preference.
+  /// Updates the user's saved Light, Dark, or Dynamic appearance preference.
+  Future<void> updateThemeModePreference({
+    required String uid,
+    required AppThemeMode mode,
+  }) {
+    return _profiles.doc(uid).update(<String, dynamic>{
+      'themeMode': mode.storageValue,
+      // Keep older app builds on the closest fixed equivalent.
+      'darkModeEnabled': mode == AppThemeMode.dark,
+      'updatedAt': DateTime.now().toIso8601String(),
+    });
+  }
+
+  /// Updates how long explored areas remain clear before fog may return.
+  Future<void> updateFogDecayDifficulty({
+    required String uid,
+    required FogDecayDifficulty difficulty,
+  }) {
+    return _profiles.doc(uid).update(<String, dynamic>{
+      'fogDecayDifficulty': difficulty.storageValue,
+      'updatedAt': DateTime.now().toIso8601String(),
+    });
+  }
+
+  /// Legacy wrapper retained for callers that still expose a boolean switch.
   Future<void> updateDarkModePreference({
     required String uid,
     required bool enabled,
   }) {
-    return _profiles.doc(uid).update(<String, dynamic>{
-      'darkModeEnabled': enabled,
+    return updateThemeModePreference(
+      uid: uid,
+      mode: enabled ? AppThemeMode.dark : AppThemeMode.light,
+    );
+  }
+
+  /// Updates the user's private-account setting on the authoritative profile.
+  Future<void> updateSocialPrivacy({
+    required String uid,
+    required SocialPrivacySettings privacy,
+  }) async {
+    await _profiles.doc(uid).update(<String, dynamic>{
+      'privacy': privacy.toMap(),
       'updatedAt': DateTime.now().toIso8601String(),
     });
+    final profile = await getProfile(uid);
+    if (profile != null) {
+      await _trySyncPublicProfile(profile, reason: 'updateSocialPrivacy');
+    }
+    if (!privacy.isPrivateAccount) {
+      await _tryResolvePendingFollowRequestsForPublicTarget(uid);
+    }
   }
 
   /// Stores the user's profile photo URL and content hash.
@@ -79,12 +142,16 @@ class ProfileService {
     required String uid,
     required String photoUrl,
     required String photoHash,
-  }) {
-    return _profiles.doc(uid).update(<String, dynamic>{
+  }) async {
+    await _profiles.doc(uid).update(<String, dynamic>{
       'photoUrl': photoUrl,
       'photoHash': photoHash,
       'updatedAt': DateTime.now().toIso8601String(),
     });
+    final profile = await getProfile(uid);
+    if (profile != null) {
+      await _trySyncPublicProfile(profile, reason: 'updateProfilePhoto');
+    }
   }
 
   /// Stores a content hash for an existing profile photo.
@@ -131,6 +198,10 @@ class ProfileService {
       'displayName': displayName,
       'updatedAt': DateTime.now().toIso8601String(),
     });
+    final profile = await getProfile(uid);
+    if (profile != null) {
+      await _trySyncPublicProfile(profile, reason: 'updateDisplayName');
+    }
   }
 
   /// Updates the username stored on the profile document.
@@ -139,6 +210,10 @@ class ProfileService {
       'username': username,
       'updatedAt': DateTime.now().toIso8601String(),
     });
+    final profile = await getProfile(uid);
+    if (profile != null) {
+      await _trySyncPublicProfile(profile, reason: 'updateUsername');
+    }
   }
 
   /// Updates the user's XP and recalculates level if necessary.
@@ -152,6 +227,10 @@ class ProfileService {
       'level': expectedLevel,
       'updatedAt': DateTime.now().toIso8601String(),
     });
+    final profile = await getProfile(uid);
+    if (profile != null) {
+      await _trySyncPublicProfile(profile, reason: 'updateXp');
+    }
   }
 
   /// Awards XP on the canonical profile document, then best-effort records
@@ -229,6 +308,24 @@ class ProfileService {
         sourceId: sourceId,
       ),
     );
+    try {
+      final profile = await getProfile(uid);
+      if (profile != null) {
+        await _trySyncPublicProfile(profile, reason: 'addXp');
+      }
+    } catch (error, stackTrace) {
+      debugPrint(
+        '[ProfileService.addXp] Public profile projection refresh skipped '
+        '(progression kept) uid=$uid error=$error\n$stackTrace',
+      );
+    }
+
+    await _tryRecordStatsSummary(
+      uid: uid,
+      amount: xpToAdd,
+      source: source,
+      earnedAt: earnedAt,
+    );
 
     return XpAwardResult.success(
       amount: xpToAdd,
@@ -260,6 +357,80 @@ class ProfileService {
         'sourceId=${event.sourceId} code=$code error=$error\n$stackTrace',
       );
       return false;
+    }
+  }
+
+  Future<void> _tryRecordStatsSummary({
+    required String uid,
+    required int amount,
+    required XpEventSource source,
+    required DateTime earnedAt,
+  }) async {
+    try {
+      await _statsSummaryService.recordXpAward(
+        uid: uid,
+        amount: amount,
+        source: source,
+        earnedAt: earnedAt,
+      );
+    } catch (error, stackTrace) {
+      debugPrint(
+        '[ProfileService.addXp] Stats summary write failed (progression kept) '
+        'uid=$uid amount=$amount source=${source.wireValue} error=$error\n'
+        '$stackTrace',
+      );
+    }
+  }
+
+  FriendshipService get _publicProfileService {
+    return _friendshipService ?? FriendshipService(firestore: _firestore);
+  }
+
+  Future<bool> _trySyncPublicProfile(
+    ProfileModel profile, {
+    required String reason,
+  }) async {
+    try {
+      await _publicProfileService.upsertPublicProfile(
+        uid: profile.uid,
+        username: profile.username,
+        displayName: profile.displayName,
+        photoUrl: profile.photoUrl,
+        createdAt: profile.createdAt,
+        xp: profile.xp,
+        level: profile.level,
+        isPrivateAccount: profile.privacy.isPrivateAccount,
+      );
+      return true;
+    } catch (error, stackTrace) {
+      debugPrint(
+        '[ProfileService.$reason] Public profile projection failed '
+        '(canonical profile kept) uid=${profile.uid} error=$error\n$stackTrace',
+      );
+      return false;
+    }
+  }
+
+  Future<void> _tryResolvePendingFollowRequestsForPublicTarget(
+    String targetId,
+  ) async {
+    try {
+      final snapshot = await _firestore
+          .collection('follow_requests')
+          .where('targetId', isEqualTo: targetId)
+          .where('status', isEqualTo: 'pending')
+          .get();
+      if (snapshot.docs.isEmpty) return;
+      final batch = _firestore.batch();
+      for (final doc in snapshot.docs) {
+        batch.delete(doc.reference);
+      }
+      await batch.commit();
+    } catch (error, stackTrace) {
+      debugPrint(
+        '[ProfileService.updateSocialPrivacy] stale request cleanup failed '
+        'targetId=$targetId error=$error\n$stackTrace',
+      );
     }
   }
 

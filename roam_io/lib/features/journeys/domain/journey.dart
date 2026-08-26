@@ -25,10 +25,14 @@ class Journey {
     required this.encodedRoute,
     required this.distanceMeters,
     required this.durationSeconds,
+    this.title,
     this.xpEarned,
     this.journeyXpEarned,
     this.tilesUnlocked = 0,
     this.tileXpEarned = 0,
+    this.unlockedTileIds = const [],
+    this.areaUnlockedSquareMetres = 0,
+    this.tilesPerKm,
   });
 
   /// Unique identifier for this journey.
@@ -62,6 +66,9 @@ class Journey {
   /// Total duration in seconds.
   final int durationSeconds;
 
+  /// User-facing Journey title chosen during summary review.
+  final String? title;
+
   /// Total XP earned during this journey, including unlocked-tile XP.
   final int? xpEarned;
 
@@ -73,6 +80,15 @@ class Journey {
 
   /// XP already awarded as those tiles were unlocked.
   final int tileXpEarned;
+
+  /// SA1 polygon IDs first unlocked while tracking this journey.
+  final List<String> unlockedTileIds;
+
+  /// Sum of unlocked tile areas recorded during this journey.
+  final double areaUnlockedSquareMetres;
+
+  /// New tiles unlocked per kilometre travelled.
+  final double? tilesPerKm;
 
   /// Returns the distance formatted as a string (e.g., "3.2 km").
   String get formattedDistance {
@@ -93,9 +109,12 @@ class Journey {
     return '$minutes min${minutes != 1 ? 's' : ''}';
   }
 
-  /// Returns the journey title in "Start Location to End Location" format.
-  /// Each location's custom name takes precedence over its default name.
-  String get displayTitle => '${startLocation.name} to ${endLocation.name}';
+  /// Returns the reviewed title, falling back to the legacy route title.
+  String get displayTitle {
+    final trimmed = title?.trim();
+    if (trimmed != null && trimmed.isNotEmpty) return trimmed;
+    return '${startLocation.name} to ${endLocation.name}';
+  }
 
   /// Creates a copy with optional field overrides.
   Journey copyWith({
@@ -109,10 +128,14 @@ class Journey {
     String? encodedRoute,
     double? distanceMeters,
     int? durationSeconds,
+    String? title,
     int? xpEarned,
     int? journeyXpEarned,
     int? tilesUnlocked,
     int? tileXpEarned,
+    List<String>? unlockedTileIds,
+    double? areaUnlockedSquareMetres,
+    double? tilesPerKm,
   }) {
     return Journey(
       id: id ?? this.id,
@@ -125,10 +148,15 @@ class Journey {
       encodedRoute: encodedRoute ?? this.encodedRoute,
       distanceMeters: distanceMeters ?? this.distanceMeters,
       durationSeconds: durationSeconds ?? this.durationSeconds,
+      title: title ?? this.title,
       xpEarned: xpEarned ?? this.xpEarned,
       journeyXpEarned: journeyXpEarned ?? this.journeyXpEarned,
       tilesUnlocked: tilesUnlocked ?? this.tilesUnlocked,
       tileXpEarned: tileXpEarned ?? this.tileXpEarned,
+      unlockedTileIds: unlockedTileIds ?? this.unlockedTileIds,
+      areaUnlockedSquareMetres:
+          areaUnlockedSquareMetres ?? this.areaUnlockedSquareMetres,
+      tilesPerKm: tilesPerKm ?? this.tilesPerKm,
     );
   }
 
@@ -150,12 +178,21 @@ class Journey {
       encodedRoute: data['encodedRoute'] as String,
       distanceMeters: (data['distanceMeters'] as num).toDouble(),
       durationSeconds: data['durationSeconds'] as int,
+      title: data['title'] as String?,
       xpEarned: data['xpEarned'] as int?,
       journeyXpEarned:
           (data['journeyXpEarned'] as num?)?.toInt() ??
           (data['xpEarned'] as num?)?.toInt(),
       tilesUnlocked: (data['tilesUnlocked'] as num?)?.toInt() ?? 0,
       tileXpEarned: (data['tileXpEarned'] as num?)?.toInt() ?? 0,
+      unlockedTileIds:
+          (data['unlockedTileIds'] as List<dynamic>?)
+              ?.map((value) => '$value')
+              .toList() ??
+          const [],
+      areaUnlockedSquareMetres:
+          (data['areaUnlockedSquareMetres'] as num?)?.toDouble() ?? 0,
+      tilesPerKm: (data['tilesPerKm'] as num?)?.toDouble(),
     );
   }
 
@@ -171,10 +208,14 @@ class Journey {
       'encodedRoute': encodedRoute,
       'distanceMeters': distanceMeters,
       'durationSeconds': durationSeconds,
+      if (title != null && title!.trim().isNotEmpty) 'title': title!.trim(),
       'xpEarned': xpEarned,
       'journeyXpEarned': journeyXpEarned,
       'tilesUnlocked': tilesUnlocked,
       'tileXpEarned': tileXpEarned,
+      'unlockedTileIds': unlockedTileIds,
+      'areaUnlockedSquareMetres': areaUnlockedSquareMetres,
+      if (tilesPerKm != null) 'tilesPerKm': tilesPerKm,
     };
   }
 
