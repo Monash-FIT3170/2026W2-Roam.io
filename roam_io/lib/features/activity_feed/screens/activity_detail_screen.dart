@@ -300,6 +300,7 @@ class ActivityDetailScreen extends StatelessWidget {
                         scrollDirection: Axis.horizontal,
                         buildDefaultDragHandles: false,
                         itemCount: editableMedia.length,
+                        // ignore: deprecated_member_use
                         onReorder: (oldIndex, newIndex) {
                           if (newIndex > oldIndex) newIndex -= 1;
                           setDialogState(() {
@@ -332,6 +333,7 @@ class ActivityDetailScreen extends StatelessWidget {
                         scrollDirection: Axis.horizontal,
                         buildDefaultDragHandles: false,
                         itemCount: pendingMedia.length,
+                        // ignore: deprecated_member_use
                         onReorder: (oldIndex, newIndex) {
                           if (newIndex > oldIndex) newIndex -= 1;
                           setDialogState(() {
