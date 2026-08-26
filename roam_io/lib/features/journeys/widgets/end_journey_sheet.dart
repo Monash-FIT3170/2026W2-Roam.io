@@ -17,15 +17,9 @@ import '../domain/transport_mode.dart';
 
 /// Result returned when the end journey sheet is completed.
 class EndJourneyResult {
-  const EndJourneyResult({
-    required this.endLocation,
-    this.continueTracking = false,
-  });
+  const EndJourneyResult({required this.endLocation});
 
   final JourneyLocation endLocation;
-
-  /// Whether the user chose to continue tracking instead of finishing.
-  final bool continueTracking;
 }
 
 /// Bottom sheet for completing a journey and selecting end location.
@@ -134,15 +128,6 @@ class _EndJourneySheetState extends State<EndJourneySheet> {
     Navigator.of(
       context,
     ).pop(EndJourneyResult(endLocation: _selectedLocation!));
-  }
-
-  void _continueTracking() {
-    Navigator.of(context).pop(
-      EndJourneyResult(
-        endLocation: JourneyLocation.currentLocation(widget.currentPosition),
-        continueTracking: true,
-      ),
-    );
   }
 
   @override
@@ -294,45 +279,24 @@ class _EndJourneySheetState extends State<EndJourneySheet> {
 
               const SizedBox(height: 32),
 
-              // Action Buttons
-              Row(
-                children: [
-                  // Continue Button
-                  Expanded(
-                    child: OutlinedButton.icon(
-                      onPressed: _continueTracking,
-                      icon: const Icon(Icons.play_arrow),
-                      label: const Text('Continue'),
-                      style: OutlinedButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(vertical: 16),
-                        foregroundColor: AppColors.sage,
-                        side: const BorderSide(color: AppColors.sage),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(16),
-                        ),
-                      ),
+              // Finish Button
+              SizedBox(
+                width: double.infinity,
+                child: FilledButton.icon(
+                  onPressed: _selectedLocation != null
+                      ? _finishJourney
+                      : null,
+                  icon: const Icon(Icons.check),
+                  label: const Text('Finish'),
+                  style: FilledButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(vertical: 16),
+                    backgroundColor: AppColors.sage,
+                    foregroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(16),
                     ),
                   ),
-                  const SizedBox(width: 12),
-                  // Finish Button
-                  Expanded(
-                    child: FilledButton.icon(
-                      onPressed: _selectedLocation != null
-                          ? _finishJourney
-                          : null,
-                      icon: const Icon(Icons.check),
-                      label: const Text('Finish'),
-                      style: FilledButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(vertical: 16),
-                        backgroundColor: AppColors.sage,
-                        foregroundColor: Colors.white,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(16),
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
+                ),
               ),
             ],
           ),

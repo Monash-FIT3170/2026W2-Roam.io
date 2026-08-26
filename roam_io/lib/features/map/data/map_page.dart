@@ -586,16 +586,6 @@ class _MapPageState extends State<MapPage> with WidgetsBindingObserver {
       return;
     }
 
-    // User chose to continue tracking.
-    if (endResult.continueTracking) {
-      await journeyController.resumeTracking();
-      if (mounted && journeyController.isTracking) {
-        setState(() => _isOpeningJourneyCompletionFlow = false);
-        AppToast.show(context, 'Journey resumed');
-      }
-      return;
-    }
-
     journeyController.setEndLocation(endResult.endLocation);
     journeyController.proceedToReview();
 
@@ -873,8 +863,7 @@ class _MapPageState extends State<MapPage> with WidgetsBindingObserver {
         Theme.of(context).brightness == Brightness.dark
         ? AppColors.lightSage
         : AppColors.sage;
-    final isPaused = journeyController.currentPhase == JourneyPhase.paused;
-    final isLiveJourneyActive = isTracking || isPaused;
+    final isLiveJourneyActive = isTracking;
     final isCompleting =
         journeyController.currentPhase == JourneyPhase.completing;
     final isReviewing =
@@ -912,7 +901,7 @@ class _MapPageState extends State<MapPage> with WidgetsBindingObserver {
         if (_mapController.myLocationEnabled)
           Positioned(
             right: 16,
-            bottom: isLiveJourneyActive ? 220 : 120,
+            bottom: isLiveJourneyActive ? 360 : 120,
             child: FloatingActionButton.small(
               heroTag: 'recenter_map',
               tooltip: 'Centre on my location',
@@ -981,7 +970,7 @@ class _MapPageState extends State<MapPage> with WidgetsBindingObserver {
             onPressed: _mapController.toggleHeatmap,
           ),
         ),
-        // Journey tracking card remains available while tracking is paused.
+        // Journey tracking card shown during active tracking.
         if (isLiveJourneyActive)
           Positioned(
             bottom: 100,
@@ -991,14 +980,6 @@ class _MapPageState extends State<MapPage> with WidgetsBindingObserver {
               distanceMeters: journeyController.distanceMeters,
               elapsedTime: journeyController.formattedElapsedTime,
               transportMode: journeyController.transportMode,
-              isPaused: isPaused,
-              onPauseResume: () {
-                if (isPaused) {
-                  journeyController.resumeTracking();
-                } else {
-                  journeyController.pauseTracking();
-                }
-              },
               onEndJourney: _endJourneyFlow,
             ),
           ),
