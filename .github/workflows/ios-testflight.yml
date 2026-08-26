@@ -7,7 +7,9 @@ name: iOS TestFlight
 
 on:
   push:
-    branches: [develop]
+    branches:
+      - develop
+      - feature/ART2-68-ios-testflight-cicd
   workflow_dispatch:
 
 concurrency:
