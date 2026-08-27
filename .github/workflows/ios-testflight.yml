@@ -9,7 +9,6 @@ on:
   push:
     branches:
       - develop
-      - feature/ART2-68-ios-testflight-cicd
   workflow_dispatch:
 
 concurrency:
