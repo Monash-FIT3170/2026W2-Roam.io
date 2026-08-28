@@ -20,6 +20,7 @@ import 'package:roam_io/features/map/data/region_service.dart';
 import 'package:roam_io/features/map/data/tile_unlock_xp_service.dart';
 import 'package:roam_io/features/map/data/visit_service.dart';
 import 'package:roam_io/features/map/data/visited_region_service.dart';
+import 'package:roam_io/features/map/fog/fog_decay_difficulty.dart';
 import 'package:roam_io/features/profile/domain/xp_award_result.dart';
 import 'package:roam_io/features/you/services/exploration_stats_service.dart';
 import 'package:roam_io/services/polygon_service.dart';
@@ -433,6 +434,29 @@ class _FakeVisitedRegionService implements VisitedRegionService {
   Future<Set<String>> loadVisitedRegionIds() async {
     return _visitedRegionIds;
   }
+
+  @override
+  Future<Set<String>> loadFogClearedRegionIds({
+    required FogDecayDifficulty difficulty,
+    DateTime? now,
+  }) async => _visitedRegionIds;
+
+  @override
+  Future<void> refreshFogDecayWarnings({
+    required FogDecayDifficulty difficulty,
+    DateTime? now,
+  }) async {}
+
+  @override
+  Future<Map<String, DateTime>> loadUnpresentedFogDecayEvents({
+    required FogDecayDifficulty difficulty,
+    DateTime? now,
+  }) async => <String, DateTime>{};
+
+  @override
+  Future<void> markFogDecayEventsPresented(
+    Map<String, DateTime> decayAtByRegionId,
+  ) async {}
 
   @override
   Future<bool> markVisited(

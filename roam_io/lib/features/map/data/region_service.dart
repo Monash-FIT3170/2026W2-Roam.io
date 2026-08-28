@@ -54,12 +54,22 @@ class RegionService {
   }
 
   /// Fetches regions intersecting the visible map viewport bounds.
-  // get all the regions that intersect with the current viewport
+  ///
+  /// [regionIds], when supplied, asks the API to return only those regions.
+  /// Only cleared regions are rendered now — the fog is drawn as the screen
+  /// minus explored holes, so unexplored geometry is never used — and this
+  /// avoids transferring and parsing up to 650 SA1 polygons that get discarded.
+  ///
+  /// The currently deployed function destructures only the bounds and ignores
+  /// unknown body fields, so sending this is safe against both the old and new
+  /// backend. Until the filter is deployed the caller still discards the extra
+  /// regions client-side; afterwards they stop being sent at all.
   Future<List<RegionPolygon>> getRegionsForViewport({
     required double south,
     required double west,
     required double north,
     required double east,
+    Set<String>? regionIds,
   }) async {
     // The spatial API will return a list of regions that intersect with the given bounding box.
     final response = await _client.post(
@@ -70,6 +80,8 @@ class RegionService {
         'west': west,
         'north': north,
         'east': east,
+        if (regionIds != null && regionIds.isNotEmpty)
+          'ids': regionIds.toList(growable: false),
       }),
     );
 

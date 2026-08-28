@@ -12,6 +12,7 @@ import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'package:timezone/timezone.dart' as tz;
 
 import '../models/app_notification.dart';
 import '../models/notification_action.dart';
@@ -179,11 +180,60 @@ class AndroidNotificationService {
     );
   }
 
+  /// Schedules a one-shot notification, returning false when notifications are
+  /// unsupported or permission has been denied.
+  Future<bool> schedule(
+    AppNotification notification, {
+    required DateTime scheduledAt,
+  }) async {
+    if (!_isSupportedPlatform) return false;
+    if (!_isInitialised) await initialise();
+
+    final androidPlugin = _plugin
+        .resolvePlatformSpecificImplementation<
+          AndroidFlutterLocalNotificationsPlugin
+        >();
+    final enabled = await androidPlugin?.areNotificationsEnabled() ?? false;
+    if (!enabled) return false;
+
+    final channel = _channelFor(notification.type);
+    final details = AndroidNotificationDetails(
+      channel.id,
+      channel.name,
+      channelDescription: channel.description,
+      importance: channel.importance,
+      priority: channel.priority,
+      icon: '@drawable/ic_notification',
+      category: _categoryFor(notification.type),
+    );
+    final payload = jsonEncode(<String, String>{
+      'id': notification.id,
+      'type': notification.type.name,
+      ...notification.data,
+    });
+
+    await _plugin.zonedSchedule(
+      id: _createNotificationId(notification.id),
+      title: notification.title,
+      body: notification.body,
+      scheduledDate: tz.TZDateTime.from(scheduledAt.toUtc(), tz.UTC),
+      notificationDetails: NotificationDetails(android: details),
+      androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
+      payload: payload,
+    );
+    return true;
+  }
+
   /// Cancels a previously displayed system notification.
   Future<void> cancel(AppNotification notification) async {
     if (!_isSupportedPlatform) return;
 
     await _plugin.cancel(id: _createNotificationId(notification.id));
+  }
+
+  Future<void> cancelById(String notificationId) async {
+    if (!_isSupportedPlatform) return;
+    await _plugin.cancel(id: _createNotificationId(notificationId));
   }
 
   /// Cancels all system notifications created by the application.
@@ -241,6 +291,7 @@ class AndroidNotificationService {
         return _importantChannel;
 
       case NotificationType.activity:
+      case NotificationType.fogDecay:
         return _activityChannel;
 
       case NotificationType.kudos:
@@ -271,6 +322,7 @@ class AndroidNotificationService {
         return AndroidNotificationCategory.social;
 
       case NotificationType.activity:
+      case NotificationType.fogDecay:
         return AndroidNotificationCategory.workout;
 
       case NotificationType.error:
@@ -307,6 +359,7 @@ class AndroidNotificationService {
       case NotificationType.friendAccepted:
       case NotificationType.follow:
       case NotificationType.followRequestAccepted:
+      case NotificationType.fogDecay:
         return null;
     }
   }

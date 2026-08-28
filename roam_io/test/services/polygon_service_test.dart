@@ -458,5 +458,32 @@ void main() {
 
       expect(counts, {'visible': 1});
     });
+
+    test('fog decay presentation persists without deleting history', () async {
+      final firestore = FakeFirebaseFirestore();
+      final service = PolygonService(firestore: firestore);
+      final visitedAt = DateTime(2026, 1, 1);
+      final decayAt = DateTime(2026, 1, 31);
+      await service.upsertVisitedPolygon(
+        profileId: 'user-decay-animation',
+        polygonId: 'region-1',
+        visitedAt: visitedAt,
+      );
+
+      await service.markFogDecayPresented(
+        profileId: 'user-decay-animation',
+        decayAtByPolygonId: <String, DateTime>{'region-1': decayAt},
+      );
+
+      expect(
+        await service.getFogDecayPresentedAt(profileId: 'user-decay-animation'),
+        <String, DateTime>{'region-1': decayAt},
+      );
+      final history = await service.getVisitedPolygonRecords(
+        profileId: 'user-decay-animation',
+      );
+      expect(history.single.polygonId, 'region-1');
+      expect(history.single.visitedAt, visitedAt);
+    });
   });
 }

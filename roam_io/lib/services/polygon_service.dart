@@ -19,6 +19,7 @@ class PolygonService {
   static const String _legacyUserIdFieldName = 'userId';
   static const String _visitedPolygonsMapField = 'visited_polygons';
   static const String _visitedPolygonMetaField = 'visited_polygon_meta';
+  static const String _fogDecayPresentedField = 'fog_decay_presented_at';
 
   PolygonService({FirebaseFirestore? firestore})
     : _firestore = firestore ?? FirebaseFirestore.instance;
@@ -226,6 +227,9 @@ class PolygonService {
       final currentEntryMap =
           (currentData?['entry_counts'] as Map<String, dynamic>?) ??
           <String, dynamic>{};
+      final currentPolygonMap =
+          (currentData?[_visitedPolygonsMapField] as Map<String, dynamic>?) ??
+          <String, dynamic>{};
 
       final currentCountDynamic = currentEntryMap[polygonId];
       final currentCount = currentCountDynamic is num
@@ -256,6 +260,8 @@ class PolygonService {
       transaction.set(document, <String, dynamic>{
         _profileIdFieldName: profileId,
         _userIdFieldName: profileId,
+        // Re-entry affects visual decay metadata, never permanent history.
+        _visitedPolygonsMapField: Map<String, dynamic>.from(currentPolygonMap),
         'entry_counts': updatedEntryMap,
         _visitedPolygonMetaField: updatedMetaMap,
       }, SetOptions(merge: true));
@@ -271,6 +277,46 @@ class PolygonService {
     final document = await _resolveVisitedPolygonDocument(profileId);
     final currentData = (await document.get()).data();
     return _metaFromMap(currentData?[_visitedPolygonMetaField]);
+  }
+
+  /// Returns the decay event timestamp last presented for each polygon.
+  Future<Map<String, DateTime>> getFogDecayPresentedAt({
+    required String profileId,
+  }) async {
+    final document = await _resolveVisitedPolygonDocument(profileId);
+    final raw = (await document.get()).data()?[_fogDecayPresentedField];
+    if (raw is! Map<String, dynamic>) return <String, DateTime>{};
+    final presented = <String, DateTime>{};
+    for (final entry in raw.entries) {
+      final time = VisitedPolygonMeta.parseTimestamp(entry.value);
+      if (time != null) presented[entry.key] = time;
+    }
+    return presented;
+  }
+
+  /// Marks exact decay events as visually presented without altering history.
+  Future<void> markFogDecayPresented({
+    required String profileId,
+    required Map<String, DateTime> decayAtByPolygonId,
+  }) async {
+    if (decayAtByPolygonId.isEmpty) return;
+    final document = await _resolveVisitedPolygonDocument(profileId);
+    await _firestore.runTransaction<void>((transaction) async {
+      final currentData = (await transaction.get(document)).data();
+      final presented = Map<String, dynamic>.from(
+        (currentData?[_fogDecayPresentedField] as Map<String, dynamic>?) ??
+            <String, dynamic>{},
+      );
+      for (final entry in decayAtByPolygonId.entries) {
+        presented[entry.key] = Timestamp.fromDate(entry.value);
+      }
+      transaction.set(document, <String, dynamic>{
+        ...?currentData,
+        _profileIdFieldName: profileId,
+        _userIdFieldName: profileId,
+        _fogDecayPresentedField: presented,
+      });
+    });
   }
 
   /// Streams enriched unlock metadata keyed by polygon ID.

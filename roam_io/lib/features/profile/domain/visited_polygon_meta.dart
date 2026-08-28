@@ -32,14 +32,14 @@ class VisitedPolygonMeta {
   ) {
     return VisitedPolygonMeta(
       polygonId: polygonId,
-      visitedAt: _parseTimestamp(map['visitedAt']) ?? DateTime.now(),
+      visitedAt: parseTimestamp(map['visitedAt']) ?? DateTime.now(),
       areaSquareMetres: (map['areaSquareMetres'] as num?)?.toDouble(),
       name: map['name'] as String?,
-      lastEnteredAt: _parseTimestamp(map['lastEnteredAt']),
+      lastEnteredAt: parseTimestamp(map['lastEnteredAt']),
     );
   }
 
-  static DateTime? _parseTimestamp(dynamic value) {
+  static DateTime? parseTimestamp(dynamic value) {
     if (value is Timestamp) return value.toDate();
     if (value is DateTime) return value;
     if (value is String) return DateTime.tryParse(value);

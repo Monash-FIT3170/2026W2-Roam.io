@@ -11,12 +11,14 @@ import 'package:crypto/crypto.dart';
 import 'package:image_picker/image_picker.dart';
 
 import '../../profile/domain/profile_model.dart';
+import '../../map/fog/fog_decay_difficulty.dart';
 import '../../profile/domain/xp_award_result.dart';
 import '../../profile/domain/xp_event.dart';
 import '../../social/domain/social_privacy_settings.dart';
 import '../../../services/auth_service.dart';
 import '../../../services/profile_service.dart';
 import '../../../services/storage_service.dart';
+import '../../../theme/app_theme_mode.dart';
 
 /// Orchestrates multi-step auth, profile, and profile photo workflows.
 class AuthRepository {
@@ -67,7 +69,7 @@ class AuthRepository {
       email: email,
       createdAt: now,
       updatedAt: now,
-      darkModeEnabled: false,
+      themeMode: AppThemeMode.light,
     );
     await _profileService.createProfile(profile);
     await _authService.sendEmailVerification();
@@ -150,8 +152,8 @@ class AuthRepository {
     return _profileService.getProfile(user.uid);
   }
 
-  /// Persists the signed-in user's dark mode preference in Firestore.
-  Future<void> updateDarkModePreference(bool enabled) async {
+  /// Persists the signed-in user's appearance preference in Firestore.
+  Future<void> updateThemeModePreference(AppThemeMode mode) async {
     final user = currentUser;
     if (user == null) {
       throw FirebaseAuthException(
@@ -160,9 +162,29 @@ class AuthRepository {
       );
     }
 
-    await _profileService.updateDarkModePreference(
+    await _profileService.updateThemeModePreference(uid: user.uid, mode: mode);
+  }
+
+  /// Persists the signed-in user's fog decay preference in Firestore.
+  Future<void> updateFogDecayDifficulty(FogDecayDifficulty difficulty) async {
+    final user = currentUser;
+    if (user == null) {
+      throw FirebaseAuthException(
+        code: 'user-not-found',
+        message: 'No logged in user found.',
+      );
+    }
+
+    await _profileService.updateFogDecayDifficulty(
       uid: user.uid,
-      enabled: enabled,
+      difficulty: difficulty,
+    );
+  }
+
+  /// Legacy wrapper retained for older callers and tests.
+  Future<void> updateDarkModePreference(bool enabled) {
+    return updateThemeModePreference(
+      enabled ? AppThemeMode.dark : AppThemeMode.light,
     );
   }
 
