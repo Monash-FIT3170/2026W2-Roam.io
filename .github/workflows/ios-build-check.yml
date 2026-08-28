@@ -1,6 +1,9 @@
 name: iOS Build Check
 
 on:
+  push:
+    branches:
+      - feature/ART2-67-socialisation-features
   workflow_dispatch:
 
 jobs:
