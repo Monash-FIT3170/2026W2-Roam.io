@@ -10,6 +10,10 @@ jobs:
   ios-build:
     runs-on: macos-latest
 
+    defaults:
+      run:
+        working-directory: roam_io
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@v6
@@ -29,8 +33,9 @@ jobs:
         run: flutter pub get
 
       - name: Install CocoaPods dependencies
-        working-directory: ios
-        run: pod install
+        run: |
+          cd ios
+          pod install
 
       - name: Configure iOS project
         run: flutter build ios --config-only
