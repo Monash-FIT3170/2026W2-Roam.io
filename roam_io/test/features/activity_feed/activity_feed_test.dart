@@ -34,6 +34,44 @@ import 'package:roam_io/features/profile/domain/visited_polygon_meta.dart';
 import 'package:roam_io/features/profile/domain/visited_polygon_record.dart';
 
 void main() {
+  testWidgets('fogs a post with the poster\'s tiles, not the viewer\'s', (
+    tester,
+  ) async {
+    // A post shows the journey as the traveller had it: ground they had not
+    // explored stays clouded even for a viewer who has explored all of it.
+    await tester.binding.setSurfaceSize(const Size(400, 1200));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+
+    final visitedRegionService = _FakeVisitedRegionService({
+      'user-1': {'tile_the_poster_explored'},
+      'viewer-9': {'tile_the_poster_explored', 'tile_only_the_viewer_explored'},
+    });
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: SingleChildScrollView(
+            child: ActivityFeedCard.fromItem(
+              _testActivity(),
+              currentUserId: 'viewer-9',
+              mapSnapshotService: _FakeJourneyMapSnapshotService(),
+              visitedRegionService: visitedRegionService,
+              endpointMarkerIcons: _testEndpointIcons,
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(visitedRegionService.loadedProfileIds, ['user-1']);
+    expect(
+      visitedRegionService.loadedProfileIds,
+      isNot(contains('viewer-9')),
+      reason: 'the viewer\'s own tiles must never clear a post\'s fog',
+    );
+  });
+
   testWidgets('persisted activity card shows metrics and map preview', (
     tester,
   ) async {
