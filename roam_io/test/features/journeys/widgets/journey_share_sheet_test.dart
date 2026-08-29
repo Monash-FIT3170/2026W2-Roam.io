@@ -120,10 +120,7 @@ void main() {
   });
 }
 
-const _routePoints = [
-  LatLng(-37.8136, 144.9631),
-  LatLng(-37.8036, 144.9731),
-];
+const _routePoints = [LatLng(-37.8136, 144.9631), LatLng(-37.8036, 144.9731)];
 
 final _encodedRoute = PolylineCodec.encode(_routePoints);
 

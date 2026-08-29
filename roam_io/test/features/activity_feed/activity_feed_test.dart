@@ -129,7 +129,9 @@ void main() {
     // map carries the journey alone.
     expect(map.polygons, isEmpty);
     expect(
-      tester.widget<StaticFogOverlay>(find.byType(StaticFogOverlay)).fog
+      tester
+          .widget<StaticFogOverlay>(find.byType(StaticFogOverlay))
+          .fog
           .clearedRegionIds,
       ['tile_visited'],
     );

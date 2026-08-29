@@ -94,9 +94,7 @@ void main() {
           currentRegionId: null,
         );
 
-    expect(overlay.clearedRegions.map((region) => region.id), [
-      'visited-tile',
-    ]);
+    expect(overlay.clearedRegions.map((region) => region.id), ['visited-tile']);
   });
 
   test('uses fitted viewport bounds when provided', () async {

@@ -86,11 +86,10 @@ class JourneyShareSheet extends StatefulWidget {
     }
 
     try {
-      final journey = await (journeyService ?? JourneyService())
-          .getJourneyById(
-            userId: activity.ownerId,
-            journeyId: sourceJourneyId,
-          );
+      final journey = await (journeyService ?? JourneyService()).getJourneyById(
+        userId: activity.ownerId,
+        journeyId: sourceJourneyId,
+      );
       // The map picture lives on the post, not the journey document, so it
       // has to be carried across or the card falls back to a bare polyline.
       if (journey != null) {

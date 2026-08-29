@@ -25,17 +25,11 @@ void main() {
       expect(details.title, 'Morning loop');
       expect(details.transportMode, TransportMode.walk);
       expect(details.encodedRoute, _encodedRoute);
-      expect(_stats(details), [
-        ('5.0', 'km'),
-        ('21', 'min'),
-        ('1527', 'xp'),
-      ]);
+      expect(_stats(details), [('5.0', 'km'), ('21', 'min'), ('1527', 'xp')]);
     });
 
     test('shows tiles for a journey that never recorded XP', () {
-      final details = JourneyShareDetails.fromJourney(
-        _journey(xpEarned: null),
-      );
+      final details = JourneyShareDetails.fromJourney(_journey(xpEarned: null));
 
       expect(_stats(details).last, ('4', 'tiles'));
     });
@@ -65,11 +59,7 @@ void main() {
       expect(details.transportMode, TransportMode.run);
       expect(details.hasRoute, isTrue);
       // ~1.4 km of route, 21 minutes between the recorded timestamps.
-      expect(_stats(details), [
-        ('1.4', 'km'),
-        ('21', 'min'),
-        ('1527', 'xp'),
-      ]);
+      expect(_stats(details), [('1.4', 'km'), ('21', 'min'), ('1527', 'xp')]);
     });
 
     test('prefers the recorded timestamps over the Time metric', () {
@@ -183,10 +173,7 @@ void main() {
   });
 }
 
-const _routePoints = [
-  LatLng(-37.8136, 144.9631),
-  LatLng(-37.8036, 144.9731),
-];
+const _routePoints = [LatLng(-37.8136, 144.9631), LatLng(-37.8036, 144.9731)];
 
 final _encodedRoute = PolylineCodec.encode(_routePoints);
 

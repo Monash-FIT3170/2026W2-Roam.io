@@ -118,10 +118,7 @@ class JourneyShareDetails {
 
   static ShareStat _distanceStat(double meters) {
     if (meters >= 1000) {
-      return ShareStat(
-        value: (meters / 1000).toStringAsFixed(1),
-        unit: 'km',
-      );
+      return ShareStat(value: (meters / 1000).toStringAsFixed(1), unit: 'km');
     }
     return ShareStat(value: '${meters.toInt()}', unit: 'm');
   }
@@ -166,10 +163,7 @@ class JourneyShareDetails {
     return total > 0 ? total : null;
   }
 
-  static String? _metricValue(
-    List<ActivityFeedMetric> metrics,
-    String label,
-  ) {
+  static String? _metricValue(List<ActivityFeedMetric> metrics, String label) {
     for (final metric in metrics) {
       if (metric.label.toLowerCase() == label) return metric.value;
     }
