@@ -1,9 +1,9 @@
 /*
- * Author: Alvin Liong
- * Last Modified: 3/05/2026
+ * Author: Sanjevan Rajasegar
+ * Last Updated: 5 August 2026
  * Description:
  *   Provides the change password screen for authenticated users updating
- *   account credentials.
+ *   account credentials from Settings.
  */
 
 import 'package:flutter/material.dart';
@@ -54,7 +54,6 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
     }
 
     AppToast.success(context, 'Password updated successfully.');
-    Navigator.of(context).pop();
   }
 
   @override
@@ -129,6 +128,24 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
                       borderSide: BorderSide(color: AppSurfaces.border(context)),
                     ),
                   ),
+                  const SizedBox(height: 20),
+                  ElevatedButton(
+                    onPressed: auth.isBusy ? null : _submit,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Theme.of(context).colorScheme.primary,
+                      foregroundColor: Theme.of(context).colorScheme.onPrimary,
+                      minimumSize: const Size.fromHeight(48),
+                    ),
+                    child: auth.isBusy
+                        ? const SizedBox(
+                            height: 20,
+                            width: 20,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : const Text('Update password'),
+                  ),
+                ],
+              ),
                   validator: (value) {
                     final text = value ?? '';
                     if (text.isEmpty) {
