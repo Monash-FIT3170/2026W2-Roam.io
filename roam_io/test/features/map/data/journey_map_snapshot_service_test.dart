@@ -1,149 +1,112 @@
 /*
  * Author: Sanjevan Rajasegar
- * Last Updated: 22 August 2026
+ * Last Updated: 29 August 2026
  * Description:
- *   Tests static Journey map snapshot polygon loading for completion previews.
+ *   Tests static Journey map fog for completion and feed previews. The fog is
+ *   the cloud field drawn over the whole frame, so all this has to supply is
+ *   the explored ground cleared out of it — never the unexplored ground, which
+ *   is what made a long journey cost more to draw than a short one.
  */
-
-import 'dart:ui';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:roam_io/features/activity_feed/domain/activity_route.dart';
 import 'package:roam_io/features/map/data/journey_map_snapshot_service.dart';
 import 'package:roam_io/features/map/data/region_polygon.dart';
-import 'package:roam_io/features/map/data/region_polygon_cache.dart';
 import 'package:roam_io/features/map/data/region_service.dart';
 
 void main() {
-  test(
-    'loads route bounds and reuses cache styling for fog and visited tiles',
-    () async {
-      final regionService = _FakeRegionService([
-        _region(id: 'visited-tile'),
-        _region(id: 'fog-tile'),
-      ]);
-      final service = JourneyMapSnapshotService(
-        regionService: regionService,
-        regionPolygonCache: RegionPolygonCache.staticFog(),
-      );
-      final route = ActivityRoute.fromPoints(const [
-        LatLng(-37.8136, 144.9631),
-        LatLng(-37.8118, 144.9690),
-      ])!;
+  final route = ActivityRoute.fromPoints(const [
+    LatLng(-37.8136, 144.9631),
+    LatLng(-37.8118, 144.9690),
+  ])!;
 
-      final overlay = await service.loadRouteSnapshotOverlay(
-        route: route,
-        visitedRegionIds: const {'visited-tile'},
-        currentRegionId: null,
-      );
+  test('asks only for the regions the traveller had explored', () async {
+    final regionService = _FakeRegionService([_region(id: 'visited-tile')]);
 
-      expect(
-        regionService.requestedSouth,
-        lessThan(route.bounds.southwest.latitude),
-      );
-      expect(
-        regionService.requestedWest,
-        lessThan(route.bounds.southwest.longitude),
-      );
-      expect(
-        regionService.requestedNorth,
-        greaterThan(route.bounds.northeast.latitude),
-      );
-      expect(
-        regionService.requestedEast,
-        greaterThan(route.bounds.northeast.longitude),
-      );
-      expect(overlay.tilePolygons, hasLength(2));
-      expect(overlay.loadedBounds, isNotNull);
-      expect(
-        overlay.tilePolygons
-            .firstWhere((polygon) => polygon.polygonId.value == 'visited-tile')
-            .fillColor,
-        const Color(0x30FFFFFF),
-      );
-      expect(
-        overlay.tilePolygons
-            .firstWhere((polygon) => polygon.polygonId.value == 'visited-tile')
-            .zIndex,
-        5,
-      );
-      expect(
-        overlay.tilePolygons
-            .firstWhere((polygon) => polygon.polygonId.value == 'fog-tile')
-            .fillColor,
-        const Color(0xCC000000),
-      );
-      expect(
-        overlay.polygonsForVisibleBounds(route.bounds),
-        overlay.tilePolygons,
-      );
-    },
-  );
-
-  test(
-    'empty overlay renders no fake fog when no region polygons are loaded',
-    () async {
-      final service = JourneyMapSnapshotService(
-        regionService: _FakeRegionService(const []),
-        regionPolygonCache: RegionPolygonCache.staticFog(),
-      );
-      final route = ActivityRoute.fromPoints(const [
-        LatLng(-37.8136, 144.9631),
-        LatLng(-37.8118, 144.9690),
-      ])!;
-
-      final overlay = await service.loadRouteSnapshotOverlay(
-        route: route,
-        visitedRegionIds: const {'visited-but-not-loaded'},
-        currentRegionId: null,
-      );
-
-      expect(overlay.tilePolygons, isEmpty);
-      final renderedPolygons = overlay.polygonsForVisibleBounds(route.bounds);
-      expect(renderedPolygons, isEmpty);
-    },
-  );
-
-  test('loads unvisited fog even when no regions have been visited', () async {
-    final service = JourneyMapSnapshotService(
-      regionService: _FakeRegionService([_region(id: 'fog-tile')]),
-      regionPolygonCache: RegionPolygonCache.staticFog(),
+    await _service(regionService).loadRouteSnapshotOverlay(
+      route: route,
+      visitedRegionIds: const {'visited-tile'},
+      currentRegionId: 'current-tile',
     );
-    final route = ActivityRoute.fromPoints(const [
-      LatLng(-37.8136, 144.9631),
-      LatLng(-37.8118, 144.9690),
-    ])!;
 
-    final overlay = await service.loadRouteSnapshotOverlay(
+    // Unexplored ground is covered by the sheet, never fetched: a long journey
+    // crosses hundreds of tiles, and asking for all of them is what left big
+    // journeys with no fog at all.
+    expect(regionService.requestedIds, {'visited-tile', 'current-tile'});
+    expect(
+      regionService.requestedSouth,
+      lessThan(route.bounds.southwest.latitude),
+    );
+    expect(
+      regionService.requestedNorth,
+      greaterThan(route.bounds.northeast.latitude),
+    );
+  });
+
+  test('fogs everything without a request when nothing was explored', () async {
+    final regionService = _FakeRegionService([_region(id: 'fog-tile')]);
+
+    final overlay = await _service(regionService).loadRouteSnapshotOverlay(
       route: route,
       visitedRegionIds: const <String>{},
       currentRegionId: null,
     );
 
-    expect(overlay.tilePolygons, hasLength(1));
-    expect(overlay.tilePolygons.single.polygonId.value, 'fog-tile');
-    expect(overlay.tilePolygons.single.fillColor, const Color(0xCC000000));
+    expect(regionService.wasRequested, isFalse);
+    // Nothing cleared, but a frame that loaded: the whole route is clouded over
+    // rather than left as bare basemap.
+    expect(overlay.clearedRegions, isEmpty);
+    expect(overlay.loadedBounds, isNotNull);
+    expect(overlay.covers(route.bounds), isTrue);
+  });
+
+  test('clears one region per explored tile', () async {
+    final overlay =
+        await _service(
+          _FakeRegionService([
+            _region(id: 'visited-tile'),
+            _region(id: 'current-tile', west: 144.9700, east: 144.9760),
+          ]),
+        ).loadRouteSnapshotOverlay(
+          route: route,
+          visitedRegionIds: const {'visited-tile'},
+          currentRegionId: 'current-tile',
+        );
+
+    expect(overlay.clearedRegions.map((region) => region.id), [
+      'visited-tile',
+      'current-tile',
+    ]);
+    expect(overlay.loadedBounds, isNotNull);
+  });
+
+  test('ignores regions returned by a backend without the id filter', () async {
+    final overlay =
+        await _service(
+          _FakeRegionService([
+            _region(id: 'visited-tile'),
+            _region(id: 'someone-elses-fog-tile'),
+          ]),
+        ).loadRouteSnapshotOverlay(
+          route: route,
+          visitedRegionIds: const {'visited-tile'},
+          currentRegionId: null,
+        );
+
+    expect(overlay.clearedRegions.map((region) => region.id), ['visited-tile']);
   });
 
   test('uses fitted viewport bounds when provided', () async {
-    final regionService = _FakeRegionService([_region(id: 'fog-tile')]);
-    final service = JourneyMapSnapshotService(
-      regionService: regionService,
-      regionPolygonCache: RegionPolygonCache.staticFog(),
-    );
-    final route = ActivityRoute.fromPoints(const [
-      LatLng(-37.8136, 144.9631),
-      LatLng(-37.8118, 144.9690),
-    ])!;
+    final regionService = _FakeRegionService([_region(id: 'visited-tile')]);
     final viewportBounds = LatLngBounds(
       southwest: const LatLng(-37.82, 144.95),
       northeast: const LatLng(-37.80, 144.98),
     );
 
-    final overlay = await service.loadRouteSnapshotOverlay(
+    final overlay = await _service(regionService).loadRouteSnapshotOverlay(
       route: route,
-      visitedRegionIds: const <String>{},
+      visitedRegionIds: const {'visited-tile'},
       currentRegionId: null,
       viewportBounds: viewportBounds,
     );
@@ -153,14 +116,6 @@ void main() {
       lessThan(viewportBounds.southwest.latitude),
     );
     expect(
-      regionService.requestedWest,
-      lessThan(viewportBounds.southwest.longitude),
-    );
-    expect(
-      regionService.requestedNorth,
-      greaterThan(viewportBounds.northeast.latitude),
-    );
-    expect(
       regionService.requestedEast,
       greaterThan(viewportBounds.northeast.longitude),
     );
@@ -168,10 +123,16 @@ void main() {
   });
 }
 
+JourneyMapSnapshotService _service(RegionService regionService) {
+  return JourneyMapSnapshotService(regionService: regionService);
+}
+
 class _FakeRegionService extends RegionService {
   _FakeRegionService(this.regions);
 
   final List<RegionPolygon> regions;
+  bool wasRequested = false;
+  Set<String>? requestedIds;
   late final double requestedSouth;
   late final double requestedWest;
   late final double requestedNorth;
@@ -185,6 +146,8 @@ class _FakeRegionService extends RegionService {
     required double east,
     Set<String>? regionIds,
   }) async {
+    wasRequested = true;
+    requestedIds = regionIds;
     requestedSouth = south;
     requestedWest = west;
     requestedNorth = north;
@@ -193,20 +156,24 @@ class _FakeRegionService extends RegionService {
   }
 }
 
-RegionPolygon _region({required String id}) {
+RegionPolygon _region({
+  required String id,
+  double west = 144.9630,
+  double east = 144.9700,
+}) {
   return RegionPolygon(
     id: id,
     name: id,
     areaSquareMetres: 1000,
-    geometry: const <String, dynamic>{
+    geometry: <String, dynamic>{
       'type': 'Polygon',
       'coordinates': <dynamic>[
         <dynamic>[
-          <double>[144.9630, -37.8140],
-          <double>[144.9700, -37.8140],
-          <double>[144.9700, -37.8110],
-          <double>[144.9630, -37.8110],
-          <double>[144.9630, -37.8140],
+          <double>[west, -37.8140],
+          <double>[east, -37.8140],
+          <double>[east, -37.8110],
+          <double>[west, -37.8110],
+          <double>[west, -37.8140],
         ],
       ],
     },

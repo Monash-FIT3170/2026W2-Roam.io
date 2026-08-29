@@ -10,6 +10,7 @@
 
 import 'dart:async';
 import 'dart:math' as math;
+import 'dart:typed_data';
 import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
@@ -643,6 +644,7 @@ class _MapPageState extends State<MapPage> with WidgetsBindingObserver {
         await _saveReviewedJourneyActivity(
           summaryResult.title,
           media: summaryResult.media,
+          mapImageBytes: summaryResult.mapImageBytes,
         );
         break;
       case JourneySummaryAction.discard:
@@ -654,6 +656,7 @@ class _MapPageState extends State<MapPage> with WidgetsBindingObserver {
   Future<void> _saveReviewedJourneyActivity(
     String title, {
     required List<PendingActivityMedia> media,
+    Uint8List? mapImageBytes,
   }) async {
     final journeyController = context.read<JourneyController>();
     final authProvider = context.read<AuthProvider>();
@@ -700,6 +703,7 @@ class _MapPageState extends State<MapPage> with WidgetsBindingObserver {
         title: title,
         fallbackProfile: authProvider.currentProfile,
         mediaSelections: media,
+        mapImageBytes: mapImageBytes,
       );
     } catch (error, stackTrace) {
       debugPrint(

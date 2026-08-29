@@ -8,6 +8,9 @@
  *   Glaze is the product-facing name for persisted Kudos interactions.
  */
 
+import 'dart:async';
+import 'dart:typed_data';
+
 import 'package:flutter/material.dart';
 
 import '../../../shared/widgets/app_toast.dart';
@@ -16,6 +19,8 @@ import '../../journeys/domain/transport_mode.dart';
 import '../../map/data/journey_map_snapshot_service.dart';
 import '../../map/data/visited_region_service.dart';
 import '../../social/widgets/social_avatar.dart';
+import '../data/activity_map_image.dart';
+import '../data/activity_mutation_service.dart';
 import '../data/comment_service.dart';
 import '../data/kudos_service.dart';
 import '../domain/activity_route.dart';
@@ -48,8 +53,10 @@ class ActivityFeedCard extends StatelessWidget {
     this.route,
     this.routeTransportMode,
     this.routeSnapshotProfileId,
+    this.mapImageUrl,
     this.mapSnapshotService,
     this.visitedRegionService,
+    this.mutationService,
     this.endpointMarkerIcons,
     this.media = const <ActivityMediaItem>[],
     this.onMediaTap,
@@ -82,6 +89,7 @@ class ActivityFeedCard extends StatelessWidget {
     VoidCallback? onShareTap,
     JourneyMapSnapshotService? mapSnapshotService,
     VisitedRegionService? visitedRegionService,
+    ActivityMutationService? mutationService,
     RouteEndpointMarkerIcons? endpointMarkerIcons,
   }) {
     final route = item.showMapPreview
@@ -109,8 +117,10 @@ class ActivityFeedCard extends StatelessWidget {
       route: route,
       routeTransportMode: TransportMode.tryFromString(item.transportMode),
       routeSnapshotProfileId: item.ownerId,
+      mapImageUrl: item.mapImageUrl,
       mapSnapshotService: mapSnapshotService,
       visitedRegionService: visitedRegionService,
+      mutationService: mutationService,
       endpointMarkerIcons: endpointMarkerIcons,
       media: item.media,
       showKudos: showKudos,
@@ -144,8 +154,12 @@ class ActivityFeedCard extends StatelessWidget {
   final ActivityRoute? route;
   final TransportMode? routeTransportMode;
   final String? routeSnapshotProfileId;
+
+  /// Map picture stored when the journey was saved, fog already drawn on it.
+  final String? mapImageUrl;
   final JourneyMapSnapshotService? mapSnapshotService;
   final VisitedRegionService? visitedRegionService;
+  final ActivityMutationService? mutationService;
   final RouteEndpointMarkerIcons? endpointMarkerIcons;
   final List<ActivityMediaItem> media;
   final ValueChanged<int>? onMediaTap;
@@ -204,19 +218,7 @@ class ActivityFeedCard extends StatelessWidget {
     final countStream = _resolvedCommentCountStream;
     final kudosCountStream = _resolvedKudosCountStream;
     final hasKudosStream = _resolvedHasKudosStream;
-    final routeSlide = showMapPreview && route != null
-        ? ActivityMapPreview(
-            key: ValueKey<String>('activity-card-map-$activityId'),
-            route: route,
-            snapshotProfileId: routeSnapshotProfileId,
-            mapSnapshotService: mapSnapshotService,
-            visitedRegionService: visitedRegionService,
-            transportMode: routeTransportMode,
-            showEndpoints: true,
-            endpointMarkerIcons: endpointMarkerIcons,
-            mapIdentity: activityId,
-          )
-        : null;
+    final routeSlide = _buildRouteSlide();
 
     return Container(
       width: double.infinity,
@@ -335,6 +337,58 @@ class ActivityFeedCard extends StatelessWidget {
             ),
           ],
         ],
+      ),
+    );
+  }
+
+  /// The route slide: the stored picture when there is one, otherwise a live
+  /// map that doubles as the capture source for the activity's owner.
+  Widget? _buildRouteSlide() {
+    if (!showMapPreview) return null;
+
+    final storedMapImageUrl = mapImageUrl;
+    if (storedMapImageUrl != null && storedMapImageUrl.isNotEmpty) {
+      return ActivityMapSnapshotImage(
+        key: ValueKey<String>('activity-card-map-image-$activityId'),
+        url: storedMapImageUrl,
+      );
+    }
+
+    if (route == null) return null;
+
+    return ActivityMapPreview(
+      key: ValueKey<String>('activity-card-map-$activityId'),
+      route: route,
+      snapshotProfileId: routeSnapshotProfileId,
+      mapSnapshotService: mapSnapshotService,
+      visitedRegionService: visitedRegionService,
+      transportMode: routeTransportMode,
+      showEndpoints: true,
+      endpointMarkerIcons: endpointMarkerIcons,
+      mapIdentity: activityId,
+      onSnapshotCaptured: _mapImageBackfill,
+    );
+  }
+
+  /// Capture handler for an activity saved before the picture existed.
+  ///
+  /// Only the owner can write the picture, so nobody else's card wastes a
+  /// snapshot on it.
+  ValueChanged<Uint8List>? get _mapImageBackfill {
+    final id = activityId;
+    final ownerId = activityOwnerId;
+    if (id == null || id.isEmpty || ownerId == null || ownerId.isEmpty) {
+      return null;
+    }
+    if (currentUserId != ownerId) return null;
+    if (!ActivityMapImageBackfill.isPending(id)) return null;
+
+    return (bytes) => unawaited(
+      ActivityMapImageBackfill.record(
+        activityId: id,
+        ownerId: ownerId,
+        bytes: bytes,
+        mutationService: mutationService ?? ActivityMutationService(),
       ),
     );
   }

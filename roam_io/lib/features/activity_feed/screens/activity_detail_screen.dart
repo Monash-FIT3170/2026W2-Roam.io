@@ -20,6 +20,7 @@ import '../../journeys/widgets/journey_share_sheet.dart';
 import '../../map/data/journey_map_snapshot_service.dart';
 import '../../map/data/visited_region_service.dart';
 import '../../map/widgets/media_viewer.dart';
+import '../data/activity_map_image.dart';
 import '../data/comment_like_service.dart';
 import '../data/comment_service.dart';
 import '../data/activity_mutation_service.dart';
@@ -75,7 +76,27 @@ class ActivityDetailScreen extends StatelessWidget {
           )
         : null;
     final transportMode = TransportMode.tryFromString(activity.transportMode);
-    final routeSlide = route == null
+    void openRouteMap(ActivityRoute route) {
+      Navigator.of(context).push(
+        MaterialPageRoute<void>(
+          builder: (_) => ActivityRouteMapScreen(
+            route: route,
+            title: activity.title,
+            transportMode: transportMode,
+            endpointMarkerIcons: endpointMarkerIcons,
+          ),
+        ),
+      );
+    }
+
+    final routeSlide = activity.hasMapImage && activity.showMapPreview
+        ? ActivityMapSnapshotImage(
+            key: const ValueKey('activity_route_map_image_detail'),
+            url: activity.mapImageUrl!,
+            variant: ActivityMapPreviewVariant.detail,
+            onTap: route == null ? null : () => openRouteMap(route),
+          )
+        : route == null
         ? null
         : ActivityMapPreview(
             key: const ValueKey('activity_route_map_detail'),
@@ -88,18 +109,7 @@ class ActivityDetailScreen extends StatelessWidget {
             showEndpoints: true,
             endpointMarkerIcons: endpointMarkerIcons,
             mapIdentity: activity.id,
-            onTap: () {
-              Navigator.of(context).push(
-                MaterialPageRoute<void>(
-                  builder: (_) => ActivityRouteMapScreen(
-                    route: route,
-                    title: activity.title,
-                    transportMode: transportMode,
-                    endpointMarkerIcons: endpointMarkerIcons,
-                  ),
-                ),
-              );
-            },
+            onTap: () => openRouteMap(route),
           );
 
     return Scaffold(
@@ -197,7 +207,10 @@ class ActivityDetailScreen extends StatelessWidget {
             if (activity.media.isNotEmpty || routeSlide != null) ...[
               ActivityMediaCarousel(
                 media: activity.media,
-                aspectRatio: 4 / 3,
+                // Named rather than left to the default: this screen has always
+                // framed the map taller than the feed did, and it is the shape
+                // the two now share.
+                aspectRatio: ActivityMapImage.aspectRatio,
                 routeSlide: routeSlide,
                 routeFirst: true,
                 onTap: (index) => MediaViewer.show(
@@ -258,6 +271,7 @@ class ActivityDetailScreen extends StatelessWidget {
                           JourneyShareSheet.shareFromActivity(
                             context,
                             activity,
+                            currentUserId: currentUserId,
                           );
                         },
                       ),
