@@ -74,7 +74,16 @@ class NotificationService {
       _notificationController.add(notification);
     }
 
-    if (notification.showOnDevice && !isForeground) {
+    // iOS can explicitly present a local notification banner while the app is
+    // in the foreground. Keeping this enabled makes device-level notification
+    // delivery observable and usable on iOS while retaining Android's existing
+    // background-only system-notification behaviour.
+    final shouldShowOnDevice =
+        notification.showOnDevice &&
+        (!isForeground ||
+            (!kIsWeb && defaultTargetPlatform == TargetPlatform.iOS));
+
+    if (shouldShowOnDevice) {
       await AndroidNotificationService.instance.show(notification);
     }
 

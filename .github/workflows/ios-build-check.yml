@@ -40,5 +40,15 @@ jobs:
       - name: Configure iOS project
         run: flutter build ios --config-only
 
+
+      - name: Verify Live Activity target exists
+        run: |
+          xcodebuild -project ios/Runner.xcodeproj -list | tee /tmp/xcode-targets.txt
+          grep -q "RoamLiveActivity" /tmp/xcode-targets.txt
+
       - name: Build iOS Simulator app
         run: flutter build ios --simulator
+      - name: Verify Live Activity extension is embedded
+        run: |
+          test -d build/ios/iphonesimulator/Runner.app/PlugIns/RoamLiveActivity.appex
+          echo "RoamLiveActivity.appex is embedded in Runner.app"
