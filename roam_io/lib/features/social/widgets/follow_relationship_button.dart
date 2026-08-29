@@ -1,10 +1,9 @@
 /*
  * Author: Sanjevan Rajasegar
- * Last Updated: 29 August 2026 — Sanjevan Rajasegar
+ * Last Updated: 9 August 2026
  * Description:
  *   Shared Follow / Requested / Following control driven by derived Firestore
- *   relationship state. Follow is sage; Following and Requested default to
- *   sand with per-surface overrides.
+ *   relationship state. Follow is sage; Following and Requested are cream.
  *   Unfollowing a private account confirms via shared dialog. Public targets
  *   follow immediately; private targets create cancellable requests.
  */
@@ -40,7 +39,6 @@ class FollowRelationshipButton extends StatefulWidget {
     this.compact = false,
     this.expandWidth = false,
     this.followeeProfile,
-    this.activeBackgroundColor,
   });
 
   final String followerId;
@@ -50,12 +48,6 @@ class FollowRelationshipButton extends StatefulWidget {
   final bool compact;
   final bool expandWidth;
   final PublicProfile? followeeProfile;
-
-  /// Background for Following / Requested states.
-  ///
-  /// Profile and search surfaces default to sand; dense list rows can override
-  /// to cream.
-  final Color? activeBackgroundColor;
 
   @override
   State<FollowRelationshipButton> createState() =>
@@ -177,7 +169,7 @@ class _FollowRelationshipButtonState extends State<FollowRelationshipButton> {
             ? VisualDensity.compact
             : VisualDensity.standard;
 
-        // Follow = sage filled; Following / Requested = sand outlined.
+        // Follow = sage filled; Following / Requested = cream outlined.
         final Widget button =
             state.status == FollowRelationshipStatus.notFollowing
             ? FilledButton(
@@ -198,8 +190,7 @@ class _FollowRelationshipButtonState extends State<FollowRelationshipButton> {
                   visualDensity: compactDensity,
                   padding: compactPadding,
                   foregroundColor: AppSurfaces.textPrimary(context),
-                  backgroundColor:
-                      widget.activeBackgroundColor ?? AppColors.sand,
+                  backgroundColor: AppColors.cream,
                   side: BorderSide(color: AppSurfaces.border(context)),
                 ),
                 child: label,

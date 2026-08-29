@@ -8,7 +8,7 @@ import '../widgets/stats_hero_row.dart';
 import '../widgets/stats_insight_card.dart';
 import '../widgets/stats_recent_journeys_list.dart';
 
-/// Journeys category on the Statistics page.
+/// Journeys category on the Stats tab.
 class JourneysStatsView extends StatelessWidget {
   const JourneysStatsView({
     super.key,

@@ -1,6 +1,6 @@
 /*
  * Author: Sanjevan Rajasegar
- * Last Updated: 29 August 2026 — Sanjevan Rajasegar
+ * Last Updated: 8 August 2026
  * Description:
  *   Widget tests for Find People search results and public Follow / Following
  *   actions. Search failures must show an inline error (not a blank UI).
@@ -32,16 +32,10 @@ import 'package:roam_io/features/social/screens/find_people_screen.dart';
 import 'package:roam_io/features/social/screens/follow_connections_screen.dart';
 import 'package:roam_io/features/social/screens/other_user_profile_screen.dart';
 import 'package:roam_io/shared/widgets/app_toast.dart';
-import 'package:roam_io/theme/app_colours.dart';
 
 import '../../../support/fake_firebase_user.dart';
 
 void main() {
-  Color? buttonBackground(WidgetTester tester, Finder finder) {
-    final button = tester.widget<ButtonStyleButton>(finder);
-    return button.style?.backgroundColor?.resolve(<WidgetState>{});
-  }
-
   testWidgets('empty search page renders no instructional placeholder', (
     tester,
   ) async {
@@ -96,10 +90,6 @@ void main() {
     expect(find.text('Nathan Nunes'), findsOneWidget);
     expect(find.text('@nathan'), findsOneWidget);
     expect(find.text('Follow'), findsOneWidget);
-    expect(
-      buttonBackground(tester, find.widgetWithText(FilledButton, 'Follow')),
-      AppColors.sage,
-    );
     expect(find.text('Add Friend'), findsNothing);
     expect(find.text('Search results'), findsNothing);
 
@@ -107,13 +97,6 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Following'), findsOneWidget);
-    expect(
-      buttonBackground(
-        tester,
-        find.widgetWithText(OutlinedButton, 'Following'),
-      ),
-      AppColors.sand,
-    );
     expect(find.text('Add Friend'), findsNothing);
     expect(find.text('Request Sent'), findsNothing);
     expect(find.text('Friends'), findsNothing);
@@ -165,13 +148,6 @@ void main() {
     await tester.pump(const Duration(milliseconds: 50));
 
     expect(find.widgetWithText(OutlinedButton, 'Requested'), findsOneWidget);
-    expect(
-      buttonBackground(
-        tester,
-        find.widgetWithText(OutlinedButton, 'Requested'),
-      ),
-      AppColors.sand,
-    );
     expect(await followService.watchFollowerCount('private-user').first, 0);
     expect(await followService.watchFollowingCount('current-user').first, 0);
     expect(

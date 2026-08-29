@@ -6,7 +6,6 @@ import 'package:provider/provider.dart';
 import '../../../shared/widgets/app_bottom_nav_bar.dart';
 import '../../../theme/app_surfaces.dart';
 import '../../profile/domain/profile_model.dart';
-import '../../profile/widgets/profile_metric_pill_selector.dart';
 import '../providers/stats_analytics_provider.dart';
 import '../stats/journeys_stats_view.dart';
 import '../stats/locations_stats_view.dart';
@@ -14,12 +13,11 @@ import '../stats/tiles_stats_view.dart';
 import '../stats/xp_stats_view.dart';
 import '../widgets/stats_hero_row.dart';
 
-/// Statistics page shell: scrollable title + XP hero, sticky full-width pills.
+/// Stats tab shell: scrollable title + XP hero, sticky full-width pill tabs.
 class StatsScreen extends StatefulWidget {
-  const StatsScreen({super.key, required this.profile, this.title = 'Stats'});
+  const StatsScreen({super.key, required this.profile});
 
   final ProfileModel? profile;
-  final String title;
 
   @override
   State<StatsScreen> createState() => _StatsScreenState();
@@ -27,7 +25,7 @@ class StatsScreen extends StatefulWidget {
 
 class _StatsScreenState extends State<StatsScreen> {
   static const _categories = ['Locations', 'Tiles', 'Journeys', 'XP'];
-  static const double _pillsHeight = 68;
+  static const double _pillsHeight = 56;
 
   int _categoryIndex = 0;
   final _scrollController = ScrollController();
@@ -106,7 +104,7 @@ class _StatsScreenState extends State<StatsScreen> {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Text(widget.title, style: sectionStyle),
+                            Text('Stats', style: sectionStyle),
                             const SizedBox(height: 12),
                             StatsHeroStrip(
                               profile: widget.profile,
@@ -157,7 +155,7 @@ class _StatsScreenState extends State<StatsScreen> {
               left: 0,
               right: 0,
               height: _pillsHeight,
-              child: _StatsPillOverlay(
+              child: _StatsPillBar(
                 labels: _categories,
                 selectedIndex: _categoryIndex,
                 compact: compact,
@@ -174,8 +172,8 @@ class _StatsScreenState extends State<StatsScreen> {
   }
 }
 
-class _StatsPillOverlay extends StatelessWidget {
-  const _StatsPillOverlay({
+class _StatsPillBar extends StatelessWidget {
+  const _StatsPillBar({
     required this.labels,
     required this.selectedIndex,
     required this.compact,
@@ -190,6 +188,7 @@ class _StatsPillOverlay extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final pageBg = AppSurfaces.pageBackground(context);
+    final theme = Theme.of(context);
     // Compact only tightens chrome (padding / elevation), not type size.
     final verticalInset = compact ? 6.0 : 8.0;
 
@@ -199,14 +198,58 @@ class _StatsPillOverlay extends StatelessWidget {
       shadowColor: Colors.black.withValues(alpha: 0.22),
       child: Padding(
         padding: EdgeInsets.fromLTRB(20, verticalInset, 20, verticalInset),
-        child: ProfileMetricPillSelector(
-          labels: labels,
-          selectedIndex: selectedIndex,
-          keyPrefix: 'stats-category',
-          itemKeys: labels
-              .map((label) => 'stats-category-${label.toLowerCase()}')
-              .toList(growable: false),
-          onSelected: onSelected,
+        child: DecoratedBox(
+          decoration: BoxDecoration(
+            color: AppSurfaces.softCard(context),
+            borderRadius: BorderRadius.circular(999),
+            border: Border.all(color: AppSurfaces.border(context)),
+            boxShadow: compact
+                ? [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.10),
+                      blurRadius: 10,
+                      offset: const Offset(0, 3),
+                    ),
+                  ]
+                : null,
+          ),
+          child: Padding(
+            padding: const EdgeInsets.all(3),
+            child: Row(
+              children: [
+                for (var i = 0; i < labels.length; i++)
+                  Expanded(
+                    child: Material(
+                      color: i == selectedIndex
+                          ? theme.colorScheme.primary
+                          : Colors.transparent,
+                      borderRadius: BorderRadius.circular(999),
+                      child: InkWell(
+                        onTap: () => onSelected(i),
+                        borderRadius: BorderRadius.circular(999),
+                        child: Center(
+                          child: Text(
+                            labels[i],
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: theme.textTheme.labelLarge?.copyWith(
+                              fontWeight: i == selectedIndex
+                                  ? FontWeight.w800
+                                  : FontWeight.w700,
+                              fontSize: 14,
+                              height: 1.0,
+                              color: i == selectedIndex
+                                  ? theme.colorScheme.onPrimary
+                                  : AppSurfaces.textMuted(context),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+          ),
         ),
       ),
     );

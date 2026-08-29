@@ -324,7 +324,6 @@ class _FollowNotificationRow extends StatelessWidget {
                   followeeProfile: profile,
                   labelMode: FollowRelationshipLabelMode.followBack,
                   compact: true,
-                  activeBackgroundColor: AppColors.cream,
                 ),
               if (notification.isFollowRequest)
                 _FollowRequestActions(

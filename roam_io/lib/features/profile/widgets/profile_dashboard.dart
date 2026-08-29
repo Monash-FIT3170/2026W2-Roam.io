@@ -1,10 +1,10 @@
 /*
  * Author: Sanjevan Rajasegar
- * Last Updated: 29 August 2026 — Sanjevan Rajasegar
+ * Last Updated: 22 August 2026
  * Description:
  *   Shared profile dashboard presentation for the authenticated You profile
- *   and selected external public profiles. Detailed analytics can be hidden
- *   for the personal You overview while remaining visible on external profiles.
+ *   and selected external public profiles. Metric pill carousel clips to the
+ *   outer rounded card; individual pills stay stadium/capsule shaped.
  */
 
 import 'package:flutter/material.dart';
@@ -19,7 +19,6 @@ import '../domain/profile_stats.dart';
 import '../domain/visited_polygon_record.dart';
 import '../domain/xp_event.dart';
 import 'profile_identity_header.dart';
-import 'profile_metric_pill_selector.dart';
 
 /// Graph metrics shared by personal and external profile dashboards.
 enum ProfileGraphMetric {
@@ -53,9 +52,6 @@ class ProfileDashboard extends StatelessWidget {
     this.mediaProfileId,
     this.currentUserId,
     this.mediaActivitiesStream,
-    this.mediaActivities,
-    this.showDetailedAnalytics = true,
-    this.trailingChildren = const <Widget>[],
     this.bottomPadding = 24,
   });
 
@@ -78,9 +74,6 @@ class ProfileDashboard extends StatelessWidget {
   final String? mediaProfileId;
   final String? currentUserId;
   final Stream<List<ActivityFeedItem>>? mediaActivitiesStream;
-  final List<ActivityFeedItem>? mediaActivities;
-  final bool showDetailedAnalytics;
-  final List<Widget> trailingChildren;
   final double bottomPadding;
 
   @override
@@ -106,57 +99,49 @@ class ProfileDashboard extends StatelessWidget {
           const SizedBox(height: 18),
           if (mediaProfileId != null &&
               mediaProfileId!.isNotEmpty &&
-              (mediaActivitiesStream != null || mediaActivities != null)) ...[
+              mediaActivitiesStream != null) ...[
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 24),
               child: ProfileMediaPreviewSection(
                 profileId: mediaProfileId!,
                 currentUserId: currentUserId,
                 activitiesStream: mediaActivitiesStream,
-                activities: mediaActivities,
               ),
             ),
             const SizedBox(height: 18),
           ],
-          if (showDetailedAnalytics) ...[
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 24),
-              child: ProfileMetricLineGraphSection(
-                visits: visits,
-                tileRecords: tileRecords,
-                xpEvents: xpEvents,
-                selectedMetric: selectedMetric,
-                onMetricSelected: onMetricSelected,
-              ),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 24),
+            child: ProfileMetricLineGraphSection(
+              visits: visits,
+              tileRecords: tileRecords,
+              xpEvents: xpEvents,
+              selectedMetric: selectedMetric,
+              onMetricSelected: onMetricSelected,
             ),
-            const SizedBox(height: 20),
-            const ProfileSectionTitle(title: 'Most Visited Location'),
-            const SizedBox(height: 9),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 24),
-              child: visitsError != null
-                  ? const _UnavailableActivityCard(
-                      message:
-                          'Most visited location is unavailable right now.',
-                    )
-                  : MostVisitedLocationBubble(visits: visits),
+          ),
+          const SizedBox(height: 20),
+          const ProfileSectionTitle(title: 'Most Visited Location'),
+          const SizedBox(height: 9),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 24),
+            child: visitsError != null
+                ? const _UnavailableActivityCard(
+                    message: 'Most visited location is unavailable right now.',
+                  )
+                : MostVisitedLocationBubble(visits: visits),
+          ),
+          const SizedBox(height: 16),
+          const ProfileSectionTitle(title: 'Recent Visited Locations'),
+          const SizedBox(height: 9),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 24),
+            child: RecentVisitedLocationsPanel(
+              visits: recentVisits,
+              isLoading: !recentVisitsReady,
+              error: recentVisitsError,
             ),
-            const SizedBox(height: 16),
-            const ProfileSectionTitle(title: 'Recent Visited Locations'),
-            const SizedBox(height: 9),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 24),
-              child: RecentVisitedLocationsPanel(
-                visits: recentVisits,
-                isLoading: !recentVisitsReady,
-                error: recentVisitsError,
-              ),
-            ),
-          ],
-          if (trailingChildren.isNotEmpty) ...[
-            const SizedBox(height: 20),
-            ...trailingChildren,
-          ],
+          ),
         ],
       ),
     );
@@ -213,19 +198,31 @@ class _ProfileMetricLineGraphSectionState
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        ProfileMetricPillSelector(
-          labels: ProfileGraphMetric.values
-              .map((metric) => metric.label)
-              .toList(growable: false),
-          itemKeys: ProfileGraphMetric.values
-              .map((metric) => 'profile-metric-${metric.name}')
-              .toList(growable: false),
-          selectedIndex: ProfileGraphMetric.values.indexOf(
-            widget.selectedMetric,
+        Container(
+          width: double.infinity,
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+          clipBehavior: Clip.antiAlias,
+          decoration: BoxDecoration(
+            color: AppSurfaces.card(context),
+            borderRadius: BorderRadius.circular(18),
+            border: Border.all(color: AppSurfaces.border(context)),
           ),
-          keyPrefix: 'profile-metric',
-          onSelected: (index) =>
-              widget.onMetricSelected(ProfileGraphMetric.values[index]),
+          child: SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: Row(
+              children: ProfileGraphMetric.values.map((metric) {
+                return Padding(
+                  padding: const EdgeInsets.only(right: 8),
+                  child: _MetricPill(
+                    key: ValueKey<String>('profile-metric-${metric.name}'),
+                    label: metric.label,
+                    selected: widget.selectedMetric == metric,
+                    onTap: () => widget.onMetricSelected(metric),
+                  ),
+                );
+              }).toList(),
+            ),
+          ),
         ),
         const SizedBox(height: 12),
         SizedBox(
@@ -320,6 +317,52 @@ class _ProfileMetricLineGraphSectionState
         }
         return _weeklyBucketsFromXpEvents(widget.xpEvents);
     }
+  }
+}
+
+class _MetricPill extends StatelessWidget {
+  const _MetricPill({
+    super.key,
+    required this.label,
+    required this.selected,
+    required this.onTap,
+  });
+
+  final String label;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final selectedColor = theme.colorScheme.primary;
+
+    return Material(
+      color: selected ? selectedColor : AppSurfaces.softCard(context),
+      borderRadius: BorderRadius.circular(999),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(999),
+        onTap: onTap,
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(999),
+            border: Border.all(
+              color: selected ? selectedColor : AppSurfaces.border(context),
+            ),
+          ),
+          child: Text(
+            label,
+            style: theme.textTheme.labelMedium?.copyWith(
+              color: selected
+                  ? theme.colorScheme.onPrimary
+                  : AppSurfaces.textMuted(context),
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+        ),
+      ),
+    );
   }
 }
 
@@ -549,83 +592,76 @@ class ProfileMediaPreviewSection extends StatelessWidget {
     required this.profileId,
     this.currentUserId,
     this.activitiesStream,
-    this.activities,
   });
 
   final String profileId;
   final String? currentUserId;
   final Stream<List<ActivityFeedItem>>? activitiesStream;
-  final List<ActivityFeedItem>? activities;
 
   @override
   Widget build(BuildContext context) {
-    final activityItems = activities;
-    if (activityItems != null) {
-      return _buildPreview(context, activityItems);
-    }
     final stream = activitiesStream;
     if (stream == null) return const SizedBox.shrink();
     return StreamBuilder<List<ActivityFeedItem>>(
       stream: stream,
       builder: (context, snapshot) {
-        if (snapshot.hasError) return const SizedBox.shrink();
-        return _buildPreview(context, snapshot.data);
-      },
-    );
-  }
-
-  Widget _buildPreview(
-    BuildContext context,
-    List<ActivityFeedItem>? activityItems,
-  ) {
-    final entries = _mediaEntries(activityItems);
-    if (entries.isEmpty) return const SizedBox.shrink();
-    final previewEntries = entries.take(4).toList(growable: false);
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          'Media',
-          style: Theme.of(context).textTheme.titleMedium?.copyWith(
-            fontWeight: FontWeight.w800,
-            color: AppSurfaces.textPrimary(context),
-          ),
-        ),
-        const SizedBox(height: 9),
-        LayoutBuilder(
-          builder: (context, constraints) {
-            final tileSize = ((constraints.maxWidth - 24) / 4)
-                .clamp(58.0, 74.0)
-                .toDouble();
-            return Row(
-              children: [
-                for (var index = 0; index < previewEntries.length; index += 1)
-                  Padding(
-                    padding: EdgeInsets.only(
-                      right: index == previewEntries.length - 1 ? 0 : 8,
-                    ),
-                    child: SizedBox.square(
-                      dimension: tileSize,
-                      child: _ProfileMediaPreviewTile(
-                        media: previewEntries[index].media,
-                        showViewAllOverlay: index == previewEntries.length - 1,
-                        onTap: index == previewEntries.length - 1
-                            ? () => _openGallery(context)
-                            : () => MediaViewer.show(
-                                context: context,
-                                mediaUrls: entries
-                                    .map((entry) => entry.media.url)
-                                    .toList(growable: false),
-                                initialIndex: index,
-                              ),
+        final entries = _mediaEntries(snapshot.data);
+        if (snapshot.hasError || entries.isEmpty) {
+          return const SizedBox.shrink();
+        }
+        final previewEntries = entries.take(4).toList(growable: false);
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Media',
+              style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                fontWeight: FontWeight.w800,
+                color: AppSurfaces.textPrimary(context),
+              ),
+            ),
+            const SizedBox(height: 9),
+            LayoutBuilder(
+              builder: (context, constraints) {
+                final tileSize = ((constraints.maxWidth - 24) / 4)
+                    .clamp(58.0, 74.0)
+                    .toDouble();
+                return Row(
+                  children: [
+                    for (
+                      var index = 0;
+                      index < previewEntries.length;
+                      index += 1
+                    )
+                      Padding(
+                        padding: EdgeInsets.only(
+                          right: index == previewEntries.length - 1 ? 0 : 8,
+                        ),
+                        child: SizedBox.square(
+                          dimension: tileSize,
+                          child: _ProfileMediaPreviewTile(
+                            media: previewEntries[index].media,
+                            showViewAllOverlay:
+                                index == previewEntries.length - 1,
+                            onTap: index == previewEntries.length - 1
+                                ? () => _openGallery(context)
+                                : () => MediaViewer.show(
+                                    context: context,
+                                    mediaUrls: entries
+                                        .map((entry) => entry.media.url)
+                                        .toList(growable: false),
+                                    initialIndex: index,
+                                  ),
+                          ),
+                        ),
                       ),
-                    ),
-                  ),
-              ],
-            );
-          },
-        ),
-      ],
+                  ],
+                );
+              },
+            ),
+          ],
+        );
+      },
     );
   }
 

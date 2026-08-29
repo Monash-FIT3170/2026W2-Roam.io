@@ -10,7 +10,7 @@ import '../providers/you_analytics_provider.dart';
 import '../services/home_base_service.dart';
 import '../services/stats_summary_service.dart';
 
-/// Extended analytics provider for the Statistics page and profile header counts.
+/// Extended analytics provider for the Stats tab and profile header counts.
 class StatsAnalyticsProvider extends YouAnalyticsProvider {
   StatsAnalyticsProvider({
     super.visitService,

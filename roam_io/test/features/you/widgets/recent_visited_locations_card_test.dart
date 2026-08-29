@@ -1,6 +1,6 @@
 /*
  * Author: Sanjevan Rajasegar
- * Last Updated: 29 August 2026 — Sanjevan Rajasegar
+ * Last Updated: 6 August 2026
  * Description:
  *   Widget tests for RecentVisitedLocationsCard: shrink-wrap height, max five
  *   rows, empty state, and visit XP labels. Guards against Scaffold extendBody
@@ -120,7 +120,7 @@ void main() {
       expect(cardSize.height, lessThan(480));
       expect(cardSize.height, lessThan(AppBottomNavBar.barHeight + 360));
       expect(cardSize.height, greaterThan(200));
-      expect(find.text('Recent Visited Locations'), findsOneWidget);
+      expect(find.text('Recent visits'), findsOneWidget);
     },
   );
 }

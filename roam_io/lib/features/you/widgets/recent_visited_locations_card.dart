@@ -1,8 +1,9 @@
 /*
  * Author: Sanjevan Rajasegar
- * Last Updated: 29 August 2026 — Sanjevan Rajasegar
+ * Last Updated: 16 August 2026
  * Description:
- *   Statistics card for up to five recent visited locations.
+ *   Stats card for up to five recent visits, titled inside the card like
+ *   Recent awards on the XP tab.
  */
 
 import 'package:flutter/material.dart';
@@ -16,7 +17,7 @@ import 'stats_section_card.dart';
 /// Maximum visit rows shown in the Recent Visited Locations card.
 const int kRecentVisitedLocationsLimit = 5;
 
-/// Card shell for recent visits on the Locations statistics category.
+/// Card shell for recent visits on the Locations stats category.
 class RecentVisitedLocationsCard extends StatelessWidget {
   const RecentVisitedLocationsCard({
     super.key,
@@ -31,10 +32,7 @@ class RecentVisitedLocationsCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return StatsSectionCard(
-      title: 'Recent Visited Locations',
-      child: _buildBody(context),
-    );
+    return StatsSectionCard(title: 'Recent visits', child: _buildBody(context));
   }
 
   Widget _buildBody(BuildContext context) {

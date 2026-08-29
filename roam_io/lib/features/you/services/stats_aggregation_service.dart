@@ -18,7 +18,7 @@ const double melbourneMetroAreaSquareMetres = 9_900_000_000;
 /// Typical Greater Melbourne SA1 size used when unlock meta has no area yet.
 const double averageSa1AreaSquareMetres = 250_000;
 
-/// Pure aggregation helpers for Statistics page charts and hero numbers.
+/// Pure aggregation helpers for Stats tab charts and hero numbers.
 class StatsAggregationService {
   const StatsAggregationService();
 

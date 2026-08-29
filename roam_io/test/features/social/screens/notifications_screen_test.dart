@@ -1,6 +1,6 @@
 /*
  * Author: Sanjevan Rajasegar
- * Last Updated: 29 August 2026 — Sanjevan Rajasegar
+ * Last Updated: 10 August 2026
  * Description:
  *   Widget tests for NotificationsScreen list, mark-read, Follow Back /
  *   Following unfollow, follow request actions, stale request rows, and empty
@@ -25,16 +25,10 @@ import 'package:roam_io/features/social/data/social_notification_service.dart';
 import 'package:roam_io/features/social/domain/social_notification.dart';
 import 'package:roam_io/features/social/screens/notifications_screen.dart';
 import 'package:roam_io/features/social/screens/other_user_profile_screen.dart';
-import 'package:roam_io/theme/app_colours.dart';
 
 import '../../../support/fake_firebase_user.dart';
 
 void main() {
-  Color? buttonBackground(WidgetTester tester, Finder finder) {
-    final button = tester.widget<ButtonStyleButton>(finder);
-    return button.style?.backgroundColor?.resolve(<WidgetState>{});
-  }
-
   Future<void> pumpNotifScreen(
     WidgetTester tester, {
     required AuthProvider auth,
@@ -206,13 +200,6 @@ void main() {
 
     expect(find.byType(OtherUserProfileScreen), findsNothing);
     expect(find.widgetWithText(OutlinedButton, 'Following'), findsOneWidget);
-    expect(
-      buttonBackground(
-        tester,
-        find.widgetWithText(OutlinedButton, 'Following'),
-      ),
-      AppColors.cream,
-    );
     auth.dispose();
   });
 
