@@ -35,18 +35,14 @@ class ProfileMetricPillSelector extends StatelessWidget {
       decoration: BoxDecoration(
         color: AppSurfaces.card(context),
         borderRadius: BorderRadius.circular(18),
-        border: Border.all(
-          color: AppSurfaces.border(context),
-        ),
+        border: Border.all(color: AppSurfaces.border(context)),
       ),
       child: LayoutBuilder(
         builder: (context, constraints) {
           return SingleChildScrollView(
             scrollDirection: Axis.horizontal,
             child: ConstrainedBox(
-              constraints: BoxConstraints(
-                minWidth: constraints.maxWidth,
-              ),
+              constraints: BoxConstraints(minWidth: constraints.maxWidth),
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 mainAxisAlignment: MainAxisAlignment.center,
@@ -93,24 +89,17 @@ class _MetricPill extends StatelessWidget {
     final selectedColor = theme.colorScheme.primary;
 
     return Material(
-      color: selected
-          ? selectedColor
-          : AppSurfaces.softCard(context),
+      color: selected ? selectedColor : AppSurfaces.softCard(context),
       borderRadius: BorderRadius.circular(999),
       child: InkWell(
         borderRadius: BorderRadius.circular(999),
         onTap: onTap,
         child: Container(
-          padding: const EdgeInsets.symmetric(
-            horizontal: 12,
-            vertical: 7,
-          ),
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(999),
             border: Border.all(
-              color: selected
-                  ? selectedColor
-                  : AppSurfaces.border(context),
+              color: selected ? selectedColor : AppSurfaces.border(context),
             ),
           ),
           child: Text(
