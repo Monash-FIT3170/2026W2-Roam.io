@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../../theme/app_surfaces.dart';
 
-/// Shared card shell for Stats tab list and insight sections.
+/// Shared card shell for Statistics page list and insight sections.
 class StatsSectionCard extends StatelessWidget {
   const StatsSectionCard({
     super.key,

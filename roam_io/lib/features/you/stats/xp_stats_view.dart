@@ -9,7 +9,7 @@ import '../widgets/stats_hero_row.dart';
 import '../widgets/stats_insight_card.dart';
 import '../widgets/stats_recent_xp_list.dart';
 
-/// XP category on the Stats tab.
+/// XP category on the Statistics page.
 class XpStatsView extends StatelessWidget {
   const XpStatsView({
     super.key,
