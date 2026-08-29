@@ -138,83 +138,27 @@ class _CloudAuthBackgroundState extends State<CloudAuthBackground>
       builder: (context, child) {
         final progress = _controller.value;
         
-        // Cloud Layers that will have holes punched in them
+        // Cloud Layers
         Widget clouds = Stack(
           fit: StackFit.expand,
           children: [
             _buildCloudLayer(
-              image: 'assets/fog_of_war/cartoon_cloud_01.png', // The high-res cloud
+              image: 'assets/fog_of_war/cartoon_cloud_01.png',
               progress: progress,
               speedX: 100,
               speedY: 50,
-              opacity: 1.0,
-              scale: 1.0,
+              opacity: 0.9,
+              scale: 0.6,
             ),
             _buildCloudLayer(
               image: 'assets/fog_of_war/cartoon_cloud_01.png',
               progress: progress,
               speedX: -80,
               speedY: 40,
-              opacity: 0.8,
-              scale: 1.2,
-            ),
-            _buildCloudLayer(
-              image: 'assets/fog_of_war/cartoon_cloud_01.png',
-              progress: progress,
-              speedX: 150,
-              speedY: -60,
               opacity: 0.6,
-              scale: 1.0,
+              scale: 0.8,
             ),
           ],
-        );
-
-        // Punch multiple soft holes in the clouds to simulate unlocked locations
-        // Hole 1: Top center-right
-        clouds = ShaderMask(
-          blendMode: BlendMode.dstOut,
-          shaderCallback: (bounds) => RadialGradient(
-            center: const Alignment(0.3, -0.4),
-            radius: 0.4,
-            colors: [
-              Colors.black,
-              Colors.black.withValues(alpha: 0.6),
-              Colors.transparent,
-            ],
-            stops: const [0.0, 0.5, 1.0],
-          ).createShader(bounds),
-          child: clouds,
-        );
-
-        // Hole 2: Bottom left
-        clouds = ShaderMask(
-          blendMode: BlendMode.dstOut,
-          shaderCallback: (bounds) => RadialGradient(
-            center: const Alignment(-0.5, 0.3),
-            radius: 0.3,
-            colors: [
-              Colors.black.withValues(alpha: 0.8),
-              Colors.black.withValues(alpha: 0.4),
-              Colors.transparent,
-            ],
-            stops: const [0.0, 0.6, 1.0],
-          ).createShader(bounds),
-          child: clouds,
-        );
-        
-        // Hole 3: Center (behind the logo/main card)
-        clouds = ShaderMask(
-          blendMode: BlendMode.dstOut,
-          shaderCallback: (bounds) => RadialGradient(
-            center: const Alignment(0.0, 0.1),
-            radius: 0.5,
-            colors: [
-              Colors.black.withValues(alpha: 0.5),
-              Colors.transparent,
-            ],
-            stops: const [0.0, 1.0],
-          ).createShader(bounds),
-          child: clouds,
         );
 
         return Stack(
