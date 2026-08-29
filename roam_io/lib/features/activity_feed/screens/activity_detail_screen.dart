@@ -267,6 +267,7 @@ class ActivityDetailScreen extends StatelessWidget {
                           JourneyShareSheet.shareFromActivity(
                             context,
                             activity,
+                            currentUserId: currentUserId,
                           );
                         },
                       ),

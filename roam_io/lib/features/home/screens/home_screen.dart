@@ -223,7 +223,11 @@ class _HomeActivityCard extends StatelessWidget {
       currentUserId: currentUserId,
       showShare: true,
       onShareTap: () {
-        JourneyShareSheet.shareFromActivity(context, activity);
+        JourneyShareSheet.shareFromActivity(
+          context,
+          activity,
+          currentUserId: currentUserId,
+        );
       },
       onOverflowTap: () {
         debugPrint(

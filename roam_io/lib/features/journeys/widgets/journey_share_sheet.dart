@@ -1,3 +1,14 @@
+/*
+ * Author: Amarprit Singh
+ * Last Updated: 29 August 2026
+ * Description:
+ *   Share Journey bottom sheet: previews the shareable card over each
+ *   background and exports the chosen one as a PNG. The card's numbers come
+ *   from the sharer's own journey document when they can read it, and from
+ *   the activity post itself otherwise.
+ */
+
+import 'dart:async';
 import 'dart:io';
 import 'dart:ui' as ui;
 
@@ -5,108 +16,97 @@ import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
-import 'package:google_maps_flutter/google_maps_flutter.dart';
 
-import '../../../shared/widgets/app_toast.dart';
 import '../../../theme/app_colours.dart';
 import '../../../theme/app_surfaces.dart';
 import '../../activity_feed/models/activity_feed_item.dart';
 import '../data/journey_service.dart';
 import '../domain/journey.dart';
-import '../domain/journey_location.dart';
-import '../domain/transport_mode.dart';
+import '../domain/journey_share_details.dart';
 import 'journey_share_card.dart';
 
 class JourneyShareSheet extends StatefulWidget {
-  const JourneyShareSheet({super.key, required this.journey});
+  const JourneyShareSheet({super.key, required this.details});
 
-  final Journey journey;
+  final JourneyShareDetails details;
 
   static Future<void> show({
     required BuildContext context,
     required Journey journey,
   }) {
+    return showDetails(
+      context: context,
+      details: JourneyShareDetails.fromJourney(journey),
+    );
+  }
+
+  static Future<void> showDetails({
+    required BuildContext context,
+    required JourneyShareDetails details,
+  }) {
     return showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (_) => JourneyShareSheet(journey: journey),
+      builder: (_) => JourneyShareSheet(details: details),
     );
   }
 
   static Future<void> shareFromActivity(
     BuildContext context,
-    ActivityFeedItem activity,
-  ) async {
+    ActivityFeedItem activity, {
+    String? currentUserId,
+    JourneyService? journeyService,
+  }) async {
+    final details = await resolveShareDetails(
+      activity,
+      currentUserId: currentUserId,
+      journeyService: journeyService,
+    );
+
+    if (!context.mounted) return;
+    await showDetails(context: context, details: details);
+  }
+
+  /// The card's data for [activity].
+  ///
+  /// The journey document holds the distance recorded live while tracking, so
+  /// it is preferred — but only its owner may read it, and the post carries
+  /// everything else the card needs, so anyone else shares straight from the
+  /// post rather than not at all.
+  @visibleForTesting
+  static Future<JourneyShareDetails> resolveShareDetails(
+    ActivityFeedItem activity, {
+    String? currentUserId,
+    JourneyService? journeyService,
+  }) async {
+    final sourceJourneyId = activity.sourceJourneyId ?? '';
+    if (sourceJourneyId.isEmpty || currentUserId != activity.ownerId) {
+      return JourneyShareDetails.fromActivity(activity);
+    }
+
     try {
-      final journeyService = JourneyService();
-      var journey = await journeyService.getJourneyById(
-        userId: activity.ownerId,
-        journeyId: activity.id,
-      );
-
-      if (journey == null) {
-        // Fallback for test activities or missing journeys: create a mock journey
-        int durationSeconds = 1800; // default 30 min
-        final double distanceMeters = 5000; // default 5km
-        int xpEarned = 150;
-
-        for (final metric in activity.metrics) {
-          final val = metric.value.toLowerCase();
-          if (metric.label.toLowerCase() == 'time') {
-            int mins = 0;
-            int secs = 0;
-            final mMatch = RegExp(r'(\d+)m').firstMatch(val);
-            if (mMatch != null) {
-              mins = int.tryParse(mMatch.group(1) ?? '0') ?? 0;
-            }
-            final sMatch = RegExp(r'(\d+)s').firstMatch(val);
-            if (sMatch != null) {
-              secs = int.tryParse(sMatch.group(1) ?? '0') ?? 0;
-            }
-            if (mins > 0 || secs > 0) durationSeconds = mins * 60 + secs;
-          } else if (metric.label.toLowerCase() == 'xp gained') {
-            final xMatch = RegExp(r'(\d+)').firstMatch(val);
-            if (xMatch != null) {
-              xpEarned = int.tryParse(xMatch.group(1) ?? '0') ?? 0;
-            }
-          }
-        }
-
-        journey = Journey(
-          id: activity.id,
-          userId: activity.ownerId,
-          startTime: DateTime.now().subtract(
-            Duration(seconds: durationSeconds),
-          ),
-          endTime: DateTime.now(),
-          startLocation: const JourneyLocation(
-            latLng: LatLng(-37.8136, 144.9631),
-            displayName: 'Start Location',
-          ),
-          endLocation: const JourneyLocation(
-            latLng: LatLng(-37.8140, 144.9640),
-            displayName: 'End Location',
-          ),
-          transportMode: TransportMode.walk,
-          encodedRoute: '', // Blank route for test activities
-          distanceMeters: distanceMeters,
-          durationSeconds: durationSeconds,
-          xpEarned: xpEarned,
-          journeyXpEarned: xpEarned,
-          tilesUnlocked: 0,
-          tileXpEarned: 0,
+      final journey = await (journeyService ?? JourneyService())
+          .getJourneyById(
+            userId: activity.ownerId,
+            journeyId: sourceJourneyId,
+          );
+      // The map picture lives on the post, not the journey document, so it
+      // has to be carried across or the card falls back to a bare polyline.
+      if (journey != null) {
+        return JourneyShareDetails.fromJourney(
+          journey,
+          mapImageUrl: activity.mapImageUrl,
         );
       }
-
-      if (context.mounted) {
-        show(context: context, journey: journey);
-      }
-    } catch (e) {
-      if (context.mounted) {
-        AppToast.error(context, 'Failed to load journey for sharing.');
-      }
+    } catch (error) {
+      debugPrint(
+        '[JourneyShareSheet] journey load failed '
+        'activityId=${activity.id} error=$error',
+      );
     }
+
+    return JourneyShareDetails.fromActivity(activity);
   }
 
   @override
@@ -118,6 +118,8 @@ class _JourneyShareSheetState extends State<JourneyShareSheet> {
   late final PageController _pageController;
   int _currentIndex = 0;
   bool _isSharing = false;
+  bool _isMapImageReady = false;
+  bool _mapImageRequested = false;
 
   final List<Color> _backgroundOptions = [
     AppColors.sage,
@@ -130,6 +132,30 @@ class _JourneyShareSheetState extends State<JourneyShareSheet> {
     super.initState();
     _cardKeys = List.generate(_backgroundOptions.length, (_) => GlobalKey());
     _pageController = PageController();
+    // Nothing to wait for when the card draws the route itself.
+    _isMapImageReady = !widget.details.hasMapImage;
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (_isMapImageReady || _mapImageRequested) return;
+    _mapImageRequested = true;
+    unawaited(_precacheMapImage());
+  }
+
+  /// Loads the post's map picture before the card can be captured.
+  ///
+  /// A network image that has not decoded yet paints nothing, so sharing
+  /// early would export a card with a blank square where the map belongs.
+  Future<void> _precacheMapImage() async {
+    try {
+      await precacheImage(NetworkImage(widget.details.mapImageUrl!), context);
+    } catch (error) {
+      // The card falls back to the drawn route, so it is still worth sharing.
+      debugPrint('[JourneyShareSheet] map image load failed error=$error');
+    }
+    if (mounted) setState(() => _isMapImageReady = true);
   }
 
   @override
@@ -240,7 +266,7 @@ class _JourneyShareSheetState extends State<JourneyShareSheet> {
                             return RepaintBoundary(
                               key: _cardKeys[index],
                               child: JourneyShareCard(
-                                journey: widget.journey,
+                                details: widget.details,
                                 backgroundColor: _backgroundOptions[index],
                               ),
                             );
@@ -313,8 +339,10 @@ class _JourneyShareSheetState extends State<JourneyShareSheet> {
                 width: double.infinity,
                 height: 56,
                 child: FilledButton.icon(
-                  onPressed: _isSharing ? null : _shareImage,
-                  icon: _isSharing
+                  onPressed: _isSharing || !_isMapImageReady
+                      ? null
+                      : _shareImage,
+                  icon: _isSharing || !_isMapImageReady
                       ? const SizedBox(
                           width: 24,
                           height: 24,
@@ -325,7 +353,11 @@ class _JourneyShareSheetState extends State<JourneyShareSheet> {
                         )
                       : const Icon(Icons.share),
                   label: Text(
-                    _isSharing ? 'Preparing...' : 'Share',
+                    !_isMapImageReady
+                        ? 'Preparing map...'
+                        : _isSharing
+                        ? 'Preparing...'
+                        : 'Share',
                     style: const TextStyle(
                       fontSize: 18,
                       fontWeight: FontWeight.bold,
