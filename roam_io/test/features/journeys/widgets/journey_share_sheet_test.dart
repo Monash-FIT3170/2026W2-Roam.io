@@ -8,14 +8,18 @@
  */
 
 import 'package:fake_cloud_firestore/fake_cloud_firestore.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
+import 'package:roam_io/features/activity_feed/data/activity_map_image.dart';
 import 'package:roam_io/features/activity_feed/models/activity_feed_item.dart';
 import 'package:roam_io/features/journeys/data/journey_service.dart';
 import 'package:roam_io/features/journeys/data/polyline_codec.dart';
 import 'package:roam_io/features/journeys/domain/journey.dart';
 import 'package:roam_io/features/journeys/domain/journey_location.dart';
+import 'package:roam_io/features/journeys/domain/journey_share_details.dart';
 import 'package:roam_io/features/journeys/domain/transport_mode.dart';
+import 'package:roam_io/features/journeys/widgets/journey_share_card.dart';
 import 'package:roam_io/features/journeys/widgets/journey_share_sheet.dart';
 
 void main() {
@@ -84,6 +88,34 @@ void main() {
       expect(details.hasRoute, isFalse);
       expect(details.transportMode, isNull);
       expect(details.stats.single.value, '+250 XP');
+    });
+  });
+
+  group('JourneyShareCard', () {
+    testWidgets('gives the map the shape it was captured in', (tester) async {
+      await tester.pumpWidget(
+        const MaterialApp(
+          home: Scaffold(
+            body: JourneyShareCard(
+              details: JourneyShareDetails(
+                title: 'Morning loop',
+                encodedRoute: '',
+                mapImageUrl: 'https://example.com/map.png',
+                stats: <ShareStat>[ShareStat(value: '5.0', unit: 'km')],
+              ),
+            ),
+          ),
+        ),
+      );
+
+      // The slot and the picture have to agree, or the card shows the map in
+      // bands of empty card the way it did when this was a square.
+      expect(
+        tester
+            .widgetList<AspectRatio>(find.byType(AspectRatio))
+            .map((slot) => slot.aspectRatio),
+        contains(ActivityMapImage.aspectRatio),
+      );
     });
   });
 }

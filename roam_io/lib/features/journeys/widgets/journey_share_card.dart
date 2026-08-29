@@ -12,6 +12,7 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 
 import '../../../theme/app_colours.dart';
+import '../../activity_feed/data/activity_map_image.dart';
 import '../domain/journey_share_details.dart';
 import '../data/polyline_codec.dart';
 
@@ -68,14 +69,17 @@ class JourneyShareCard extends StatelessWidget {
                     children: [
                       // The map area, dropped entirely for a post with
                       // neither a picture nor a route rather than shared as
-                      // an empty square.
+                      // an empty band.
                       if (details.hasMapArea)
                         ClipRRect(
                           borderRadius: const BorderRadius.vertical(
                             top: Radius.circular(24),
                           ),
                           child: AspectRatio(
-                            aspectRatio: 1,
+                            // The shape the picture was captured in, so it
+                            // fills the top of the card instead of sitting in
+                            // bands of empty card.
+                            aspectRatio: ActivityMapImage.aspectRatio,
                             child: Container(
                               color: AppColors.cream.withValues(alpha: 0.5),
                               child: _MapArea(details: details),
@@ -185,10 +189,11 @@ class _MapArea extends StatelessWidget {
 
     return Image.network(
       mapImageUrl,
-      // The picture is captured 16:9 off the journey summary map and lands in
-      // a square here, so filling the square would crop the ends off the
-      // route. Letterboxing onto the cream keeps the whole journey visible.
-      fit: BoxFit.contain,
+      // The slot is the shape the picture was captured in, so this fills it
+      // exactly and crops nothing. Cover rather than contain because capture
+      // sizes vary with the device that took them: a picture off by a rounding
+      // pixel should lose that pixel, not show a hairline of card down an edge.
+      fit: BoxFit.cover,
       errorBuilder: (context, error, stackTrace) => _drawnRoute(),
     );
   }

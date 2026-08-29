@@ -19,6 +19,14 @@ abstract final class ActivityMapImage {
   static const mediaId = 'map';
   static const filename = 'map_preview.png';
   static const mediaType = 'photo';
+
+  /// Shape every capture is framed in, and the shape every surface shows it in
+  /// — feed cards, the detail screen, and the share card all use this, so the
+  /// picture fills each of them without letterboxing or cropping.
+  ///
+  /// Taller than a video frame on purpose: a wide slot frames the route into a
+  /// letterbox strip, and the map is the point of the card.
+  static const aspectRatio = 4 / 3;
 }
 
 /// Records a captured map picture on an activity that was saved without one.

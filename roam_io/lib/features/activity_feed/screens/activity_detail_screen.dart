@@ -20,6 +20,7 @@ import '../../journeys/widgets/journey_share_sheet.dart';
 import '../../map/data/journey_map_snapshot_service.dart';
 import '../../map/data/visited_region_service.dart';
 import '../../map/widgets/media_viewer.dart';
+import '../data/activity_map_image.dart';
 import '../data/comment_like_service.dart';
 import '../data/comment_service.dart';
 import '../data/activity_mutation_service.dart';
@@ -206,7 +207,10 @@ class ActivityDetailScreen extends StatelessWidget {
             if (activity.media.isNotEmpty || routeSlide != null) ...[
               ActivityMediaCarousel(
                 media: activity.media,
-                aspectRatio: 4 / 3,
+                // Named rather than left to the default: this screen has always
+                // framed the map taller than the feed did, and it is the shape
+                // the two now share.
+                aspectRatio: ActivityMapImage.aspectRatio,
                 routeSlide: routeSlide,
                 routeFirst: true,
                 onTap: (index) => MediaViewer.show(

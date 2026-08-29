@@ -7,6 +7,7 @@
  */
 
 import 'dart:async';
+import 'dart:ui' as ui;
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/gestures.dart';
@@ -18,6 +19,10 @@ import '../../journeys/domain/transport_mode.dart';
 import '../../map/data/journey_map_snapshot_service.dart';
 import '../../map/data/visited_region_service.dart';
 import '../../map/domain/map_styles.dart';
+import '../../map/fog/fog_atlas.dart';
+import '../../map/fog/fog_atlas_cache.dart';
+import '../../map/fog/static_fog.dart';
+import '../data/activity_map_image.dart';
 import '../domain/activity_route.dart';
 import '../models/activity_feed_item.dart';
 import 'route_marker_icons.dart';
@@ -278,7 +283,11 @@ class _ActivityMapPreviewState extends State<ActivityMapPreview> {
     final isLoading = _isSnapshotLoading && overlay == null;
 
     final preview = AspectRatio(
-      aspectRatio: widget._isDetail ? 4 / 3 : 16 / 9,
+      // The shape the capture is stored in, so what a journey is saved as
+      // matches what every surface then shows it in. Load-bearing here: the
+      // journey summary sheet lays this widget out standalone, and the stored
+      // picture is whatever size that lays out at.
+      aspectRatio: ActivityMapImage.aspectRatio,
       child: DecoratedBox(
         decoration: BoxDecoration(
           color: AppSurfaces.softCard(context),
@@ -357,7 +366,7 @@ class ActivityMapSnapshotImage extends StatelessWidget {
     final radius = BorderRadius.circular(_isDetail ? 18 : 16);
 
     return AspectRatio(
-      aspectRatio: _isDetail ? 4 / 3 : 16 / 9,
+      aspectRatio: ActivityMapImage.aspectRatio,
       child: DecoratedBox(
         decoration: BoxDecoration(
           color: AppSurfaces.softCard(context),
@@ -530,16 +539,31 @@ class _ActivityRouteGoogleMapState extends State<_ActivityRouteGoogleMap> {
 
   GoogleMapController? _controller;
   Size? _lastLaidOutSize;
-  LatLngBounds? _visibleBounds;
   BitmapDescriptor? _startFlagIcon;
   BitmapDescriptor? _finishFlagIcon;
   bool _isCapturing = false;
   Timer? _captureDelayTimer;
   Completer<bool>? _captureDelay;
 
+  /// Where the map settled, for the fog to align its clouds to.
+  ///
+  /// Held apart from [setState] because it changes on every frame of a gesture,
+  /// and rebuilding the map, its markers and its polylines that often is what
+  /// the fog overlay exists to avoid.
+  final ValueNotifier<CameraPosition?> _fogCamera =
+      ValueNotifier<CameraPosition?>(null);
+
+  StaticFog? _fog;
+  FogAtlas? _atlas;
+
+  /// Brightness the held atlas was baked for, and the release key for it.
+  /// Null while this map holds no atlas at all.
+  Brightness? _atlasBrightness;
+
   @override
   void initState() {
     super.initState();
+    _syncFog();
     final injectedIcons = widget.endpointMarkerIcons;
     if (injectedIcons != null) {
       _startFlagIcon = injectedIcons.start;
@@ -552,11 +576,20 @@ class _ActivityRouteGoogleMapState extends State<_ActivityRouteGoogleMap> {
   }
 
   @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _syncAtlas();
+  }
+
+  @override
   void didUpdateWidget(covariant _ActivityRouteGoogleMap oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.route != widget.route) {
-      _visibleBounds = null;
+      _fogCamera.value = null;
       _lastLaidOutSize = null;
+      // The fog is anchored on the route it frames, so it is rebuilt rather
+      // than left pointing at the previous journey.
+      _syncFog();
       unawaited(_fitRoute());
     }
     if (!oldWidget.showEndpoints && widget.showEndpoints) {
@@ -570,6 +603,8 @@ class _ActivityRouteGoogleMapState extends State<_ActivityRouteGoogleMap> {
       }
     }
     if (oldWidget.snapshotOverlay != widget.snapshotOverlay) {
+      _syncFog();
+      _syncAtlas();
       unawaited(_refreshVisibleBounds());
       _captureWhenFogged();
     }
@@ -582,15 +617,58 @@ class _ActivityRouteGoogleMapState extends State<_ActivityRouteGoogleMap> {
     if (pendingDelay != null && !pendingDelay.isCompleted) {
       pendingDelay.complete(false);
     }
+    final heldAtlas = _atlasBrightness;
+    if (heldAtlas != null) unawaited(FogAtlasCache.release(heldAtlas));
+    _fogCamera.dispose();
     _controller?.dispose();
     super.dispose();
+  }
+
+  /// Rebuilds the fog for the regions this preview's overlay cleared.
+  ///
+  /// An overlay that never loaded leaves the map bare rather than fogged: with
+  /// no holes to cut, drawing it would bury the whole journey in cloud.
+  void _syncFog() {
+    final overlay = widget.snapshotOverlay;
+    _fog = overlay == null || overlay.loadedBounds == null
+        ? null
+        : StaticFog(
+            anchor: widget.route.center,
+            clearedRegions: overlay.clearedRegions,
+          );
+  }
+
+  /// Takes or drops this map's share of the baked cloud atlas.
+  ///
+  /// Safe to call whenever the fog or the theme changes; it only acts when the
+  /// atlas it wants differs from the one it holds.
+  void _syncAtlas() {
+    final wanted = _fog == null ? null : Theme.of(context).brightness;
+    if (wanted == _atlasBrightness) return;
+
+    final held = _atlasBrightness;
+    _atlasBrightness = wanted;
+    _atlas = null;
+    if (held != null) unawaited(FogAtlasCache.release(held));
+    if (wanted != null) unawaited(_loadAtlas(wanted));
+  }
+
+  Future<void> _loadAtlas(Brightness brightness) async {
+    final atlas = await FogAtlasCache.acquire(brightness);
+    if (!mounted || _atlasBrightness != brightness) return;
+
+    setState(() => _atlas = atlas);
+    // A capture that arrived before the artwork did was skipped rather than
+    // stored fogless, so it is owed another go now.
+    _captureWhenFogged();
   }
 
   @override
   Widget build(BuildContext context) {
     final brightness = Theme.of(context).brightness;
     final route = widget.route;
-    final polygons = _mapPolygons(route);
+    final fog = _fog;
+    final atlas = _atlas;
 
     return LayoutBuilder(
       builder: (context, constraints) {
@@ -602,10 +680,10 @@ class _ActivityRouteGoogleMapState extends State<_ActivityRouteGoogleMap> {
           });
         }
 
-        return GoogleMap(
+        final map = GoogleMap(
           initialCameraPosition: CameraPosition(target: route.center, zoom: 14),
           style: MapStyles.forBrightness(brightness),
-          polygons: polygons,
+          polygons: widget.polygons,
           polylines: {
             Polyline(
               polylineId: const PolylineId('activity-route'),
@@ -628,13 +706,23 @@ class _ActivityRouteGoogleMapState extends State<_ActivityRouteGoogleMap> {
           onCameraIdle: widget.onViewportReady == null
               ? null
               : () => unawaited(_refreshVisibleBounds()),
+          // Only a map that can be dragged has camera moves worth following.
+          // A preview's camera is set once, programmatically, and is read back
+          // off the map instead — see [_readFogCamera].
+          onCameraMove: widget.interactive
+              ? (position) => _fogCamera.value = position
+              : null,
           compassEnabled: widget.interactive,
           mapToolbarEnabled: false,
           myLocationButtonEnabled: false,
           myLocationEnabled: false,
           rotateGesturesEnabled: widget.interactive,
           scrollGesturesEnabled: widget.interactive,
-          tiltGesturesEnabled: widget.interactive,
+          // The fog reproduces the map's projection in Dart to place its
+          // clouds, and a tilted map is a perspective projection whose field of
+          // view the plugin does not expose, so tilting would slide the map out
+          // from under its own fog.
+          tiltGesturesEnabled: false,
           zoomControlsEnabled: false,
           zoomGesturesEnabled: widget.interactive,
           // Lite mode renders a static map that cannot be snapshotted, so a
@@ -648,6 +736,21 @@ class _ActivityRouteGoogleMapState extends State<_ActivityRouteGoogleMap> {
                   ),
                 }
               : const <Factory<OneSequenceGestureRecognizer>>{},
+        );
+
+        if (fog == null) return map;
+
+        return Stack(
+          fit: StackFit.expand,
+          children: [
+            map,
+            StaticFogOverlay(
+              fog: fog,
+              atlas: atlas,
+              camera: _fogCamera,
+              isNight: brightness == Brightness.dark,
+            ),
+          ],
         );
       },
     );
@@ -676,15 +779,6 @@ class _ActivityRouteGoogleMapState extends State<_ActivityRouteGoogleMap> {
         zIndexInt: 30,
       ),
     };
-  }
-
-  Set<Polygon> _mapPolygons(ActivityRoute route) {
-    final snapshotOverlay = widget.snapshotOverlay;
-    if (snapshotOverlay == null) return widget.polygons;
-
-    return snapshotOverlay.polygonsForVisibleBounds(
-      _visibleBounds ?? route.bounds,
-    );
   }
 
   Future<void> _loadEndpointIcons() async {
@@ -727,15 +821,16 @@ class _ActivityRouteGoogleMapState extends State<_ActivityRouteGoogleMap> {
     _captureWhenFogged();
   }
 
-  /// Snapshots the framed route once its fog is on the map.
+  /// Snapshots the framed route once its fog is ready to draw.
   ///
   /// Capturing earlier would store a bare basemap, which is exactly the state
-  /// this picture exists to replace, so an overlay that never loaded is left
-  /// for the next rebuild to retry.
+  /// this picture exists to replace, so a preview whose overlay never loaded —
+  /// or whose cloud artwork has not finished baking — is left for the next
+  /// rebuild to retry.
   void _captureWhenFogged() {
     if (widget.onSnapshotCaptured == null || _isCapturing) return;
     if (_controller == null) return;
-    if (widget.snapshotOverlay?.loadedBounds == null) return;
+    if (_fog == null || _atlas == null || _fogCamera.value == null) return;
 
     _isCapturing = true;
     unawaited(_captureWhenSettled());
@@ -749,7 +844,7 @@ class _ActivityRouteGoogleMapState extends State<_ActivityRouteGoogleMap> {
         final bytes = await _controller?.takeSnapshot();
         if (!mounted) return;
         if (bytes != null && bytes.isNotEmpty) {
-          widget.onSnapshotCaptured?.call(bytes);
+          widget.onSnapshotCaptured?.call(await _fogged(bytes));
           return;
         }
       } catch (error) {
@@ -759,6 +854,72 @@ class _ActivityRouteGoogleMapState extends State<_ActivityRouteGoogleMap> {
 
     // Give up for now; a later rebuild of this card can try again.
     _isCapturing = false;
+  }
+
+  /// Draws this preview's clouds onto a captured map picture.
+  ///
+  /// The map snapshot comes from the native view, which knows nothing about the
+  /// fog drawn above it in Flutter, so the two are composited here. Everything
+  /// downstream — feed cards, the detail screen, the share card — shows this
+  /// picture rather than a live map, and a picture without its fog would show
+  /// ground the traveller never explored.
+  Future<Uint8List> _fogged(Uint8List mapBytes) async {
+    final fog = _fog;
+    final atlas = _atlas;
+    final camera = _fogCamera.value;
+    final size = _lastLaidOutSize;
+    if (fog == null ||
+        atlas == null ||
+        camera == null ||
+        size == null ||
+        size.isEmpty) {
+      return mapBytes;
+    }
+
+    ui.Image? map;
+    ui.Image? composited;
+    try {
+      map = await _decode(mapBytes);
+      // The snapshot comes back in device pixels, so the fog is painted in the
+      // logical pixels it was laid out in and scaled up to match.
+      final scale = map.width / size.width;
+      if (!scale.isFinite || scale <= 0) return mapBytes;
+
+      final recorder = ui.PictureRecorder();
+      final canvas = Canvas(recorder)
+        ..drawImage(map, Offset.zero, Paint())
+        ..scale(scale);
+      fog
+          .painterFor(
+            camera: camera,
+            atlas: atlas,
+            isNight: _atlasBrightness == Brightness.dark,
+          )
+          .paint(canvas, Size(map.width / scale, map.height / scale));
+
+      final picture = recorder.endRecording();
+      composited = await picture.toImage(map.width, map.height);
+      picture.dispose();
+
+      final png = await composited.toByteData(format: ui.ImageByteFormat.png);
+      return png?.buffer.asUint8List() ?? mapBytes;
+    } catch (error) {
+      // A picture of the plain map is still worth storing.
+      debugPrint('[ActivityMapPreview] fog composite failed error=$error');
+      return mapBytes;
+    } finally {
+      map?.dispose();
+      composited?.dispose();
+    }
+  }
+
+  static Future<ui.Image> _decode(Uint8List bytes) async {
+    final codec = await ui.instantiateImageCodec(bytes);
+    try {
+      return (await codec.getNextFrame()).image;
+    } finally {
+      codec.dispose();
+    }
   }
 
   /// Waits for the map to draw, reporting false if the widget went away first.
@@ -778,11 +939,44 @@ class _ActivityRouteGoogleMapState extends State<_ActivityRouteGoogleMap> {
     try {
       final bounds = await controller.getVisibleRegion();
       if (!mounted) return;
-      setState(() => _visibleBounds = bounds);
+      // Reported before the camera is read, so a map that cannot answer for its
+      // zoom still gets its overlay widened to the frame it settled on.
       widget.onViewportReady?.call(bounds);
+      await _readFogCamera(controller, bounds);
+      _captureWhenFogged();
     } catch (_) {
-      // Widget tests and early native map layout can fail this call. The route
-      // bounds fallback still keeps the preview fogged until the map reports.
+      // Widget tests and early native map layout can fail this call. Without a
+      // viewport the preview keeps the frame it was given and stays unfogged
+      // rather than clouding the wrong ground.
     }
+  }
+
+  /// Reads back the camera the map actually settled on, for the fog to align
+  /// its clouds and its cleared ground to.
+  ///
+  /// Deliberately read rather than waited for. `onCameraMove` covers gestures
+  /// and animations, but iOS does not report an instantaneous programmatic move
+  /// through it — and framing a route is exactly that — so a preview that only
+  /// listened kept drawing against the camera the map was built with: clouds
+  /// sized for the wrong zoom, and explored regions punched out at a fraction
+  /// of their size, which reads as fog over ground the traveller had cleared. A
+  /// map does always idle after an explicit camera change, and answers for its
+  /// own viewport and zoom on demand, so this takes the settled values from it.
+  Future<void> _readFogCamera(
+    GoogleMapController controller,
+    LatLngBounds bounds,
+  ) async {
+    final fog = _fog;
+    if (fog == null) return;
+
+    final zoom = await controller.getZoomLevel();
+    if (!mounted) return;
+    _fogCamera.value = CameraPosition(
+      target: fog.centreOf(bounds),
+      zoom: zoom,
+      // A viewport cannot report rotation, so a bearing from a live gesture is
+      // carried over rather than flattened out from under the fog.
+      bearing: _fogCamera.value?.bearing ?? 0.0,
+    );
   }
 }

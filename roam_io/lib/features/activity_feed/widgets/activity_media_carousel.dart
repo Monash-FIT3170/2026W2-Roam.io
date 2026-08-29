@@ -9,6 +9,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../theme/app_surfaces.dart';
+import '../data/activity_map_image.dart';
 import '../models/activity_media_item.dart';
 
 /// Swipeable activity media preview.
@@ -16,13 +17,17 @@ class ActivityMediaCarousel extends StatefulWidget {
   const ActivityMediaCarousel({
     super.key,
     required this.media,
-    this.aspectRatio = 16 / 9,
+    this.aspectRatio = ActivityMapImage.aspectRatio,
     this.onTap,
     this.routeSlide,
     this.routeFirst = false,
   });
 
   final List<ActivityMediaItem> media;
+
+  /// Shape of every slide. Defaults to the map picture's own shape so the route
+  /// slide fills the frame rather than sitting in bands, and photos share that
+  /// shape so swiping between them does not resize the card.
   final double aspectRatio;
   final ValueChanged<int>? onTap;
   final Widget? routeSlide;

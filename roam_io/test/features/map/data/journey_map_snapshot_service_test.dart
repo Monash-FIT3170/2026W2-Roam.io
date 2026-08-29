@@ -1,13 +1,12 @@
 /*
  * Author: Sanjevan Rajasegar
- * Last Updated: 28 August 2026
+ * Last Updated: 29 August 2026
  * Description:
- *   Tests static Journey map fog for completion and feed previews. Fog is one
- *   sheet with a hole per explored region, so a long journey costs the same to
- *   draw as a short one instead of one polygon per census tile it crosses.
+ *   Tests static Journey map fog for completion and feed previews. The fog is
+ *   the cloud field drawn over the whole frame, so all this has to supply is
+ *   the explored ground cleared out of it — never the unexplored ground, which
+ *   is what made a long journey cost more to draw than a short one.
  */
-
-import 'dart:ui';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
@@ -55,15 +54,14 @@ void main() {
     );
 
     expect(regionService.wasRequested, isFalse);
-    final fog = overlay.tilePolygons.single;
-    expect(fog.fillColor, const Color(0xCC000000));
-    expect(fog.zIndex, 5);
-    expect(fog.holes, isEmpty);
-    expect(_bounds(fog.points).contains(route.bounds.southwest), isTrue);
-    expect(_bounds(fog.points).contains(route.bounds.northeast), isTrue);
+    // Nothing cleared, but a frame that loaded: the whole route is clouded over
+    // rather than left as bare basemap.
+    expect(overlay.clearedRegions, isEmpty);
+    expect(overlay.loadedBounds, isNotNull);
+    expect(overlay.covers(route.bounds), isTrue);
   });
 
-  test('cuts one hole per explored region', () async {
+  test('clears one region per explored tile', () async {
     final overlay =
         await _service(
           _FakeRegionService([
@@ -76,33 +74,11 @@ void main() {
           currentRegionId: 'current-tile',
         );
 
-    final fog = overlay.tilePolygons.single;
-    expect(fog.holes, hasLength(2));
+    expect(overlay.clearedRegions.map((region) => region.id), [
+      'visited-tile',
+      'current-tile',
+    ]);
     expect(overlay.loadedBounds, isNotNull);
-    expect(overlay.polygonsForVisibleBounds(route.bounds), {fog});
-  });
-
-  test('keeps the sheet wider than every hole it carries', () async {
-    // A region can run well past the framed route, and a hole crossing the
-    // sheet's own edge does not render as cleared ground.
-    final overlay =
-        await _service(
-          _FakeRegionService([
-            _region(id: 'visited-tile', west: 140.0, east: 149.0),
-          ]),
-        ).loadRouteSnapshotOverlay(
-          route: route,
-          visitedRegionIds: const {'visited-tile'},
-          currentRegionId: null,
-        );
-
-    final fog = overlay.tilePolygons.single;
-    final sheet = _bounds(fog.points);
-    for (final hole in fog.holes) {
-      for (final point in hole) {
-        expect(sheet.contains(point), isTrue);
-      }
-    }
   });
 
   test('ignores regions returned by a backend without the id filter', () async {
@@ -118,7 +94,9 @@ void main() {
           currentRegionId: null,
         );
 
-    expect(overlay.tilePolygons.single.holes, hasLength(1));
+    expect(overlay.clearedRegions.map((region) => region.id), [
+      'visited-tile',
+    ]);
   });
 
   test('uses fitted viewport bounds when provided', () async {
@@ -149,23 +127,6 @@ void main() {
 
 JourneyMapSnapshotService _service(RegionService regionService) {
   return JourneyMapSnapshotService(regionService: regionService);
-}
-
-LatLngBounds _bounds(List<LatLng> points) {
-  var south = 90.0;
-  var north = -90.0;
-  var west = 180.0;
-  var east = -180.0;
-  for (final point in points) {
-    south = point.latitude < south ? point.latitude : south;
-    north = point.latitude > north ? point.latitude : north;
-    west = point.longitude < west ? point.longitude : west;
-    east = point.longitude > east ? point.longitude : east;
-  }
-  return LatLngBounds(
-    southwest: LatLng(south, west),
-    northeast: LatLng(north, east),
-  );
 }
 
 class _FakeRegionService extends RegionService {

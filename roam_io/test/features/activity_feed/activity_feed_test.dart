@@ -14,6 +14,7 @@ import 'package:fake_cloud_firestore/fake_cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
+import 'package:roam_io/features/activity_feed/data/activity_map_image.dart';
 import 'package:roam_io/features/activity_feed/data/activity_mutation_service.dart';
 import 'package:roam_io/features/activity_feed/domain/activity_route.dart';
 import 'package:roam_io/features/activity_feed/models/activity_comment.dart';
@@ -25,8 +26,10 @@ import 'package:roam_io/features/activity_feed/widgets/activity_media_carousel.d
 import 'package:roam_io/features/activity_feed/widgets/route_marker_icons.dart';
 import 'package:roam_io/features/journeys/domain/transport_mode.dart';
 import 'package:roam_io/features/map/data/journey_map_snapshot_service.dart';
+import 'package:roam_io/features/map/data/region_polygon.dart';
 import 'package:roam_io/features/map/data/visited_region_service.dart';
 import 'package:roam_io/features/map/fog/fog_decay_difficulty.dart';
+import 'package:roam_io/features/map/fog/static_fog.dart';
 import 'package:roam_io/features/profile/domain/visited_polygon_meta.dart';
 import 'package:roam_io/features/profile/domain/visited_polygon_record.dart';
 
@@ -84,10 +87,13 @@ void main() {
       ),
       isTrue,
     );
-    expect(map.polygons, hasLength(2));
+    // The fog is cloud drawn over the map rather than a fill inside it, so the
+    // map carries the journey alone.
+    expect(map.polygons, isEmpty);
     expect(
-      map.polygons.any((polygon) => polygon.polygonId.value == 'tile_fog'),
-      isTrue,
+      tester.widget<StaticFogOverlay>(find.byType(StaticFogOverlay)).fog
+          .clearedRegionIds,
+      ['tile_visited'],
     );
     expect(snapshotService.loadedVisitedRegionIds, {'tile_visited'});
     expect(visitedRegionService.loadedProfileIds, ['user-1']);
@@ -198,6 +204,16 @@ void main() {
 
     expect(find.byType(ActivityMediaCarousel), findsOneWidget);
     expect(find.byIcon(Icons.videocam_outlined), findsWidgets);
+
+    // The carousel frames every slide, so it has to hold the shape the map
+    // picture was captured in — a wider slot crops the route's ends off with
+    // BoxFit.cover, a taller one leaves it in bands.
+    expect(
+      tester
+          .widget<ActivityMediaCarousel>(find.byType(ActivityMediaCarousel))
+          .aspectRatio,
+      ActivityMapImage.aspectRatio,
+    );
 
     await tester.drag(find.byType(PageView), const Offset(-360, 0));
     await tester.pumpAndSettle();
@@ -361,38 +377,36 @@ void main() {
         0,
         JourneyMapSnapshotOverlay(
           loadedBounds: routeA.bounds,
-          tilePolygons: {_tilePolygon(id: 'tile_a')},
+          clearedRegions: [_region(id: 'tile_a')],
         ),
       );
       await tester.pump();
 
       expect(find.byType(CircularProgressIndicator), findsOneWidget);
-      var map = tester.widget<GoogleMap>(find.byType(GoogleMap));
-      expect(
-        map.polygons.any((polygon) => polygon.polygonId.value == 'tile_a'),
-        isFalse,
-      );
+      expect(find.byType(StaticFogOverlay), findsNothing);
 
       service.complete(
         1,
         JourneyMapSnapshotOverlay(
           loadedBounds: routeB.bounds,
-          tilePolygons: {_tilePolygon(id: 'tile_b')},
+          clearedRegions: [_region(id: 'tile_b')],
         ),
       );
       await tester.pumpAndSettle();
 
       expect(find.byType(CircularProgressIndicator), findsNothing);
-      map = tester.widget<GoogleMap>(find.byType(GoogleMap));
-      expect(
-        map.polygons.map((polygon) => polygon.polygonId.value),
-        contains('tile_b'),
-      );
-      expect(
-        map.polygons.map((polygon) => polygon.polygonId.value),
-        isNot(contains('tile_a')),
-      );
+      final fog = tester
+          .widget<StaticFogOverlay>(find.byType(StaticFogOverlay))
+          .fog;
+      expect(fog.clearedRegionIds, ['tile_b']);
+
+      final map = tester.widget<GoogleMap>(find.byType(GoogleMap));
       expect(map.onCameraIdle, isNotNull);
+      // A preview is framed programmatically, and iOS does not report that
+      // through onCameraMove. The fog reads the settled camera back off the map
+      // at idle instead, so listening here would only ever hand it the camera
+      // the map was built with.
+      expect(map.onCameraMove, isNull);
     },
   );
 
@@ -432,7 +446,11 @@ void main() {
     expect(map.scrollGesturesEnabled, isTrue);
     expect(map.zoomGesturesEnabled, isTrue);
     expect(map.rotateGesturesEnabled, isTrue);
-    expect(map.tiltGesturesEnabled, isTrue);
+    // Tilt is a perspective projection the fog cannot reproduce, so these maps
+    // stay flat like the explore map does.
+    expect(map.tiltGesturesEnabled, isFalse);
+    // A map that can be dragged does have camera moves worth following.
+    expect(map.onCameraMove, isNotNull);
   });
 
   testWidgets('owner edit media controls use native library and no arrows', (
@@ -568,10 +586,7 @@ class _FakeJourneyMapSnapshotService extends JourneyMapSnapshotService {
     loadedVisitedRegionIds = visitedRegionIds;
     return JourneyMapSnapshotOverlay(
       loadedBounds: route.bounds,
-      tilePolygons: {
-        _tilePolygon(id: 'tile_visited'),
-        _tilePolygon(id: 'tile_fog', fillColor: const Color(0xCC000000)),
-      },
+      clearedRegions: [_region(id: 'tile_visited')],
     );
   }
 }
@@ -656,19 +671,22 @@ class _FakeVisitedRegionService implements VisitedRegionService {
   ) async {}
 }
 
-Polygon _tilePolygon({
-  required String id,
-  Color fillColor = const Color(0x30FFFFFF),
-}) {
-  return Polygon(
-    polygonId: PolygonId(id),
-    points: const [
-      LatLng(38.49, -120.21),
-      LatLng(38.49, -120.19),
-      LatLng(38.51, -120.19),
-      LatLng(38.51, -120.21),
-    ],
-    fillColor: fillColor,
-    zIndex: 5,
+RegionPolygon _region({required String id}) {
+  return RegionPolygon(
+    id: id,
+    name: id,
+    areaSquareMetres: 1000,
+    geometry: const <String, dynamic>{
+      'type': 'Polygon',
+      'coordinates': <dynamic>[
+        <dynamic>[
+          <double>[-120.21, 38.49],
+          <double>[-120.19, 38.49],
+          <double>[-120.19, 38.51],
+          <double>[-120.21, 38.51],
+          <double>[-120.21, 38.49],
+        ],
+      ],
+    },
   );
 }

@@ -31,9 +31,9 @@ class RegionPolygonCache {
   static const Color _currentRegionFillColor = Color(0x30FFFFFF);
 
   // Unvisited regions render nothing anywhere. Fog is no longer a black polygon
-  // per census tile — it is a single layer covering the map minus holes for
-  // explored ground: an animated cloud from FogOverlay on the live map, a plain
-  // sheet from JourneyMapSnapshotService on static Journey previews. Per-tile
+  // per census tile — it is a single cloud layer covering the map minus holes
+  // for explored ground: animated by FogOverlay on the live map, frozen by
+  // StaticFog on Journey previews and the pictures taken of them. Per-tile
   // black fills produced visible seams and double-blended borders wherever
   // adjacent SA1 polygons shared an edge, and made a preview's cost grow with
   // the number of tiles its journey crossed.
