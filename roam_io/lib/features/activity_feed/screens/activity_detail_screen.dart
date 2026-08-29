@@ -75,7 +75,27 @@ class ActivityDetailScreen extends StatelessWidget {
           )
         : null;
     final transportMode = TransportMode.tryFromString(activity.transportMode);
-    final routeSlide = route == null
+    void openRouteMap(ActivityRoute route) {
+      Navigator.of(context).push(
+        MaterialPageRoute<void>(
+          builder: (_) => ActivityRouteMapScreen(
+            route: route,
+            title: activity.title,
+            transportMode: transportMode,
+            endpointMarkerIcons: endpointMarkerIcons,
+          ),
+        ),
+      );
+    }
+
+    final routeSlide = activity.hasMapImage && activity.showMapPreview
+        ? ActivityMapSnapshotImage(
+            key: const ValueKey('activity_route_map_image_detail'),
+            url: activity.mapImageUrl!,
+            variant: ActivityMapPreviewVariant.detail,
+            onTap: route == null ? null : () => openRouteMap(route),
+          )
+        : route == null
         ? null
         : ActivityMapPreview(
             key: const ValueKey('activity_route_map_detail'),
@@ -88,18 +108,7 @@ class ActivityDetailScreen extends StatelessWidget {
             showEndpoints: true,
             endpointMarkerIcons: endpointMarkerIcons,
             mapIdentity: activity.id,
-            onTap: () {
-              Navigator.of(context).push(
-                MaterialPageRoute<void>(
-                  builder: (_) => ActivityRouteMapScreen(
-                    route: route,
-                    title: activity.title,
-                    transportMode: transportMode,
-                    endpointMarkerIcons: endpointMarkerIcons,
-                  ),
-                ),
-              );
-            },
+            onTap: () => openRouteMap(route),
           );
 
     return Scaffold(

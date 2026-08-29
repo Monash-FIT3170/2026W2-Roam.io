@@ -65,6 +65,8 @@ class ActivityFeedItem {
     this.journeyStartTime,
     this.journeyEndTime,
     this.transportMode,
+    this.mapImageUrl,
+    this.mapImageStoragePath,
     this.media = const <ActivityMediaItem>[],
   });
 
@@ -85,7 +87,14 @@ class ActivityFeedItem {
   final DateTime? journeyStartTime;
   final DateTime? journeyEndTime;
   final String? transportMode;
+
+  /// Map picture captured when the journey was saved, with its own fog already
+  /// drawn on it. Cards render this instead of standing up a live map.
+  final String? mapImageUrl;
+  final String? mapImageStoragePath;
   final List<ActivityMediaItem> media;
+
+  bool get hasMapImage => (mapImageUrl ?? '').isNotEmpty;
 
   List<String> get mediaUrls => media.map((item) => item.url).toList();
 
@@ -117,6 +126,8 @@ class ActivityFeedItem {
       journeyStartTime: journeyStartTime,
       journeyEndTime: journeyEndTime,
       transportMode: transportMode,
+      mapImageUrl: mapImageUrl,
+      mapImageStoragePath: mapImageStoragePath,
       media: media,
     );
   }

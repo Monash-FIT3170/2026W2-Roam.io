@@ -42,6 +42,7 @@ class ActivityMapPreview extends StatefulWidget {
     this.endpointMarkerIcons,
     this.mapIdentity,
     this.onTap,
+    this.onSnapshotCaptured,
   });
 
   factory ActivityMapPreview.fromActivity({
@@ -90,6 +91,10 @@ class ActivityMapPreview extends StatefulWidget {
   final RouteEndpointMarkerIcons? endpointMarkerIcons;
   final String? mapIdentity;
   final VoidCallback? onTap;
+
+  /// Receives the whole fogged route as a bitmap once the map has settled, so
+  /// it can be stored and shown instead of rebuilding this map every time.
+  final ValueChanged<Uint8List>? onSnapshotCaptured;
 
   bool get _isDetail => variant == ActivityMapPreviewVariant.detail;
 
@@ -299,6 +304,7 @@ class _ActivityMapPreviewState extends State<ActivityMapPreview> {
                   showEndpoints: widget.showEndpoints,
                   endpointMarkerIcons: widget.endpointMarkerIcons,
                   onViewportReady: _handleViewportReady,
+                  onSnapshotCaptured: widget.onSnapshotCaptured,
                 ),
               ),
               if (isLoading) const _ActivityMapLoadingSkeleton(),
@@ -326,6 +332,100 @@ String _routeIdentity(ActivityRoute route) {
   return '${route.start.latitude},${route.start.longitude}-'
       '${route.finish.latitude},${route.finish.longitude}-'
       '${route.points.length}';
+}
+
+/// The map picture stored with an activity, shown in place of a live map.
+///
+/// Nothing here loads regions or stands up a platform view, so a feed full of
+/// journeys costs the same whether each one covers one tile or a hundred.
+class ActivityMapSnapshotImage extends StatelessWidget {
+  const ActivityMapSnapshotImage({
+    super.key,
+    required this.url,
+    this.variant = ActivityMapPreviewVariant.compact,
+    this.onTap,
+  });
+
+  final String url;
+  final ActivityMapPreviewVariant variant;
+  final VoidCallback? onTap;
+
+  bool get _isDetail => variant == ActivityMapPreviewVariant.detail;
+
+  @override
+  Widget build(BuildContext context) {
+    final radius = BorderRadius.circular(_isDetail ? 18 : 16);
+
+    return AspectRatio(
+      aspectRatio: _isDetail ? 4 / 3 : 16 / 9,
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          color: AppSurfaces.softCard(context),
+          borderRadius: radius,
+          border: Border.all(color: AppSurfaces.border(context)),
+        ),
+        child: ClipRRect(
+          borderRadius: radius,
+          child: Stack(
+            fit: StackFit.expand,
+            children: [
+              Image.network(
+                url,
+                fit: BoxFit.cover,
+                errorBuilder: (context, error, stackTrace) =>
+                    const _ActivityMapImageUnavailable(),
+              ),
+              if (onTap != null)
+                Positioned.fill(
+                  child: Material(
+                    color: Colors.transparent,
+                    child: InkWell(
+                      key: const ValueKey('activity_route_map_open'),
+                      onTap: onTap,
+                    ),
+                  ),
+                ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Shown when the stored picture cannot be fetched.
+///
+/// Deliberately static: falling back to a live map here would reintroduce the
+/// per-card map this picture replaced.
+class _ActivityMapImageUnavailable extends StatelessWidget {
+  const _ActivityMapImageUnavailable();
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
+    return ColoredBox(
+      color: AppSurfaces.softCard(context),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(
+            Icons.map_outlined,
+            color: AppSurfaces.textMuted(context),
+            size: 30,
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'Map preview unavailable',
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: AppSurfaces.textMuted(context),
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 }
 
 class _ActivityMapLoadingSkeleton extends StatelessWidget {
@@ -402,6 +502,7 @@ class _ActivityRouteGoogleMap extends StatefulWidget {
     required this.showEndpoints,
     required this.endpointMarkerIcons,
     required this.onViewportReady,
+    this.onSnapshotCaptured,
   });
 
   final ActivityRoute route;
@@ -412,6 +513,7 @@ class _ActivityRouteGoogleMap extends StatefulWidget {
   final bool showEndpoints;
   final RouteEndpointMarkerIcons? endpointMarkerIcons;
   final ValueChanged<LatLngBounds>? onViewportReady;
+  final ValueChanged<Uint8List>? onSnapshotCaptured;
 
   @override
   State<_ActivityRouteGoogleMap> createState() =>
@@ -419,11 +521,21 @@ class _ActivityRouteGoogleMap extends StatefulWidget {
 }
 
 class _ActivityRouteGoogleMapState extends State<_ActivityRouteGoogleMap> {
+  /// Time given to the map to draw its tiles before each capture attempt.
+  static const _tileSettleDelay = Duration(milliseconds: 900);
+
+  /// Map tiles stream in over the network, so a first capture can come back
+  /// empty on a slow connection.
+  static const _maxCaptureAttempts = 3;
+
   GoogleMapController? _controller;
   Size? _lastLaidOutSize;
   LatLngBounds? _visibleBounds;
   BitmapDescriptor? _startFlagIcon;
   BitmapDescriptor? _finishFlagIcon;
+  bool _isCapturing = false;
+  Timer? _captureDelayTimer;
+  Completer<bool>? _captureDelay;
 
   @override
   void initState() {
@@ -459,11 +571,17 @@ class _ActivityRouteGoogleMapState extends State<_ActivityRouteGoogleMap> {
     }
     if (oldWidget.snapshotOverlay != widget.snapshotOverlay) {
       unawaited(_refreshVisibleBounds());
+      _captureWhenFogged();
     }
   }
 
   @override
   void dispose() {
+    _captureDelayTimer?.cancel();
+    final pendingDelay = _captureDelay;
+    if (pendingDelay != null && !pendingDelay.isCompleted) {
+      pendingDelay.complete(false);
+    }
     _controller?.dispose();
     super.dispose();
   }
@@ -519,7 +637,10 @@ class _ActivityRouteGoogleMapState extends State<_ActivityRouteGoogleMap> {
           tiltGesturesEnabled: widget.interactive,
           zoomControlsEnabled: false,
           zoomGesturesEnabled: widget.interactive,
-          liteModeEnabled: !widget.interactive,
+          // Lite mode renders a static map that cannot be snapshotted, so a
+          // preview that owes a capture has to run the full map.
+          liteModeEnabled:
+              !widget.interactive && widget.onSnapshotCaptured == null,
           gestureRecognizers: widget.interactive
               ? <Factory<OneSequenceGestureRecognizer>>{
                   const Factory<EagerGestureRecognizer>(
@@ -603,6 +724,51 @@ class _ActivityRouteGoogleMapState extends State<_ActivityRouteGoogleMap> {
     }
 
     await _refreshVisibleBounds();
+    _captureWhenFogged();
+  }
+
+  /// Snapshots the framed route once its fog is on the map.
+  ///
+  /// Capturing earlier would store a bare basemap, which is exactly the state
+  /// this picture exists to replace, so an overlay that never loaded is left
+  /// for the next rebuild to retry.
+  void _captureWhenFogged() {
+    if (widget.onSnapshotCaptured == null || _isCapturing) return;
+    if (_controller == null) return;
+    if (widget.snapshotOverlay?.loadedBounds == null) return;
+
+    _isCapturing = true;
+    unawaited(_captureWhenSettled());
+  }
+
+  Future<void> _captureWhenSettled() async {
+    for (var attempt = 0; attempt < _maxCaptureAttempts; attempt++) {
+      if (!await _waitForTilesToDraw()) return;
+
+      try {
+        final bytes = await _controller?.takeSnapshot();
+        if (!mounted) return;
+        if (bytes != null && bytes.isNotEmpty) {
+          widget.onSnapshotCaptured?.call(bytes);
+          return;
+        }
+      } catch (error) {
+        debugPrint('[ActivityMapPreview] map capture failed error=$error');
+      }
+    }
+
+    // Give up for now; a later rebuild of this card can try again.
+    _isCapturing = false;
+  }
+
+  /// Waits for the map to draw, reporting false if the widget went away first.
+  Future<bool> _waitForTilesToDraw() {
+    final delay = Completer<bool>();
+    _captureDelay = delay;
+    _captureDelayTimer = Timer(_tileSettleDelay, () {
+      if (!delay.isCompleted) delay.complete(mounted);
+    });
+    return delay.future;
   }
 
   Future<void> _refreshVisibleBounds() async {
