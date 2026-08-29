@@ -542,6 +542,7 @@ class _ActivityRouteGoogleMapState extends State<_ActivityRouteGoogleMap> {
   BitmapDescriptor? _startFlagIcon;
   BitmapDescriptor? _finishFlagIcon;
   bool _isCapturing = false;
+  bool _isCovered = false;
   Timer? _captureDelayTimer;
   Completer<bool>? _captureDelay;
 
@@ -579,6 +580,7 @@ class _ActivityRouteGoogleMapState extends State<_ActivityRouteGoogleMap> {
   void didChangeDependencies() {
     super.didChangeDependencies();
     _syncAtlas();
+    _syncCovered();
   }
 
   @override
@@ -653,6 +655,20 @@ class _ActivityRouteGoogleMapState extends State<_ActivityRouteGoogleMap> {
     if (wanted != null) unawaited(_loadAtlas(wanted));
   }
 
+  /// Tracks whether a sheet or a route has been opened over this map.
+  ///
+  /// Read here rather than in [build] so that depending on the route's
+  /// `isCurrent` both rebuilds this map as the thing above it comes and goes,
+  /// and gives a capture that was cut short a chance to notice it is back.
+  void _syncCovered() {
+    final isCovered = ModalRoute.isCurrentOf(context) == false;
+    if (isCovered == _isCovered) return;
+    _isCovered = isCovered;
+    // A hidden map cannot be snapshotted, so one that was covered mid-capture
+    // is owed another go now that it is drawing again.
+    if (!isCovered) _captureWhenFogged();
+  }
+
   Future<void> _loadAtlas(Brightness brightness) async {
     final atlas = await FogAtlasCache.acquire(brightness);
     if (!mounted || _atlasBrightness != brightness) return;
@@ -670,89 +686,101 @@ class _ActivityRouteGoogleMapState extends State<_ActivityRouteGoogleMap> {
     final fog = _fog;
     final atlas = _atlas;
 
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final size = Size(constraints.maxWidth, constraints.maxHeight);
-        if (_lastLaidOutSize != size) {
-          _lastLaidOutSize = size;
-          WidgetsBinding.instance.addPostFrameCallback((_) {
-            if (mounted) unawaited(_fitRoute());
-          });
-        }
+    // A Google Map is a native view, and on iOS it composites above everything
+    // Flutter draws after it — so a preview left painting shows through any
+    // sheet or route opened on top of the one it sits on. It is hidden rather
+    // than unmounted so the map, and the tiles it has already fetched, survive
+    // being covered and come straight back.
+    return Visibility(
+      visible: !_isCovered,
+      maintainState: true,
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final size = Size(constraints.maxWidth, constraints.maxHeight);
+          if (_lastLaidOutSize != size) {
+            _lastLaidOutSize = size;
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              if (mounted) unawaited(_fitRoute());
+            });
+          }
 
-        final map = GoogleMap(
-          initialCameraPosition: CameraPosition(target: route.center, zoom: 14),
-          style: MapStyles.forBrightness(brightness),
-          polygons: widget.polygons,
-          polylines: {
-            Polyline(
-              polylineId: const PolylineId('activity-route'),
-              points: route.points,
-              color:
-                  widget.transportMode?.routeColor ??
-                  TransportMode.routeColorForWireValue(null),
-              width: widget.interactive ? 7 : 5,
-              startCap: Cap.roundCap,
-              endCap: Cap.roundCap,
-              jointType: JointType.round,
-              zIndex: 20,
+          final map = GoogleMap(
+            initialCameraPosition: CameraPosition(
+              target: route.center,
+              zoom: 14,
             ),
-          },
-          markers: widget.showEndpoints ? _endpointMarkers(route) : const {},
-          onMapCreated: (controller) {
-            _controller = controller;
-            unawaited(_fitRoute());
-          },
-          onCameraIdle: widget.onViewportReady == null
-              ? null
-              : () => unawaited(_refreshVisibleBounds()),
-          // Only a map that can be dragged has camera moves worth following.
-          // A preview's camera is set once, programmatically, and is read back
-          // off the map instead — see [_readFogCamera].
-          onCameraMove: widget.interactive
-              ? (position) => _fogCamera.value = position
-              : null,
-          compassEnabled: widget.interactive,
-          mapToolbarEnabled: false,
-          myLocationButtonEnabled: false,
-          myLocationEnabled: false,
-          rotateGesturesEnabled: widget.interactive,
-          scrollGesturesEnabled: widget.interactive,
-          // The fog reproduces the map's projection in Dart to place its
-          // clouds, and a tilted map is a perspective projection whose field of
-          // view the plugin does not expose, so tilting would slide the map out
-          // from under its own fog.
-          tiltGesturesEnabled: false,
-          zoomControlsEnabled: false,
-          zoomGesturesEnabled: widget.interactive,
-          // Lite mode renders a static map that cannot be snapshotted, so a
-          // preview that owes a capture has to run the full map.
-          liteModeEnabled:
-              !widget.interactive && widget.onSnapshotCaptured == null,
-          gestureRecognizers: widget.interactive
-              ? <Factory<OneSequenceGestureRecognizer>>{
-                  const Factory<EagerGestureRecognizer>(
-                    EagerGestureRecognizer.new,
-                  ),
-                }
-              : const <Factory<OneSequenceGestureRecognizer>>{},
-        );
+            style: MapStyles.forBrightness(brightness),
+            polygons: widget.polygons,
+            polylines: {
+              Polyline(
+                polylineId: const PolylineId('activity-route'),
+                points: route.points,
+                color:
+                    widget.transportMode?.routeColor ??
+                    TransportMode.routeColorForWireValue(null),
+                width: widget.interactive ? 7 : 5,
+                startCap: Cap.roundCap,
+                endCap: Cap.roundCap,
+                jointType: JointType.round,
+                zIndex: 20,
+              ),
+            },
+            markers: widget.showEndpoints ? _endpointMarkers(route) : const {},
+            onMapCreated: (controller) {
+              _controller = controller;
+              unawaited(_fitRoute());
+            },
+            onCameraIdle: widget.onViewportReady == null
+                ? null
+                : () => unawaited(_refreshVisibleBounds()),
+            // Only a map that can be dragged has camera moves worth following.
+            // A preview's camera is set once, programmatically, and is read back
+            // off the map instead — see [_readFogCamera].
+            onCameraMove: widget.interactive
+                ? (position) => _fogCamera.value = position
+                : null,
+            compassEnabled: widget.interactive,
+            mapToolbarEnabled: false,
+            myLocationButtonEnabled: false,
+            myLocationEnabled: false,
+            rotateGesturesEnabled: widget.interactive,
+            scrollGesturesEnabled: widget.interactive,
+            // The fog reproduces the map's projection in Dart to place its
+            // clouds, and a tilted map is a perspective projection whose field of
+            // view the plugin does not expose, so tilting would slide the map out
+            // from under its own fog.
+            tiltGesturesEnabled: false,
+            zoomControlsEnabled: false,
+            zoomGesturesEnabled: widget.interactive,
+            // Lite mode renders a static map that cannot be snapshotted, so a
+            // preview that owes a capture has to run the full map.
+            liteModeEnabled:
+                !widget.interactive && widget.onSnapshotCaptured == null,
+            gestureRecognizers: widget.interactive
+                ? <Factory<OneSequenceGestureRecognizer>>{
+                    const Factory<EagerGestureRecognizer>(
+                      EagerGestureRecognizer.new,
+                    ),
+                  }
+                : const <Factory<OneSequenceGestureRecognizer>>{},
+          );
 
-        if (fog == null) return map;
+          if (fog == null) return map;
 
-        return Stack(
-          fit: StackFit.expand,
-          children: [
-            map,
-            StaticFogOverlay(
-              fog: fog,
-              atlas: atlas,
-              camera: _fogCamera,
-              isNight: brightness == Brightness.dark,
-            ),
-          ],
-        );
-      },
+          return Stack(
+            fit: StackFit.expand,
+            children: [
+              map,
+              StaticFogOverlay(
+                fog: fog,
+                atlas: atlas,
+                camera: _fogCamera,
+                isNight: brightness == Brightness.dark,
+              ),
+            ],
+          );
+        },
+      ),
     );
   }
 
