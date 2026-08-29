@@ -1,0 +1,5 @@
+# Author: Alvin Liong
+# Description: Fastlane Appfile for TestFlight uploads.
+
+app_identifier("com.fit3170.roamio")
+team_id("AFC5WD785H")
