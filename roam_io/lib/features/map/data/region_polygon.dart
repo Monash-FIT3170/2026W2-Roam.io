@@ -25,6 +25,28 @@ class RegionPolygon {
     required this.geometry,
   });
 
+  /// Whether this region's bounding box overlaps the visible map bounds.
+  bool intersectsBounds(LatLngBounds bounds) {
+    final points = toGooglePolygons().expand((polygon) => polygon.points);
+    if (points.isEmpty) return false;
+
+    var south = 90.0;
+    var north = -90.0;
+    var west = 180.0;
+    var east = -180.0;
+    for (final point in points) {
+      south = point.latitude < south ? point.latitude : south;
+      north = point.latitude > north ? point.latitude : north;
+      west = point.longitude < west ? point.longitude : west;
+      east = point.longitude > east ? point.longitude : east;
+    }
+
+    return north >= bounds.southwest.latitude &&
+        south <= bounds.northeast.latitude &&
+        east >= bounds.southwest.longitude &&
+        west <= bounds.northeast.longitude;
+  }
+
   /// Creates a region polygon from API JSON, preserving invalid area as null so
   /// unlock XP can fall back through XpRewardConfig.
   ///

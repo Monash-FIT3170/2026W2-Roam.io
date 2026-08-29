@@ -15,6 +15,7 @@ import 'package:geolocator/geolocator.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:roam_io/features/map/data/geolocator_service.dart';
 import 'package:roam_io/features/map/data/map_controller.dart';
+import 'package:roam_io/features/map/fog/fog_decay_difficulty.dart';
 import 'package:roam_io/features/map/data/place_of_interest.dart';
 import 'package:roam_io/features/map/data/visited_region_service.dart';
 import 'package:roam_io/features/map/data/visit_service.dart';
@@ -171,8 +172,35 @@ class _TestVisitedRegionService implements VisitedRegionService {
   Future<Set<String>> loadVisitedRegionIds() async => <String>{};
 
   @override
-  Future<bool> markVisited(String regionId, {DateTime? visitedAt}) async =>
-      true;
+  Future<Set<String>> loadFogClearedRegionIds({
+    required FogDecayDifficulty difficulty,
+    DateTime? now,
+  }) async => <String>{};
+
+  @override
+  Future<void> refreshFogDecayWarnings({
+    required FogDecayDifficulty difficulty,
+    DateTime? now,
+  }) async {}
+
+  @override
+  Future<Map<String, DateTime>> loadUnpresentedFogDecayEvents({
+    required FogDecayDifficulty difficulty,
+    DateTime? now,
+  }) async => <String, DateTime>{};
+
+  @override
+  Future<void> markFogDecayEventsPresented(
+    Map<String, DateTime> decayAtByRegionId,
+  ) async {}
+
+  @override
+  Future<bool> markVisited(
+    String regionId, {
+    DateTime? visitedAt,
+    double? areaSquareMetres,
+    String? name,
+  }) async => true;
 
   @override
   dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
@@ -216,15 +244,16 @@ class _FixedPositionGeo extends GeoLocatorService {
   Future<Position> getCurrentLocation() async => _position;
 
   @override
-  Future<Stream<Position>> getLocationUpdates() async =>
-      Stream<Position>.fromIterable(const <Position>[]);
+  Future<Stream<Position>> getLocationUpdates({
+    bool allowBackgroundUpdates = false,
+  }) async => Stream<Position>.fromIterable(const <Position>[]);
 }
 
 class _AlwaysThrowingVisitService extends VisitService {
   _AlwaysThrowingVisitService() : super(firestore: FakeFirebaseFirestore());
 
   @override
-  Future<void> markVisited({
+  Future<VisitWriteResult> markVisited({
     required String userId,
     required PlaceOfInterest place,
     String? customName,
@@ -242,7 +271,7 @@ class _FailOnceThenSucceedVisitService extends VisitService {
   var _fail = true;
 
   @override
-  Future<void> markVisited({
+  Future<VisitWriteResult> markVisited({
     required String userId,
     required PlaceOfInterest place,
     String? customName,

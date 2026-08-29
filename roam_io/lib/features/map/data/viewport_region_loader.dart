@@ -45,12 +45,25 @@ class ViewportRegionLoader {
   DateTime? _lastLoadTime;
   bool _isLoading = false;
 
+  /// [clearedRegionIds] narrows the request to regions the user has already
+  /// explored. Only those are rendered, so asking for the rest wastes transfer
+  /// and JSON parsing. Ignored by backends that predate the filter.
   Future<ViewportRegionLoadResult> load({
     required GoogleMapController mapController,
     required double currentZoom,
     required MapLayerMode currentMode,
+    Set<String>? clearedRegionIds,
     bool force = false,
   }) async {
+    if (!_policy.supportsViewportLoading(currentZoom)) {
+      return const ViewportRegionLoadResult(
+        regions: [],
+        mode: MapLayerMode.sa1Detail,
+        didSkip: true,
+        message: 'Zoom level is outside the supported map range',
+      );
+    }
+
     final targetMode = _policy.modeForZoom(
       zoom: currentZoom,
       currentMode: currentMode,
@@ -97,6 +110,7 @@ class ViewportRegionLoader {
         west: prefetchBounds.southwest.longitude,
         north: prefetchBounds.northeast.latitude,
         east: prefetchBounds.northeast.longitude,
+        regionIds: clearedRegionIds,
       );
 
       _loadedSa1CoverageBounds = prefetchBounds;

@@ -20,6 +20,16 @@ const INCLUDED_TYPES = [
   'night_club',
 ];
 
+const TRANSPORT_TYPES = [
+  'bus_stop',
+  'bus_station',
+  'train_station',
+  'tram_stop',
+  'light_rail_station',
+  'subway_station',
+  'transit_station',
+];
+
 /**
  * Fetch places from Google Places API for a given location.
  *
@@ -34,6 +44,8 @@ async function fetchPlacesFromGoogle({
   radiusMeters,
   apiKey,
   maxResults = 20,
+  includedTypes = INCLUDED_TYPES,
+  rankPreference,
 }) {
   if (!apiKey) {
     throw new Error('GOOGLE_PLACES_API_KEY is not configured');
@@ -43,7 +55,7 @@ async function fetchPlacesFromGoogle({
 
   // Google Places API (New) Nearby Search max is 20, no pagination available
   const requestBody = {
-    includedTypes: INCLUDED_TYPES,
+    includedTypes,
     maxResultCount: Math.min(20, maxResults),
     locationRestriction: {
       circle: {
@@ -55,6 +67,9 @@ async function fetchPlacesFromGoogle({
       },
     },
   };
+  if (rankPreference) {
+    requestBody.rankPreference = rankPreference;
+  }
 
   console.log(`[PlacesAPI] Requesting places at (${lat}, ${lng}) with radius ${searchRadius}m`);
   console.log(`[PlacesAPI] Request body:`, JSON.stringify(requestBody, null, 2));
@@ -89,6 +104,10 @@ async function fetchPlacesFromGoogle({
 
 function mapToCategory(types) {
   const typeSet = new Set(types || []);
+
+  if (TRANSPORT_TYPES.some((type) => typeSet.has(type))) {
+    return 'public_transport';
+  }
 
   if (
     typeSet.has('restaurant') ||
@@ -143,4 +162,5 @@ module.exports = {
   fetchPlacesFromGoogle,
   mapToCategory,
   INCLUDED_TYPES,
+  TRANSPORT_TYPES,
 };

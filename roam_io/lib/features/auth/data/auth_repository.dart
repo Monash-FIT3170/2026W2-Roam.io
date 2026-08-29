@@ -1,9 +1,9 @@
 /*
- * Author: Alvin Liong
- * Last Modified: 4/05/2026
+ * Author: Sanjevan Rajasegar
+ * Last Updated: 6 August 2026
  * Description:
  *   Coordinates authentication, profile, and storage services for user account
- *   workflows.
+ *   workflows, including Settings account edit flows and XP awards.
  */
 
 import 'package:firebase_auth/firebase_auth.dart';
@@ -11,9 +11,14 @@ import 'package:crypto/crypto.dart';
 import 'package:image_picker/image_picker.dart';
 
 import '../../profile/domain/profile_model.dart';
+import '../../map/fog/fog_decay_difficulty.dart';
+import '../../profile/domain/xp_award_result.dart';
+import '../../profile/domain/xp_event.dart';
+import '../../social/domain/social_privacy_settings.dart';
 import '../../../services/auth_service.dart';
 import '../../../services/profile_service.dart';
 import '../../../services/storage_service.dart';
+import '../../../theme/app_theme_mode.dart';
 
 /// Orchestrates multi-step auth, profile, and profile photo workflows.
 class AuthRepository {
@@ -64,7 +69,7 @@ class AuthRepository {
       email: email,
       createdAt: now,
       updatedAt: now,
-      darkModeEnabled: false,
+      themeMode: AppThemeMode.light,
     );
     await _profileService.createProfile(profile);
     await _authService.sendEmailVerification();
@@ -116,15 +121,8 @@ class AuthRepository {
     ]);
   }
 
-  /// Loads the signed-in user's profile from Firestore.
-  Future<ProfileModel?> getCurrentUserProfile() async {
-    final user = currentUser;
-    if (user == null) return null;
-    return _profileService.getProfile(user.uid);
-  }
-
-  /// Persists the signed-in user's dark mode preference in Firestore.
-  Future<void> updateDarkModePreference(bool enabled) async {
+  /// Updates the signed-in user's username in Firestore.
+  Future<void> updateUsername(String username) async {
     final user = currentUser;
     if (user == null) {
       throw FirebaseAuthException(
@@ -133,10 +131,74 @@ class AuthRepository {
       );
     }
 
-    await _profileService.updateDarkModePreference(
-      uid: user.uid,
-      enabled: enabled,
+    await _profileService.updateUsername(user.uid, username);
+  }
+
+  /// Requests a Firebase-verified email change for the signed-in user.
+  Future<void> requestEmailChange({
+    required String currentPassword,
+    required String newEmail,
+  }) {
+    return _authService.requestEmailChange(
+      currentPassword: currentPassword,
+      newEmail: newEmail,
     );
+  }
+
+  /// Loads the signed-in user's profile from Firestore.
+  Future<ProfileModel?> getCurrentUserProfile() async {
+    final user = currentUser;
+    if (user == null) return null;
+    return _profileService.getProfile(user.uid);
+  }
+
+  /// Persists the signed-in user's appearance preference in Firestore.
+  Future<void> updateThemeModePreference(AppThemeMode mode) async {
+    final user = currentUser;
+    if (user == null) {
+      throw FirebaseAuthException(
+        code: 'user-not-found',
+        message: 'No logged in user found.',
+      );
+    }
+
+    await _profileService.updateThemeModePreference(uid: user.uid, mode: mode);
+  }
+
+  /// Persists the signed-in user's fog decay preference in Firestore.
+  Future<void> updateFogDecayDifficulty(FogDecayDifficulty difficulty) async {
+    final user = currentUser;
+    if (user == null) {
+      throw FirebaseAuthException(
+        code: 'user-not-found',
+        message: 'No logged in user found.',
+      );
+    }
+
+    await _profileService.updateFogDecayDifficulty(
+      uid: user.uid,
+      difficulty: difficulty,
+    );
+  }
+
+  /// Legacy wrapper retained for older callers and tests.
+  Future<void> updateDarkModePreference(bool enabled) {
+    return updateThemeModePreference(
+      enabled ? AppThemeMode.dark : AppThemeMode.light,
+    );
+  }
+
+  /// Persists the signed-in user's social privacy settings.
+  Future<void> updateSocialPrivacy(SocialPrivacySettings privacy) async {
+    final user = currentUser;
+    if (user == null) {
+      throw FirebaseAuthException(
+        code: 'user-not-found',
+        message: 'No logged in user found.',
+      );
+    }
+
+    await _profileService.updateSocialPrivacy(uid: user.uid, privacy: privacy);
   }
 
   /// Uploads a profile image when it differs from the current stored photo.
@@ -213,8 +275,15 @@ class AuthRepository {
     await _profileService.updateXp(user.uid, newXp);
   }
 
-  /// Adds XP to the signed-in user's current XP.
-  Future<void> addXp(int xpToAdd) async {
+  /// Adds XP for the signed-in user and best-effort records XP history.
+  ///
+  /// Returns an [XpAwardResult] describing whether canonical progression
+  /// succeeded. History recording failure does not fail the award.
+  Future<XpAwardResult> addXp(
+    int xpToAdd, {
+    XpEventSource source = XpEventSource.unknown,
+    String? sourceId,
+  }) async {
     final user = currentUser;
     if (user == null) {
       throw FirebaseAuthException(
@@ -223,7 +292,12 @@ class AuthRepository {
       );
     }
 
-    await _profileService.addXp(user.uid, xpToAdd);
+    return _profileService.addXp(
+      user.uid,
+      xpToAdd,
+      source: source,
+      sourceId: sourceId,
+    );
   }
 
   /// Signs out from Firebase.

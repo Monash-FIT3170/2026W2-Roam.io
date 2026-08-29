@@ -1,6 +1,6 @@
 /*
  * Author: Sanjevan Rajasegar
- * Last Modified: 3/05/2026
+ * Last Updated: 5 August 2026
  * Description:
  *   Provides shared surface, border, text, and shadow colours that adapt to
  *   the active theme brightness.
@@ -20,7 +20,7 @@ class AppSurfaces {
     return Theme.of(context).scaffoldBackgroundColor;
   }
 
-  /// Surface for primary cards, such as profile and analytics cards.
+  /// Surface for primary cards, such as Settings and You screen cards.
   static Color card(BuildContext context) {
     return isDark(context) ? const Color(0xFF171A20) : AppColors.sand;
   }
@@ -60,5 +60,17 @@ class AppSurfaces {
   /// Shadow color adjusted for light and dark surfaces.
   static Color shadow(BuildContext context) {
     return Colors.black.withValues(alpha: isDark(context) ? 0.18 : 0.08);
+  }
+
+  /// Soft drop shadow used by Stats / You cards (matches milestone cards).
+  static List<BoxShadow> cardShadow(BuildContext context) {
+    return [
+      BoxShadow(
+        color: Colors.black.withValues(alpha: isDark(context) ? 0.22 : 0.09),
+        blurRadius: 10,
+        spreadRadius: 0,
+        offset: const Offset(0, 3),
+      ),
+    ];
   }
 }

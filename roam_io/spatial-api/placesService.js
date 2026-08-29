@@ -22,6 +22,16 @@ const INCLUDED_TYPES = [
   'night_club',
 ];
 
+const TRANSPORT_TYPES = [
+  'bus_stop',
+  'bus_station',
+  'train_station',
+  'tram_stop',
+  'light_rail_station',
+  'subway_station',
+  'transit_station',
+];
+
 /**
  * Fetch places from Google Places API for a given location.
  * Uses the new Places API (v1) with field masks to minimize cost.
@@ -46,11 +56,13 @@ async function fetchPlacesFromGoogle(latOrOptions, lngArg, radiusMetresArg = 200
     radiusMetres = 2000,
     radiusMeters,
     maxResults = 20,
+    includedTypes = INCLUDED_TYPES,
+    rankPreference,
   } = options;
   const searchRadius = radiusMeters ?? radiusMetres;
 
   const requestBody = {
-    includedTypes: INCLUDED_TYPES,
+    includedTypes,
     maxResultCount: Math.min(20, maxResults),
     locationRestriction: {
       circle: {
@@ -62,6 +74,9 @@ async function fetchPlacesFromGoogle(latOrOptions, lngArg, radiusMetresArg = 200
       },
     },
   };
+  if (rankPreference) {
+    requestBody.rankPreference = rankPreference;
+  }
 
   console.log(`[PlacesAPI] Requesting places at (${lat}, ${lng}) with radius ${searchRadius}m`);
   console.log('[PlacesAPI] Request body:', JSON.stringify(requestBody, null, 2));
@@ -104,6 +119,10 @@ async function fetchPlacesFromGoogle(latOrOptions, lngArg, radiusMetresArg = 200
 function mapToCategory(types) {
   const typeSet = new Set(types || []);
 
+  if (TRANSPORT_TYPES.some((type) => typeSet.has(type))) {
+    return 'public_transport';
+  }
+
   if (typeSet.has('restaurant') || typeSet.has('cafe') || typeSet.has('bar')) {
     return 'food_drink';
   }
@@ -138,4 +157,5 @@ module.exports = {
   fetchPlacesFromGoogle,
   mapToCategory,
   INCLUDED_TYPES,
+  TRANSPORT_TYPES,
 };

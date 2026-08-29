@@ -1,8 +1,8 @@
 /*
  * Author: Sanjevan Rajasegar
- * Last Modified: 4/05/2026
+ * Last Updated: 7 August 2026
  * Description:
- *   Provides a reusable page title, subtitle, and optional trailing action
+ *   Provides a reusable page title with optional subtitle and trailing action
  *   header for app screens.
  */
 
@@ -12,13 +12,13 @@ import '../../theme/app_colours.dart';
 /// Displays consistent screen heading text with an optional trailing widget.
 class AppPageHeader extends StatelessWidget {
   final String title;
-  final String subtitle;
+  final String? subtitle;
   final Widget? trailing;
 
   const AppPageHeader({
     super.key,
     required this.title,
-    required this.subtitle,
+    this.subtitle,
     this.trailing,
   });
 
@@ -30,7 +30,7 @@ class AppPageHeader extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
+            crossAxisAlignment: CrossAxisAlignment.center,
             children: [
               Expanded(
                 child: Text(
@@ -46,14 +46,16 @@ class AppPageHeader extends StatelessWidget {
               if (trailing != null) ...[const SizedBox(width: 12), trailing!],
             ],
           ),
-          const SizedBox(height: 8),
-          Text(
-            subtitle,
-            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-              fontSize: 14,
-              color: AppColors.ink.withValues(alpha: 0.6),
+          if (subtitle != null && subtitle!.isNotEmpty) ...[
+            const SizedBox(height: 8),
+            Text(
+              subtitle!,
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                fontSize: 14,
+                color: AppColors.ink.withValues(alpha: 0.6),
+              ),
             ),
-          ),
+          ],
         ],
       ),
     );

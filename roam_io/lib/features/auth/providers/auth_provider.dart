@@ -1,9 +1,10 @@
 /*
  * Author: Sanjevan Rajasegar
- * Last Modified: 12/05/2026
+ * Last Updated: 20 August 2026
  * Description:
- *   Manages authentication, profile XP, level-up state, and account actions
- *   exposed to the widget tree.
+ *   Manages authentication, profile XP, level-up state, and Settings account
+ *   edit actions exposed to the widget tree. XP awards return an explicit
+ *   XpAwardResult so callers never treat a failed write as success.
  */
 
 import 'dart:async';
@@ -13,7 +14,13 @@ import 'package:flutter/foundation.dart';
 import 'package:image_picker/image_picker.dart';
 
 import '../data/auth_repository.dart';
+import '../../profile/domain/pending_xp_celebration.dart';
 import '../../profile/domain/profile_model.dart';
+import '../../profile/domain/xp_award_result.dart';
+import '../../profile/domain/xp_event.dart';
+import '../../social/domain/social_privacy_settings.dart';
+import '../../../theme/app_theme_mode.dart';
+import '../../map/fog/fog_decay_difficulty.dart';
 
 /// High-level authentication state used by auth gates and account screens.
 enum AuthViewState { loading, authenticated, unauthenticated }
@@ -34,8 +41,9 @@ class AuthProvider extends ChangeNotifier {
   User? _currentUser;
   ProfileModel? _currentProfile;
   ProfilePhotoUploadResult? _lastProfilePhotoUploadResult;
-  int? _pendingLevelUp;
+  PendingXpCelebration? _pendingXpCelebration;
   String? _pendingUnlockToastMessage;
+  bool _deferLevelUpCelebration = false;
 
   AuthViewState get viewState => _viewState;
   bool get isBusy => _isBusy;
@@ -48,8 +56,39 @@ class AuthProvider extends ChangeNotifier {
       _lastProfilePhotoUploadResult == ProfilePhotoUploadResult.unchanged;
   bool get isAuthenticated => _currentUser != null;
   bool get isEmailVerified => _currentUser?.emailVerified ?? false;
+  AppThemeMode get themeMode =>
+      _currentProfile?.themeMode ?? AppThemeMode.light;
+  FogDecayDifficulty get fogDecayDifficulty =>
+      _currentProfile?.fogDecayDifficulty ?? FogDecayDifficulty.quarterly;
   bool get darkModeEnabled => _currentProfile?.darkModeEnabled ?? false;
-  int? get pendingLevelUp => _pendingLevelUp;
+
+  /// Full XP celebration payload (milestone claim or level-up).
+  PendingXpCelebration? get pendingXpCelebration => _pendingXpCelebration;
+
+  /// New level when a celebration includes a level-up; otherwise null.
+  int? get pendingLevelUp =>
+      _pendingXpCelebration != null && _pendingXpCelebration!.didLevelUp
+      ? _pendingXpCelebration!.newLevel
+      : null;
+
+  SocialPrivacySettings get socialPrivacy =>
+      _currentProfile?.privacy ?? const SocialPrivacySettings();
+  bool get deferLevelUpCelebration => _deferLevelUpCelebration;
+
+  /// Temporarily defers the global level-up overlay while another confirmed
+  /// success transition is presenting.
+  void deferLevelUpCelebrationOverlay() {
+    if (_deferLevelUpCelebration) return;
+    _deferLevelUpCelebration = true;
+    notifyListeners();
+  }
+
+  /// Allows any pending level-up overlay to show again.
+  void resumeLevelUpCelebrationOverlay() {
+    if (!_deferLevelUpCelebration) return;
+    _deferLevelUpCelebration = false;
+    notifyListeners();
+  }
 
   /// Clears the current user-facing error message.
   void clearError() {
@@ -57,9 +96,19 @@ class AuthProvider extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// Clears a pending XP celebration after the app displays it.
+  void clearPendingXpCelebration() {
+    _pendingXpCelebration = null;
+    notifyListeners();
+  }
+
   /// Clears a pending level-up notification after the app displays it.
-  void clearPendingLevelUp() {
-    _pendingLevelUp = null;
+  void clearPendingLevelUp() => clearPendingXpCelebration();
+
+  /// Queues the XP celebration overlay for a successful award (e.g. milestone).
+  void requestXpCelebration(XpAwardResult result) {
+    if (!result.succeeded) return;
+    _pendingXpCelebration = PendingXpCelebration.fromAward(result);
     notifyListeners();
   }
 
@@ -152,12 +201,65 @@ class AuthProvider extends ChangeNotifier {
     });
   }
 
-  /// Persists the user's dark mode preference and updates local profile state.
-  Future<void> updateDarkModePreference(bool enabled) async {
+  /// Updates the username and refreshes local profile state.
+  Future<void> updateUsername(String username) async {
     await _runAuthAction(() async {
-      await _authRepository.updateDarkModePreference(enabled);
+      await _authRepository.updateUsername(username);
       _currentProfile = _currentProfile?.copyWith(
-        darkModeEnabled: enabled,
+        username: username,
+        updatedAt: DateTime.now(),
+      );
+    });
+  }
+
+  /// Requests a verified account email change through Firebase Auth.
+  Future<void> requestEmailChange({
+    required String currentPassword,
+    required String newEmail,
+  }) async {
+    await _runAuthAction(
+      () => _authRepository.requestEmailChange(
+        currentPassword: currentPassword,
+        newEmail: newEmail,
+      ),
+    );
+  }
+
+  /// Persists the user's appearance preference and updates local profile state.
+  Future<void> updateThemeModePreference(AppThemeMode mode) async {
+    await _runAuthAction(() async {
+      await _authRepository.updateThemeModePreference(mode);
+      _currentProfile = _currentProfile?.copyWith(
+        themeMode: mode,
+        updatedAt: DateTime.now(),
+      );
+    });
+  }
+
+  /// Persists the fog decay preference and updates local profile state.
+  Future<void> updateFogDecayDifficulty(FogDecayDifficulty difficulty) async {
+    await _runAuthAction(() async {
+      await _authRepository.updateFogDecayDifficulty(difficulty);
+      _currentProfile = _currentProfile?.copyWith(
+        fogDecayDifficulty: difficulty,
+        updatedAt: DateTime.now(),
+      );
+    });
+  }
+
+  /// Legacy wrapper retained for callers that still expose a boolean switch.
+  Future<void> updateDarkModePreference(bool enabled) {
+    return updateThemeModePreference(
+      enabled ? AppThemeMode.dark : AppThemeMode.light,
+    );
+  }
+
+  /// Persists private-account settings and updates local profile state.
+  Future<void> updateSocialPrivacy(SocialPrivacySettings privacy) async {
+    await _runAuthAction(() async {
+      await _authRepository.updateSocialPrivacy(privacy);
+      _currentProfile = _currentProfile?.copyWith(
+        privacy: privacy,
         updatedAt: DateTime.now(),
       );
     });
@@ -177,6 +279,7 @@ class AuthProvider extends ChangeNotifier {
   Future<bool> updateXp(int newXp) async {
     var didLevelUp = false;
     await _runAuthAction(() async {
+      final oldXp = _currentProfile?.xp ?? 0;
       final oldLevel = _currentProfile?.level ?? 1;
       await _authRepository.updateXp(newXp);
       final newLevel = ProfileModel.levelFromXp(newXp);
@@ -186,40 +289,66 @@ class AuthProvider extends ChangeNotifier {
           : currentProfile.copyWith(xp: newXp, level: newLevel);
 
       if (newLevel > oldLevel) {
-        _pendingLevelUp = newLevel;
+        _pendingXpCelebration = PendingXpCelebration(
+          previousXp: oldXp,
+          newXp: newXp,
+          previousLevel: oldLevel,
+          newLevel: newLevel,
+        );
         didLevelUp = true;
       }
     });
     return didLevelUp;
   }
 
-  /// Adds XP and updates local profile/level-up state after the write succeeds.
-  Future<bool> addXp(int xpToAdd) async {
-    var didLevelUp = false;
-    await _runAuthAction(() async {
-      final currentProfile = _currentProfile;
-      final currentXp = currentProfile?.xp ?? 0;
-      final oldLevel =
-          currentProfile?.level ?? ProfileModel.levelFromXp(currentXp);
-      final newXp = currentXp + xpToAdd;
-      final newLevel = ProfileModel.levelFromXp(newXp);
+  /// Awards XP and updates local profile/level state only when the canonical
+  /// Firestore write succeeds. Does not use [_runAuthAction] so callers receive
+  /// an explicit [XpAwardResult] instead of a swallowed false-success.
+  Future<XpAwardResult> addXp(
+    int xpToAdd, {
+    XpEventSource source = XpEventSource.unknown,
+    String? sourceId,
+  }) async {
+    _isBusy = true;
+    _errorMessage = null;
+    notifyListeners();
 
-      if (currentProfile == null) {
-        await _authRepository.addXp(xpToAdd);
-      } else {
-        await _authRepository.updateXp(newXp);
+    try {
+      final result = await _authRepository.addXp(
+        xpToAdd,
+        source: source,
+        sourceId: sourceId,
+      );
+
+      if (!result.succeeded) {
+        _errorMessage =
+            'We could not save your XP right now. Please try again.';
+        return result;
       }
 
+      final currentProfile = _currentProfile;
       _currentProfile = currentProfile == null
           ? await _authRepository.getCurrentUserProfile()
-          : currentProfile.copyWith(xp: newXp, level: newLevel);
+          : currentProfile.copyWith(xp: result.newXp, level: result.newLevel);
 
-      if (newLevel > oldLevel) {
-        _pendingLevelUp = newLevel;
-        didLevelUp = true;
+      if (result.didLevelUp) {
+        _pendingXpCelebration = PendingXpCelebration.fromAward(result);
       }
-    });
-    return didLevelUp;
+
+      return result;
+    } on FirebaseAuthException catch (e) {
+      _errorMessage = _friendlyAuthMessage(e);
+      return XpAwardResult.failed(amount: xpToAdd);
+    } on FirebaseException catch (e) {
+      _errorMessage = _friendlyFirestoreMessage(e);
+      return XpAwardResult.failed(amount: xpToAdd);
+    } catch (e) {
+      _errorMessage = e.toString();
+      return XpAwardResult.failed(amount: xpToAdd);
+    } finally {
+      _isBusy = false;
+      notifyListeners();
+    }
   }
 
   /// Signs out and clears local authentication/profile state.
@@ -286,7 +415,7 @@ class AuthProvider extends ChangeNotifier {
       case 'network-request-failed':
         return 'Network error. Check your internet connection and try again.';
       case 'requires-recent-login':
-        return 'For security, please log in again before changing your password.';
+        return 'For security, please log in again before changing account details.';
       default:
         return 'Authentication failed. Please try again.';
     }
