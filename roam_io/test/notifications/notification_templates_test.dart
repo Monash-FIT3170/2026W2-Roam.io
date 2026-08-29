@@ -1,6 +1,6 @@
 /*
  * Author: Sanjevan Rajasegar
- * Last Updated: 22 August 2026
+ * Last Updated: 29 August 2026 — Sanjevan Rajasegar
  * Description:
  *   Tests the reusable notification templates to ensure each template
  *   produces the expected type, content, actions, duration and metadata.
@@ -130,12 +130,16 @@ void main() {
       expect(kudos.data['activityId'], 'activity-1');
 
       expect(comment.id, 'notification-2');
+      expect(comment.showOnDevice, isFalse);
       expect(comment.data['commentId'], 'comment-2');
       expect(threadReply.id, 'notification-3');
+      expect(threadReply.showOnDevice, isFalse);
       expect(threadReply.data['commentId'], 'comment-3');
       expect(reply.id, 'notification-4');
+      expect(reply.showOnDevice, isFalse);
       expect(reply.data['commentId'], 'comment-4');
       expect(commentLike.id, 'notification-5');
+      expect(commentLike.showOnDevice, isFalse);
       expect(commentLike.data['commentId'], 'comment-5');
     });
 

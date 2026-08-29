@@ -1,6 +1,6 @@
 /*
  * Author: Sanjevan Rajasegar
- * Last Updated: 22 August 2026
+ * Last Updated: 29 August 2026 — Sanjevan Rajasegar
  * Description:
  *   Outlines the different notification templates used throughout the application. 
  *   Each template corresponds to a specific notification type and provides a consistent structure.
