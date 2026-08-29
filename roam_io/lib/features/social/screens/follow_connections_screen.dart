@@ -235,6 +235,7 @@ class _ConnectionRow extends StatelessWidget {
                   followService: followService,
                   followeeProfile: profile,
                   compact: true,
+                  activeBackgroundColor: AppColors.cream,
                 ),
               ],
             ],

@@ -1,6 +1,6 @@
 /*
  * Author: Sanjevan Rajasegar
- * Last Updated: 9 August 2026
+ * Last Updated: 29 August 2026 — Sanjevan Rajasegar
  * Description:
  *   Widget tests for FollowConnectionsScreen list membership, auth-user
  *   Follow / Following actions, own-followers Remove (including private
@@ -19,10 +19,16 @@ import 'package:roam_io/features/social/data/follow_service.dart';
 import 'package:roam_io/features/social/data/friendship_service.dart';
 import 'package:roam_io/features/social/screens/follow_connections_screen.dart';
 import 'package:roam_io/features/social/screens/other_user_profile_screen.dart';
+import 'package:roam_io/theme/app_colours.dart';
 
 import '../../../support/fake_firebase_user.dart';
 
 void main() {
+  Color? buttonBackground(WidgetTester tester, Finder finder) {
+    final button = tester.widget<ButtonStyleButton>(finder);
+    return button.style?.backgroundColor?.resolve(<WidgetState>{});
+  }
+
   Future<void> pumpList(
     WidgetTester tester, {
     required FollowConnectionsMode mode,
@@ -121,6 +127,13 @@ void main() {
     expect(find.text('Nathan'), findsOneWidget);
     expect(find.text('Sonia'), findsOneWidget);
     expect(find.widgetWithText(OutlinedButton, 'Following'), findsOneWidget);
+    expect(
+      buttonBackground(
+        tester,
+        find.widgetWithText(OutlinedButton, 'Following'),
+      ),
+      AppColors.cream,
+    );
     expect(find.widgetWithText(FilledButton, 'Follow'), findsOneWidget);
   });
 

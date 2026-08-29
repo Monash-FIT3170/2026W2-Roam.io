@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../map/data/visit.dart';
+import '../../profile/widgets/profile_dashboard.dart';
 import '../providers/stats_analytics_provider.dart';
 import '../services/stats_aggregation_service.dart';
 import '../widgets/recent_visited_locations_card.dart';
@@ -9,7 +10,7 @@ import '../widgets/stats_chart_section.dart';
 import '../widgets/stats_hero_row.dart';
 import '../widgets/stats_section_card.dart';
 
-/// Locations category on the Stats tab.
+/// Locations category on the Statistics page.
 class LocationsStatsView extends StatelessWidget {
   const LocationsStatsView({
     super.key,
@@ -68,6 +69,15 @@ class LocationsStatsView extends StatelessWidget {
           detailLabelBuilder: (bucket) =>
               bucket.detailLabel(' Locations Visited'),
         ),
+        const SizedBox(height: 16),
+        Text(
+          'Most Visited Location',
+          style: Theme.of(
+            context,
+          ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800),
+        ),
+        const SizedBox(height: 9),
+        MostVisitedLocationBubble(visits: analytics.visits),
         const SizedBox(height: 16),
         StatsBreakdownSection(
           title: 'Place categories',

@@ -1,4 +1,4 @@
-/// Rollup counters for fast Stats tab hero numbers.
+/// Rollup counters for fast Statistics page hero numbers.
 ///
 /// Stored at `profiles/{uid}/stats_summary/summary`.
 class StatsSummary {
