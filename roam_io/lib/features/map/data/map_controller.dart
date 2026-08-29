@@ -7,6 +7,12 @@
  *   data for redraws, persists visits, awards visit and region unlock XP, and
  *   exposes heatmap styling state for visited tiles. Unlock XP toasts only fire
  *   when the canonical XP award succeeds.
+ *
+ *   Region resolution is fed by two location sources: the map's own stream,
+ *   which only runs while the app is in the foreground, and journey tracking,
+ *   which keeps running in the background for the length of a journey. Both
+ *   land in [MapController._queueRegionCheck], so fog keeps clearing along a
+ *   tracked route with the phone in a pocket.
  */
 
 import 'dart:async';
@@ -39,6 +45,13 @@ class MapController extends ChangeNotifier {
   static const LatLng fallbackCenter = LatLng(-37.8136, 144.9631);
   static const double defaultZoom = MapViewportPolicy.defaultZoom;
   static const double visitProximityThreshold = 100.0;
+
+  /// Minimum movement, in metres, between two containing-region lookups.
+  ///
+  /// Sits below the GPS distance filter so every genuine move still resolves,
+  /// while the same fix arriving twice from two overlapping location sources
+  /// does not. See [_queueRegionCheck].
+  static const double regionCheckMovementThresholdMetres = 3.0;
 
   MapController({
     GeoLocatorService? geoLocatorService,
@@ -107,8 +120,10 @@ class MapController extends ChangeNotifier {
 
   bool _isHeatmapEnabled = false;
   bool _isResolvingCurrentRegion = false;
-  Position? _queuedRegionCheckPosition;
+  LatLng? _queuedRegionCheckLocation;
+  LatLng? _lastRegionCheckLocation;
   Position? _latestPosition;
+  LatLng? _latestUserLatLng;
   bool _isFollowingUser = true;
   bool _isProgrammaticCameraMove = false;
 
@@ -281,18 +296,34 @@ class MapController extends ChangeNotifier {
     _isFollowingUser = true;
     final position =
         _latestPosition ?? await _geoLocatorService.getCurrentLocation();
-    _latestPosition = position;
+    _rememberPosition(position);
     await _moveCameraTo(position);
   }
 
-  /// Keeps the map camera in sync with a location produced by journey
-  /// tracking. A deliberate user camera movement still pauses following until
+  /// Keeps the map in sync with a location produced by journey tracking.
+  ///
+  /// Journey tracking is the only location source that keeps running once the
+  /// app is backgrounded, so its route points are also what unlock tiles and
+  /// clear fog for the rest of a journey the user has walked with their phone
+  /// in their pocket. Routing them through the same region check as the map's
+  /// own stream is what makes that happen.
+  ///
+  /// A deliberate user camera movement still pauses following until
   /// [recenterOnUser] is used again.
   void followTrackedLocation(LatLng location) {
     center = location;
+    _latestUserLatLng = location;
+    _queueRegionCheck(location);
+
     if (_isFollowingUser) {
       unawaited(_moveCameraToLatLng(location));
     }
+  }
+
+  /// Records the newest device fix without resolving a region for it.
+  void _rememberPosition(Position position) {
+    _latestPosition = position;
+    _latestUserLatLng = LatLng(position.latitude, position.longitude);
   }
 
   Future<void> _moveCameraTo(Position position) async {
@@ -440,7 +471,7 @@ class MapController extends ChangeNotifier {
   Future<double?> getDistanceToPlace(PlaceOfInterest place) async {
     try {
       final position = await _geoLocatorService.getCurrentLocation();
-      _latestPosition = position;
+      _rememberPosition(position);
 
       return Geolocator.distanceBetween(
         position.latitude,
@@ -630,20 +661,23 @@ class MapController extends ChangeNotifier {
   /// A first unlock blows the clouds away from the user's position; re-entering
   /// an already-cleared region just ensures its hole exists, with no animation.
   ///
-  /// [_latestPosition] is deliberately still null during [_loadInitialRegion],
-  /// so a cold start into an unvisited tile clears without animating. Assigning
-  /// it there would fire a dissipation nobody asked for every launch.
+  /// [_latestUserLatLng] is deliberately still null during
+  /// [_loadInitialRegion], so a cold start into an unvisited tile clears
+  /// without animating. Assigning it there would fire a dissipation nobody
+  /// asked for every launch.
+  ///
+  /// A tile unlocked while the app is backgrounded still starts its dissolve
+  /// here. The fog clock only advances while the overlay's ticker runs, so the
+  /// animation is waiting fully formed rather than half-played when the user
+  /// comes back.
   void _syncFogForCurrentRegion({
     required RegionPolygon region,
     required bool wasNewlyUnlocked,
   }) {
-    final position = _latestPosition;
+    final userLatLng = _latestUserLatLng;
 
-    if (wasNewlyUnlocked && position != null) {
-      fogController.startDissolve(
-        region: region,
-        userLatLng: LatLng(position.latitude, position.longitude),
-      );
+    if (wasNewlyUnlocked && userLatLng != null) {
+      fogController.startDissolve(region: region, userLatLng: userLatLng);
       return;
     }
 
@@ -696,17 +730,40 @@ class MapController extends ChangeNotifier {
   }
 
   void _handleLocationUpdate(Position position) {
-    _latestPosition = position;
+    _rememberPosition(position);
     // Couples wind speed to travel speed, so the clouds quicken when moving.
     fogController.setUserSpeed(position.speed);
-    _queueRegionCheck(position);
+    _queueRegionCheck(LatLng(position.latitude, position.longitude));
     if (_isFollowingUser) {
       unawaited(_moveCameraTo(position));
     }
   }
 
-  void _queueRegionCheck(Position position) {
-    _queuedRegionCheckPosition = position;
+  /// Queues a containing-region lookup for [location].
+  ///
+  /// Both location sources land here and they overlap: journey tracking
+  /// republishes its latest route point on every notification, once a second
+  /// while its elapsed timer runs, and its stream runs alongside the map's own
+  /// whenever the app is in the foreground. Every lookup is a network round
+  /// trip, so anything that has not moved further than
+  /// [regionCheckMovementThresholdMetres] is treated as the same fix arriving
+  /// again and dropped.
+  void _queueRegionCheck(LatLng location) {
+    final lastChecked = _lastRegionCheckLocation;
+
+    if (lastChecked != null &&
+        Geolocator.distanceBetween(
+              lastChecked.latitude,
+              lastChecked.longitude,
+              location.latitude,
+              location.longitude,
+            ) <
+            regionCheckMovementThresholdMetres) {
+      return;
+    }
+
+    _lastRegionCheckLocation = location;
+    _queuedRegionCheckLocation = location;
 
     if (_isResolvingCurrentRegion) return;
 
@@ -719,23 +776,23 @@ class MapController extends ChangeNotifier {
     _isResolvingCurrentRegion = true;
 
     try {
-      while (_queuedRegionCheckPosition != null) {
-        final position = _queuedRegionCheckPosition!;
-        _queuedRegionCheckPosition = null;
-        await _syncCurrentRegionForPosition(position);
+      while (_queuedRegionCheckLocation != null) {
+        final location = _queuedRegionCheckLocation!;
+        _queuedRegionCheckLocation = null;
+        await _syncCurrentRegionForLocation(location);
       }
     } finally {
       _isResolvingCurrentRegion = false;
     }
   }
 
-  Future<void> _syncCurrentRegionForPosition(Position position) async {
+  Future<void> _syncCurrentRegionForLocation(LatLng location) async {
     final previousRegionId = currentRegion?.id;
 
     try {
       final region = await _regionService.getContainingRegion(
-        lat: position.latitude,
-        lng: position.longitude,
+        lat: location.latitude,
+        lng: location.longitude,
       );
 
       if (region?.id == previousRegionId) return;
