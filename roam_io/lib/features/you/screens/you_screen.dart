@@ -582,15 +582,11 @@ class _OwnedActivitiesList extends StatelessWidget {
               onCommentTap: () =>
                   _openComments(context, comments, activities[index]),
               onShareTap: () {
-<<<<<<< HEAD
                 JourneyShareSheet.shareFromActivity(
                   context,
-                  activity,
-                  currentUserId: widget.currentUserId,
+                  activities[index],
+                  currentUserId: currentUserId,
                 );
-=======
-                JourneyShareSheet.shareFromActivity(context, activities[index]);
->>>>>>> b473360 (ART2-83: Improving certain UI components within the app and the user's profile post-merge)
               },
             ),
             if (index != activities.length - 1) const SizedBox(height: 14),
