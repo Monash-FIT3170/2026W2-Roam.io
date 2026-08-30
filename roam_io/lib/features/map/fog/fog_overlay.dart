@@ -14,12 +14,14 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
+import 'package:google_maps_flutter/google_maps_flutter.dart';
 
 import 'fog_atlas.dart';
 import 'fog_controller.dart';
 import 'fog_field.dart';
 import 'fog_painter.dart';
 import 'fog_palette.dart';
+import 'fog_wind.dart';
 
 /// Animated cloud fog drawn over the map.
 ///
@@ -30,6 +32,7 @@ class FogOverlay extends StatefulWidget {
     super.key,
     required this.controller,
     this.isActive = true,
+    this.isJourneyActive = false,
     this.atlasOverride,
   });
 
@@ -37,6 +40,15 @@ class FogOverlay extends StatefulWidget {
 
   /// Whether the map is the visible tab. False stops the ticker.
   final bool isActive;
+
+  /// Whether a live journey is running.
+  ///
+  /// The map follows the user for the length of a journey, so the whole sheet
+  /// is already sliding across the screen. Drifting the clouds on top of that
+  /// reads as the fog moving twice, and the drift is the one part of it nobody
+  /// is looking at while a route is being walked — so it is held still, which
+  /// also lets a settled frame be skipped outright. See [_onTick].
+  final bool isJourneyActive;
 
   /// Pre-baked atlas supplied by tests.
   ///
@@ -59,8 +71,14 @@ class _FogOverlayState extends State<FogOverlay>
   Brightness? _loadedBrightness;
   bool _isAppResumed = true;
 
+  final FogWind _wind = FogWind();
+
   Duration _elapsed = Duration.zero;
   Duration _lastPaint = Duration.zero;
+
+  /// Camera of the last painted frame, so a programmatic camera change is not
+  /// skipped along with the frames that genuinely have nothing to redraw.
+  CameraPosition? _paintedCamera;
 
   /// 1.0 while the camera is settled, 0.0 while it moves. See
   /// [_advanceMotionEase].
@@ -146,6 +164,7 @@ class _FogOverlayState extends State<FogOverlay>
       // previously been open.
       _lastPaint = Duration.zero;
       _lastEaseTick = null;
+      _wind.resetTiming();
       _ticker.start();
     } else if (!shouldRun && _ticker.isActive) {
       _ticker.stop();
@@ -160,6 +179,30 @@ class _FogOverlayState extends State<FogOverlay>
     final hasReturnAnimation = controller.returnTransition != null;
 
     _advanceMotionEase(elapsed, isMoving: controller.isCameraMoving);
+    _wind.advance(
+      elapsed,
+      userSpeedMetresPerSecond: controller.userSpeedMetresPerSecond,
+      isHeld: widget.isJourneyActive,
+    );
+
+    // With the wind held for a journey and the camera settled, the sheet is
+    // identical to the one already on screen, so the frame is dropped whole
+    // rather than paced down. Two layers of translucent overdraw plus a blur
+    // per visible hole is the most expensive thing on the map to repaint, and
+    // a journey is when the phone can least afford it — GPS, the route stream
+    // and the map's own camera animations are all running.
+    //
+    // The clock still advances so a region unlocked during the skip is timed
+    // from now rather than from the last painted frame, which would otherwise
+    // start its dissipation part-finished.
+    if (widget.isJourneyActive &&
+        !isBusy &&
+        !hasReturnAnimation &&
+        _motionEase >= 1.0 &&
+        controller.camera == _paintedCamera) {
+      controller.tick(elapsed);
+      return;
+    }
 
     // Resting clouds drift slowly enough that 30fps is indistinguishable from
     // 60, so idle frames are paced down.
@@ -180,6 +223,7 @@ class _FogOverlayState extends State<FogOverlay>
     }
 
     _lastPaint = elapsed;
+    _paintedCamera = controller.camera;
     controller.tick(elapsed);
     controller.pruneCompletedDissolves();
     controller.pruneCompletedFogReturn();
@@ -246,7 +290,7 @@ class _FogOverlayState extends State<FogOverlay>
             dissolves: controller.dissolveSet.active,
             returnTransition: controller.returnTransition,
             atlas: atlas,
-            userSpeedMetresPerSecond: controller.userSpeedMetresPerSecond,
+            windOffset: _wind.offset,
             isNight: Theme.of(context).brightness == Brightness.dark,
             motionEase: _motionEase,
           ),

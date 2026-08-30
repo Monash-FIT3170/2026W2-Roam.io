@@ -908,7 +908,12 @@ class _MapPageState extends State<MapPage> with WidgetsBindingObserver {
         ),
         // Fog of war. Must sit directly above the map and below every control,
         // and is an IgnorePointer internally so map gestures pass through.
-        FogOverlay(controller: _mapController.fogController),
+        // The cloud drift is held for a live journey, where the map is already
+        // sliding under the fog as it follows the user.
+        FogOverlay(
+          controller: _mapController.fogController,
+          isJourneyActive: isLiveJourneyActive,
+        ),
         if (_mapController.myLocationEnabled)
           Positioned(
             right: 16,

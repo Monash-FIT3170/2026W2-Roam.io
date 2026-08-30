@@ -126,9 +126,9 @@ void main() {
       expect(batch.length, lessThanOrEqualTo(FogField.maxInstancesPerLayer));
     });
 
-    test('drifts downwind as time passes', () {
-      final atRest = _build(atlas, elapsed: Duration.zero);
-      final later = _build(atlas, elapsed: const Duration(seconds: 30));
+    test('drifts with the accumulated wind offset', () {
+      final atRest = _build(atlas);
+      final later = _build(atlas, windOffset: const Offset(270, -105));
 
       expect(_snapshot(atRest), isNot(equals(_snapshot(later))));
     });
@@ -198,6 +198,7 @@ void main() {
 FogFieldBatch _build(
   FogAtlas atlas, {
   Duration elapsed = Duration.zero,
+  Offset windOffset = Offset.zero,
   List<FogDissolve> dissolves = const <FogDissolve>[],
   bool parallax = false,
 }) {
@@ -206,6 +207,7 @@ FogFieldBatch _build(
     size: _size,
     atlas: atlas,
     elapsed: elapsed,
+    windOffset: windOffset,
     dissolves: dissolves,
     parallax: parallax,
   );
