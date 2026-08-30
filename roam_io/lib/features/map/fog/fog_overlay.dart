@@ -73,7 +73,12 @@ class _FogOverlayState extends State<FogOverlay>
 
   final FogWind _wind = FogWind();
 
+  /// The fog clock: what dissolves and fog returns are timed against.
+  ///
+  /// Not the ticker's own elapsed time, which restarts at zero every time the
+  /// ticker does. [_clockBase] carries it across those restarts.
   Duration _elapsed = Duration.zero;
+  Duration _clockBase = Duration.zero;
   Duration _lastPaint = Duration.zero;
 
   /// Camera of the last painted frame, so a programmatic camera change is not
@@ -158,10 +163,18 @@ class _FogOverlayState extends State<FogOverlay>
     final shouldRun = widget.isActive && _isAppResumed;
 
     if (shouldRun && !_ticker.isActive) {
-      // Ticker.start resets elapsed to zero, so carrying the old timestamps
-      // across a stop would leave _lastPaint in the future and gate every frame
-      // until elapsed caught up — the fog frozen for as long as the app had
-      // previously been open.
+      // Ticker.start resets elapsed to zero, so every timestamp measured
+      // against it has to be dropped here — carrying _lastPaint across a stop
+      // would leave it in the future and gate every frame until elapsed caught
+      // up, freezing the fog for as long as the app had previously been open.
+      //
+      // The fog clock is the exception: it carries on from where it stopped,
+      // because a dissolve started while the ticker was down — a tile unlocked
+      // by journey tracking with the phone in a pocket — holds a start time on
+      // it, and a clock that restarted at zero would leave that start time in
+      // the future too. The dissipation would then sit unplayed, and the tile
+      // stay fogged, until the clock climbed back past it.
+      _clockBase = _elapsed;
       _lastPaint = Duration.zero;
       _lastEaseTick = null;
       _wind.resetTiming();
@@ -173,6 +186,10 @@ class _FogOverlayState extends State<FogOverlay>
 
   void _onTick(Duration elapsed) {
     final controller = widget.controller;
+
+    // Ticker time paces the frame; fog-clock time drives the animations. They
+    // differ by every stop the ticker has taken. See [_clockBase].
+    final clock = _clockBase + elapsed;
 
     final isBusy =
         controller.isCameraMoving || controller.dissolveSet.isNotEmpty;
@@ -200,7 +217,7 @@ class _FogOverlayState extends State<FogOverlay>
         !hasReturnAnimation &&
         _motionEase >= 1.0 &&
         controller.camera == _paintedCamera) {
-      controller.tick(elapsed);
+      controller.tick(clock);
       return;
     }
 
@@ -224,11 +241,11 @@ class _FogOverlayState extends State<FogOverlay>
 
     _lastPaint = elapsed;
     _paintedCamera = controller.camera;
-    controller.tick(elapsed);
+    controller.tick(clock);
     controller.pruneCompletedDissolves();
     controller.pruneCompletedFogReturn();
 
-    setState(() => _elapsed = elapsed);
+    setState(() => _elapsed = clock);
   }
 
   /// Ramps [_motionEase] toward 0 while the camera moves and back to 1 at rest.

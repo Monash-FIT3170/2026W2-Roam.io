@@ -330,6 +330,45 @@ void main() {
       controller.dispose();
     });
 
+    testWidgets('clears a tile unlocked while the app was backgrounded', (
+      tester,
+    ) async {
+      // Journey tracking keeps unlocking tiles with the phone in a pocket, and
+      // the fog clock only runs while the overlay does, so the dissipation is
+      // meant to be waiting fully formed for the user coming back.
+      final controller = FogController()
+        ..setAnchor(_anchor)
+        ..updateCamera(_camera)
+        ..markViewportLoaded();
+
+      await _pump(tester, controller, atlas: atlas);
+      await tester.pump(const Duration(seconds: 2));
+
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.paused);
+      await tester.pump();
+
+      controller.startDissolve(region: _region('a'), userLatLng: _anchor);
+
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+      await tester.pump();
+      await tester.pump(
+        FogPalette.dissolveDuration + const Duration(milliseconds: 100),
+      );
+
+      expect(
+        controller.dissolveSet.isEmpty,
+        isTrue,
+        reason: 'the dissipation must run once the user is back to watch it',
+      );
+      expect(
+        controller.geometry!.contains('a'),
+        isTrue,
+        reason: 'and leave the tile a permanent hole',
+      );
+
+      controller.dispose();
+    });
+
     testWidgets('switches the cloud palette when app brightness changes', (
       tester,
     ) async {

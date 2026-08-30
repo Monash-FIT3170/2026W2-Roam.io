@@ -25,6 +25,7 @@ import '../domain/exploration_mode.dart';
 import '../fog/fog_controller.dart';
 import '../fog/fog_decay_difficulty.dart';
 import '../../profile/domain/xp_reward_config.dart';
+import 'follow_camera_pacer.dart';
 import 'geolocator_service.dart';
 import 'map_viewport_policy.dart';
 import 'place_marker_manager.dart';
@@ -126,6 +127,7 @@ class MapController extends ChangeNotifier {
   LatLng? _latestUserLatLng;
   bool _isFollowingUser = true;
   bool _isProgrammaticCameraMove = false;
+  final FollowCameraPacer _followCameraPacer = FollowCameraPacer();
 
   ExplorationMode _currentMode = ExplorationMode.exploration;
 
@@ -280,9 +282,19 @@ class MapController extends ChangeNotifier {
   void onCameraMoveStarted() {
     fogController.setCameraMoving(true);
 
-    if (!_isProgrammaticCameraMove) {
-      _isFollowingUser = false;
+    // The flag covers exactly one callback: the one raised by the animation we
+    // just issued. Consuming it here rather than waiting for camera-idle is
+    // what lets a drag land while that animation is still running — which is
+    // most of the time once follow animations are paced to the fixes driving
+    // them — instead of being mistaken for our own move and ignored, leaving
+    // the camera pulling against the user's hand.
+    if (_isProgrammaticCameraMove) {
+      _isProgrammaticCameraMove = false;
+      return;
     }
+
+    _isFollowingUser = false;
+    _followCameraPacer.reset();
   }
 
   Future<void> onCameraIdle() async {
@@ -294,9 +306,11 @@ class MapController extends ChangeNotifier {
   /// Re-centres the map and resumes following future location updates.
   Future<void> recenterOnUser() async {
     _isFollowingUser = true;
+    _followCameraPacer.reset();
     final position =
         _latestPosition ?? await _geoLocatorService.getCurrentLocation();
     _rememberPosition(position);
+    // Deliberately not a follow move: this answers a tap and stays snappy.
     await _moveCameraTo(position);
   }
 
@@ -316,7 +330,7 @@ class MapController extends ChangeNotifier {
     _queueRegionCheck(location);
 
     if (_isFollowingUser) {
-      unawaited(_moveCameraToLatLng(location));
+      unawaited(_followCameraTo(location));
     }
   }
 
@@ -330,13 +344,35 @@ class MapController extends ChangeNotifier {
     await _moveCameraToLatLng(LatLng(position.latitude, position.longitude));
   }
 
-  Future<void> _moveCameraToLatLng(LatLng location) async {
+  /// Moves the camera to keep up with the user's own movement.
+  ///
+  /// Deliberately paced rather than issued straight through: an animation
+  /// restarted at a target the camera is already gliding toward eases from a
+  /// standstill, and one given the default length arrives long before the next
+  /// fix does. [FollowCameraPacer] decides both. A recentre stays a direct
+  /// [_moveCameraToLatLng] — it answers a tap, so it should be snappy.
+  Future<void> _followCameraTo(LatLng location) async {
+    if (_googleMapController == null) return;
+
+    final duration = _followCameraPacer.durationFor(location);
+    if (duration == null) return;
+
+    await _moveCameraToLatLng(location, duration: duration);
+  }
+
+  Future<void> _moveCameraToLatLng(
+    LatLng location, {
+    Duration? duration,
+  }) async {
     final controller = _googleMapController;
     if (controller == null) return;
 
     _isProgrammaticCameraMove = true;
     try {
-      await controller.animateCamera(CameraUpdate.newLatLng(location));
+      await controller.animateCamera(
+        CameraUpdate.newLatLng(location),
+        duration: duration,
+      );
     } catch (_) {
       _isProgrammaticCameraMove = false;
       rethrow;
@@ -735,7 +771,7 @@ class MapController extends ChangeNotifier {
     fogController.setUserSpeed(position.speed);
     _queueRegionCheck(LatLng(position.latitude, position.longitude));
     if (_isFollowingUser) {
-      unawaited(_moveCameraTo(position));
+      unawaited(_followCameraTo(LatLng(position.latitude, position.longitude)));
     }
   }
 
