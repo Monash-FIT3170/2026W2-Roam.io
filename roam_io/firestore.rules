@@ -145,6 +145,8 @@ service cloud.firestore {
         'journeyEndTime',
         'sidequestCompletedAt',
         'transportMode',
+        'mapImageUrl',
+        'mapImageStoragePath',
         'media',
         'metrics',
         'showMapPreview',
@@ -187,6 +189,7 @@ service cloud.firestore {
         request.resource.data.sidequestCompletedAt is string) &&
       (!request.resource.data.keys().hasAny(['transportMode']) ||
         request.resource.data.transportMode is string) &&
+      hasValidActivityMapImage(request.resource.data) &&
       (!request.resource.data.keys().hasAny(['media']) ||
         hasValidActivityMediaList(request.resource.data.media)) &&
       request.resource.data.metrics is list &&
@@ -272,6 +275,15 @@ service cloud.firestore {
         (!item.keys().hasAny(['thumbnailUrl']) || item.thumbnailUrl is string);
     }
 
+    // The map picture is written once, either with the activity or by a later
+    // capture on the owner's own card, so both paths validate it the same way.
+    function hasValidActivityMapImage(data) {
+      return (!data.keys().hasAny(['mapImageUrl']) ||
+          data.mapImageUrl is string) &&
+        (!data.keys().hasAny(['mapImageStoragePath']) ||
+          data.mapImageStoragePath is string);
+    }
+
     function hasActivityEditableUpdate(activityId) {
       return isSignedIn() &&
         resource.data.ownerId == request.auth.uid &&
@@ -280,9 +292,12 @@ service cloud.firestore {
         request.resource.data.activityId == activityId &&
         request.resource.data.diff(resource.data).affectedKeys().hasOnly([
           'title',
-          'media'
+          'media',
+          'mapImageUrl',
+          'mapImageStoragePath'
         ]) &&
         request.resource.data.title is string &&
+        hasValidActivityMapImage(request.resource.data) &&
         hasValidActivityMediaList(request.resource.data.media);
     }
 

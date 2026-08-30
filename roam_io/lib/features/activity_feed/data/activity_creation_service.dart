@@ -14,6 +14,7 @@ import '../../journeys/data/polyline_codec.dart';
 import '../../journeys/domain/journey.dart';
 import '../../profile/domain/profile_model.dart';
 import '../models/activity_feed_item.dart';
+import 'activity_map_image.dart';
 
 /// Shared input for publishing social activities from completed app events.
 class CreateActivityInput {
@@ -33,6 +34,7 @@ class CreateActivityInput {
     this.sidequestCompletedAt,
     this.showMapPreview = false,
     this.mediaSelections = const <PendingActivityMedia>[],
+    this.mapImageBytes,
   });
 
   final String activityId;
@@ -50,6 +52,9 @@ class CreateActivityInput {
   final DateTime? sidequestCompletedAt;
   final bool showMapPreview;
   final List<PendingActivityMedia> mediaSelections;
+
+  /// Map picture captured while reviewing the journey, fog included.
+  final Uint8List? mapImageBytes;
 }
 
 /// Creates persisted activity feed documents from real domain sources.
@@ -75,6 +80,7 @@ class ActivityCreationService {
     required String title,
     ProfileModel? fallbackProfile,
     List<PendingActivityMedia> mediaSelections = const <PendingActivityMedia>[],
+    Uint8List? mapImageBytes,
   }) async {
     if (journey.userId.isEmpty) {
       throw ArgumentError.value(
@@ -107,6 +113,7 @@ class ActivityCreationService {
         transportMode: journey.transportMode.name,
         showMapPreview: true,
         mediaSelections: mediaSelections,
+        mapImageBytes: mapImageBytes,
         metrics: [
           ActivityFeedMetric(
             label: 'Time',
@@ -181,17 +188,23 @@ class ActivityCreationService {
     final existing = await activityRef.get();
     final existingData = existing.data();
     if (existingData != null) {
+      final reconciled = await _reconcileExistingActivityMedia(
+        activityRef: activityRef,
+        existingData: existingData,
+        input: input,
+      );
       return _activityFromData(
         activityRef.id,
-        await _reconcileExistingActivityMedia(
+        await _attachMapImageToExisting(
           activityRef: activityRef,
-          existingData: existingData,
+          existingData: reconciled,
           input: input,
         ),
       );
     }
 
     final uploadedMedia = <ActivityMediaItem>[];
+    ActivityMediaUploadResult? mapImage;
     try {
       uploadedMedia.addAll(
         await _uploadActivityMedia(
@@ -199,6 +212,13 @@ class ActivityCreationService {
           activityId: input.activityId,
           selections: input.mediaSelections,
         ),
+      );
+      // Published before the picture is stored, an activity would fall back to
+      // a live map on every feed card, so a failed upload fails the publish.
+      mapImage = await _uploadMapImage(
+        ownerId: input.ownerId,
+        activityId: input.activityId,
+        bytes: input.mapImageBytes,
       );
     } catch (_) {
       await _cleanupUploadedMedia(uploadedMedia);
@@ -214,17 +234,88 @@ class ActivityCreationService {
         publicProfileRef: publicProfileRef,
         input: input,
         media: uploadedMedia,
+        mapImage: mapImage,
         fallbackProfile: fallbackProfile,
         now: now,
       );
       if (!_createdWithUploadedMedia(data, uploadedMedia)) {
         await _cleanupUploadedMedia(uploadedMedia);
       }
+      if (mapImage != null && data['mapImageUrl'] != mapImage.url) {
+        await _cleanupMapImage(mapImage);
+      }
       return _activityFromData(activityRef.id, data);
     } catch (_) {
       await _cleanupUploadedMedia(uploadedMedia);
+      await _cleanupMapImage(mapImage);
       rethrow;
     }
+  }
+
+  /// Uploads the captured map picture, or returns null when none was captured.
+  Future<ActivityMediaUploadResult?> _uploadMapImage({
+    required String ownerId,
+    required String activityId,
+    required Uint8List? bytes,
+  }) async {
+    if (bytes == null || bytes.isEmpty) return null;
+    return _storageService.uploadActivityMedia(
+      uid: ownerId,
+      activityId: activityId,
+      mediaId: ActivityMapImage.mediaId,
+      bytes: bytes,
+      filename: ActivityMapImage.filename,
+      mediaType: ActivityMapImage.mediaType,
+    );
+  }
+
+  Future<void> _cleanupMapImage(ActivityMediaUploadResult? mapImage) async {
+    if (mapImage == null) return;
+    try {
+      await _storageService.deleteActivityMedia(
+        storagePath: mapImage.storagePath,
+      );
+    } catch (error) {
+      debugPrint(
+        '[ActivityCreationService] orphan map image cleanup failed '
+        'path=${mapImage.storagePath} error=$error',
+      );
+    }
+  }
+
+  /// Attaches a fresh capture to an activity that was published without one.
+  Future<Map<String, dynamic>> _attachMapImageToExisting({
+    required DocumentReference<Map<String, dynamic>> activityRef,
+    required Map<String, dynamic> existingData,
+    required CreateActivityInput input,
+  }) async {
+    final bytes = input.mapImageBytes;
+    if (bytes == null ||
+        bytes.isEmpty ||
+        existingData['ownerId'] != input.ownerId ||
+        (existingData['mapImageUrl'] as String? ?? '').isNotEmpty) {
+      return existingData;
+    }
+
+    final mapImage = await _uploadMapImage(
+      ownerId: input.ownerId,
+      activityId: input.activityId,
+      bytes: bytes,
+    );
+    if (mapImage == null) return existingData;
+
+    try {
+      await activityRef.update({
+        'mapImageUrl': mapImage.url,
+        'mapImageStoragePath': mapImage.storagePath,
+      });
+    } catch (_) {
+      await _cleanupMapImage(mapImage);
+      rethrow;
+    }
+    return Map<String, dynamic>.from(existingData)
+      ..['mapImageUrl'] = mapImage.url
+      ..['mapImageStoragePath'] = mapImage.storagePath;
   }
 
   bool _createdWithUploadedMedia(
@@ -326,6 +417,7 @@ class ActivityCreationService {
     required DocumentReference<Map<String, dynamic>> publicProfileRef,
     required CreateActivityInput input,
     required List<ActivityMediaItem> media,
+    required ActivityMediaUploadResult? mapImage,
     required ProfileModel? fallbackProfile,
     required DateTime now,
   }) async {
@@ -389,6 +481,12 @@ class ActivityCreationService {
                   'sidequestCompletedAt': input.sidequestCompletedAt!
                       .toUtc()
                       .toIso8601String(),
+                },
+          ...?mapImage == null
+              ? null
+              : <String, dynamic>{
+                  'mapImageUrl': mapImage.url,
+                  'mapImageStoragePath': mapImage.storagePath,
                 },
           'media': media.map((item) => item.toMap()).toList(growable: false),
           'showMapPreview': input.showMapPreview,
@@ -578,6 +676,8 @@ class ActivityCreationService {
         data['journeyEndTime'] as String? ?? '',
       ),
       transportMode: data['transportMode'] as String?,
+      mapImageUrl: data['mapImageUrl'] as String?,
+      mapImageStoragePath: data['mapImageStoragePath'] as String?,
       media: _mediaFromData(data['media']),
       metrics: (data['metrics'] as List)
           .whereType<Map>()

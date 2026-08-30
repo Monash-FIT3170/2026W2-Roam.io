@@ -385,6 +385,8 @@ class ActivityFeedService {
         journeyStartTime: _optionalDate(id, data, 'journeyStartTime'),
         journeyEndTime: _optionalDate(id, data, 'journeyEndTime'),
         transportMode: _optionalString(id, data, 'transportMode'),
+        mapImageUrl: _optionalString(id, data, 'mapImageUrl'),
+        mapImageStoragePath: _optionalString(id, data, 'mapImageStoragePath'),
         media: media,
       );
     } catch (error, stackTrace) {

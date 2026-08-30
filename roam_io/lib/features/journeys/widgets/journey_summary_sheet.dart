@@ -7,6 +7,7 @@
  */
 
 import 'dart:io';
+import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
@@ -39,11 +40,16 @@ class JourneySummaryResult {
     required this.action,
     required this.title,
     this.media = const <PendingActivityMedia>[],
+    this.mapImageBytes,
   });
 
   final JourneySummaryAction action;
   final String title;
   final List<PendingActivityMedia> media;
+
+  /// The reviewed route captured off the map above, fog included. Null when the
+  /// map had not settled before the user chose an action.
+  final Uint8List? mapImageBytes;
 }
 
 /// Page for reviewing a completed Journey before saving its activity.
@@ -151,6 +157,7 @@ class _JourneySummarySheetState extends State<JourneySummarySheet> {
   late final ActivityRoute? _route;
   final _imagePicker = ImagePicker();
   final _selectedMedia = <PendingActivityMedia>[];
+  Uint8List? _mapImageBytes;
 
   @override
   void initState() {
@@ -197,6 +204,7 @@ class _JourneySummarySheetState extends State<JourneySummarySheet> {
           ? generateJourneyTitle(widget.startTime ?? DateTime.now())
           : title,
       media: List<PendingActivityMedia>.unmodifiable(_selectedMedia),
+      mapImageBytes: _mapImageBytes,
     );
   }
 
@@ -344,6 +352,10 @@ class _JourneySummarySheetState extends State<JourneySummarySheet> {
                   transportMode: widget.transportMode,
                   showEndpoints: true,
                   endpointMarkerIcons: widget.endpointMarkerIcons,
+                  // This map already frames the whole journey with the fog it
+                  // was recorded against, so it is what feed cards get to show
+                  // instead of loading tiles per card.
+                  onSnapshotCaptured: (bytes) => _mapImageBytes = bytes,
                 ),
 
                 const SizedBox(height: 24),
