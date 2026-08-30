@@ -283,9 +283,7 @@ class _EndJourneySheetState extends State<EndJourneySheet> {
               SizedBox(
                 width: double.infinity,
                 child: FilledButton.icon(
-                  onPressed: _selectedLocation != null
-                      ? _finishJourney
-                      : null,
+                  onPressed: _selectedLocation != null ? _finishJourney : null,
                   icon: const Icon(Icons.check),
                   label: const Text('Finish'),
                   style: FilledButton.styleFrom(
