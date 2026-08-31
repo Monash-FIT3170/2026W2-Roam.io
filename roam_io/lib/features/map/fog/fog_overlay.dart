@@ -75,6 +75,7 @@ class _FogOverlayState extends State<FogOverlay>
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    widget.controller.addListener(_onControllerChanged);
     _ticker = createTicker(_onTick);
     _syncTicker();
   }
@@ -97,6 +98,10 @@ class _FogOverlayState extends State<FogOverlay>
   @override
   void didUpdateWidget(FogOverlay oldWidget) {
     super.didUpdateWidget(oldWidget);
+    if (oldWidget.controller != widget.controller) {
+      oldWidget.controller.removeListener(_onControllerChanged);
+      widget.controller.addListener(_onControllerChanged);
+    }
     if (oldWidget.isActive != widget.isActive) {
       _syncTicker();
     }
@@ -115,10 +120,15 @@ class _FogOverlayState extends State<FogOverlay>
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
+    widget.controller.removeListener(_onControllerChanged);
     _ticker.dispose();
     final held = _heldAtlasBrightness;
     if (held != null) unawaited(FogAtlasCache.release(held));
     super.dispose();
+  }
+
+  void _onControllerChanged() {
+    if (mounted) setState(() {});
   }
 
   /// Loads the shared atlas for [brightness], releasing the previous one.
@@ -237,25 +247,45 @@ class _FogOverlayState extends State<FogOverlay>
 
     final field = _field ??= FogField(projection: projection);
 
-    return IgnorePointer(
-      child: RepaintBoundary(
-        child: CustomPaint(
-          size: Size.infinite,
-          painter: FogPainter(
-            projection: projection,
-            geometry: geometry,
-            field: field,
-            camera: camera,
-            elapsed: _elapsed,
-            dissolves: controller.dissolveSet.active,
-            returnTransition: controller.returnTransition,
-            atlas: atlas,
-            userSpeedMetresPerSecond: controller.userSpeedMetresPerSecond,
-            isNight: Theme.of(context).brightness == Brightness.dark,
-            motionEase: _motionEase,
+    return Stack(
+      children: [
+        Positioned.fill(
+          child: IgnorePointer(
+            child: RepaintBoundary(
+              child: CustomPaint(
+                size: Size.infinite,
+                painter: FogPainter(
+                  projection: projection,
+                  geometry: geometry,
+                  field: field,
+                  camera: camera,
+                  elapsed: _elapsed,
+                  dissolves: controller.dissolveSet.active,
+                  returnTransition: controller.returnTransition,
+                  atlas: atlas,
+                  userSpeedMetresPerSecond: controller.userSpeedMetresPerSecond,
+                  isNight: Theme.of(context).brightness == Brightness.dark,
+                  motionEase: _motionEase,
+                ),
+              ),
+            ),
           ),
         ),
-      ),
+        if (controller.returnTransition != null)
+          Positioned(
+            top: MediaQuery.paddingOf(context).top + 72,
+            left: 0,
+            right: 0,
+            child: Center(
+              child: FilledButton.icon(
+                key: const ValueKey<String>('skip-fog-return-animation'),
+                onPressed: controller.skipFogReturnAnimation,
+                icon: const Icon(Icons.fast_forward_rounded, size: 19),
+                label: const Text('Skip fog animation'),
+              ),
+            ),
+          ),
+      ],
     );
   }
 }
