@@ -240,9 +240,13 @@ void main() {
 
       controller.startFogReturn(<String>{'a', 'b'});
       expect(controller.returnTransition?.regionIds, <String>{'a', 'b'});
+      expect(controller.returnTransition?.duration, const Duration(seconds: 6));
       expect(controller.pruneCompletedFogReturn(), isFalse);
 
       controller.tick(const Duration(seconds: 5));
+      expect(controller.pruneCompletedFogReturn(), isFalse);
+
+      controller.tick(const Duration(seconds: 6));
       expect(controller.pruneCompletedFogReturn(), isTrue);
       expect(controller.geometry!.contains('a'), isFalse);
       expect(controller.geometry!.contains('b'), isFalse);
