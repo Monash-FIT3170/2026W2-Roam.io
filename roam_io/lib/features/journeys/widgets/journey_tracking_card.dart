@@ -1,6 +1,6 @@
 /*
  * Author: GitHub Copilot
- * Last Modified: 30/07/2026
+ * Last Modified: 13/08/2026
  * Description:
  *   Floating stats card displayed during active journey tracking.
  *   Shows real-time distance, duration, and transport mode.
@@ -93,7 +93,7 @@ class JourneyTrackingCard extends StatelessWidget {
                   ],
                 ),
               ),
-              // Pulsing recording indicator
+              // Recording indicator shows GPS tracking is active.
               _RecordingIndicator(),
             ],
           ),
@@ -127,7 +127,7 @@ class JourneyTrackingCard extends StatelessWidget {
 
           const SizedBox(height: 16),
 
-          // End Journey Button
+          // End Journey button.
           SizedBox(
             width: double.infinity,
             child: FilledButton.icon(

@@ -22,23 +22,28 @@ import 'region_polygon.dart';
 
 /// Keeps loaded [RegionPolygon] objects and rendered Google Maps polygons in sync.
 class RegionPolygonCache {
+  RegionPolygonCache();
+
   static const Color _visitedStrokeColor = Color(0xFFFFFFFF);
   static const Color _visitedFillColor = Color(0x30FFFFFF);
   static const int _visitedStrokeWidth = 3;
 
   static const Color _currentRegionFillColor = Color(0x30FFFFFF);
 
-  // Unvisited regions render nothing. Fog is no longer a black polygon per
-  // census tile — it is a single animated cloud layer drawn above the map by
-  // FogOverlay, as the screen minus holes for explored ground. Per-tile black
-  // fills produced visible seams and double-blended borders wherever adjacent
-  // SA1 polygons shared an edge, which is exactly what that layer removes.
+  // Unvisited regions render nothing anywhere. Fog is no longer a black polygon
+  // per census tile — it is a single cloud layer covering the map minus holes
+  // for explored ground: animated by FogOverlay on the live map, frozen by
+  // StaticFog on Journey previews and the pictures taken of them. Per-tile
+  // black fills produced visible seams and double-blended borders wherever
+  // adjacent SA1 polygons shared an edge, and made a preview's cost grow with
+  // the number of tiles its journey crossed.
   //
   // MapController also stops caching unvisited regions altogether, so this
-  // styling is now only reachable for the tile the user is standing in before
-  // its unlock persists — and the current-region branch already claims that.
-  static const Color _unvisitedStrokeColor = Color(0x00000000);
+  // styling is barely reachable there — only for the tile the user is standing
+  // in before its unlock persists, and the current-region branch claims that.
   static const Color _unvisitedFillColor = Color(0x00000000);
+
+  static const Color _unvisitedStrokeColor = Color(0x00000000);
   static const int _unvisitedStrokeWidth = 0;
 
   // Use a yellow->orange->red scale so low counts appear yellow, medium

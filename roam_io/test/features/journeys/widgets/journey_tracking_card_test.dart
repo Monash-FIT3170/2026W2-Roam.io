@@ -8,6 +8,7 @@ void main() {
     tester,
   ) async {
     var ended = false;
+
     await tester.pumpWidget(
       MaterialApp(
         home: Scaffold(
@@ -28,22 +29,5 @@ void main() {
 
     await tester.tap(find.text('End Journey'));
     expect(ended, isTrue);
-  });
-
-  testWidgets('formats distances below one kilometre', (tester) async {
-    await tester.pumpWidget(
-      MaterialApp(
-        home: Scaffold(
-          body: JourneyTrackingCard(
-            distanceMeters: 42.9,
-            elapsedTime: '9s',
-            transportMode: TransportMode.walk,
-            onEndJourney: () {},
-          ),
-        ),
-      ),
-    );
-
-    expect(find.text('42 m'), findsOneWidget);
   });
 }

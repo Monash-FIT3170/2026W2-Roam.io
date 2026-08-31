@@ -9,6 +9,7 @@
  *   how much geometry the user has explored.
  */
 
+import 'dart:math' as math;
 import 'dart:ui' as ui;
 
 import 'package:flutter/rendering.dart';
@@ -35,6 +36,7 @@ class FogPainter extends CustomPainter {
     required this.atlas,
     required this.userSpeedMetresPerSecond,
     this.isNight = false,
+    this.motionEase = 1.0,
     super.repaint,
   });
 
@@ -48,6 +50,12 @@ class FogPainter extends CustomPainter {
   final FogAtlas? atlas;
   final double userSpeedMetresPerSecond;
   final bool isNight;
+
+  /// How settled the camera is: 1.0 at rest, 0.0 while moving.
+  ///
+  /// Ramped by the overlay rather than read straight off `isCameraMoving`, so
+  /// the effects it gates fade instead of popping the moment a gesture starts.
+  final double motionEase;
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -80,13 +88,25 @@ class FogPainter extends CustomPainter {
       ..save()
       ..transform(matrix.storage);
 
-    _drawClouds(
-      canvas: canvas,
-      atlas: atlas,
-      worldBounds: worldBounds,
-      parallax: true,
-      size: size,
+    // The parallax layer costs as much fill rate as the main one and is the
+    // less legible of the two, so it gives way while the map is sliding. Below
+    // the gate it is skipped outright rather than generated at zero opacity.
+    final parallaxWeight = _lerp(
+      FogPalette.motionParallaxWeight,
+      1.0,
+      motionEase,
     );
+    if (parallaxWeight > 0.01) {
+      _drawClouds(
+        canvas: canvas,
+        atlas: atlas,
+        worldBounds: worldBounds,
+        parallax: true,
+        size: size,
+        layerWeight: parallaxWeight,
+      );
+    }
+
     _drawClouds(
       canvas: canvas,
       atlas: atlas,
@@ -108,6 +128,7 @@ class FogPainter extends CustomPainter {
     required Rect worldBounds,
     required bool parallax,
     required Size size,
+    double layerWeight = 1.0,
   }) {
     final batch = field.build(
       camera: camera,
@@ -117,6 +138,7 @@ class FogPainter extends CustomPainter {
       dissolves: dissolves,
       userSpeedMetresPerSecond: userSpeedMetresPerSecond,
       parallax: parallax,
+      layerWeight: layerWeight,
       spriteTint: isNight ? FogPalette.nightSpriteTint : FogPalette.spriteTint,
     );
 
@@ -143,8 +165,20 @@ class FogPainter extends CustomPainter {
   }) {
     // Sigma is specified in local coordinates and scaled by the canvas
     // transform, so dividing by the map scale keeps the feather a constant
-    // width on screen at every zoom.
-    final sigma = _radiusToSigma(FogPalette.holeFeatherRadius / mapScale);
+    // width on screen at every zoom — but only up to a point. Left unbounded
+    // the local radius runs past 1000 at the overview end, for a blur that is
+    // then shrunk back to 18 screen pixels, so it is capped.
+    //
+    // Each hole is blurred separately on every frame with nothing cached, so
+    // this is the overlay's second cost after cloud fill. A moving camera gets
+    // a tighter feather, which the motion hides.
+    final featherRadius = math.min(
+      FogPalette.holeFeatherRadius *
+          _lerp(FogPalette.motionFeatherFactor, 1.0, motionEase) /
+          mapScale,
+      FogPalette.maxLocalFeatherRadius,
+    );
+    final sigma = _radiusToSigma(featherRadius);
 
     final clearPaint = Paint()
       ..blendMode = BlendMode.dstOut
@@ -204,6 +238,10 @@ class FogPainter extends CustomPainter {
     return radius * 0.57735 + 0.5;
   }
 
+  static double _lerp(double from, double to, double t) {
+    return from + (to - from) * t.clamp(0.0, 1.0);
+  }
+
   @override
   bool shouldRepaint(FogPainter oldDelegate) {
     return oldDelegate.elapsed != elapsed ||
@@ -213,6 +251,7 @@ class FogPainter extends CustomPainter {
         oldDelegate.dissolves.length != dissolves.length ||
         oldDelegate.returnTransition != returnTransition ||
         oldDelegate.userSpeedMetresPerSecond != userSpeedMetresPerSecond ||
-        oldDelegate.isNight != isNight;
+        oldDelegate.isNight != isNight ||
+        oldDelegate.motionEase != motionEase;
   }
 }

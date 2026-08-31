@@ -201,7 +201,7 @@ void main() {
     expect(
       shown.map((notification) => notification.body),
       containsAll(<String>[
-        'Nathan gave Kudos to your activity',
+        'Nathan gave Glaze to your activity',
         'Nathan commented on your activity',
         'Nathan replied to your comment',
         'Nathan liked your comment',

@@ -61,6 +61,11 @@ class FogField {
   ///
   /// [elapsed] drives wind drift and rotation. [parallax] generates the larger,
   /// slower, fainter secondary layer.
+  ///
+  /// [layerWeight] scales the whole layer's opacity, and is how the painter
+  /// fades the parallax layer out while the camera moves. It is applied before
+  /// the per-level blend gates, so a layer faded to nothing generates no
+  /// instances at all rather than a full grid of invisible ones.
   FogFieldBatch build({
     required CameraPosition camera,
     required Size size,
@@ -69,6 +74,7 @@ class FogField {
     required List<FogDissolve> dissolves,
     double userSpeedMetresPerSecond = 0.0,
     bool parallax = false,
+    double layerWeight = 1.0,
     Color spriteTint = FogPalette.spriteTint,
   }) {
     _batch.clear();
@@ -97,8 +103,9 @@ class FogField {
     final exactLevel = _log2(targetSpacing);
     final lowerLevel = exactLevel.floor();
     final fraction = exactLevel - lowerLevel;
-    final upperWeight = _smoothstep(_blendLow, _blendHigh, fraction);
-    final lowerWeight = 1.0 - upperWeight;
+    final blend = _smoothstep(_blendLow, _blendHigh, fraction);
+    final upperWeight = blend * layerWeight;
+    final lowerWeight = (1.0 - blend) * layerWeight;
 
     final windOffset = _windOffset(elapsed, userSpeedMetresPerSecond, parallax);
     final worldBounds = projection.visibleWorldBounds(

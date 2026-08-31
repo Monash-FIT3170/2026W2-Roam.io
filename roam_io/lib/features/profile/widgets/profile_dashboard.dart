@@ -1,6 +1,6 @@
 /*
  * Author: Sanjevan Rajasegar
- * Last Updated: 8 August 2026
+ * Last Updated: 22 August 2026
  * Description:
  *   Shared profile dashboard presentation for the authenticated You profile
  *   and selected external public profiles. Metric pill carousel clips to the
@@ -11,7 +11,10 @@ import 'package:flutter/material.dart';
 
 import '../../../theme/app_colours.dart';
 import '../../../theme/app_surfaces.dart';
+import '../../activity_feed/models/activity_feed_item.dart';
+import '../../activity_feed/screens/activity_media_gallery_screen.dart';
 import '../../map/data/visit.dart';
+import '../../map/widgets/media_viewer.dart';
 import '../domain/profile_stats.dart';
 import '../domain/visited_polygon_record.dart';
 import '../domain/xp_event.dart';
@@ -46,6 +49,9 @@ class ProfileDashboard extends StatelessWidget {
     this.recentVisitsReady = true,
     this.recentVisitsError,
     this.visitsError,
+    this.mediaProfileId,
+    this.currentUserId,
+    this.mediaActivitiesStream,
     this.bottomPadding = 24,
   });
 
@@ -65,6 +71,9 @@ class ProfileDashboard extends StatelessWidget {
   final bool recentVisitsReady;
   final Object? recentVisitsError;
   final Object? visitsError;
+  final String? mediaProfileId;
+  final String? currentUserId;
+  final Stream<List<ActivityFeedItem>>? mediaActivitiesStream;
   final double bottomPadding;
 
   @override
@@ -88,6 +97,19 @@ class ProfileDashboard extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 18),
+          if (mediaProfileId != null &&
+              mediaProfileId!.isNotEmpty &&
+              mediaActivitiesStream != null) ...[
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 24),
+              child: ProfileMediaPreviewSection(
+                profileId: mediaProfileId!,
+                currentUserId: currentUserId,
+                activitiesStream: mediaActivitiesStream,
+              ),
+            ),
+            const SizedBox(height: 18),
+          ],
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 24),
             child: ProfileMetricLineGraphSection(
@@ -558,6 +580,194 @@ class RecentVisitedLocationsPanel extends StatelessWidget {
               Divider(height: 18, color: AppSurfaces.border(context)),
           ],
         ],
+      ),
+    );
+  }
+}
+
+/// Compact profile media preview sourced from visible activity media.
+class ProfileMediaPreviewSection extends StatelessWidget {
+  const ProfileMediaPreviewSection({
+    super.key,
+    required this.profileId,
+    this.currentUserId,
+    this.activitiesStream,
+  });
+
+  final String profileId;
+  final String? currentUserId;
+  final Stream<List<ActivityFeedItem>>? activitiesStream;
+
+  @override
+  Widget build(BuildContext context) {
+    final stream = activitiesStream;
+    if (stream == null) return const SizedBox.shrink();
+    return StreamBuilder<List<ActivityFeedItem>>(
+      stream: stream,
+      builder: (context, snapshot) {
+        final entries = _mediaEntries(snapshot.data);
+        if (snapshot.hasError || entries.isEmpty) {
+          return const SizedBox.shrink();
+        }
+        final previewEntries = entries.take(4).toList(growable: false);
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Media',
+              style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                fontWeight: FontWeight.w800,
+                color: AppSurfaces.textPrimary(context),
+              ),
+            ),
+            const SizedBox(height: 9),
+            LayoutBuilder(
+              builder: (context, constraints) {
+                final tileSize = ((constraints.maxWidth - 24) / 4)
+                    .clamp(58.0, 74.0)
+                    .toDouble();
+                return Row(
+                  children: [
+                    for (
+                      var index = 0;
+                      index < previewEntries.length;
+                      index += 1
+                    )
+                      Padding(
+                        padding: EdgeInsets.only(
+                          right: index == previewEntries.length - 1 ? 0 : 8,
+                        ),
+                        child: SizedBox.square(
+                          dimension: tileSize,
+                          child: _ProfileMediaPreviewTile(
+                            media: previewEntries[index].media,
+                            showViewAllOverlay:
+                                index == previewEntries.length - 1,
+                            onTap: index == previewEntries.length - 1
+                                ? () => _openGallery(context)
+                                : () => MediaViewer.show(
+                                    context: context,
+                                    mediaUrls: entries
+                                        .map((entry) => entry.media.url)
+                                        .toList(growable: false),
+                                    initialIndex: index,
+                                  ),
+                          ),
+                        ),
+                      ),
+                  ],
+                );
+              },
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  void _openGallery(BuildContext context) {
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => ActivityMediaGalleryScreen(
+          profileId: profileId,
+          currentUserId: currentUserId,
+        ),
+      ),
+    );
+  }
+
+  List<_ProfileMediaPreviewEntry> _mediaEntries(
+    List<ActivityFeedItem>? activities,
+  ) {
+    final entries = <_ProfileMediaPreviewEntry>[];
+    for (final activity in activities ?? const <ActivityFeedItem>[]) {
+      for (final media in activity.media) {
+        entries.add(_ProfileMediaPreviewEntry(media: media));
+      }
+    }
+    return entries;
+  }
+}
+
+class _ProfileMediaPreviewEntry {
+  const _ProfileMediaPreviewEntry({required this.media});
+
+  final ActivityMediaItem media;
+}
+
+class _ProfileMediaPreviewTile extends StatelessWidget {
+  const _ProfileMediaPreviewTile({
+    required this.media,
+    required this.showViewAllOverlay,
+    required this.onTap,
+  });
+
+  final ActivityMediaItem media;
+  final bool showViewAllOverlay;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(12),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(12),
+          child: Stack(
+            fit: StackFit.expand,
+            children: [
+              if (media.isVideo && (media.thumbnailUrl ?? '').isEmpty)
+                ColoredBox(
+                  color: AppSurfaces.softCard(context),
+                  child: Icon(
+                    Icons.videocam_outlined,
+                    color: AppSurfaces.textMuted(context),
+                  ),
+                )
+              else
+                Image.network(
+                  media.thumbnailUrl?.isNotEmpty == true
+                      ? media.thumbnailUrl!
+                      : media.url,
+                  fit: BoxFit.cover,
+                  errorBuilder: (_, _, _) => ColoredBox(
+                    color: AppSurfaces.softCard(context),
+                    child: Icon(
+                      Icons.broken_image_outlined,
+                      color: AppSurfaces.textMuted(context),
+                    ),
+                  ),
+                ),
+              if (media.isVideo)
+                const Center(
+                  child: Icon(
+                    Icons.play_circle_fill_rounded,
+                    color: Colors.white,
+                    size: 28,
+                  ),
+                ),
+              if (showViewAllOverlay)
+                ColoredBox(
+                  color: Colors.black.withValues(alpha: 0.48),
+                  child: const Center(
+                    child: Text(
+                      'View all media',
+                      textAlign: TextAlign.center,
+                      maxLines: 2,
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.w900,
+                        fontSize: 11,
+                        height: 1.05,
+                      ),
+                    ),
+                  ),
+                ),
+            ],
+          ),
+        ),
       ),
     );
   }

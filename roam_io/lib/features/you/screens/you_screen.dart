@@ -1,6 +1,6 @@
 /*
  * Author: Sanjevan Rajasegar
- * Last Updated: 18 August 2026
+ * Last Updated: 22 August 2026
  * Description:
  *   Provides the You destination with Profile, Activities, Stats, and
  *   Milestones tabs. Profile shows identity header only; Stats owns analytics
@@ -29,20 +29,21 @@ import '../../map/data/visit_service.dart';
 import '../../map/data/visited_region_service.dart';
 import '../../profile/domain/profile_model.dart';
 import '../../profile/domain/xp_event.dart';
+import '../../profile/widgets/profile_dashboard.dart';
 import '../../social/data/follow_service.dart';
 import '../../social/data/social_notification_coordinator.dart';
 import '../../social/screens/notifications_screen.dart';
+import '../../journeys/widgets/journey_share_sheet.dart';
 import '../milestones/milestone_service.dart';
 import '../milestones/milestones_provider.dart';
 import '../milestones/milestones_screen.dart';
 import '../providers/stats_analytics_provider.dart';
-import '../screens/stats_screen.dart';
 import '../services/home_base_service.dart';
-import '../services/stats_aggregation_service.dart';
 import '../services/stats_summary_service.dart';
 import '../widgets/profile_header.dart';
+import 'stats_screen.dart';
 
-/// Displays profile identity, personal activities, stats, and milestones.
+/// Displays personal profile analytics and the user's own activity area.
 class YouScreen extends StatefulWidget {
   const YouScreen({
     super.key,
@@ -105,8 +106,10 @@ class _YouScreenState extends State<YouScreen>
   late final MilestonesProvider _milestones;
   late final FollowService _followService;
   late final ActivityFeedService? _activityFeedService;
-  final StatsAggregationService _aggregationService =
-      const StatsAggregationService();
+  ProfileGraphMetric _selectedGraphMetric = ProfileGraphMetric.locationsVisited;
+  Stream<List<ActivityFeedItem>>? _profileMediaActivitiesStream;
+  String? _profileMediaActivitiesStreamUserId;
+  ActivityFeedService? _profileMediaActivitiesStreamService;
 
   @override
   void initState() {
@@ -141,6 +144,38 @@ class _YouScreenState extends State<YouScreen>
     _milestones.dispose();
     _analytics.dispose();
     super.dispose();
+  }
+
+  void _selectGraphMetric(ProfileGraphMetric metric) {
+    if (_selectedGraphMetric == metric) return;
+    setState(() {
+      _selectedGraphMetric = metric;
+    });
+  }
+
+  Stream<List<ActivityFeedItem>>? _ownedProfileMediaActivitiesStream(
+    String? currentUserId,
+  ) {
+    final activityFeedService = _activityFeedService;
+    if (currentUserId == null || activityFeedService == null) {
+      _profileMediaActivitiesStream = null;
+      _profileMediaActivitiesStreamUserId = null;
+      _profileMediaActivitiesStreamService = null;
+      return null;
+    }
+
+    final hasCachedStream =
+        _profileMediaActivitiesStream != null &&
+        _profileMediaActivitiesStreamUserId == currentUserId &&
+        identical(_profileMediaActivitiesStreamService, activityFeedService);
+    if (hasCachedStream) return _profileMediaActivitiesStream;
+
+    _profileMediaActivitiesStream = activityFeedService.watchActivitiesOwnedBy(
+      currentUserId,
+    );
+    _profileMediaActivitiesStreamUserId = currentUserId;
+    _profileMediaActivitiesStreamService = activityFeedService;
+    return _profileMediaActivitiesStream;
   }
 
   @override
@@ -181,13 +216,12 @@ class _YouScreenState extends State<YouScreen>
                       children: [
                         _ProfileTab(
                           profile: profile,
-                          followingCount: analytics.followingCount,
-                          followerCount: analytics.followerCount,
-                          tileCount: _aggregationService.tileCountFromSummary(
-                            analytics.statsSummary,
-                            analytics.tileRecords,
-                          ),
-                          journeyCount: analytics.journeys.length,
+                          currentUserId: uid,
+                          followService: _followService,
+                          mediaActivitiesStream:
+                              _ownedProfileMediaActivitiesStream(uid),
+                          selectedGraphMetric: _selectedGraphMetric,
+                          onGraphMetricSelected: _selectGraphMetric,
                         ),
                         _ActivitiesTab(
                           activityFeedService: _activityFeedService,
@@ -312,30 +346,33 @@ class _YouTabBar extends StatelessWidget {
 class _ProfileTab extends StatelessWidget {
   const _ProfileTab({
     required this.profile,
-    required this.followingCount,
-    required this.followerCount,
-    required this.tileCount,
-    required this.journeyCount,
+    required this.currentUserId,
+    required this.followService,
+    required this.mediaActivitiesStream,
+    required this.selectedGraphMetric,
+    required this.onGraphMetricSelected,
   });
 
   final ProfileModel? profile;
-  final int followingCount;
-  final int followerCount;
-  final int tileCount;
-  final int journeyCount;
+  final String? currentUserId;
+  final FollowService followService;
+  final Stream<List<ActivityFeedItem>>? mediaActivitiesStream;
+  final ProfileGraphMetric selectedGraphMetric;
+  final ValueChanged<ProfileGraphMetric> onGraphMetricSelected;
 
   @override
   Widget build(BuildContext context) {
+    final analytics = context.watch<StatsAnalyticsProvider>();
     final bottomClearance = AppBottomNavBar.clearanceFromScreenBottom(context);
 
     return SingleChildScrollView(
       padding: EdgeInsets.fromLTRB(24, 14, 24, bottomClearance + 12),
       child: ProfileHeader(
         profile: profile,
-        followingCount: followingCount,
-        followerCount: followerCount,
-        tileCount: tileCount,
-        journeyCount: journeyCount,
+        followingCount: analytics.followingCount,
+        followerCount: analytics.followerCount,
+        tileCount: analytics.tileCount ?? 0,
+        journeyCount: analytics.journeys.length,
       ),
     );
   }
@@ -529,7 +566,13 @@ class _ActivitiesTabState extends State<_ActivitiesTab> {
                   ),
                 );
               },
-              onShareTap: () {},
+              onShareTap: () {
+                JourneyShareSheet.shareFromActivity(
+                  context,
+                  activity,
+                  currentUserId: widget.currentUserId,
+                );
+              },
             );
           },
         );

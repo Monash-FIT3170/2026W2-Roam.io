@@ -20,11 +20,15 @@ void main() {
   });
 
   test('journey route colours correspond to transport mode', () {
-    expect(TransportMode.walk.routeColor, Colors.purple);
-    expect(TransportMode.drive.routeColor, Colors.pink);
-    expect(TransportMode.bus.routeColor, Colors.orange);
-    expect(TransportMode.train.routeColor, Colors.blue);
-    expect(TransportMode.tram.routeColor, Colors.green);
+    expect(TransportMode.walk.routeColor, const Color(0xFFD946EF));
+    expect(TransportMode.drive.routeColor, const Color(0xFFD946EF));
+    expect(TransportMode.bus.routeColor, const Color(0xFFF97316));
+    expect(TransportMode.train.routeColor, const Color(0xFF2563EB));
+    expect(TransportMode.tram.routeColor, const Color(0xFF16A34A));
+    expect(
+      TransportMode.routeColorForWireValue('hoverboard'),
+      const Color(0xFF5C734C),
+    );
   });
 
   test('legacy journey modes still deserialize', () {

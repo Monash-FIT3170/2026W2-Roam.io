@@ -107,6 +107,127 @@ void main() {
       expect(records, hasLength(1));
       expect(records.single.polygonId, 'keep');
     });
+
+    test(
+      'updateVisitedPolygon updates an existing polygon timestamp',
+      () async {
+        final firestore = FakeFirebaseFirestore();
+        final original = DateTime(2026, 1, 1);
+        final updated = DateTime(2026, 4, 5, 10);
+        await firestore.collection('polygons_visited').doc('user-update').set(
+          <String, dynamic>{
+            'profile_id': 'user-update',
+            'visited_polygons': <String, dynamic>{
+              'poly-update': Timestamp.fromDate(original),
+            },
+          },
+        );
+
+        final service = PolygonService(firestore: firestore);
+
+        await service.updateVisitedPolygon(
+          profileId: 'user-update',
+          polygonId: 'poly-update',
+          visitedAt: updated,
+        );
+
+        final records = await service.getVisitedPolygonRecords(
+          profileId: 'user-update',
+        );
+        expect(records.single.visitedAt, updated);
+      },
+    );
+
+    test('upsertVisitedPolygon returns false for duplicate polygon', () async {
+      final firestore = FakeFirebaseFirestore();
+      final service = PolygonService(firestore: firestore);
+      final firstVisit = DateTime(2026, 1, 1);
+
+      final first = await service.upsertVisitedPolygon(
+        profileId: 'user-duplicate',
+        polygonId: 'poly-duplicate',
+        visitedAt: firstVisit,
+      );
+      final second = await service.upsertVisitedPolygon(
+        profileId: 'user-duplicate',
+        polygonId: 'poly-duplicate',
+        visitedAt: firstVisit.add(const Duration(days: 1)),
+      );
+
+      expect(first, isTrue);
+      expect(second, isFalse);
+
+      final records = await service.getVisitedPolygonRecords(
+        profileId: 'user-duplicate',
+      );
+      expect(records.single.visitedAt, firstVisit);
+    });
+
+    test(
+      'upsertVisitedPolygon uses current time when visitedAt is omitted',
+      () async {
+        final firestore = FakeFirebaseFirestore();
+        final service = PolygonService(firestore: firestore);
+
+        final didUnlock = await service.upsertVisitedPolygon(
+          profileId: 'user-now',
+          polygonId: 'poly-now',
+        );
+
+        expect(didUnlock, isTrue);
+        final records = await service.getVisitedPolygonRecords(
+          profileId: 'user-now',
+        );
+        expect(records.single.polygonId, 'poly-now');
+        expect(records.single.visitedAt, isA<DateTime>());
+      },
+    );
+
+    test('resolves legacy profileId document shapes', () async {
+      final firestore = FakeFirebaseFirestore();
+      final visitedAt = DateTime(2026, 5, 1);
+      await firestore.collection('polygons_visited').doc('legacy-doc').set(
+        <String, dynamic>{
+          'profileId': 'legacy-user',
+          'visited_polygons': <String, dynamic>{
+            'legacy-poly': Timestamp.fromDate(visitedAt),
+          },
+        },
+      );
+
+      final service = PolygonService(firestore: firestore);
+
+      final records = await service.getVisitedPolygonRecords(
+        profileId: 'legacy-user',
+      );
+
+      expect(records.single.polygonId, 'legacy-poly');
+      expect(records.single.visitedAt, visitedAt);
+    });
+
+    test('watchVisitedPolygonRecords emits parsed polygon records', () async {
+      final firestore = FakeFirebaseFirestore();
+      final service = PolygonService(firestore: firestore);
+      final visitedAt = DateTime(2026, 6, 1);
+
+      await firestore.collection('polygons_visited').doc('watch-user').set(
+        <String, dynamic>{
+          'profile_id': 'watch-user',
+          'visited_polygons': <String, dynamic>{
+            '': Timestamp.fromDate(visitedAt),
+            'watch-poly': Timestamp.fromDate(visitedAt),
+          },
+        },
+      );
+
+      final records = await service
+          .watchVisitedPolygonRecords(profileId: 'watch-user')
+          .first;
+
+      expect(records, hasLength(1));
+      expect(records.single.polygonId, 'watch-poly');
+    });
+
     test('upsertVisitedPolygon stores visited_polygon_meta', () async {
       final firestore = FakeFirebaseFirestore();
       final service = PolygonService(firestore: firestore);
@@ -163,6 +284,180 @@ void main() {
         expect(counts['poly-reentry'], 1);
       },
     );
+
+    test(
+      'recordPolygonReentry creates meta and parses existing string count',
+      () async {
+        final firestore = FakeFirebaseFirestore();
+        final service = PolygonService(firestore: firestore);
+        final enteredAt = DateTime(2026, 7, 1, 8);
+        await firestore.collection('polygons_visited').doc('user-new-meta').set(
+          <String, dynamic>{
+            'profile_id': 'user-new-meta',
+            'entry_counts': <String, dynamic>{'poly-new-meta': '2'},
+          },
+        );
+
+        final count = await service.recordPolygonReentry(
+          profileId: 'user-new-meta',
+          polygonId: 'poly-new-meta',
+          enteredAt: enteredAt,
+        );
+
+        expect(count, 3);
+        final meta = await service.getVisitedPolygonMeta(
+          profileId: 'user-new-meta',
+        );
+        expect(meta['poly-new-meta']?.visitedAt, enteredAt);
+        expect(meta['poly-new-meta']?.lastEnteredAt, enteredAt);
+      },
+    );
+
+    test(
+      'recordPolygonReentry uses current time when enteredAt is omitted',
+      () async {
+        final firestore = FakeFirebaseFirestore();
+        final service = PolygonService(firestore: firestore);
+
+        final count = await service.recordPolygonReentry(
+          profileId: 'user-reentry-now',
+          polygonId: 'poly-reentry-now',
+        );
+
+        expect(count, 1);
+        final meta = await service.getVisitedPolygonMeta(
+          profileId: 'user-reentry-now',
+        );
+        expect(meta['poly-reentry-now']?.visitedAt, isA<DateTime>());
+        expect(meta['poly-reentry-now']?.lastEnteredAt, isA<DateTime>());
+      },
+    );
+
+    test('watchVisitedPolygonMeta filters malformed entries', () async {
+      final firestore = FakeFirebaseFirestore();
+      final service = PolygonService(firestore: firestore);
+      final visitedAt = DateTime(2026, 8, 1);
+      await firestore.collection('polygons_visited').doc('meta-watch').set(
+        <String, dynamic>{
+          'profile_id': 'meta-watch',
+          'visited_polygon_meta': <String, dynamic>{
+            '': <String, dynamic>{'visitedAt': Timestamp.fromDate(visitedAt)},
+            'bad': 'not-a-map',
+            'good': <String, dynamic>{
+              'visitedAt': Timestamp.fromDate(visitedAt),
+              'areaSquareMetres': 42,
+              'name': 'Parkville',
+            },
+          },
+        },
+      );
+
+      final meta = await service
+          .watchVisitedPolygonMeta(profileId: 'meta-watch')
+          .first;
+
+      expect(meta.keys, {'good'});
+      expect(meta['good']?.areaSquareMetres, 42);
+      expect(meta['good']?.name, 'Parkville');
+    });
+
+    test('incrementPolygonEntryCount parses existing counts', () async {
+      final firestore = FakeFirebaseFirestore();
+      final service = PolygonService(firestore: firestore);
+      await firestore.collection('polygons_visited').doc('count-user').set(
+        <String, dynamic>{
+          'profile_id': 'count-user',
+          'entry_counts': <String, dynamic>{'count-poly': '4'},
+        },
+      );
+
+      final count = await service.incrementPolygonEntryCount(
+        profileId: 'count-user',
+        polygonId: 'count-poly',
+      );
+
+      expect(count, 5);
+      final counts = await service.getPolygonEntryCounts(
+        profileId: 'count-user',
+      );
+      expect(counts['count-poly'], 5);
+    });
+
+    test(
+      'incrementPolygonEntryCount handles missing and numeric counts',
+      () async {
+        final firestore = FakeFirebaseFirestore();
+        final service = PolygonService(firestore: firestore);
+
+        final firstCount = await service.incrementPolygonEntryCount(
+          profileId: 'count-branches',
+          polygonId: 'new-count',
+        );
+
+        await firestore
+            .collection('polygons_visited')
+            .doc('count-branches')
+            .set(<String, dynamic>{
+              'entry_counts': <String, dynamic>{'numeric-count': 6},
+            }, SetOptions(merge: true));
+
+        final numericCount = await service.incrementPolygonEntryCount(
+          profileId: 'count-branches',
+          polygonId: 'numeric-count',
+        );
+
+        expect(firstCount, 1);
+        expect(numericCount, 7);
+      },
+    );
+
+    test(
+      'getPolygonEntryCounts filters invalid and non-positive counts',
+      () async {
+        final firestore = FakeFirebaseFirestore();
+        final service = PolygonService(firestore: firestore);
+        await firestore.collection('polygons_visited').doc('filter-user').set(
+          <String, dynamic>{
+            'profile_id': 'filter-user',
+            'entry_counts': <String, dynamic>{
+              'keep-num': 3,
+              'keep-string': '2',
+              'zero': 0,
+              'bad': 'NaN',
+              'outside': 9,
+              '': 7,
+            },
+          },
+        );
+
+        final counts = await service.getPolygonEntryCounts(
+          profileId: 'filter-user',
+          validPolygonIds: {'keep-num', 'keep-string', 'zero', 'bad'},
+        );
+
+        expect(counts, {'keep-num': 3, 'keep-string': 2});
+      },
+    );
+
+    test('watchPolygonEntryCounts emits filtered counts', () async {
+      final firestore = FakeFirebaseFirestore();
+      final service = PolygonService(firestore: firestore);
+      await firestore.collection('polygons_visited').doc('watch-counts').set(
+        <String, dynamic>{
+          'profile_id': 'watch-counts',
+          'entry_counts': <String, dynamic>{'visible': 1, 'hidden': 2},
+        },
+      );
+
+      final counts = await service
+          .watchPolygonEntryCounts(
+            profileId: 'watch-counts',
+            validPolygonIds: {'visible'},
+          )
+          .first;
+
+      expect(counts, {'visible': 1});
+    });
 
     test('fog decay presentation persists without deleting history', () async {
       final firestore = FakeFirebaseFirestore();

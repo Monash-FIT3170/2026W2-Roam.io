@@ -1,6 +1,6 @@
 /*
  * Author: GitHub Copilot
- * Last Modified: 30/07/2026
+ * Last Modified: 13/08/2026
  * Description:
  *   Core tracking service that subscribes to location updates and accumulates
  *   route points. Applies noise filtering and calculates running distance.
@@ -88,7 +88,21 @@ class JourneyTrackingService {
     }
   }
 
-  /// Resumes a stopped session without clearing its route or distance.
+  /// Pauses location tracking without clearing route or distance state.
+  Future<void> pauseTracking() async {
+    if (!_isTracking) {
+      debugPrint('[JourneyTrackingService] Not tracking, ignoring pause');
+      return;
+    }
+
+    _isTracking = false;
+    await _locationSubscription?.cancel();
+    _locationSubscription = null;
+
+    debugPrint('[JourneyTrackingService] Paused tracking');
+  }
+
+  /// Resumes a paused/stopped session without clearing its route or distance.
   Future<void> resumeTracking() async {
     if (_isTracking) {
       debugPrint('[JourneyTrackingService] Already tracking, ignoring resume');
@@ -108,7 +122,9 @@ class JourneyTrackingService {
   }
 
   Future<void> _subscribeToLocationUpdates() async {
-    final locationStream = await _geoLocatorService.getLocationUpdates();
+    final locationStream = await _geoLocatorService.getLocationUpdates(
+      allowBackgroundUpdates: true,
+    );
 
     _locationSubscription = locationStream.listen(
       _onLocationUpdate,

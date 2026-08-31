@@ -1,0 +1,1575 @@
+[  +31 ms] executing: sysctl hw.optional.arm64
+[   +5 ms] Exit code 0 from: sysctl hw.optional.arm64
+[        ] hw.optional.arm64: 1
+[   +5 ms] Artifact Instance of 'MaterialFonts' is not required, skipping update.
+[        ] Artifact Instance of 'GradleWrapper' is not required, skipping update.
+[        ] Artifact Instance of 'AndroidGenSnapshotArtifacts' is not required, skipping update.
+[        ] Artifact Instance of 'AndroidInternalBuildArtifacts' is not required, skipping update.
+[        ] Artifact Instance of 'IOSEngineArtifacts' is not required, skipping update.
+[        ] Artifact Instance of 'FlutterWebSdk' is not required, skipping update.
+[        ] Artifact Instance of 'LegacyCanvasKitRemover' is not required, skipping update.
+[        ] Artifact Instance of 'FlutterSdk' is not required, skipping update.
+[        ] Artifact Instance of 'WindowsEngineArtifacts' is not required, skipping update.
+[        ] Artifact Instance of 'MacOSEngineArtifacts' is not required, skipping update.
+[        ] Artifact Instance of 'LinuxEngineArtifacts' is not required, skipping update.
+[        ] Artifact Instance of 'LinuxFuchsiaSDKArtifacts' is not required, skipping update.
+[        ] Artifact Instance of 'MacOSFuchsiaSDKArtifacts' is not required, skipping update.
+[        ] Artifact Instance of 'FlutterRunnerSDKArtifacts' is not required, skipping update.
+[        ] Artifact Instance of 'FlutterRunnerDebugSymbols' is not required, skipping update.
+[        ] Artifact Instance of 'IosUsbArtifacts' is not required, skipping update.
+[        ] Artifact Instance of 'IosUsbArtifacts' is not required, skipping update.
+[        ] Artifact Instance of 'IosUsbArtifacts' is not required, skipping update.
+[        ] Artifact Instance of 'IosUsbArtifacts' is not required, skipping update.
+[        ] Artifact Instance of 'IosUsbArtifacts' is not required, skipping update.
+[        ] Artifact Instance of 'IosUsbArtifacts' is not required, skipping update.
+[        ] Artifact Instance of 'FontSubsetArtifacts' is not required, skipping update.
+[        ] Artifact Instance of 'PubDependencies' is not required, skipping update.
+[        ] executing: [/Users/rushilpatel/flutter/] git -c log.showSignature=false log HEAD -n 1 --pretty=format:%ad --date=iso
+[  +49 ms] Exit code 0 from: git -c log.showSignature=false log HEAD -n 1 --pretty=format:%ad --date=iso
+[        ] 2026-03-25 16:21:00 -0700
+[  +39 ms] executing: sysctl hw.optional.arm64
+[   +7 ms] Exit code 0 from: sysctl hw.optional.arm64
+[        ] hw.optional.arm64: 1
+[        ] executing: /usr/bin/arch -arm64e xcrun xcodebuild -version
+[ +300 ms] Exit code 0 from: /usr/bin/arch -arm64e xcrun xcodebuild -version
+[        ] Xcode 26.6
+           Build version 17F113
+[   +2 ms] executing: /usr/bin/arch -arm64e xcrun xcdevice list --timeout 5
+[   +4 ms] Artifact Instance of 'AndroidGenSnapshotArtifacts' is not required, skipping update.
+[        ] Artifact Instance of 'AndroidInternalBuildArtifacts' is not required, skipping update.
+[        ] Artifact Instance of 'IOSEngineArtifacts' is not required, skipping update.
+[        ] Artifact Instance of 'FlutterWebSdk' is not required, skipping update.
+[        ] Artifact Instance of 'FlutterEngineStamp' is not required, skipping update.
+[        ] Artifact Instance of 'LegacyCanvasKitRemover' is not required, skipping update.
+[   +1 ms] Artifact Instance of 'WindowsEngineArtifacts' is not required, skipping update.
+[        ] Artifact Instance of 'MacOSEngineArtifacts' is not required, skipping update.
+[        ] Artifact Instance of 'LinuxEngineArtifacts' is not required, skipping update.
+[        ] Artifact Instance of 'LinuxFuchsiaSDKArtifacts' is not required, skipping update.
+[        ] Artifact Instance of 'MacOSFuchsiaSDKArtifacts' is not required, skipping update.
+[        ] Artifact Instance of 'FlutterRunnerSDKArtifacts' is not required, skipping update.
+[        ] Artifact Instance of 'FlutterRunnerDebugSymbols' is not required, skipping update.
+[  +26 ms] executing: /Users/rushilpatel/Library/Android/sdk/platform-tools/adb devices -l
+[        ] executing: /usr/bin/arch -arm64e xcrun xcdevice list --timeout 2
+[        ] executing: /usr/bin/arch -arm64e xcrun simctl list devices booted
+[ +125 ms] /usr/bin/arch -arm64e xcrun simctl list devices booted iOS --json
+[        ] executing: /usr/bin/arch -arm64e xcrun simctl list devices booted iOS --json
+[  +38 ms] List of devices attached
+[  +90 ms] {
+             "devices" : {
+               "com.apple.CoreSimulator.SimRuntime.iOS-26-4" : [
+                 {
+                   "lastBootedAt" : "2026-08-07T12:07:09Z",
+                   "dataPath" : "\/Users\/rushilpatel\/Library\/Developer\/CoreSimulator\/Devices\/0CBA9022-75CA-4286-A114-30ED2FD4243B\/data",
+                   "dataPathSize" : 5586464768,
+                   "logPath" : "\/Users\/rushilpatel\/Library\/Logs\/CoreSimulator\/0CBA9022-75CA-4286-A114-30ED2FD4243B",
+                   "udid" : "0CBA9022-75CA-4286-A114-30ED2FD4243B",
+                   "isAvailable" : true,
+                   "logPathSize" : 565248,
+                   "deviceTypeIdentifier" : "com.apple.CoreSimulator.SimDeviceType.iPhone-17-Pro",
+                   "state" : "Booted",
+                   "name" : "iPhone 17 Pro"
+                 }
+               ],
+               "com.apple.CoreSimulator.SimRuntime.iOS-18-1" : [
+
+               ],
+               "com.apple.CoreSimulator.SimRuntime.iOS-17-5" : [
+
+               ],
+               "com.apple.CoreSimulator.SimRuntime.iOS-26-5" : [
+
+               ]
+             }
+           }
+[+3541 ms] [
+             {
+               "simulator" : true,
+               "operatingSystemVersion" : "26.4.1 (23E254a)",
+               "available" : true,
+               "platform" : "com.apple.platform.iphonesimulator",
+               "modelCode" : "iPad16,9",
+               "identifier" : "3F54641B-BE4A-4AD4-AE6C-531C22CA5A6E",
+               "architecture" : "arm64",
+               "modelUTI" : "com.apple.com.apple.ipad-air-11-inch-m4-1",
+               "modelName" : "iPad Air 11-inch (M4)",
+               "name" : "iPad Air 11-inch (M4)",
+               "ignored" : false
+             },
+             {
+               "simulator" : true,
+               "operatingSystemVersion" : "18.1 (22B81)",
+               "available" : true,
+               "platform" : "com.apple.platform.iphonesimulator",
+               "modelCode" : "iPhone14,6",
+               "identifier" : "F332881E-C0C0-4C6F-BAB1-CECECB0AB664",
+               "architecture" : "arm64",
+               "modelUTI" : "com.apple.iphone-se3-1",
+               "modelName" : "iPhone SE (3rd generation)",
+               "name" : "iPhone SE (3rd generation)",
+               "ignored" : false
+             },
+             {
+               "simulator" : true,
+               "operatingSystemVersion" : "18.1 (22B81)",
+               "available" : true,
+               "platform" : "com.apple.platform.iphonesimulator",
+               "modelCode" : "iPad16,6",
+               "identifier" : "FCBA745D-D664-45A3-962A-BD5727093B11",
+               "architecture" : "arm64",
+               "modelUTI" : "com.apple.ipad-pro-m4-13-1",
+               "modelName" : "iPad Pro 13-inch (M4)",
+               "name" : "iPad Pro 13-inch (M4)",
+               "ignored" : false
+             },
+             {
+               "simulator" : true,
+               "operatingSystemVersion" : "26.5 (23F77)",
+               "available" : true,
+               "platform" : "com.apple.platform.iphonesimulator",
+               "modelCode" : "iPhone18,1",
+               "identifier" : "CA1F5E81-C051-4FC0-9623-33D72715C459",
+               "architecture" : "arm64",
+               "modelUTI" : "com.apple.com.apple.iphone-17-pro-2",
+               "modelName" : "iPhone 17 Pro",
+               "name" : "iPhone 17 Pro",
+               "ignored" : false
+             },
+             {
+               "simulator" : true,
+               "operatingSystemVersion" : "26.4.1 (23E254a)",
+               "available" : true,
+               "platform" : "com.apple.platform.iphonesimulator",
+               "modelCode" : "iPhone18,3",
+               "identifier" : "4798CA96-8A53-4EDC-855B-AF03981574DD",
+               "architecture" : "arm64",
+               "modelUTI" : "com.apple.com.apple.iphone-17-2",
+               "modelName" : "iPhone 17",
+               "name" : "iPhone 17",
+               "ignored" : false
+             },
+             {
+               "simulator" : true,
+               "operatingSystemVersion" : "26.5 (23F77)",
+               "available" : true,
+               "platform" : "com.apple.platform.iphonesimulator",
+               "modelCode" : "iPhone18,2",
+               "identifier" : "35F55482-9677-428A-846A-94FA0D4025D4",
+               "architecture" : "arm64",
+               "modelUTI" : "com.apple.com.apple.iphone-17-pro-max-2",
+               "modelName" : "iPhone 17 Pro Max",
+               "name" : "iPhone 17 Pro Max",
+               "ignored" : false
+             },
+             {
+               "simulator" : true,
+               "operatingSystemVersion" : "17.5 (21F79)",
+               "available" : true,
+               "platform" : "com.apple.platform.iphonesimulator",
+               "modelCode" : "iPhone14,6",
+               "identifier" : "3224373B-699C-47EB-B52B-5EDB15810B3D",
+               "architecture" : "arm64",
+               "modelUTI" : "com.apple.iphone-se3-1",
+               "modelName" : "iPhone SE (3rd generation)",
+               "name" : "iPhone SE (3rd generation)",
+               "ignored" : false
+             },
+             {
+               "simulator" : true,
+               "operatingSystemVersion" : "26.5 (23F77)",
+               "available" : true,
+               "platform" : "com.apple.platform.iphonesimulator",
+               "modelCode" : "iPad16,2",
+               "identifier" : "6CEB4EEF-C899-4CD9-9150-D0CF282AF029",
+               "architecture" : "arm64",
+               "modelUTI" : "com.apple.ipad-mini-a17-1",
+               "modelName" : "iPad mini (A17 Pro)",
+               "name" : "iPad mini (A17 Pro)",
+               "ignored" : false
+             },
+             {
+               "simulator" : true,
+               "operatingSystemVersion" : "17.5 (21F79)",
+               "available" : true,
+               "platform" : "com.apple.platform.iphonesimulator",
+               "modelCode" : "iPad13,18",
+               "identifier" : "B4C80CC5-91FC-492A-A044-E61ABE3A4EF4",
+               "architecture" : "arm64",
+               "modelUTI" : "com.apple.ipad-10-1",
+               "modelName" : "iPad (10th generation)",
+               "name" : "iPad (10th generation)",
+               "ignored" : false
+             },
+             {
+               "simulator" : true,
+               "operatingSystemVersion" : "26.4.1 (23E254a)",
+               "available" : true,
+               "platform" : "com.apple.platform.iphonesimulator",
+               "modelCode" : "iPad17,2",
+               "identifier" : "3421C40E-AF1F-48BE-8C77-D076ABE5D66C",
+               "architecture" : "arm64",
+               "modelUTI" : "com.apple.com.apple.ipad-pro-11-inch-m5-1",
+               "modelName" : "iPad Pro 11-inch (M5)",
+               "name" : "iPad Pro 11-inch (M5)",
+               "ignored" : false
+             },
+             {
+               "simulator" : true,
+               "operatingSystemVersion" : "17.5 (21F79)",
+               "available" : true,
+               "platform" : "com.apple.platform.iphonesimulator",
+               "modelCode" : "iPad14,9",
+               "identifier" : "99FFC20F-02FC-4279-962D-2377E8C2D1AF",
+               "architecture" : "arm64",
+               "modelUTI" : "com.apple.ipad-air-m2-1",
+               "modelName" : "iPad Air 11-inch (M2)",
+               "name" : "iPad Air 11-inch (M2)",
+               "ignored" : false
+             },
+             {
+               "ignored" : false,
+               "modelCode" : "iPhone13,2",
+               "simulator" : false,
+               "modelName" : "iPhone 12",
+               "operatingSystemVersion" : "26.5 (23F77)",
+               "identifier" : "00008101-001D05003486001E",
+               "platform" : "com.apple.platform.iphoneos",
+               "architecture" : "arm64e",
+               "interface" : "usb",
+               "available" : true,
+               "name" : "Rushil’s iPhone",
+               "modelUTI" : "com.apple.iphone-12-1"
+             },
+             {
+               "simulator" : true,
+               "operatingSystemVersion" : "18.1 (22B81)",
+               "available" : true,
+               "platform" : "com.apple.platform.iphonesimulator",
+               "modelCode" : "iPad14,11",
+               "identifier" : "6841238E-1E34-42C1-B2B9-BAD91B71FB27",
+               "architecture" : "arm64",
+               "modelUTI" : "com.apple.ipad-air-m2-13-1",
+               "modelName" : "iPad Air 13-inch (M2)",
+               "name" : "iPad Air 13-inch (M2)",
+               "ignored" : false
+             },
+             {
+               "simulator" : true,
+               "operatingSystemVersion" : "17.5 (21F79)",
+               "available" : true,
+               "platform" : "com.apple.platform.iphonesimulator",
+               "modelCode" : "iPhone16,2",
+               "identifier" : "B344C1B9-DD09-47F1-A8CC-971D29310DC0",
+               "architecture" : "arm64",
+               "modelUTI" : "com.apple.iphone-15-pro-max-1",
+               "modelName" : "iPhone 15 Pro Max",
+               "name" : "iPhone 15 Pro Max",
+               "ignored" : false
+             },
+             {
+               "simulator" : true,
+               "operatingSystemVersion" : "26.4.1 (23E254a)",
+               "available" : true,
+               "platform" : "com.apple.platform.iphonesimulator",
+               "modelCode" : "iPad15,7",
+               "identifier" : "CBFEA143-A903-4241-9020-BBFDC01F8795",
+               "architecture" : "arm64",
+               "modelUTI" : "com.apple.ipad-a16-1",
+               "modelName" : "iPad (A16)",
+               "name" : "iPad (A16)",
+               "ignored" : false
+             },
+             {
+               "simulator" : true,
+               "operatingSystemVersion" : "18.1 (22B81)",
+               "available" : true,
+               "platform" : "com.apple.platform.iphonesimulator",
+               "modelCode" : "iPad16,4",
+               "identifier" : "1F5FA63D-37E0-4E53-AAD3-326946DA2E3F",
+               "architecture" : "arm64",
+               "modelUTI" : "com.apple.ipad-pro-m4-1",
+               "modelName" : "iPad Pro 11-inch (M4)",
+               "name" : "iPad Pro 11-inch (M4)",
+               "ignored" : false
+             },
+             {
+               "simulator" : true,
+               "operatingSystemVersion" : "26.5 (23F77)",
+               "available" : true,
+               "platform" : "com.apple.platform.iphonesimulator",
+               "modelCode" : "iPhone18,3",
+               "identifier" : "67354832-8804-4D17-B1F2-8B337A1F3DFE",
+               "architecture" : "arm64",
+               "modelUTI" : "com.apple.com.apple.iphone-17-2",
+               "modelName" : "iPhone 17",
+               "name" : "iPhone 17",
+               "ignored" : false
+             },
+             {
+               "simulator" : true,
+               "operatingSystemVersion" : "26.4.1 (23E254a)",
+               "available" : true,
+               "platform" : "com.apple.platform.iphonesimulator",
+               "modelCode" : "iPad16,11",
+               "identifier" : "1939E474-CDA4-41B4-9C2D-6C70FC3242E3",
+               "architecture" : "arm64",
+               "modelUTI" : "com.apple.com.apple.ipad-air-13-inch-m4-1",
+               "modelName" : "iPad Air 13-inch (M4)",
+               "name" : "iPad Air 13-inch (M4)",
+               "ignored" : false
+             },
+             {
+               "simulator" : true,
+               "operatingSystemVersion" : "26.5 (23F77)",
+               "available" : true,
+               "platform" : "com.apple.platform.iphonesimulator",
+               "modelCode" : "iPad16,9",
+               "identifier" : "34294E57-FB4F-46A0-980C-3546E88AC25C",
+               "architecture" : "arm64",
+               "modelUTI" : "com.apple.com.apple.ipad-air-11-inch-m4-1",
+               "modelName" : "iPad Air 11-inch (M4)",
+               "name" : "iPad Air 11-inch (M4)",
+               "ignored" : false
+             },
+             {
+               "simulator" : true,
+               "operatingSystemVersion" : "26.4.1 (23E254a)",
+               "available" : true,
+               "platform" : "com.apple.platform.iphonesimulator",
+               "modelCode" : "iPad17,4",
+               "identifier" : "F06070AF-8AE2-4DD9-86C9-615FE10D0C32",
+               "architecture" : "arm64",
+               "modelUTI" : "com.apple.com.apple.ipad-pro-13-inch-m5-1",
+               "modelName" : "iPad Pro 13-inch (M5)",
+               "name" : "iPad Pro 13-inch (M5)",
+               "ignored" : false
+             },
+             {
+               "simulator" : true,
+               "operatingSystemVersion" : "18.1 (22B81)",
+               "available" : true,
+               "platform" : "com.apple.platform.iphonesimulator",
+               "modelCode" : "iPhone17,2",
+               "identifier" : "D6FE3062-9426-4EEB-BEB8-761F41ADB7C1",
+               "architecture" : "arm64",
+               "modelUTI" : "com.apple.iphone-16-pro-max-1",
+               "modelName" : "iPhone 16 Pro Max",
+               "name" : "iPhone 16 Pro Max",
+               "ignored" : false
+             },
+             {
+               "simulator" : true,
+               "operatingSystemVersion" : "26.4.1 (23E254a)",
+               "available" : true,
+               "platform" : "com.apple.platform.iphonesimulator",
+               "modelCode" : "iPhone18,5",
+               "identifier" : "F0035D2F-2193-43D1-919A-0BD5CC684B3F",
+               "architecture" : "arm64",
+               "modelUTI" : "com.apple.com.apple.iphone-17e-1",
+               "modelName" : "iPhone 17e",
+               "name" : "iPhone 17e",
+               "ignored" : false
+             },
+             {
+               "simulator" : true,
+               "operatingSystemVersion" : "18.1 (22B81)",
+               "available" : true,
+               "platform" : "com.apple.platform.iphonesimulator",
+               "modelCode" : "iPad14,9",
+               "identifier" : "7661B2B0-CF32-4574-B16F-A16F61CE3873",
+               "architecture" : "arm64",
+               "modelUTI" : "com.apple.ipad-air-m2-1",
+               "modelName" : "iPad Air 11-inch (M2)",
+               "name" : "iPad Air 11-inch (M2)",
+               "ignored" : false
+             },
+             {
+               "simulator" : true,
+               "operatingSystemVersion" : "26.4.1 (23E254a)",
+               "available" : true,
+               "platform" : "com.apple.platform.iphonesimulator",
+               "modelCode" : "iPad16,2",
+               "identifier" : "8B12BC63-9D5B-4519-AA4E-9332453903F5",
+               "architecture" : "arm64",
+               "modelUTI" : "com.apple.ipad-mini-a17-1",
+               "modelName" : "iPad mini (A17 Pro)",
+               "name" : "iPad mini (A17 Pro)",
+               "ignored" : false
+             },
+             {
+               "simulator" : true,
+               "operatingSystemVersion" : "18.1 (22B81)",
+               "available" : true,
+               "platform" : "com.apple.platform.iphonesimulator",
+               "modelCode" : "iPhone17,4",
+               "identifier" : "AD80812E-9931-4691-86F2-571AC91FA9C1",
+               "architecture" : "arm64",
+               "modelUTI" : "com.apple.iphone-16-plus-1",
+               "modelName" : "iPhone 16 Plus",
+               "name" : "iPhone 16 Plus",
+               "ignored" : false
+             },
+             {
+               "simulator" : true,
+               "operatingSystemVersion" : "18.1 (22B81)",
+               "available" : true,
+               "platform" : "com.apple.platform.iphonesimulator",
+               "modelCode" : "iPad16,2",
+               "identifier" : "1EBDF169-F5D4-4EA9-B23E-FFB148FA314E",
+               "architecture" : "arm64",
+               "modelUTI" : "com.apple.ipad-mini-a17-1",
+               "modelName" : "iPad mini (A17 Pro)",
+               "name" : "iPad mini (A17 Pro)",
+               "ignored" : false
+             },
+             {
+               "simulator" : true,
+               "operatingSystemVersion" : "26.5 (23F77)",
+               "available" : true,
+               "platform" : "com.apple.platform.iphonesimulator",
+               "modelCode" : "iPad15,7",
+               "identifier" : "0A2AEFDA-8272-44BE-AD39-522C3BACE63A",
+               "architecture" : "arm64",
+               "modelUTI" : "com.apple.ipad-a16-1",
+               "modelName" : "iPad (A16)",
+               "name" : "iPad (A16)",
+               "ignored" : false
+             },
+             {
+               "simulator" : true,
+               "operatingSystemVersion" : "26.5 (23F77)",
+               "available" : true,
+               "platform" : "com.apple.platform.iphonesimulator",
+               "modelCode" : "iPad16,11",
+               "identifier" : "59224692-A886-407C-A98C-7746926C9D51",
+               "architecture" : "arm64",
+               "modelUTI" : "com.apple.com.apple.ipad-air-13-inch-m4-1",
+               "modelName" : "iPad Air 13-inch (M4)",
+               "name" : "iPad Air 13-inch (M4)",
+               "ignored" : false
+             },
+             {
+               "simulator" : true,
+               "operatingSystemVersion" : "26.4.1 (23E254a)",
+               "available" : true,
+               "platform" : "com.apple.platform.iphonesimulator",
+               "modelCode" : "iPhone18,2",
+               "identifier" : "02F7A17D-EC5B-449E-9176-841FA9BCEE5C",
+               "architecture" : "arm64",
+               "modelUTI" : "com.apple.com.apple.iphone-17-pro-max-2",
+               "modelName" : "iPhone 17 Pro Max",
+               "name" : "iPhone 17 Pro Max",
+               "ignored" : false
+             },
+             {
+               "simulator" : true,
+               "operatingSystemVersion" : "26.4.1 (23E254a)",
+               "available" : true,
+               "platform" : "com.apple.platform.iphonesimulator",
+               "modelCode" : "iPhone18,4",
+               "identifier" : "8B2A8258-950F-479D-AE02-03C8632D8469",
+               "architecture" : "arm64",
+               "modelUTI" : "com.apple.com.apple.iphone-air-1",
+               "modelName" : "iPhone Air",
+               "name" : "iPhone Air",
+               "ignored" : false
+             },
+             {
+               "simulator" : true,
+               "operatingSystemVersion" : "26.5 (23F77)",
+               "available" : true,
+               "platform" : "com.apple.platform.iphonesimulator",
+               "modelCode" : "iPhone18,4",
+               "identifier" : "A70A82EA-0F95-4B55-B199-83C56B156BBD",
+               "architecture" : "arm64",
+               "modelUTI" : "com.apple.com.apple.iphone-air-1",
+               "modelName" : "iPhone Air",
+               "name" : "iPhone Air",
+               "ignored" : false
+             },
+             {
+               "simulator" : true,
+               "operatingSystemVersion" : "26.5 (23F77)",
+               "available" : true,
+               "platform" : "com.apple.platform.iphonesimulator",
+               "modelCode" : "iPad17,4",
+               "identifier" : "93BC1B36-6D9A-4AF4-9735-A19884A797BF",
+               "architecture" : "arm64",
+               "modelUTI" : "com.apple.com.apple.ipad-pro-13-inch-m5-1",
+               "modelName" : "iPad Pro 13-inch (M5)",
+               "name" : "iPad Pro 13-inch (M5)",
+               "ignored" : false
+             },
+             {
+               "simulator" : true,
+               "operatingSystemVersion" : "18.1 (22B81)",
+               "available" : true,
+               "platform" : "com.apple.platform.iphonesimulator",
+               "modelCode" : "iPad13,18",
+               "identifier" : "F4D955BF-6AD7-439A-8F6F-D4B423225EA9",
+               "architecture" : "arm64",
+               "modelUTI" : "com.apple.ipad-10-1",
+               "modelName" : "iPad (10th generation)",
+               "name" : "iPad (10th generation)",
+               "ignored" : false
+             },
+             {
+               "simulator" : true,
+               "operatingSystemVersion" : "26.5 (23F77)",
+               "available" : true,
+               "platform" : "com.apple.platform.iphonesimulator",
+               "modelCode" : "iPhone18,5",
+               "identifier" : "125C0A82-430C-4639-BE37-468F83E9F1CD",
+               "architecture" : "arm64",
+               "modelUTI" : "com.apple.com.apple.iphone-17e-1",
+               "modelName" : "iPhone 17e",
+               "name" : "iPhone 17e",
+               "ignored" : false
+             },
+             {
+               "simulator" : true,
+               "operatingSystemVersion" : "26.4.1 (23E254a)",
+               "available" : true,
+               "platform" : "com.apple.platform.iphonesimulator",
+               "modelCode" : "iPhone18,1",
+               "identifier" : "0CBA9022-75CA-4286-A114-30ED2FD4243B",
+               "architecture" : "arm64",
+               "modelUTI" : "com.apple.com.apple.iphone-17-pro-2",
+               "modelName" : "iPhone 17 Pro",
+               "name" : "iPhone 17 Pro",
+               "ignored" : false
+             },
+             {
+               "simulator" : true,
+               "operatingSystemVersion" : "18.1 (22B81)",
+               "available" : true,
+               "platform" : "com.apple.platform.iphonesimulator",
+               "modelCode" : "iPhone17,1",
+               "identifier" : "843FB03D-B2B4-4309-87D8-4BAC16FC57F8",
+               "architecture" : "arm64",
+               "modelUTI" : "com.apple.iphone-16-pro-1",
+               "modelName" : "iPhone 16 Pro",
+               "name" : "iPhone 16 Pro",
+               "ignored" : false
+             },
+             {
+               "simulator" : true,
+               "operatingSystemVersion" : "26.5 (23F77)",
+               "available" : true,
+               "platform" : "com.apple.platform.iphonesimulator",
+               "modelCode" : "iPad17,2",
+               "identifier" : "80B36BE0-A345-4079-847E-418C85240E8B",
+               "architecture" : "arm64",
+               "modelUTI" : "com.apple.com.apple.ipad-pro-11-inch-m5-1",
+               "modelName" : "iPad Pro 11-inch (M5)",
+               "name" : "iPad Pro 11-inch (M5)",
+               "ignored" : false
+             },
+             {
+               "simulator" : true,
+               "operatingSystemVersion" : "18.1 (22B81)",
+               "available" : true,
+               "platform" : "com.apple.platform.iphonesimulator",
+               "modelCode" : "iPhone17,3",
+               "identifier" : "E2AA721D-59C6-4F45-9B1D-F5C2E88A6C8B",
+               "architecture" : "arm64",
+               "modelUTI" : "com.apple.iphone-16-1",
+               "modelName" : "iPhone 16",
+               "name" : "iPhone 16",
+               "ignored" : false
+             },
+             {
+               "simulator" : true,
+               "operatingSystemVersion" : "17.5 (21F79)",
+               "available" : true,
+               "platform" : "com.apple.platform.iphonesimulator",
+               "modelCode" : "iPad14,1",
+               "identifier" : "C0D35657-FC2F-407D-9CCF-B21D103FD24F",
+               "architecture" : "arm64",
+               "modelUTI" : "com.apple.ipad-mini6-1",
+               "modelName" : "iPad mini (6th generation)",
+               "name" : "iPad mini (6th generation)",
+               "ignored" : false
+             },
+             {
+               "simulator" : true,
+               "operatingSystemVersion" : "17.5 (21F79)",
+               "available" : true,
+               "platform" : "com.apple.platform.iphonesimulator",
+               "modelCode" : "iPad16,4",
+               "identifier" : "85EC9C41-866B-4423-8FC1-E6EF9602A023",
+               "architecture" : "arm64",
+               "modelUTI" : "com.apple.ipad-pro-m4-1",
+               "modelName" : "iPad Pro 11-inch (M4)",
+               "name" : "iPad Pro 11-inch (M4)",
+               "ignored" : false
+             },
+             {
+               "simulator" : true,
+               "operatingSystemVersion" : "17.5 (21F79)",
+               "available" : true,
+               "platform" : "com.apple.platform.iphonesimulator",
+               "modelCode" : "iPad16,6",
+               "identifier" : "7C971D42-A219-4E53-B6F7-A5B8C2F87F95",
+               "architecture" : "arm64",
+               "modelUTI" : "com.apple.ipad-pro-m4-13-1",
+               "modelName" : "iPad Pro 13-inch (M4)",
+               "name" : "iPad Pro 13-inch (M4)",
+               "ignored" : false
+             },
+             {
+               "simulator" : true,
+               "operatingSystemVersion" : "17.5 (21F79)",
+               "available" : true,
+               "platform" : "com.apple.platform.iphonesimulator",
+               "modelCode" : "iPhone16,1",
+               "identifier" : "F17CC513-3E14-4C63-8EE1-2285B21C1A75",
+               "architecture" : "arm64",
+               "modelUTI" : "com.apple.iphone-15-pro-1",
+               "modelName" : "iPhone 15 Pro",
+               "name" : "iPhone 15 Pro",
+               "ignored" : false
+             },
+             {
+               "simulator" : true,
+               "operatingSystemVersion" : "17.5 (21F79)",
+               "available" : true,
+               "platform" : "com.apple.platform.iphonesimulator",
+               "modelCode" : "iPhone15,5",
+               "identifier" : "72FF717A-EB0F-41E1-B7B5-443532B9F140",
+               "architecture" : "arm64",
+               "modelUTI" : "com.apple.iphone-15-plus-1",
+               "modelName" : "iPhone 15 Plus",
+               "name" : "iPhone 15 Plus",
+               "ignored" : false
+             },
+             {
+               "simulator" : true,
+               "operatingSystemVersion" : "17.5 (21F79)",
+               "available" : true,
+               "platform" : "com.apple.platform.iphonesimulator",
+               "modelCode" : "iPhone15,4",
+               "identifier" : "35A849E5-2D04-426D-8469-6BCD851732D5",
+               "architecture" : "arm64",
+               "modelUTI" : "com.apple.iphone-15-1",
+               "modelName" : "iPhone 15",
+               "name" : "iPhone 15",
+               "ignored" : false
+             },
+             {
+               "ignored" : false,
+               "modelCode" : "Mac14,7",
+               "simulator" : false,
+               "modelName" : "MacBook Pro",
+               "operatingSystemVersion" : "26.6.1 (25G76)",
+               "identifier" : "00008112-001A14110A2A201E",
+               "platform" : "com.apple.platform.macosx",
+               "architecture" : "arm64e",
+               "interface" : "usb",
+               "available" : true,
+               "name" : "My Mac",
+               "modelUTI" : "com.apple.macbookpro-13-2022"
+             },
+             {
+               "simulator" : true,
+               "operatingSystemVersion" : "17.5 (21F79)",
+               "available" : true,
+               "platform" : "com.apple.platform.iphonesimulator",
+               "modelCode" : "iPad14,11",
+               "identifier" : "8C425EA1-1EF2-409A-B389-B1652D619329",
+               "architecture" : "arm64",
+               "modelUTI" : "com.apple.ipad-air-m2-13-1",
+               "modelName" : "iPad Air 13-inch (M2)",
+               "name" : "iPad Air 13-inch (M2)",
+               "ignored" : false
+             }
+           ]
+[   +4 ms] executing: /usr/bin/arch -arm64e xcrun devicectl --version
+[  +79 ms] executing: /usr/bin/arch -arm64e xcrun devicectl list devices --timeout 5 --json-output /var/folders/kq/ns5_bh7d1cl9s7ck4ycfjvrw0000gn/T/flutter_tools.Ssa4ae/core_devices.DMPmDP/core_device_list.json
+[  +65 ms] {
+             "info" : {
+               "arguments" : [
+                 "devicectl",
+                 "list",
+                 "devices",
+                 "--timeout",
+                 "5",
+                 "--json-output",
+                 "/var/folders/kq/ns5_bh7d1cl9s7ck4ycfjvrw0000gn/T/flutter_tools.Ssa4ae/core_devices.DMPmDP/core_device_list.json"
+               ],
+               "commandType" : "devicectl.list.devices",
+               "environment" : {
+                 "TERM" : "xterm-256color"
+               },
+               "jsonVersion" : 3,
+               "outcome" : "success",
+               "version" : "518.33"
+             },
+             "result" : {
+               "devices" : [
+                 {
+                   "capabilities" : [
+                     {
+                       "featureIdentifier" : "com.apple.coredevice.feature.acquireusageassertion",
+                       "name" : "Acquire Usage Assertion"
+                     },
+                     {
+                       "featureIdentifier" : "com.apple.coredevice.feature.applicationcontrol",
+                       "name" : "Application Control"
+                     },
+                     {
+                       "featureIdentifier" : "com.apple.coredevice.feature.capturesysdiagnose",
+                       "name" : "Capture Sysdiagnose"
+                     },
+                     {
+                       "featureIdentifier" : "com.apple.dt.serviceconnection.create",
+                       "name" : "Create Service Connection"
+                     },
+                     {
+                       "featureIdentifier" : "com.apple.dt.servicesocket.create",
+                       "name" : "Create Service Socket"
+                     },
+                     {
+                       "featureIdentifier" : "com.apple.coredevice.feature.disableddiservices",
+                       "name" : "Disable Developer Disk Image Services"
+                     },
+                     {
+                       "featureIdentifier" : "com.apple.coredevice.feature.disconnectdevice",
+                       "name" : "Disconnect from Device"
+                     },
+                     {
+                       "featureIdentifier" : "com.apple.coredevice.feature.fetchappicons",
+                       "name" : "Fetch Application Icons"
+                     },
+                     {
+                       "featureIdentifier" : "com.apple.coredevice.feature.getauthlistingidentifiers",
+                       "name" : "Fetch AuthListing Identifiers"
+                     },
+                     {
+                       "featureIdentifier" : "com.apple.coredevice.feature.fetchddimetadata",
+                       "name" : "Fetch Developer Disk Image Services Metadata"
+                     },
+                     {
+                       "featureIdentifier" : "com.apple.coredevice.feature.getdeviceinfo",
+                       "name" : "Fetch Extended Device Info"
+                     },
+                     {
+                       "featureIdentifier" : "com.apple.coredevice.feature.getdisplayinfo",
+                       "name" : "Get Display Information"
+                     },
+                     {
+                       "featureIdentifier" : "com.apple.coredevice.feature.getlockstate",
+                       "name" : "Get Lock State"
+                     },
+                     {
+                       "featureIdentifier" : "com.apple.coredevice.feature.installapp",
+                       "name" : "Install Application"
+                     },
+                     {
+                       "featureIdentifier" : "com.apple.coredevice.feature.installroot",
+                       "name" : "Install Root"
+                     },
+                     {
+                       "featureIdentifier" : "com.apple.coredevice.feature.launchapplication",
+                       "name" : "Launch Application"
+                     },
+                     {
+                       "featureIdentifier" : "com.apple.coredevice.feature.listFiles",
+                       "name" : "List Files"
+                     },
+                     {
+                       "featureIdentifier" : "com.apple.coredevice.feature.listroots",
+                       "name" : "List Roots"
+                     },
+                     {
+                       "featureIdentifier" : "com.apple.coredevice.feature.tags",
+                       "name" : "Modify Tags"
+                     },
+                     {
+                       "featureIdentifier" : "com.apple.coredevice.feature.default.user.credentials",
+                       "name" : "Modify credentials for default users for a device"
+                     },
+                     {
+                       "featureIdentifier" : "com.apple.coredevice.feature.monitorprocesstermination",
+                       "name" : "Monitor Process for Termination"
+                     },
+                     {
+                       "featureIdentifier" : "com.apple.dt.customer.postdarwinnotification",
+                       "name" : "Post Darwin Notification"
+                     },
+                     {
+                       "featureIdentifier" : "com.apple.coredevice.feature.processcontrol",
+                       "name" : "Process Control"
+                     },
+                     {
+                       "featureIdentifier" : "com.apple.coredevice.feature.querymobilegestalt",
+                       "name" : "Query MobileGestalt"
+                     },
+                     {
+                       "featureIdentifier" : "com.apple.coredevice.feature.rebootdevice",
+                       "name" : "Reboot Device"
+                     },
+                     {
+                       "featureIdentifier" : "com.apple.coredevice.feature.sendmemorywarningtoprocess",
+                       "name" : "Send Memory Warning to Process"
+                     },
+                     {
+                       "featureIdentifier" : "com.apple.coredevice.feature.sendsignaltoprocess",
+                       "name" : "Send Signal to Process"
+                     },
+                     {
+                       "featureIdentifier" : "com.apple.dt.profile",
+                       "name" : "Service Hub Profile"
+                     },
+                     {
+                       "featureIdentifier" : "com.apple.coredevice.feature.spawnexecutable",
+                       "name" : "Spawn Executable"
+                     },
+                     {
+                       "featureIdentifier" : "com.apple.coredevice.feature.streamapplist",
+                       "name" : "Stream Application List"
+                     },
+                     {
+                       "featureIdentifier" : "com.apple.coredevice.feature.streamprocesslist",
+                       "name" : "Stream Process List"
+                     },
+                     {
+                       "featureIdentifier" : "com.apple.coredevice.feature.transferFiles",
+                       "name" : "Transfer Files"
+                     },
+                     {
+                       "featureIdentifier" : "com.apple.coredevice.feature.uninstallapp",
+                       "name" : "Uninstall Application"
+                     },
+                     {
+                       "featureIdentifier" : "com.apple.coredevice.feature.uninstallroot",
+                       "name" : "Uninstall Root"
+                     },
+                     {
+                       "featureIdentifier" : "com.apple.coredevice.feature.unpairdevice",
+                       "name" : "Unpair Device"
+                     },
+                     {
+                       "featureIdentifier" : "com.apple.coredevice.feature.viewdevicescreen",
+                       "name" : "View Device Screen"
+                     }
+                   ],
+                   "connectionProperties" : {
+                     "authenticationType" : "manualPairing",
+                     "isMobileDeviceOnly" : false,
+                     "lastConnectionDate" : "2026-08-11T04:12:00.000Z",
+                     "localHostnames" : [
+                       "Rushils-iPhone.coredevice.local",
+                       "240DA45C-FA68-59CB-B0B9-DDC164F92F75.coredevice.local",
+                       "00008101-001D05003486001E.coredevice.local"
+                     ],
+                     "pairingState" : "paired",
+                     "potentialHostnames" : [
+                       "Rushils-iPhone.coredevice.local",
+                       "240DA45C-FA68-59CB-B0B9-DDC164F92F75.coredevice.local",
+                       "00008101-001D05003486001E.coredevice.local"
+                     ],
+                     "transportType" : "wired",
+                     "tunnelIPAddress" : "fd88:895b:aaa7::1",
+                     "tunnelState" : "connected",
+                     "tunnelTransportProtocol" : "tcp"
+                   },
+                   "deviceProperties" : {
+                     "bootState" : "booted",
+                     "bootedFromSnapshot" : true,
+                     "bootedSnapshotName" : "com.apple.os.update-0EAA0C08366E211502996BFB5CE48855904691C0E958C22BF9DC668F0184F9B7",
+                     "ddiServicesAvailable" : true,
+                     "developerModeStatus" : "enabled",
+                     "hasInternalOSBuild" : false,
+                     "name" : "Rushil’s iPhone",
+                     "osBuildUpdate" : "23F77",
+                     "osVersionNumber" : "26.5",
+                     "providerSpecificValues" : {
+                       "hasAMRestorableDeviceRef" : "true"
+                     },
+                     "rootFileSystemIsWritable" : false,
+                     "screenViewingURL" : "devices://device/open?id=240DA45C-FA68-59CB-B0B9-DDC164F92F75",
+                     "supportsCheckedAllocations" : false
+                   },
+                   "hardwareProperties" : {
+                     "cpuType" : {
+                       "name" : "arm64e",
+                       "subType" : 2,
+                       "type" : 16777228
+                     },
+                     "deviceType" : "iPhone",
+                     "ecid" : 8168272763944990,
+                     "hardwareModel" : "D53gAP",
+                     "internalStorageCapacity" : 128000000000,
+                     "isProductionFused" : true,
+                     "marketingName" : "iPhone 12",
+                     "platform" : "iOS",
+                     "productType" : "iPhone13,2",
+                     "reality" : "physical",
+                     "serialNumber" : "DX3GN06B0F11",
+                     "supportedCPUTypes" : [
+                       {
+                         "name" : "arm64e",
+                         "subType" : 2,
+                         "type" : 16777228
+                       },
+                       {
+                         "name" : "arm64",
+                         "subType" : 0,
+                         "type" : 16777228
+                       }
+                     ],
+                     "supportedDeviceFamilies" : [
+                       1
+                     ],
+                     "thinningProductType" : "iPhone13,2",
+                     "udid" : "00008101-001D05003486001E"
+                   },
+                   "identifier" : "240DA45C-FA68-59CB-B0B9-DDC164F92F75",
+                   "tags" : [
+
+                   ],
+                   "visibilityClass" : "default"
+                 }
+               ]
+             }
+           }
+
+[   +7 ms] Artifact Instance of 'AndroidGenSnapshotArtifacts' is not required, skipping update.
+[        ] Artifact Instance of 'AndroidInternalBuildArtifacts' is not required, skipping update.
+[   +2 ms] Artifact Instance of 'FlutterEngineStamp' is not required, skipping update.
+[   +1 ms] Artifact Instance of 'WindowsEngineArtifacts' is not required, skipping update.
+[   +1 ms] Artifact Instance of 'LinuxEngineArtifacts' is not required, skipping update.
+[        ] Artifact Instance of 'LinuxFuchsiaSDKArtifacts' is not required, skipping update.
+[        ] Artifact Instance of 'MacOSFuchsiaSDKArtifacts' is not required, skipping update.
+[        ] Artifact Instance of 'FlutterRunnerSDKArtifacts' is not required, skipping update.
+[        ] Artifact Instance of 'FlutterRunnerDebugSymbols' is not required, skipping update.
+[   +8 ms] Changing current working directory to: /Users/rushilpatel/Documents/Coding Projects/Roam.io/2026W2-Roam.io/roam_io
+[  +10 ms] Checking for wireless devices...
+[+2801 ms] [
+             {
+               "simulator" : true,
+               "operatingSystemVersion" : "26.4.1 (23E254a)",
+               "available" : true,
+               "platform" : "com.apple.platform.iphonesimulator",
+               "modelCode" : "iPad16,9",
+               "identifier" : "3F54641B-BE4A-4AD4-AE6C-531C22CA5A6E",
+               "architecture" : "arm64",
+               "modelUTI" : "com.apple.com.apple.ipad-air-11-inch-m4-1",
+               "modelName" : "iPad Air 11-inch (M4)",
+               "name" : "iPad Air 11-inch (M4)",
+               "ignored" : false
+             },
+             {
+               "simulator" : true,
+               "operatingSystemVersion" : "18.1 (22B81)",
+               "available" : true,
+               "platform" : "com.apple.platform.iphonesimulator",
+               "modelCode" : "iPhone14,6",
+               "identifier" : "F332881E-C0C0-4C6F-BAB1-CECECB0AB664",
+               "architecture" : "arm64",
+               "modelUTI" : "com.apple.iphone-se3-1",
+               "modelName" : "iPhone SE (3rd generation)",
+               "name" : "iPhone SE (3rd generation)",
+               "ignored" : false
+             },
+             {
+               "simulator" : true,
+               "operatingSystemVersion" : "18.1 (22B81)",
+               "available" : true,
+               "platform" : "com.apple.platform.iphonesimulator",
+               "modelCode" : "iPad16,6",
+               "identifier" : "FCBA745D-D664-45A3-962A-BD5727093B11",
+               "architecture" : "arm64",
+               "modelUTI" : "com.apple.ipad-pro-m4-13-1",
+               "modelName" : "iPad Pro 13-inch (M4)",
+               "name" : "iPad Pro 13-inch (M4)",
+               "ignored" : false
+             },
+             {
+               "simulator" : true,
+               "operatingSystemVersion" : "26.5 (23F77)",
+               "available" : true,
+               "platform" : "com.apple.platform.iphonesimulator",
+               "modelCode" : "iPhone18,1",
+               "identifier" : "CA1F5E81-C051-4FC0-9623-33D72715C459",
+               "architecture" : "arm64",
+               "modelUTI" : "com.apple.com.apple.iphone-17-pro-2",
+               "modelName" : "iPhone 17 Pro",
+               "name" : "iPhone 17 Pro",
+               "ignored" : false
+             },
+             {
+               "simulator" : true,
+               "operatingSystemVersion" : "26.4.1 (23E254a)",
+               "available" : true,
+               "platform" : "com.apple.platform.iphonesimulator",
+               "modelCode" : "iPhone18,3",
+               "identifier" : "4798CA96-8A53-4EDC-855B-AF03981574DD",
+               "architecture" : "arm64",
+               "modelUTI" : "com.apple.com.apple.iphone-17-2",
+               "modelName" : "iPhone 17",
+               "name" : "iPhone 17",
+               "ignored" : false
+             },
+             {
+               "simulator" : true,
+               "operatingSystemVersion" : "26.5 (23F77)",
+               "available" : true,
+               "platform" : "com.apple.platform.iphonesimulator",
+               "modelCode" : "iPhone18,2",
+               "identifier" : "35F55482-9677-428A-846A-94FA0D4025D4",
+               "architecture" : "arm64",
+               "modelUTI" : "com.apple.com.apple.iphone-17-pro-max-2",
+               "modelName" : "iPhone 17 Pro Max",
+               "name" : "iPhone 17 Pro Max",
+               "ignored" : false
+             },
+             {
+               "simulator" : true,
+               "operatingSystemVersion" : "17.5 (21F79)",
+               "available" : true,
+               "platform" : "com.apple.platform.iphonesimulator",
+               "modelCode" : "iPhone14,6",
+               "identifier" : "3224373B-699C-47EB-B52B-5EDB15810B3D",
+               "architecture" : "arm64",
+               "modelUTI" : "com.apple.iphone-se3-1",
+               "modelName" : "iPhone SE (3rd generation)",
+               "name" : "iPhone SE (3rd generation)",
+               "ignored" : false
+             },
+             {
+               "simulator" : true,
+               "operatingSystemVersion" : "26.5 (23F77)",
+               "available" : true,
+               "platform" : "com.apple.platform.iphonesimulator",
+               "modelCode" : "iPad16,2",
+               "identifier" : "6CEB4EEF-C899-4CD9-9150-D0CF282AF029",
+               "architecture" : "arm64",
+               "modelUTI" : "com.apple.ipad-mini-a17-1",
+               "modelName" : "iPad mini (A17 Pro)",
+               "name" : "iPad mini (A17 Pro)",
+               "ignored" : false
+             },
+             {
+               "simulator" : true,
+               "operatingSystemVersion" : "17.5 (21F79)",
+               "available" : true,
+               "platform" : "com.apple.platform.iphonesimulator",
+               "modelCode" : "iPad13,18",
+               "identifier" : "B4C80CC5-91FC-492A-A044-E61ABE3A4EF4",
+               "architecture" : "arm64",
+               "modelUTI" : "com.apple.ipad-10-1",
+               "modelName" : "iPad (10th generation)",
+               "name" : "iPad (10th generation)",
+               "ignored" : false
+             },
+             {
+               "simulator" : true,
+               "operatingSystemVersion" : "26.4.1 (23E254a)",
+               "available" : true,
+               "platform" : "com.apple.platform.iphonesimulator",
+               "modelCode" : "iPad17,2",
+               "identifier" : "3421C40E-AF1F-48BE-8C77-D076ABE5D66C",
+               "architecture" : "arm64",
+               "modelUTI" : "com.apple.com.apple.ipad-pro-11-inch-m5-1",
+               "modelName" : "iPad Pro 11-inch (M5)",
+               "name" : "iPad Pro 11-inch (M5)",
+               "ignored" : false
+             },
+             {
+               "simulator" : true,
+               "operatingSystemVersion" : "17.5 (21F79)",
+               "available" : true,
+               "platform" : "com.apple.platform.iphonesimulator",
+               "modelCode" : "iPad14,9",
+               "identifier" : "99FFC20F-02FC-4279-962D-2377E8C2D1AF",
+               "architecture" : "arm64",
+               "modelUTI" : "com.apple.ipad-air-m2-1",
+               "modelName" : "iPad Air 11-inch (M2)",
+               "name" : "iPad Air 11-inch (M2)",
+               "ignored" : false
+             },
+             {
+               "ignored" : false,
+               "modelCode" : "iPhone13,2",
+               "simulator" : false,
+               "modelName" : "iPhone 12",
+               "operatingSystemVersion" : "26.5 (23F77)",
+               "identifier" : "00008101-001D05003486001E",
+               "platform" : "com.apple.platform.iphoneos",
+               "architecture" : "arm64e",
+               "interface" : "usb",
+               "available" : true,
+               "name" : "Rushil’s iPhone",
+               "modelUTI" : "com.apple.iphone-12-1"
+             },
+             {
+               "simulator" : true,
+               "operatingSystemVersion" : "18.1 (22B81)",
+               "available" : true,
+               "platform" : "com.apple.platform.iphonesimulator",
+               "modelCode" : "iPad14,11",
+               "identifier" : "6841238E-1E34-42C1-B2B9-BAD91B71FB27",
+               "architecture" : "arm64",
+               "modelUTI" : "com.apple.ipad-air-m2-13-1",
+               "modelName" : "iPad Air 13-inch (M2)",
+               "name" : "iPad Air 13-inch (M2)",
+               "ignored" : false
+             },
+             {
+               "simulator" : true,
+               "operatingSystemVersion" : "17.5 (21F79)",
+               "available" : true,
+               "platform" : "com.apple.platform.iphonesimulator",
+               "modelCode" : "iPhone16,2",
+               "identifier" : "B344C1B9-DD09-47F1-A8CC-971D29310DC0",
+               "architecture" : "arm64",
+               "modelUTI" : "com.apple.iphone-15-pro-max-1",
+               "modelName" : "iPhone 15 Pro Max",
+               "name" : "iPhone 15 Pro Max",
+               "ignored" : false
+             },
+             {
+               "simulator" : true,
+               "operatingSystemVersion" : "26.4.1 (23E254a)",
+               "available" : true,
+               "platform" : "com.apple.platform.iphonesimulator",
+               "modelCode" : "iPad15,7",
+               "identifier" : "CBFEA143-A903-4241-9020-BBFDC01F8795",
+               "architecture" : "arm64",
+               "modelUTI" : "com.apple.ipad-a16-1",
+               "modelName" : "iPad (A16)",
+               "name" : "iPad (A16)",
+               "ignored" : false
+             },
+             {
+               "simulator" : true,
+               "operatingSystemVersion" : "18.1 (22B81)",
+               "available" : true,
+               "platform" : "com.apple.platform.iphonesimulator",
+               "modelCode" : "iPad16,4",
+               "identifier" : "1F5FA63D-37E0-4E53-AAD3-326946DA2E3F",
+               "architecture" : "arm64",
+               "modelUTI" : "com.apple.ipad-pro-m4-1",
+               "modelName" : "iPad Pro 11-inch (M4)",
+               "name" : "iPad Pro 11-inch (M4)",
+               "ignored" : false
+             },
+             {
+               "simulator" : true,
+               "operatingSystemVersion" : "26.5 (23F77)",
+               "available" : true,
+               "platform" : "com.apple.platform.iphonesimulator",
+               "modelCode" : "iPhone18,3",
+               "identifier" : "67354832-8804-4D17-B1F2-8B337A1F3DFE",
+               "architecture" : "arm64",
+               "modelUTI" : "com.apple.com.apple.iphone-17-2",
+               "modelName" : "iPhone 17",
+               "name" : "iPhone 17",
+               "ignored" : false
+             },
+             {
+               "simulator" : true,
+               "operatingSystemVersion" : "26.4.1 (23E254a)",
+               "available" : true,
+               "platform" : "com.apple.platform.iphonesimulator",
+               "modelCode" : "iPad16,11",
+               "identifier" : "1939E474-CDA4-41B4-9C2D-6C70FC3242E3",
+               "architecture" : "arm64",
+               "modelUTI" : "com.apple.com.apple.ipad-air-13-inch-m4-1",
+               "modelName" : "iPad Air 13-inch (M4)",
+               "name" : "iPad Air 13-inch (M4)",
+               "ignored" : false
+             },
+             {
+               "simulator" : true,
+               "operatingSystemVersion" : "26.5 (23F77)",
+               "available" : true,
+               "platform" : "com.apple.platform.iphonesimulator",
+               "modelCode" : "iPad16,9",
+               "identifier" : "34294E57-FB4F-46A0-980C-3546E88AC25C",
+               "architecture" : "arm64",
+               "modelUTI" : "com.apple.com.apple.ipad-air-11-inch-m4-1",
+               "modelName" : "iPad Air 11-inch (M4)",
+               "name" : "iPad Air 11-inch (M4)",
+               "ignored" : false
+             },
+             {
+               "simulator" : true,
+               "operatingSystemVersion" : "26.4.1 (23E254a)",
+               "available" : true,
+               "platform" : "com.apple.platform.iphonesimulator",
+               "modelCode" : "iPad17,4",
+               "identifier" : "F06070AF-8AE2-4DD9-86C9-615FE10D0C32",
+               "architecture" : "arm64",
+               "modelUTI" : "com.apple.com.apple.ipad-pro-13-inch-m5-1",
+               "modelName" : "iPad Pro 13-inch (M5)",
+               "name" : "iPad Pro 13-inch (M5)",
+               "ignored" : false
+             },
+             {
+               "simulator" : true,
+               "operatingSystemVersion" : "18.1 (22B81)",
+               "available" : true,
+               "platform" : "com.apple.platform.iphonesimulator",
+               "modelCode" : "iPhone17,2",
+               "identifier" : "D6FE3062-9426-4EEB-BEB8-761F41ADB7C1",
+               "architecture" : "arm64",
+               "modelUTI" : "com.apple.iphone-16-pro-max-1",
+               "modelName" : "iPhone 16 Pro Max",
+               "name" : "iPhone 16 Pro Max",
+               "ignored" : false
+             },
+             {
+               "simulator" : true,
+               "operatingSystemVersion" : "26.4.1 (23E254a)",
+               "available" : true,
+               "platform" : "com.apple.platform.iphonesimulator",
+               "modelCode" : "iPhone18,5",
+               "identifier" : "F0035D2F-2193-43D1-919A-0BD5CC684B3F",
+               "architecture" : "arm64",
+               "modelUTI" : "com.apple.com.apple.iphone-17e-1",
+               "modelName" : "iPhone 17e",
+               "name" : "iPhone 17e",
+               "ignored" : false
+             },
+             {
+               "simulator" : true,
+               "operatingSystemVersion" : "18.1 (22B81)",
+               "available" : true,
+               "platform" : "com.apple.platform.iphonesimulator",
+               "modelCode" : "iPad14,9",
+               "identifier" : "7661B2B0-CF32-4574-B16F-A16F61CE3873",
+               "architecture" : "arm64",
+               "modelUTI" : "com.apple.ipad-air-m2-1",
+               "modelName" : "iPad Air 11-inch (M2)",
+               "name" : "iPad Air 11-inch (M2)",
+               "ignored" : false
+             },
+             {
+               "simulator" : true,
+               "operatingSystemVersion" : "26.4.1 (23E254a)",
+               "available" : true,
+               "platform" : "com.apple.platform.iphonesimulator",
+               "modelCode" : "iPad16,2",
+               "identifier" : "8B12BC63-9D5B-4519-AA4E-9332453903F5",
+               "architecture" : "arm64",
+               "modelUTI" : "com.apple.ipad-mini-a17-1",
+               "modelName" : "iPad mini (A17 Pro)",
+               "name" : "iPad mini (A17 Pro)",
+               "ignored" : false
+             },
+             {
+               "simulator" : true,
+               "operatingSystemVersion" : "18.1 (22B81)",
+               "available" : true,
+               "platform" : "com.apple.platform.iphonesimulator",
+               "modelCode" : "iPhone17,4",
+               "identifier" : "AD80812E-9931-4691-86F2-571AC91FA9C1",
+               "architecture" : "arm64",
+               "modelUTI" : "com.apple.iphone-16-plus-1",
+               "modelName" : "iPhone 16 Plus",
+               "name" : "iPhone 16 Plus",
+               "ignored" : false
+             },
+             {
+               "simulator" : true,
+               "operatingSystemVersion" : "18.1 (22B81)",
+               "available" : true,
+               "platform" : "com.apple.platform.iphonesimulator",
+               "modelCode" : "iPad16,2",
+               "identifier" : "1EBDF169-F5D4-4EA9-B23E-FFB148FA314E",
+               "architecture" : "arm64",
+               "modelUTI" : "com.apple.ipad-mini-a17-1",
+               "modelName" : "iPad mini (A17 Pro)",
+               "name" : "iPad mini (A17 Pro)",
+               "ignored" : false
+             },
+             {
+               "simulator" : true,
+               "operatingSystemVersion" : "26.5 (23F77)",
+               "available" : true,
+               "platform" : "com.apple.platform.iphonesimulator",
+               "modelCode" : "iPad15,7",
+               "identifier" : "0A2AEFDA-8272-44BE-AD39-522C3BACE63A",
+               "architecture" : "arm64",
+               "modelUTI" : "com.apple.ipad-a16-1",
+               "modelName" : "iPad (A16)",
+               "name" : "iPad (A16)",
+               "ignored" : false
+             },
+             {
+               "simulator" : true,
+               "operatingSystemVersion" : "26.5 (23F77)",
+               "available" : true,
+               "platform" : "com.apple.platform.iphonesimulator",
+               "modelCode" : "iPad16,11",
+               "identifier" : "59224692-A886-407C-A98C-7746926C9D51",
+               "architecture" : "arm64",
+               "modelUTI" : "com.apple.com.apple.ipad-air-13-inch-m4-1",
+               "modelName" : "iPad Air 13-inch (M4)",
+               "name" : "iPad Air 13-inch (M4)",
+               "ignored" : false
+             },
+             {
+               "simulator" : true,
+               "operatingSystemVersion" : "26.4.1 (23E254a)",
+               "available" : true,
+               "platform" : "com.apple.platform.iphonesimulator",
+               "modelCode" : "iPhone18,2",
+               "identifier" : "02F7A17D-EC5B-449E-9176-841FA9BCEE5C",
+               "architecture" : "arm64",
+               "modelUTI" : "com.apple.com.apple.iphone-17-pro-max-2",
+               "modelName" : "iPhone 17 Pro Max",
+               "name" : "iPhone 17 Pro Max",
+               "ignored" : false
+             },
+             {
+               "simulator" : true,
+               "operatingSystemVersion" : "26.4.1 (23E254a)",
+               "available" : true,
+               "platform" : "com.apple.platform.iphonesimulator",
+               "modelCode" : "iPhone18,4",
+               "identifier" : "8B2A8258-950F-479D-AE02-03C8632D8469",
+               "architecture" : "arm64",
+               "modelUTI" : "com.apple.com.apple.iphone-air-1",
+               "modelName" : "iPhone Air",
+               "name" : "iPhone Air",
+               "ignored" : false
+             },
+             {
+               "simulator" : true,
+               "operatingSystemVersion" : "26.5 (23F77)",
+               "available" : true,
+               "platform" : "com.apple.platform.iphonesimulator",
+               "modelCode" : "iPhone18,4",
+               "identifier" : "A70A82EA-0F95-4B55-B199-83C56B156BBD",
+               "architecture" : "arm64",
+               "modelUTI" : "com.apple.com.apple.iphone-air-1",
+               "modelName" : "iPhone Air",
+               "name" : "iPhone Air",
+               "ignored" : false
+             },
+             {
+               "simulator" : true,
+               "operatingSystemVersion" : "26.5 (23F77)",
+               "available" : true,
+               "platform" : "com.apple.platform.iphonesimulator",
+               "modelCode" : "iPad17,4",
+               "identifier" : "93BC1B36-6D9A-4AF4-9735-A19884A797BF",
+               "architecture" : "arm64",
+               "modelUTI" : "com.apple.com.apple.ipad-pro-13-inch-m5-1",
+               "modelName" : "iPad Pro 13-inch (M5)",
+               "name" : "iPad Pro 13-inch (M5)",
+               "ignored" : false
+             },
+             {
+               "simulator" : true,
+               "operatingSystemVersion" : "18.1 (22B81)",
+               "available" : true,
+               "platform" : "com.apple.platform.iphonesimulator",
+               "modelCode" : "iPad13,18",
+               "identifier" : "F4D955BF-6AD7-439A-8F6F-D4B423225EA9",
+               "architecture" : "arm64",
+               "modelUTI" : "com.apple.ipad-10-1",
+               "modelName" : "iPad (10th generation)",
+               "name" : "iPad (10th generation)",
+               "ignored" : false
+             },
+             {
+               "simulator" : true,
+               "operatingSystemVersion" : "26.5 (23F77)",
+               "available" : true,
+               "platform" : "com.apple.platform.iphonesimulator",
+               "modelCode" : "iPhone18,5",
+               "identifier" : "125C0A82-430C-4639-BE37-468F83E9F1CD",
+               "architecture" : "arm64",
+               "modelUTI" : "com.apple.com.apple.iphone-17e-1",
+               "modelName" : "iPhone 17e",
+               "name" : "iPhone 17e",
+               "ignored" : false
+             },
+             {
+               "simulator" : true,
+               "operatingSystemVersion" : "26.4.1 (23E254a)",
+               "available" : true,
+               "platform" : "com.apple.platform.iphonesimulator",
+               "modelCode" : "iPhone18,1",
+               "identifier" : "0CBA9022-75CA-4286-A114-30ED2FD4243B",
+               "architecture" : "arm64",
+               "modelUTI" : "com.apple.com.apple.iphone-17-pro-2",
+               "modelName" : "iPhone 17 Pro",
+               "name" : "iPhone 17 Pro",
+               "ignored" : false
+             },
+             {
+               "simulator" : true,
+               "operatingSystemVersion" : "18.1 (22B81)",
+               "available" : true,
+               "platform" : "com.apple.platform.iphonesimulator",
+               "modelCode" : "iPhone17,1",
+               "identifier" : "843FB03D-B2B4-4309-87D8-4BAC16FC57F8",
+               "architecture" : "arm64",
+               "modelUTI" : "com.apple.iphone-16-pro-1",
+               "modelName" : "iPhone 16 Pro",
+               "name" : "iPhone 16 Pro",
+               "ignored" : false
+             },
+             {
+               "simulator" : true,
+               "operatingSystemVersion" : "26.5 (23F77)",
+               "available" : true,
+               "platform" : "com.apple.platform.iphonesimulator",
+               "modelCode" : "iPad17,2",
+               "identifier" : "80B36BE0-A345-4079-847E-418C85240E8B",
+               "architecture" : "arm64",
+               "modelUTI" : "com.apple.com.apple.ipad-pro-11-inch-m5-1",
+               "modelName" : "iPad Pro 11-inch (M5)",
+               "name" : "iPad Pro 11-inch (M5)",
+               "ignored" : false
+             },
+             {
+               "simulator" : true,
+               "operatingSystemVersion" : "18.1 (22B81)",
+               "available" : true,
+               "platform" : "com.apple.platform.iphonesimulator",
+               "modelCode" : "iPhone17,3",
+               "identifier" : "E2AA721D-59C6-4F45-9B1D-F5C2E88A6C8B",
+               "architecture" : "arm64",
+               "modelUTI" : "com.apple.iphone-16-1",
+               "modelName" : "iPhone 16",
+               "name" : "iPhone 16",
+               "ignored" : false
+             },
+             {
+               "simulator" : true,
+               "operatingSystemVersion" : "17.5 (21F79)",
+               "available" : true,
+               "platform" : "com.apple.platform.iphonesimulator",
+               "modelCode" : "iPad14,1",
+               "identifier" : "C0D35657-FC2F-407D-9CCF-B21D103FD24F",
+               "architecture" : "arm64",
+               "modelUTI" : "com.apple.ipad-mini6-1",
+               "modelName" : "iPad mini (6th generation)",
+               "name" : "iPad mini (6th generation)",
+               "ignored" : false
+             },
+             {
+               "simulator" : true,
+               "operatingSystemVersion" : "17.5 (21F79)",
+               "available" : true,
+               "platform" : "com.apple.platform.iphonesimulator",
+               "modelCode" : "iPad16,4",
+               "identifier" : "85EC9C41-866B-4423-8FC1-E6EF9602A023",
+               "architecture" : "arm64",
+               "modelUTI" : "com.apple.ipad-pro-m4-1",
+               "modelName" : "iPad Pro 11-inch (M4)",
+               "name" : "iPad Pro 11-inch (M4)",
+               "ignored" : false
+             },
+             {
+               "simulator" : true,
+               "operatingSystemVersion" : "17.5 (21F79)",
+               "available" : true,
+               "platform" : "com.apple.platform.iphonesimulator",
+               "modelCode" : "iPad16,6",
+               "identifier" : "7C971D42-A219-4E53-B6F7-A5B8C2F87F95",
+               "architecture" : "arm64",
+               "modelUTI" : "com.apple.ipad-pro-m4-13-1",
+               "modelName" : "iPad Pro 13-inch (M4)",
+               "name" : "iPad Pro 13-inch (M4)",
+               "ignored" : false
+             },
+             {
+               "simulator" : true,
+               "operatingSystemVersion" : "17.5 (21F79)",
+               "available" : true,
+               "platform" : "com.apple.platform.iphonesimulator",
+               "modelCode" : "iPhone16,1",
+               "identifier" : "F17CC513-3E14-4C63-8EE1-2285B21C1A75",
+               "architecture" : "arm64",
+               "modelUTI" : "com.apple.iphone-15-pro-1",
+               "modelName" : "iPhone 15 Pro",
+               "name" : "iPhone 15 Pro",
+               "ignored" : false
+             },
+             {
+               "simulator" : true,
+               "operatingSystemVersion" : "17.5 (21F79)",
+               "available" : true,
+               "platform" : "com.apple.platform.iphonesimulator",
+               "modelCode" : "iPhone15,5",
+               "identifier" : "72FF717A-EB0F-41E1-B7B5-443532B9F140",
+               "architecture" : "arm64",
+               "modelUTI" : "com.apple.iphone-15-plus-1",
+               "modelName" : "iPhone 15 Plus",
+               "name" : "iPhone 15 Plus",
+               "ignored" : false
+             },
+             {
+               "simulator" : true,
+               "operatingSystemVersion" : "17.5 (21F79)",
+               "available" : true,
+               "platform" : "com.apple.platform.iphonesimulator",
+               "modelCode" : "iPhone15,4",
+               "identifier" : "35A849E5-2D04-426D-8469-6BCD851732D5",
+               "architecture" : "arm64",
+               "modelUTI" : "com.apple.iphone-15-1",
+               "modelName" : "iPhone 15",
+               "name" : "iPhone 15",
+               "ignored" : false
+             },
+             {
+               "ignored" : false,
+               "modelCode" : "Mac14,7",
+               "simulator" : false,
+               "modelName" : "MacBook Pro",
+               "operatingSystemVersion" : "26.6.1 (25G76)",
+               "identifier" : "00008112-001A14110A2A201E",
+               "platform" : "com.apple.platform.macosx",
+               "architecture" : "arm64e",
+               "interface" : "usb",
+               "available" : true,
+               "name" : "My Mac",
+               "modelUTI" : "com.apple.macbookpro-13-2022"
+             },
+             {
+               "simulator" : true,
+               "operatingSystemVersion" : "17.5 (21F79)",
+               "available" : true,
+               "platform" : "com.apple.platform.iphonesimulator",
+               "modelCode" : "iPad14,11",
+               "identifier" : "8C425EA1-1EF2-409A-B389-B1652D619329",
+               "architecture" : "arm64",
+               "modelUTI" : "com.apple.ipad-air-m2-13-1",
+               "modelName" : "iPad Air 13-inch (M2)",
+               "name" : "iPad Air 13-inch (M2)",
+               "ignored" : false
+             }
+           ]
+[   +5 ms] Connected devices:
+[   +1 ms] executing: sw_vers -productName
+[  +13 ms] Exit code 0 from: sw_vers -productName
+[        ] macOS
+[        ] executing: sw_vers -productVersion
+[   +8 ms] Exit code 0 from: sw_vers -productVersion
+[        ] 26.6.1
+[        ] executing: sw_vers -buildVersion
+[   +8 ms] Exit code 0 from: sw_vers -buildVersion
+[        ] 25G76
+[        ] executing: uname -m
+[   +4 ms] Exit code 0 from: uname -m
+[        ] arm64
+[ +432 ms] Rushil’s iPhone (mobile) • 00008101-001D05003486001E            • ios            • iOS 26.5 23F77
+[        ] iPhone 17 Pro (mobile)   • 0CBA9022-75CA-4286-A114-30ED2FD4243B • ios            • com.apple.CoreSimulator.SimRuntime.iOS-26-4 (simulator)
+[        ] macOS (desktop)          • macos                                • darwin-arm64   • macOS 26.6.1 25G76 darwin-arm64
+[        ] Chrome (web)             • chrome                               • web-javascript • Google Chrome 151.0.7922.108
+[        ] [1]: Rushil’s iPhone (00008101-001D05003486001E)
+[        ] [2]: iPhone 17 Pro (0CBA9022-75CA-4286-A114-30ED2FD4243B)
+[        ] [3]: macOS (macos)
+[        ] [4]: Chrome (chrome)
+[        ] Please choose one (or "q" to quit)
+[        ] : 
+[+396417 ms] Running 3 shutdown hooks
+[   +4 ms] Shutdown hooks complete
+[ +261 ms] exiting with code 0

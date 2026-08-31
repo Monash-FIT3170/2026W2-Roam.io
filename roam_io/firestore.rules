@@ -137,6 +137,17 @@ service cloud.firestore {
         'photoUrl',
         'title',
         'kind',
+        'sourceJourneyId',
+        'sourceSidequestId',
+        'encodedRoute',
+        'routeBounds',
+        'journeyStartTime',
+        'journeyEndTime',
+        'sidequestCompletedAt',
+        'transportMode',
+        'mapImageUrl',
+        'mapImageStoragePath',
+        'media',
         'metrics',
         'showMapPreview',
         'createdAt'
@@ -162,9 +173,162 @@ service cloud.firestore {
         request.resource.data.photoUrl is string) &&
       request.resource.data.title is string &&
       request.resource.data.kind is string &&
+      (!request.resource.data.keys().hasAny(['sourceJourneyId']) ||
+        request.resource.data.sourceJourneyId is string) &&
+      (!request.resource.data.keys().hasAny(['sourceSidequestId']) ||
+        request.resource.data.sourceSidequestId is string) &&
+      (!request.resource.data.keys().hasAny(['encodedRoute']) ||
+        request.resource.data.encodedRoute is string) &&
+      (!request.resource.data.keys().hasAny(['routeBounds']) ||
+        hasValidRouteBounds(request.resource.data.routeBounds)) &&
+      (!request.resource.data.keys().hasAny(['journeyStartTime']) ||
+        request.resource.data.journeyStartTime is string) &&
+      (!request.resource.data.keys().hasAny(['journeyEndTime']) ||
+        request.resource.data.journeyEndTime is string) &&
+      (!request.resource.data.keys().hasAny(['sidequestCompletedAt']) ||
+        request.resource.data.sidequestCompletedAt is string) &&
+      (!request.resource.data.keys().hasAny(['transportMode']) ||
+        request.resource.data.transportMode is string) &&
+      hasValidActivityMapImage(request.resource.data) &&
+      (!request.resource.data.keys().hasAny(['media']) ||
+        hasValidActivityMediaList(request.resource.data.media)) &&
       request.resource.data.metrics is list &&
       request.resource.data.showMapPreview is bool &&
-      request.resource.data.createdAt is string;
+      request.resource.data.createdAt is string &&
+      (
+        request.resource.data.kind != 'journey' ||
+        (
+          request.resource.data.keys().hasAll([
+            'sourceJourneyId',
+            'encodedRoute',
+            'journeyStartTime',
+            'journeyEndTime',
+            'transportMode',
+            'media'
+          ]) &&
+          request.resource.data.activityId ==
+            'journey_' + request.resource.data.sourceJourneyId &&
+          exists(
+            /databases/$(database)/documents/profiles/$(request.auth.uid)/journeys/$(request.resource.data.sourceJourneyId)
+          )
+        )
+      ) &&
+      (
+        request.resource.data.kind != 'sidequest' ||
+        (
+          request.resource.data.keys().hasAll([
+            'sourceSidequestId',
+            'sidequestCompletedAt',
+            'media'
+          ]) &&
+          request.resource.data.activityId ==
+            'sidequest_' + request.resource.data.sourceSidequestId &&
+          !request.resource.data.keys().hasAny([
+            'sourceJourneyId',
+            'encodedRoute',
+            'routeBounds',
+            'journeyStartTime',
+            'journeyEndTime',
+            'transportMode'
+          ])
+        )
+      );
+    }
+
+    function hasValidActivityMediaList(media) {
+      return media is list &&
+        media.size() <= 3 &&
+        (media.size() < 1 || hasValidActivityMediaItem(media[0])) &&
+        (media.size() < 2 || hasValidActivityMediaItem(media[1])) &&
+        (media.size() < 3 || hasValidActivityMediaItem(media[2]));
+    }
+
+    function hasValidActivityMediaItem(item) {
+      return item is map &&
+        item.keys().hasOnly([
+          'id',
+          'type',
+          'url',
+          'storagePath',
+          'order',
+          'createdAt',
+          'thumbnailUrl'
+        ]) &&
+        item.keys().hasAll([
+          'id',
+          'type',
+          'url',
+          'storagePath',
+          'order',
+          'createdAt'
+        ]) &&
+        item.id is string &&
+        item.id.size() > 0 &&
+        item.type in ['photo', 'video'] &&
+        item.url is string &&
+        item.url.size() > 0 &&
+        item.storagePath is string &&
+        item.order is int &&
+        item.order >= 0 &&
+        item.order < 3 &&
+        item.createdAt is string &&
+        (!item.keys().hasAny(['thumbnailUrl']) || item.thumbnailUrl is string);
+    }
+
+    // The map picture is written once, either with the activity or by a later
+    // capture on the owner's own card, so both paths validate it the same way.
+    function hasValidActivityMapImage(data) {
+      return (!data.keys().hasAny(['mapImageUrl']) ||
+          data.mapImageUrl is string) &&
+        (!data.keys().hasAny(['mapImageStoragePath']) ||
+          data.mapImageStoragePath is string);
+    }
+
+    function hasActivityEditableUpdate(activityId) {
+      return isSignedIn() &&
+        resource.data.ownerId == request.auth.uid &&
+        request.resource.data.ownerId == resource.data.ownerId &&
+        request.resource.data.profileId == resource.data.profileId &&
+        request.resource.data.activityId == activityId &&
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+          'title',
+          'media',
+          'mapImageUrl',
+          'mapImageStoragePath'
+        ]) &&
+        request.resource.data.title is string &&
+        hasValidActivityMapImage(request.resource.data) &&
+        hasValidActivityMediaList(request.resource.data.media);
+    }
+
+    function hasValidRouteBounds(bounds) {
+      return bounds is map &&
+        bounds.keys().hasOnly([
+          'southwestLatitude',
+          'southwestLongitude',
+          'northeastLatitude',
+          'northeastLongitude'
+        ]) &&
+        bounds.keys().hasAll([
+          'southwestLatitude',
+          'southwestLongitude',
+          'northeastLatitude',
+          'northeastLongitude'
+        ]) &&
+        bounds.southwestLatitude is number &&
+        bounds.southwestLongitude is number &&
+        bounds.northeastLatitude is number &&
+        bounds.northeastLongitude is number &&
+        bounds.southwestLatitude >= -90 &&
+        bounds.southwestLatitude <= 90 &&
+        bounds.northeastLatitude >= -90 &&
+        bounds.northeastLatitude <= 90 &&
+        bounds.southwestLongitude >= -180 &&
+        bounds.southwestLongitude <= 180 &&
+        bounds.northeastLongitude >= -180 &&
+        bounds.northeastLongitude <= 180 &&
+        bounds.southwestLatitude <= bounds.northeastLatitude &&
+        bounds.southwestLongitude <= bounds.northeastLongitude;
     }
 
     function hasActivityCounterFields(userId) {
@@ -192,6 +356,13 @@ service cloud.firestore {
             && canViewProfileActivity(data.profileId)
           )
         );
+    }
+
+    function canGetActivity(activityId) {
+      return (
+        isSignedIn()
+        && !exists(/databases/$(database)/documents/activities/$(activityId))
+      ) || canReadActivity(resource.data);
     }
 
     function isImmediatePublicFollow(followId) {
@@ -719,10 +890,13 @@ service cloud.firestore {
 
     // Deny all other collections/documents by default for MVP safety.
     match /activities/{activityId} {
-      allow get, list: if canReadActivity(resource.data);
+      allow get: if canGetActivity(activityId);
+      allow list: if canReadActivity(resource.data);
       allow create: if isSignedIn()
         && hasActivityFields(activityId);
-      allow update, delete: if false;
+      allow update: if hasActivityEditableUpdate(activityId);
+      allow delete: if isSignedIn()
+        && resource.data.ownerId == request.auth.uid;
 
       match /kudos/{userId} {
         allow read: if canInteractWithActivity(activityId);
@@ -736,6 +910,9 @@ service cloud.firestore {
           ])
           && request.resource.data.activityId == activityId
           && request.resource.data.userId == request.auth.uid
+          && request.resource.data.userId != get(
+            /databases/$(database)/documents/activities/$(activityId)
+          ).data.ownerId
           && (
             request.resource.data.activityOwnerId == get(
               /databases/$(database)/documents/activities/$(activityId)

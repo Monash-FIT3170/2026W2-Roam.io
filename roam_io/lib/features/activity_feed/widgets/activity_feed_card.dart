@@ -1,22 +1,35 @@
 /*
  * Author: Sanjevan Rajasegar
- * Last Updated: 10 August 2026
+ * Last Updated: 22 August 2026
  * Description:
  *   Reusable activity feed card for persisted Home, You, external profile, and
  *   detail activity surfaces. Engagement is configurable via showKudos /
  *   showComments / showShare and reads live Firestore subcollection counts.
+ *   Glaze is the product-facing name for persisted Kudos interactions.
  */
+
+import 'dart:async';
+import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 
 import '../../../shared/widgets/app_toast.dart';
 import '../../../theme/app_surfaces.dart';
+import '../../journeys/domain/transport_mode.dart';
+import '../../map/data/journey_map_snapshot_service.dart';
+import '../../map/data/visited_region_service.dart';
 import '../../social/widgets/social_avatar.dart';
+import '../data/activity_map_image.dart';
+import '../data/activity_mutation_service.dart';
 import '../data/comment_service.dart';
 import '../data/kudos_service.dart';
+import '../domain/activity_route.dart';
 import '../models/activity_comment.dart';
 import '../models/activity_feed_item.dart';
+import 'activity_glazers_sheet.dart';
+import 'activity_media_carousel.dart';
 import 'activity_map_preview.dart';
+import 'route_marker_icons.dart';
 
 export '../models/activity_feed_item.dart' show ActivityFeedMetric;
 
@@ -37,6 +50,16 @@ class ActivityFeedCard extends StatelessWidget {
     this.photoUrl,
     this.username,
     this.showMapPreview = false,
+    this.route,
+    this.routeTransportMode,
+    this.routeSnapshotProfileId,
+    this.mapImageUrl,
+    this.mapSnapshotService,
+    this.visitedRegionService,
+    this.mutationService,
+    this.endpointMarkerIcons,
+    this.media = const <ActivityMediaItem>[],
+    this.onMediaTap,
     this.showKudos = true,
     this.showComments = true,
     this.showShare = true,
@@ -44,7 +67,7 @@ class ActivityFeedCard extends StatelessWidget {
     this.onKudosTap,
     this.onCommentTap,
     this.onShareTap,
-    this.kudosLabel = 'Kudos',
+    this.kudosLabel = 'Glaze',
     this.commentLabel = 'Comment',
     this.shareLabel = 'Share',
   });
@@ -64,7 +87,18 @@ class ActivityFeedCard extends StatelessWidget {
     VoidCallback? onKudosTap,
     VoidCallback? onCommentTap,
     VoidCallback? onShareTap,
+    JourneyMapSnapshotService? mapSnapshotService,
+    VisitedRegionService? visitedRegionService,
+    ActivityMutationService? mutationService,
+    RouteEndpointMarkerIcons? endpointMarkerIcons,
   }) {
+    final route = item.showMapPreview
+        ? ActivityRoute.tryCreate(
+            encodedRoute: item.encodedRoute,
+            persistedBounds: item.routeBounds,
+          )
+        : null;
+
     return ActivityFeedCard(
       key: key,
       activityId: item.id,
@@ -80,6 +114,15 @@ class ActivityFeedCard extends StatelessWidget {
       title: item.title,
       metrics: item.metrics,
       showMapPreview: item.showMapPreview,
+      route: route,
+      routeTransportMode: TransportMode.tryFromString(item.transportMode),
+      routeSnapshotProfileId: item.ownerId,
+      mapImageUrl: item.mapImageUrl,
+      mapSnapshotService: mapSnapshotService,
+      visitedRegionService: visitedRegionService,
+      mutationService: mutationService,
+      endpointMarkerIcons: endpointMarkerIcons,
+      media: item.media,
       showKudos: showKudos,
       showComments: showComments,
       showShare: showShare,
@@ -108,6 +151,18 @@ class ActivityFeedCard extends StatelessWidget {
   final Stream<int>? commentCountStream;
 
   final bool showMapPreview;
+  final ActivityRoute? route;
+  final TransportMode? routeTransportMode;
+  final String? routeSnapshotProfileId;
+
+  /// Map picture stored when the journey was saved, fog already drawn on it.
+  final String? mapImageUrl;
+  final JourneyMapSnapshotService? mapSnapshotService;
+  final VisitedRegionService? visitedRegionService;
+  final ActivityMutationService? mutationService;
+  final RouteEndpointMarkerIcons? endpointMarkerIcons;
+  final List<ActivityMediaItem> media;
+  final ValueChanged<int>? onMediaTap;
   final bool showKudos;
   final bool showComments;
   final bool showShare;
@@ -163,6 +218,7 @@ class ActivityFeedCard extends StatelessWidget {
     final countStream = _resolvedCommentCountStream;
     final kudosCountStream = _resolvedKudosCountStream;
     final hasKudosStream = _resolvedHasKudosStream;
+    final routeSlide = _buildRouteSlide();
 
     return Container(
       width: double.infinity,
@@ -238,9 +294,13 @@ class ActivityFeedCard extends StatelessWidget {
               fontWeight: FontWeight.w900,
             ),
           ),
-          if (showMapPreview) ...[
+          if (media.isNotEmpty || routeSlide != null) ...[
             const SizedBox(height: 12),
-            const ActivityMapPreview(),
+            ActivityMediaCarousel(
+              media: media,
+              onTap: onMediaTap,
+              routeSlide: routeSlide,
+            ),
           ],
           if (metrics.isNotEmpty) ...[
             const SizedBox(height: 14),
@@ -281,6 +341,58 @@ class ActivityFeedCard extends StatelessWidget {
     );
   }
 
+  /// The route slide: the stored picture when there is one, otherwise a live
+  /// map that doubles as the capture source for the activity's owner.
+  Widget? _buildRouteSlide() {
+    if (!showMapPreview) return null;
+
+    final storedMapImageUrl = mapImageUrl;
+    if (storedMapImageUrl != null && storedMapImageUrl.isNotEmpty) {
+      return ActivityMapSnapshotImage(
+        key: ValueKey<String>('activity-card-map-image-$activityId'),
+        url: storedMapImageUrl,
+      );
+    }
+
+    if (route == null) return null;
+
+    return ActivityMapPreview(
+      key: ValueKey<String>('activity-card-map-$activityId'),
+      route: route,
+      snapshotProfileId: routeSnapshotProfileId,
+      mapSnapshotService: mapSnapshotService,
+      visitedRegionService: visitedRegionService,
+      transportMode: routeTransportMode,
+      showEndpoints: true,
+      endpointMarkerIcons: endpointMarkerIcons,
+      mapIdentity: activityId,
+      onSnapshotCaptured: _mapImageBackfill,
+    );
+  }
+
+  /// Capture handler for an activity saved before the picture existed.
+  ///
+  /// Only the owner can write the picture, so nobody else's card wastes a
+  /// snapshot on it.
+  ValueChanged<Uint8List>? get _mapImageBackfill {
+    final id = activityId;
+    final ownerId = activityOwnerId;
+    if (id == null || id.isEmpty || ownerId == null || ownerId.isEmpty) {
+      return null;
+    }
+    if (currentUserId != ownerId) return null;
+    if (!ActivityMapImageBackfill.isPending(id)) return null;
+
+    return (bytes) => unawaited(
+      ActivityMapImageBackfill.record(
+        activityId: id,
+        ownerId: ownerId,
+        bytes: bytes,
+        mutationService: mutationService ?? ActivityMutationService(),
+      ),
+    );
+  }
+
   Future<void> _toggleKudos(BuildContext context) async {
     final id = activityId;
     final ownerId = activityOwnerId;
@@ -290,6 +402,14 @@ class ActivityFeedCard extends StatelessWidget {
       debugPrint(
         '[ActivityFeedCard] kudos skipped activityId=$id ownerId=$ownerId '
         'userId=$uid hasService=${service != null}',
+      );
+      return;
+    }
+    if (uid == ownerId) {
+      await ActivityGlazersSheet.show(
+        context: context,
+        activityId: id,
+        kudosService: service,
       );
       return;
     }
@@ -309,7 +429,7 @@ class ActivityFeedCard extends StatelessWidget {
         'error=$error\n$stackTrace',
       );
       if (context.mounted) {
-        AppToast.error(context, 'Could not update Kudos. Try again.');
+        AppToast.error(context, 'Could not update Glaze. Try again.');
       }
     }
   }
@@ -511,7 +631,7 @@ class _KudosActionButton extends StatelessWidget {
 }
 
 /// Equal-width engagement action. Labels scale down instead of ellipsizing so
-/// Kudos / comment counts / Share stay fully readable in a 2- or 3-button row.
+/// Glaze / comment counts / Share stay fully readable in a 2- or 3-button row.
 class _ActionButton extends StatelessWidget {
   const _ActionButton({
     required this.icon,
@@ -575,6 +695,6 @@ class _ActionButton extends StatelessWidget {
 }
 
 String _formatKudosCount(int count) {
-  if (count <= 0) return 'Kudos';
-  return count == 1 ? '1 Kudos' : '$count Kudos';
+  if (count <= 0) return 'Glaze';
+  return count == 1 ? '1 Glaze' : '$count Glaze';
 }
