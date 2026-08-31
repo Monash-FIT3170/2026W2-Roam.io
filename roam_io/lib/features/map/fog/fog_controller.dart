@@ -36,9 +36,10 @@ class FogController extends ChangeNotifier {
   /// Animation clock, pushed in by the overlay's ticker.
   ///
   /// Dissolves are timed against this rather than wall time so they share one
-  /// clock with the frames that draw them. A region unlocked while the ticker
-  /// is stopped therefore completes instantly once it resumes, which is the
-  /// right outcome: nobody was there to watch it.
+  /// clock with the frames that draw them. It stops with the ticker and picks
+  /// up where it left off, so a region unlocked while the app was backgrounded
+  /// has its dissipation waiting fully formed and plays it when the user comes
+  /// back, rather than part-played or missed entirely.
   Duration _clock = Duration.zero;
 
   Duration get clock => _clock;
