@@ -182,6 +182,126 @@ void main() {
       controller.dispose();
     });
 
+    testWidgets('holds the clouds still while a journey is running', (
+      tester,
+    ) async {
+      // The map follows the user for the whole journey, so the fog sheet is
+      // already sliding across the screen. Drifting the clouds on top of that
+      // reads as the fog moving twice.
+      final controller = FogController()
+        ..setAnchor(_anchor)
+        ..updateCamera(_camera, isMoving: true)
+        ..markViewportLoaded();
+
+      await _pump(tester, controller, atlas: atlas, isJourneyActive: true);
+      // The first tick after the ticker starts only sets the drift's baseline,
+      // so the hold is only under test from the second onward.
+      await tester.pump(const Duration(milliseconds: 16));
+      await tester.pump(const Duration(seconds: 2));
+
+      expect(_fogPainter(tester).windOffset, Offset.zero);
+
+      controller.dispose();
+    });
+
+    testWidgets('resumes the wind from where it was held', (tester) async {
+      // Accumulated rather than derived from elapsed, so releasing the hold
+      // picks the drift up where it stopped instead of snapping the field to
+      // wherever the wind would have carried it in the meantime.
+      final controller = FogController()
+        ..setAnchor(_anchor)
+        ..updateCamera(_camera, isMoving: true)
+        ..markViewportLoaded();
+
+      await _pump(tester, controller, atlas: atlas);
+      await tester.pump(const Duration(milliseconds: 16));
+      await tester.pump(const Duration(seconds: 2));
+
+      final drifted = _fogPainter(tester).windOffset;
+      expect(drifted.dx, greaterThan(0.0));
+
+      await _pump(tester, controller, atlas: atlas, isJourneyActive: true);
+      await tester.pump(const Duration(seconds: 2));
+      expect(_fogPainter(tester).windOffset, drifted);
+
+      await _pump(tester, controller, atlas: atlas);
+      await tester.pump(const Duration(seconds: 2));
+      expect(_fogPainter(tester).windOffset.dx, greaterThan(drifted.dx));
+
+      controller.dispose();
+    });
+
+    testWidgets('skips the frame entirely while a held sheet is settled', (
+      tester,
+    ) async {
+      // A journey is when the phone can least afford the fog: GPS, the route
+      // stream and the map's own camera animations are all running. With the
+      // wind held and the camera settled the sheet is identical to the one
+      // already on screen, so there is nothing to repaint.
+      final controller = FogController()
+        ..setAnchor(_anchor)
+        ..updateCamera(_camera)
+        ..markViewportLoaded();
+
+      await _pump(tester, controller, atlas: atlas, isJourneyActive: true);
+      await tester.pump(const Duration(milliseconds: 100));
+
+      final painted = _fogPainter(tester).elapsed;
+      await tester.pump(const Duration(seconds: 1));
+
+      expect(_fogPainter(tester).elapsed, painted);
+      expect(
+        controller.clock,
+        greaterThan(painted),
+        reason:
+            'the clock must keep running, so a region unlocked during the '
+            'skip starts its dissipation from now rather than part-finished',
+      );
+
+      controller.dispose();
+    });
+
+    testWidgets('keeps painting a held sheet while the camera moves', (
+      tester,
+    ) async {
+      // The clouds hold still in world space, which only looks right if the
+      // sheet keeps up with the map sliding underneath it.
+      final controller = FogController()
+        ..setAnchor(_anchor)
+        ..updateCamera(_camera, isMoving: true)
+        ..markViewportLoaded();
+
+      await _pump(tester, controller, atlas: atlas, isJourneyActive: true);
+
+      expect(await _paintedFrames(tester, controller, frames: 5), 5);
+
+      controller.dispose();
+    });
+
+    testWidgets('paints a held sheet when the camera is moved programmatically', (
+      tester,
+    ) async {
+      // Recentring on the user does not run through onCameraMoveStarted, so the
+      // skip cannot key off isCameraMoving alone or the fog would sit at the
+      // old camera until something else woke it.
+      final controller = FogController()
+        ..setAnchor(_anchor)
+        ..updateCamera(_camera)
+        ..markViewportLoaded();
+
+      await _pump(tester, controller, atlas: atlas, isJourneyActive: true);
+      await tester.pump(const Duration(milliseconds: 100));
+
+      controller.updateCamera(
+        const CameraPosition(target: LatLng(-37.80, 144.98), zoom: 16.5),
+      );
+      await tester.pump(const Duration(milliseconds: 100));
+
+      expect(_fogPainter(tester).camera.zoom, 16.5);
+
+      controller.dispose();
+    });
+
     testWidgets('keeps animating after the app returns to the foreground', (
       tester,
     ) async {
@@ -206,6 +326,45 @@ void main() {
       await tester.pump(const Duration(milliseconds: 100));
 
       expect(controller.clock, isNot(beforePause));
+
+      controller.dispose();
+    });
+
+    testWidgets('clears a tile unlocked while the app was backgrounded', (
+      tester,
+    ) async {
+      // Journey tracking keeps unlocking tiles with the phone in a pocket, and
+      // the fog clock only runs while the overlay does, so the dissipation is
+      // meant to be waiting fully formed for the user coming back.
+      final controller = FogController()
+        ..setAnchor(_anchor)
+        ..updateCamera(_camera)
+        ..markViewportLoaded();
+
+      await _pump(tester, controller, atlas: atlas);
+      await tester.pump(const Duration(seconds: 2));
+
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.paused);
+      await tester.pump();
+
+      controller.startDissolve(region: _region('a'), userLatLng: _anchor);
+
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+      await tester.pump();
+      await tester.pump(
+        FogPalette.dissolveDuration + const Duration(milliseconds: 100),
+      );
+
+      expect(
+        controller.dissolveSet.isEmpty,
+        isTrue,
+        reason: 'the dissipation must run once the user is back to watch it',
+      );
+      expect(
+        controller.geometry!.contains('a'),
+        isTrue,
+        reason: 'and leave the tile a permanent hole',
+      );
 
       controller.dispose();
     });
@@ -438,6 +597,7 @@ Future<void> _pump(
   FogController controller, {
   required FogAtlas atlas,
   bool isActive = true,
+  bool isJourneyActive = false,
   ThemeData? theme,
 }) async {
   await tester.pumpWidget(
@@ -449,6 +609,7 @@ Future<void> _pump(
           FogOverlay(
             controller: controller,
             isActive: isActive,
+            isJourneyActive: isJourneyActive,
             atlasOverride: atlas,
           ),
         ],
