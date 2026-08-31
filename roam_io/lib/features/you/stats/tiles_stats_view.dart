@@ -8,7 +8,7 @@ import '../widgets/stats_insight_card.dart';
 import '../widgets/stats_loyalty_tiles_section.dart';
 import '../widgets/stats_section_card.dart';
 
-/// Tiles category on the Stats tab.
+/// Tiles category on the Statistics page.
 class TilesStatsView extends StatelessWidget {
   const TilesStatsView({
     super.key,

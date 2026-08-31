@@ -61,6 +61,10 @@ class AndroidNotificationService {
       requestAlertPermission: false,
       requestBadgePermission: false,
       requestSoundPermission: false,
+      defaultPresentAlert: true,
+      defaultPresentBanner: true,
+      defaultPresentList: true,
+      defaultPresentSound: true,
       notificationCategories: _iosNotificationCategories,
     );
 
@@ -114,7 +118,16 @@ class AndroidNotificationService {
         sound: true,
       );
 
-      return result ?? false;
+      final permissions = await iosPlugin?.checkPermissions();
+      debugPrint(
+        '[System notification] iOS permission requested: '
+        'granted=${result ?? false}, '
+        'enabled=${permissions?.isEnabled ?? false}, '
+        'alerts=${permissions?.isAlertEnabled ?? false}, '
+        'sound=${permissions?.isSoundEnabled ?? false}',
+      );
+
+      return permissions?.isEnabled ?? result ?? false;
     }
 
     return false;
@@ -153,6 +166,20 @@ class AndroidNotificationService {
     }
 
     if (defaultTargetPlatform == TargetPlatform.iOS) {
+      final iosPlugin = _plugin
+          .resolvePlatformSpecificImplementation<
+            IOSFlutterLocalNotificationsPlugin
+          >();
+      final permissions = await iosPlugin?.checkPermissions();
+
+      if (!(permissions?.isEnabled ?? false)) {
+        debugPrint(
+          '[System notification] Skipping iOS notification because '
+          'notification permission is disabled.',
+        );
+        return;
+      }
+
       iosDetails = DarwinNotificationDetails(
         categoryIdentifier: _iosCategoryFor(notification.type),
         presentAlert: true,
@@ -180,8 +207,10 @@ class AndroidNotificationService {
     );
   }
 
-  /// Schedules a one-shot notification, returning false when notifications are
-  /// unsupported or permission has been denied.
+  /// Schedules a one-shot notification on Android or iOS.
+  ///
+  /// Returns `false` when notifications are unsupported or the user has
+  /// disabled notification delivery for the current platform.
   Future<bool> schedule(
     AppNotification notification, {
     required DateTime scheduledAt,
@@ -189,23 +218,53 @@ class AndroidNotificationService {
     if (!_isSupportedPlatform) return false;
     if (!_isInitialised) await initialise();
 
-    final androidPlugin = _plugin
-        .resolvePlatformSpecificImplementation<
-          AndroidFlutterLocalNotificationsPlugin
-        >();
-    final enabled = await androidPlugin?.areNotificationsEnabled() ?? false;
-    if (!enabled) return false;
+    AndroidNotificationDetails? androidDetails;
+    DarwinNotificationDetails? iosDetails;
 
-    final channel = _channelFor(notification.type);
-    final details = AndroidNotificationDetails(
-      channel.id,
-      channel.name,
-      channelDescription: channel.description,
-      importance: channel.importance,
-      priority: channel.priority,
-      icon: '@drawable/ic_notification',
-      category: _categoryFor(notification.type),
-    );
+    if (defaultTargetPlatform == TargetPlatform.android) {
+      final androidPlugin = _plugin
+          .resolvePlatformSpecificImplementation<
+            AndroidFlutterLocalNotificationsPlugin
+          >();
+
+      final enabled = await androidPlugin?.areNotificationsEnabled() ?? false;
+      if (!enabled) return false;
+
+      final channel = _channelFor(notification.type);
+      androidDetails = AndroidNotificationDetails(
+        channel.id,
+        channel.name,
+        channelDescription: channel.description,
+        importance: channel.importance,
+        priority: channel.priority,
+        icon: '@drawable/ic_notification',
+        category: _categoryFor(notification.type),
+      );
+    }
+
+    if (defaultTargetPlatform == TargetPlatform.iOS) {
+      final iosPlugin = _plugin
+          .resolvePlatformSpecificImplementation<
+            IOSFlutterLocalNotificationsPlugin
+          >();
+
+      final permissions = await iosPlugin?.checkPermissions();
+      if (!(permissions?.isEnabled ?? false)) {
+        debugPrint(
+          '[System notification] iOS notification permission is disabled.',
+        );
+        return false;
+      }
+
+      iosDetails = DarwinNotificationDetails(
+        categoryIdentifier: _iosCategoryFor(notification.type),
+        presentAlert: true,
+        presentBanner: true,
+        presentList: true,
+        presentSound: true,
+      );
+    }
+
     final payload = jsonEncode(<String, String>{
       'id': notification.id,
       'type': notification.type.name,
@@ -217,7 +276,10 @@ class AndroidNotificationService {
       title: notification.title,
       body: notification.body,
       scheduledDate: tz.TZDateTime.from(scheduledAt.toUtc(), tz.UTC),
-      notificationDetails: NotificationDetails(android: details),
+      notificationDetails: NotificationDetails(
+        android: androidDetails,
+        iOS: iosDetails,
+      ),
       androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
       payload: payload,
     );
