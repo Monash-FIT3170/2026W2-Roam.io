@@ -201,6 +201,11 @@ abstract final class FogPalette {
   /// Duration of the unlock dissipation.
   static const Duration dissolveDuration = Duration(milliseconds: 1400);
 
+  /// Fog return stays on screen long enough for the user to understand which
+  /// explored area is changing. It can still be dismissed with the Skip
+  /// control shown by the overlay.
+  static const Duration fogReturnDuration = Duration(seconds: 6);
+
   /// How far escaping sprites travel, as a fraction of the region's radius.
   static const double dissolveEscapeDistance = 1.6;
 
