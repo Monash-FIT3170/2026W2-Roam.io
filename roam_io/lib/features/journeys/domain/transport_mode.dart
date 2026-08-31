@@ -80,8 +80,9 @@ enum TransportMode {
     switch (this) {
       case TransportMode.walk:
       case TransportMode.run:
-      case TransportMode.drive:
         return const Color(0xFFD946EF);
+      case TransportMode.drive:
+        return const Color(0xFF5B21B6);
       case TransportMode.bus:
         return const Color(0xFFF97316);
       case TransportMode.train:
