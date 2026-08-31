@@ -16,6 +16,7 @@
  */
 
 import 'dart:async';
+import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
@@ -240,6 +241,7 @@ class MapController extends ChangeNotifier {
     unawaited(_locationUpdatesSubscription?.cancel());
     _locationUpdatesSubscription = null;
     _googleMapController?.dispose();
+    fogController.onFogReturnCompleted = null;
     fogController.dispose();
   }
 
@@ -451,7 +453,7 @@ class MapController extends ChangeNotifier {
         }
 
         fogController.addClearedRegions(clearedRegions);
-        _startPendingFogReturnAnimation();
+        await _startPendingFogReturnAnimation();
         message = 'Loaded $newRegionCount new nearby tiles';
       }
 
@@ -668,6 +670,9 @@ class MapController extends ChangeNotifier {
     currentRegion = effectiveRegion;
     message = effectiveRegion.name;
 
+    final wasVisuallyFogged = !_fogClearedRegionIds.contains(
+      effectiveRegion.id,
+    );
     final wasNewlyUnlocked = await _markRegionAsVisited(effectiveRegion);
     // Record an entry for heatmap counts (app opened / entered tile).
     await _recordRegionEntry(effectiveRegion);
@@ -676,7 +681,7 @@ class MapController extends ChangeNotifier {
 
     _syncFogForCurrentRegion(
       region: effectiveRegion,
-      wasNewlyUnlocked: wasNewlyUnlocked,
+      shouldAnimate: wasNewlyUnlocked || wasVisuallyFogged,
     );
 
     if (wasNewlyUnlocked) {
@@ -694,8 +699,9 @@ class MapController extends ChangeNotifier {
 
   /// Clears the fog over the region the user has just entered.
   ///
-  /// A first unlock blows the clouds away from the user's position; re-entering
-  /// an already-cleared region just ensures its hole exists, with no animation.
+  /// A first unlock or revisit of a decayed region blows clouds away from the
+  /// user's position. Re-entering an already-clear region only ensures its hole
+  /// exists, with no duplicate animation.
   ///
   /// [_latestUserLatLng] is deliberately still null during
   /// [_loadInitialRegion], so a cold start into an unvisited tile clears
@@ -708,11 +714,11 @@ class MapController extends ChangeNotifier {
   /// comes back.
   void _syncFogForCurrentRegion({
     required RegionPolygon region,
-    required bool wasNewlyUnlocked,
+    required bool shouldAnimate,
   }) {
     final userLatLng = _latestUserLatLng;
 
-    if (wasNewlyUnlocked && userLatLng != null) {
+    if (shouldAnimate && userLatLng != null) {
       fogController.startDissolve(region: region, userLatLng: userLatLng);
       return;
     }
@@ -967,15 +973,24 @@ class MapController extends ChangeNotifier {
       final clearedIds = await _visitedRegionService.loadFogClearedRegionIds(
         difficulty: _fogDecayDifficulty,
       );
-      _fogClearedRegionIds = clearedIds;
+      final pending = await _visitedRegionService.loadUnpresentedFogDecayEvents(
+        difficulty: _fogDecayDifficulty,
+      );
+      _pendingFogReturnEvents.addAll(pending);
+
+      // Pending regions remain clear until their return animation begins.
+      // Otherwise retainClearedRegions would make the fog snap back instantly.
+      _fogClearedRegionIds = <String>{...clearedIds, ...pending.keys};
       await _visitedRegionService.refreshFogDecayWarnings(
         difficulty: _fogDecayDifficulty,
       );
       fogController.retainClearedRegions(<String>{
         ...clearedIds,
+        ...pending.keys,
         ...?fogController.returnTransition?.regionIds,
         ?currentRegion?.id,
       });
+      await _startPendingFogReturnAnimation();
       notifyListeners();
     } catch (error) {
       debugPrint('[MapController] Error refreshing fog decay state: $error');
@@ -996,15 +1011,62 @@ class MapController extends ChangeNotifier {
     await loadViewportRegions(force: true);
   }
 
-  void _startPendingFogReturnAnimation() {
+  Future<void> _startPendingFogReturnAnimation() async {
+    if (fogController.returnTransition != null) return;
+
     final geometryIds = fogController.geometry?.regionIds.toSet() ?? <String>{};
     final currentId = currentRegion?.id;
     final renderable = _pendingFogReturnEvents.keys
         .where((id) => id != currentId && geometryIds.contains(id))
         .toSet();
     if (renderable.isEmpty) return;
+
+    // Pause live-location camera following and frame every returning tile so
+    // the user sees where the fog is coming back before the transition starts.
+    final bounds = _boundsForRegions(renderable);
+    final controller = _googleMapController;
+    if (bounds != null && controller != null) {
+      _isFollowingUser = false;
+      _isProgrammaticCameraMove = true;
+      try {
+        await controller.animateCamera(
+          CameraUpdate.newLatLngBounds(bounds, 72),
+        );
+      } catch (error) {
+        debugPrint('[MapController] Could not focus fog return: $error');
+      }
+    }
+
     _fogClearedRegionIds.removeAll(renderable);
     fogController.startFogReturn(renderable);
+  }
+
+  LatLngBounds? _boundsForRegions(Set<String> regionIds) {
+    var south = 90.0;
+    var north = -90.0;
+    var west = 180.0;
+    var east = -180.0;
+    var foundPoint = false;
+
+    for (final regionId in regionIds) {
+      final region = _regionPolygonCache.regionForId(regionId);
+      if (region == null) continue;
+      for (final polygon in region.toGooglePolygons()) {
+        for (final point in polygon.points) {
+          foundPoint = true;
+          south = math.min(south, point.latitude);
+          north = math.max(north, point.latitude);
+          west = math.min(west, point.longitude);
+          east = math.max(east, point.longitude);
+        }
+      }
+    }
+
+    if (!foundPoint) return null;
+    return LatLngBounds(
+      southwest: LatLng(south, west),
+      northeast: LatLng(north, east),
+    );
   }
 
   void _handleFogReturnCompleted(Set<String> regionIds) {

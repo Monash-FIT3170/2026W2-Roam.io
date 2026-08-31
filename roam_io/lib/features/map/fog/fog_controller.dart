@@ -162,13 +162,25 @@ class FogController extends ChangeNotifier {
   bool pruneCompletedFogReturn() {
     final transition = _returnTransition;
     if (transition == null || !transition.isCompleteAt(_clock)) return false;
+    _completeFogReturn(transition);
+    return true;
+  }
+
+  /// Immediately applies the final fogged state and reports completion once.
+  bool skipFogReturnAnimation() {
+    final transition = _returnTransition;
+    if (transition == null) return false;
+    _completeFogReturn(transition);
+    return true;
+  }
+
+  void _completeFogReturn(FogReturnTransition transition) {
     for (final id in transition.regionIds) {
       _geometry?.remove(id);
     }
     _returnTransition = null;
     onFogReturnCompleted?.call(transition.regionIds);
     notifyListeners();
-    return true;
   }
 
   /// Starts the blow-away animation for a newly unlocked region.

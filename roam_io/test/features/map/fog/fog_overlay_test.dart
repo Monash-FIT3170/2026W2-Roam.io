@@ -385,6 +385,33 @@ void main() {
 
       controller.dispose();
     });
+
+    testWidgets('shows Skip only while fog return is active', (tester) async {
+      final completed = <Set<String>>[];
+      final controller = FogController()
+        ..setAnchor(_anchor)
+        ..updateCamera(_camera)
+        ..markViewportLoaded()
+        ..addClearedRegion(_region('a'));
+      controller.onFogReturnCompleted = (ids) => completed.add(ids);
+      controller.startFogReturn(<String>{'a'});
+
+      await _pump(tester, controller, atlas: atlas);
+      final skip = find.byKey(
+        const ValueKey<String>('skip-fog-return-animation'),
+      );
+      expect(skip, findsOneWidget);
+
+      await tester.tap(skip);
+      await tester.pump();
+
+      expect(skip, findsNothing);
+      expect(controller.returnTransition, isNull);
+      expect(controller.geometry!.contains('a'), isFalse);
+      expect(completed, hasLength(1));
+
+      controller.dispose();
+    });
   });
 
   group('FogController', () {
@@ -471,9 +498,13 @@ void main() {
 
       controller.startFogReturn(<String>{'a', 'b'});
       expect(controller.returnTransition?.regionIds, <String>{'a', 'b'});
+      expect(controller.returnTransition?.duration, const Duration(seconds: 6));
       expect(controller.pruneCompletedFogReturn(), isFalse);
 
       controller.tick(const Duration(seconds: 5));
+      expect(controller.pruneCompletedFogReturn(), isFalse);
+
+      controller.tick(const Duration(seconds: 6));
       expect(controller.pruneCompletedFogReturn(), isTrue);
       expect(controller.geometry!.contains('a'), isFalse);
       expect(controller.geometry!.contains('b'), isFalse);
@@ -481,6 +512,25 @@ void main() {
         <String>{'a', 'b'},
       ]);
       expect(controller.pruneCompletedFogReturn(), isFalse);
+      expect(completed, hasLength(1));
+
+      controller.dispose();
+    });
+
+    test('skipping fog return applies final state and completes once', () {
+      final completed = <Set<String>>[];
+      final controller = FogController()
+        ..setAnchor(_anchor)
+        ..addClearedRegions(<RegionPolygon>[_region('a'), _region('b')]);
+      controller.onFogReturnCompleted = (ids) => completed.add(ids);
+      controller.startFogReturn(<String>{'a', 'b'});
+
+      expect(controller.skipFogReturnAnimation(), isTrue);
+      expect(controller.returnTransition, isNull);
+      expect(controller.geometry!.contains('a'), isFalse);
+      expect(controller.geometry!.contains('b'), isFalse);
+      expect(completed, hasLength(1));
+      expect(controller.skipFogReturnAnimation(), isFalse);
       expect(completed, hasLength(1));
 
       controller.dispose();
