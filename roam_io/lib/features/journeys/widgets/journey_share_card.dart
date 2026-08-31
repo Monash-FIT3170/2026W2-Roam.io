@@ -1,19 +1,29 @@
+/*
+ * Author: Amarprit Singh
+ * Last Updated: 29 August 2026
+ * Description:
+ *   The 9:16 card exported when a journey or sidequest is shared. It draws
+ *   whatever the sharer's post could supply, so a post with no route or no
+ *   transport mode loses those rows rather than showing invented ones.
+ */
+
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 
 import '../../../theme/app_colours.dart';
-import '../domain/journey.dart';
+import '../../activity_feed/data/activity_map_image.dart';
+import '../domain/journey_share_details.dart';
 import '../data/polyline_codec.dart';
 
 class JourneyShareCard extends StatelessWidget {
   const JourneyShareCard({
     super.key,
-    required this.journey,
+    required this.details,
     this.backgroundColor = AppColors.ink,
   });
 
-  final Journey journey;
+  final JourneyShareDetails details;
   final Color backgroundColor;
 
   @override
@@ -57,24 +67,25 @@ class JourneyShareCard extends StatelessWidget {
                     mainAxisSize: MainAxisSize.min,
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      // The map area
-                      ClipRRect(
-                        borderRadius: const BorderRadius.vertical(
-                          top: Radius.circular(24),
-                        ),
-                        child: AspectRatio(
-                          aspectRatio: 1,
-                          child: Container(
-                            color: AppColors.cream.withValues(alpha: 0.5),
-                            child: CustomPaint(
-                              painter: RoutePainter(
-                                encodedRoute: journey.encodedRoute,
-                                routeColor: AppColors.clay,
-                              ),
+                      // The map area, dropped entirely for a post with
+                      // neither a picture nor a route rather than shared as
+                      // an empty band.
+                      if (details.hasMapArea)
+                        ClipRRect(
+                          borderRadius: const BorderRadius.vertical(
+                            top: Radius.circular(24),
+                          ),
+                          child: AspectRatio(
+                            // The shape the picture was captured in, so it
+                            // fills the top of the card instead of sitting in
+                            // bands of empty card.
+                            aspectRatio: ActivityMapImage.aspectRatio,
+                            child: Container(
+                              color: AppColors.cream.withValues(alpha: 0.5),
+                              child: _MapArea(details: details),
                             ),
                           ),
                         ),
-                      ),
 
                       // Stats area
                       Padding(
@@ -83,7 +94,7 @@ class JourneyShareCard extends StatelessWidget {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
-                              journey.displayTitle,
+                              details.title,
                               style: const TextStyle(
                                 fontSize: 18,
                                 fontWeight: FontWeight.w800,
@@ -94,33 +105,10 @@ class JourneyShareCard extends StatelessWidget {
                             Row(
                               mainAxisAlignment: MainAxisAlignment.spaceBetween,
                               children: [
-                                _StatWidget(
-                                  value: journey.formattedDistance
-                                      .split(' ')
-                                      .first,
-                                  unit: journey.formattedDistance
-                                      .split(' ')
-                                      .last,
-                                ),
-                                _StatWidget(
-                                  value: journey.durationSeconds >= 3600
-                                      ? (journey.durationSeconds / 3600)
-                                            .toStringAsFixed(1)
-                                      : (journey.durationSeconds / 60)
-                                            .toStringAsFixed(0),
-                                  unit: journey.durationSeconds >= 3600
-                                      ? 'hrs'
-                                      : 'min',
-                                ),
-                                if (journey.xpEarned != null)
+                                for (final stat in details.stats)
                                   _StatWidget(
-                                    value: '${journey.xpEarned}',
-                                    unit: 'xp',
-                                  )
-                                else
-                                  _StatWidget(
-                                    value: '${journey.tilesUnlocked}',
-                                    unit: 'tiles',
+                                    value: stat.value,
+                                    unit: stat.unit,
                                   ),
                               ],
                             ),
@@ -129,20 +117,22 @@ class JourneyShareCard extends StatelessWidget {
                             const SizedBox(height: 12),
                             Row(
                               children: [
-                                Icon(
-                                  journey.transportMode.icon,
-                                  size: 16,
-                                  color: Colors.grey[600],
-                                ),
-                                const SizedBox(width: 8),
-                                Text(
-                                  journey.transportMode.displayName,
-                                  style: TextStyle(
-                                    fontSize: 12,
+                                if (details.transportMode != null) ...[
+                                  Icon(
+                                    details.transportMode!.icon,
+                                    size: 16,
                                     color: Colors.grey[600],
-                                    fontWeight: FontWeight.w600,
                                   ),
-                                ),
+                                  const SizedBox(width: 8),
+                                  Text(
+                                    details.transportMode!.displayName,
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      color: Colors.grey[600],
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                ],
                                 const Spacer(),
                                 Row(
                                   mainAxisSize: MainAxisSize.min,
@@ -176,6 +166,43 @@ class JourneyShareCard extends StatelessWidget {
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+/// The map picture stored with the post, falling back to the drawn route.
+///
+/// The picture carries the basemap and the fog the journey was recorded
+/// against, which is what people recognise as their map. The drawn route is
+/// all a post from before those pictures existed can offer, and is also where
+/// a picture that fails to load lands.
+class _MapArea extends StatelessWidget {
+  const _MapArea({required this.details});
+
+  final JourneyShareDetails details;
+
+  @override
+  Widget build(BuildContext context) {
+    final mapImageUrl = details.mapImageUrl;
+    if (mapImageUrl == null || mapImageUrl.isEmpty) return _drawnRoute();
+
+    return Image.network(
+      mapImageUrl,
+      // The slot is the shape the picture was captured in, so this fills it
+      // exactly and crops nothing. Cover rather than contain because capture
+      // sizes vary with the device that took them: a picture off by a rounding
+      // pixel should lose that pixel, not show a hairline of card down an edge.
+      fit: BoxFit.cover,
+      errorBuilder: (context, error, stackTrace) => _drawnRoute(),
+    );
+  }
+
+  Widget _drawnRoute() {
+    return CustomPaint(
+      painter: RoutePainter(
+        encodedRoute: details.encodedRoute,
+        routeColor: AppColors.clay,
       ),
     );
   }

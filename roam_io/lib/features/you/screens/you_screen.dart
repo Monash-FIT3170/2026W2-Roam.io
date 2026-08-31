@@ -567,7 +567,11 @@ class _ActivitiesTabState extends State<_ActivitiesTab> {
                 );
               },
               onShareTap: () {
-                JourneyShareSheet.shareFromActivity(context, activity);
+                JourneyShareSheet.shareFromActivity(
+                  context,
+                  activity,
+                  currentUserId: widget.currentUserId,
+                );
               },
             );
           },
