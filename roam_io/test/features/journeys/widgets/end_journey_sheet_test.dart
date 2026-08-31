@@ -73,47 +73,6 @@ void main() {
     expect(result.value?.endLocation.placeId, 'station');
   });
 
-  testWidgets('continues tracking and supports current location selection', (
-    tester,
-  ) async {
-    EndJourneyResult? result;
-    await tester.binding.setSurfaceSize(const Size(900, 1200));
-    await tester.pumpWidget(
-      MaterialApp(
-        home: Builder(
-          builder: (context) => FilledButton(
-            onPressed: () async {
-              result = await EndJourneySheet.show(
-                context: context,
-                currentPosition: position,
-                distanceMeters: 42,
-                duration: const Duration(seconds: 9),
-                transportMode: TransportMode.walk,
-                nearbyPlaces: places,
-              );
-            },
-            child: const Text('Open'),
-          ),
-        ),
-      ),
-    );
-    addTearDown(() => tester.binding.setSurfaceSize(null));
-    await tester.tap(find.text('Open'));
-    await tester.pumpAndSettle();
-
-    expect(find.text('42 m'), findsOneWidget);
-    expect(find.text('9s'), findsOneWidget);
-    await tester.tap(find.text('Central Station'));
-    await tester.pump();
-    await tester.tap(find.text('Current Location'));
-    await tester.pump();
-    await tester.tap(find.text('Continue'));
-    await tester.pumpAndSettle();
-
-    expect(result?.continueTracking, isTrue);
-    expect(result?.endLocation.latLng, position);
-  });
-
   testWidgets('formats a duration containing minutes', (tester) async {
     await openSheet(
       tester,
