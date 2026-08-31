@@ -10,6 +10,7 @@
 
 import 'dart:async';
 import 'dart:math' as math;
+import 'dart:typed_data';
 import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
@@ -439,7 +440,7 @@ class _MapPageState extends State<MapPage> with WidgetsBindingObserver {
       placesService.getNearbyPlaces(
         lat: currentPosition.latitude,
         lng: currentPosition.longitude,
-        radiusMeters: 10,
+        radiusMeters: 200,
       ),
       placesService.getNearbyPlaces(
         lat: currentPosition.latitude,
@@ -465,7 +466,7 @@ class _MapPageState extends State<MapPage> with WidgetsBindingObserver {
     // Get custom saved locations within radius
     final customLocations = await _getNearbySavedLocations(
       currentPosition: currentPosition,
-      radiusMeters: 10,
+      radiusMeters: 200,
       userId: userId,
       journeyController: journeyController,
     );
@@ -552,13 +553,13 @@ class _MapPageState extends State<MapPage> with WidgetsBindingObserver {
     final googlePlaces = await placesService.getNearbyPlaces(
       lat: currentPosition.latitude,
       lng: currentPosition.longitude,
-      radiusMeters: 10,
+      radiusMeters: 200,
     );
 
     // Get custom saved locations within radius.
     final customLocations = await _getNearbySavedLocations(
       currentPosition: currentPosition,
-      radiusMeters: 10,
+      radiusMeters: 200,
       userId: userId,
       journeyController: journeyController,
     );
@@ -583,16 +584,6 @@ class _MapPageState extends State<MapPage> with WidgetsBindingObserver {
       await journeyController.cancelJourney();
       _activeJourneyPolyline = {};
       setState(() => _isOpeningJourneyCompletionFlow = false);
-      return;
-    }
-
-    // User chose to continue tracking.
-    if (endResult.continueTracking) {
-      await journeyController.resumeTracking();
-      if (mounted && journeyController.isTracking) {
-        setState(() => _isOpeningJourneyCompletionFlow = false);
-        AppToast.show(context, 'Journey resumed');
-      }
       return;
     }
 
@@ -643,6 +634,7 @@ class _MapPageState extends State<MapPage> with WidgetsBindingObserver {
         await _saveReviewedJourneyActivity(
           summaryResult.title,
           media: summaryResult.media,
+          mapImageBytes: summaryResult.mapImageBytes,
         );
         break;
       case JourneySummaryAction.discard:
@@ -654,6 +646,7 @@ class _MapPageState extends State<MapPage> with WidgetsBindingObserver {
   Future<void> _saveReviewedJourneyActivity(
     String title, {
     required List<PendingActivityMedia> media,
+    Uint8List? mapImageBytes,
   }) async {
     final journeyController = context.read<JourneyController>();
     final authProvider = context.read<AuthProvider>();
@@ -700,6 +693,7 @@ class _MapPageState extends State<MapPage> with WidgetsBindingObserver {
         title: title,
         fallbackProfile: authProvider.currentProfile,
         mediaSelections: media,
+        mapImageBytes: mapImageBytes,
       );
     } catch (error, stackTrace) {
       debugPrint(
@@ -873,8 +867,7 @@ class _MapPageState extends State<MapPage> with WidgetsBindingObserver {
         Theme.of(context).brightness == Brightness.dark
         ? AppColors.lightSage
         : AppColors.sage;
-    final isPaused = journeyController.currentPhase == JourneyPhase.paused;
-    final isLiveJourneyActive = isTracking || isPaused;
+    final isLiveJourneyActive = isTracking;
     final isCompleting =
         journeyController.currentPhase == JourneyPhase.completing;
     final isReviewing =
@@ -912,7 +905,7 @@ class _MapPageState extends State<MapPage> with WidgetsBindingObserver {
         if (_mapController.myLocationEnabled)
           Positioned(
             right: 16,
-            bottom: isLiveJourneyActive ? 220 : 120,
+            bottom: isLiveJourneyActive ? 360 : 120,
             child: FloatingActionButton.small(
               heroTag: 'recenter_map',
               tooltip: 'Centre on my location',
@@ -981,7 +974,7 @@ class _MapPageState extends State<MapPage> with WidgetsBindingObserver {
             onPressed: _mapController.toggleHeatmap,
           ),
         ),
-        // Journey tracking card remains available while tracking is paused.
+        // Journey tracking card shown during active tracking.
         if (isLiveJourneyActive)
           Positioned(
             bottom: 100,
@@ -991,14 +984,6 @@ class _MapPageState extends State<MapPage> with WidgetsBindingObserver {
               distanceMeters: journeyController.distanceMeters,
               elapsedTime: journeyController.formattedElapsedTime,
               transportMode: journeyController.transportMode,
-              isPaused: isPaused,
-              onPauseResume: () {
-                if (isPaused) {
-                  journeyController.resumeTracking();
-                } else {
-                  journeyController.pauseTracking();
-                }
-              },
               onEndJourney: _endJourneyFlow,
             ),
           ),

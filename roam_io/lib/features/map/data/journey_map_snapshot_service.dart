@@ -1,34 +1,27 @@
 /*
  * Author: Sanjevan Rajasegar
- * Last Updated: 22 August 2026
+ * Last Updated: 29 August 2026
  * Description:
- *   Loads static Roam.io exploration polygons for completed Journey map
- *   previews without starting live location tracking.
+ *   Builds the static fog for a completed Journey map preview without starting
+ *   live location tracking.
  */
 
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 
 import '../../activity_feed/domain/activity_route.dart';
 import 'map_viewport_policy.dart';
-import 'region_polygon_cache.dart';
+import 'region_polygon.dart';
 import 'region_service.dart';
 
 /// Builds a static fog/unlocked-tile overlay around a completed Journey route.
 class JourneyMapSnapshotService {
   JourneyMapSnapshotService({
     RegionService? regionService,
-    RegionPolygonCache? regionPolygonCache,
     MapViewportPolicy? viewportPolicy,
   }) : _regionService = regionService ?? RegionService(),
-       // Static fog styling: a Journey preview is a plain GoogleMap with no
-       // FogOverlay above it, so unexplored ground has to carry its own fill or
-       // the preview shows bare basemap where the fog should be.
-       _regionPolygonCache =
-           regionPolygonCache ?? RegionPolygonCache.staticFog(),
        _viewportPolicy = viewportPolicy ?? MapViewportPolicy();
 
   final RegionService _regionService;
-  final RegionPolygonCache _regionPolygonCache;
   final MapViewportPolicy _viewportPolicy;
 
   Future<JourneyMapSnapshotOverlay> loadRouteSnapshotOverlay({
@@ -40,55 +33,63 @@ class JourneyMapSnapshotService {
     final bounds = _viewportPolicy.expandSa1Bounds(
       viewportBounds ?? route.bounds,
     );
-    final regions = await _regionService.getRegionsForViewport(
-      south: bounds.southwest.latitude,
-      west: bounds.southwest.longitude,
-      north: bounds.northeast.latitude,
-      east: bounds.northeast.longitude,
-    );
+    final exploredRegionIds = <String>{
+      ...visitedRegionIds,
+      if (currentRegionId != null && currentRegionId.isNotEmpty)
+        currentRegionId,
+    };
 
-    for (final region in regions) {
-      _regionPolygonCache.cacheRegion(
-        region: region,
-        isVisited: visitedRegionIds.contains(region.id),
-        isCurrentRegion: currentRegionId == region.id,
-        onRegionTapped: (_, _) {},
-      );
-    }
+    // Only explored ground is drawn, as holes in the fog. Fetching the
+    // unexplored tiles too made the request grow with the length of the
+    // journey, which is what left long journeys showing bare basemap.
+    final regions = exploredRegionIds.isEmpty
+        ? const <RegionPolygon>[]
+        : await _regionService.getRegionsForViewport(
+            south: bounds.southwest.latitude,
+            west: bounds.southwest.longitude,
+            north: bounds.northeast.latitude,
+            east: bounds.northeast.longitude,
+            regionIds: exploredRegionIds,
+          );
 
-    final tilePolygons = _regionPolygonCache.polygonsForDisplay(
-      showUnvisitedRegions: true,
-      visitedRegionIds: visitedRegionIds,
-      currentRegionId: currentRegionId,
-    );
+    // Backends that predate the id filter answer with the whole viewport, so
+    // the ids are checked again here rather than trusted.
+    final clearedRegions = <RegionPolygon>[
+      for (final region in regions)
+        if (exploredRegionIds.contains(region.id)) region,
+    ];
 
     return JourneyMapSnapshotOverlay(
       loadedBounds: bounds,
-      tilePolygons: tilePolygons
-          .map((polygon) => polygon.copyWith(zIndexParam: 5))
-          .toSet(),
+      clearedRegions: clearedRegions,
     );
   }
 }
 
 /// Static map overlay data for completed Journey previews.
+///
+/// Carries the explored ground rather than a fog shape: the fog itself is the
+/// cloud field drawn over the map, and what varies per journey is the holes cut
+/// in it.
 class JourneyMapSnapshotOverlay {
   const JourneyMapSnapshotOverlay({
     this.loadedBounds,
-    required this.tilePolygons,
+    required this.clearedRegions,
   });
 
   static const empty = JourneyMapSnapshotOverlay(
     loadedBounds: null,
-    tilePolygons: <Polygon>{},
+    clearedRegions: <RegionPolygon>[],
   );
 
+  /// The frame this overlay was loaded for, or null when nothing loaded.
+  ///
+  /// Null keeps the map bare instead of fogging it: a failed load must not hide
+  /// the journey behind cloud it has no holes for.
   final LatLngBounds? loadedBounds;
-  final Set<Polygon> tilePolygons;
 
-  Set<Polygon> polygonsForVisibleBounds(LatLngBounds bounds) {
-    return tilePolygons;
-  }
+  /// Regions the traveller had explored, cleared out of the fog.
+  final List<RegionPolygon> clearedRegions;
 
   bool covers(LatLngBounds bounds) {
     final loaded = loadedBounds;

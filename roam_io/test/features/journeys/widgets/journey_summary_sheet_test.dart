@@ -10,6 +10,8 @@ import 'package:roam_io/features/journeys/domain/journey_location.dart';
 import 'package:roam_io/features/journeys/domain/transport_mode.dart';
 import 'package:roam_io/features/journeys/widgets/journey_summary_sheet.dart';
 import 'package:roam_io/features/map/data/journey_map_snapshot_service.dart';
+import 'package:roam_io/features/map/data/region_polygon.dart';
+import 'package:roam_io/features/map/fog/static_fog.dart';
 
 void main() {
   testWidgets('returns edited activity title when saving', (tester) async {
@@ -174,15 +176,13 @@ void main() {
     expect(result?.title, 'Afternoon Journey');
   });
 
-  testWidgets('renders static exploration polygons when snapshot loads', (
+  testWidgets('clears explored ground out of the fog when the snapshot loads', (
     tester,
   ) async {
     await tester.binding.setSurfaceSize(const Size(400, 1200));
     addTearDown(() => tester.binding.setSurfaceSize(null));
     final snapshotService = _FakeJourneyMapSnapshotService(
-      polygons: {
-        _tilePolygon(id: 'tile_visited', fillColor: const Color(0x30FFFFFF)),
-      },
+      regions: [_region(id: 'tile_visited')],
     );
 
     await tester.pumpWidget(
@@ -210,14 +210,15 @@ void main() {
     );
     await tester.pumpAndSettle();
 
+    final fog = tester
+        .widget<StaticFogOverlay>(find.byType(StaticFogOverlay))
+        .fog;
+    expect(fog.clearedRegionIds, ['tile_visited']);
+
     final map = tester.widget<GoogleMap>(find.byType(GoogleMap));
-    expect(map.polygons, hasLength(2));
-    expect(
-      map.polygons
-          .firstWhere((polygon) => polygon.polygonId.value == 'tile_visited')
-          .fillColor,
-      const Color(0x30FFFFFF),
-    );
+    // The fog is drawn above the map, not filled into it, so the map itself
+    // carries nothing but the journey.
+    expect(map.polygons, isEmpty);
     expect(map.polylines.single.points, _routePoints);
     expect(map.polylines.single.color, TransportMode.tram.routeColor);
     expect(map.polylines.single.zIndex, 20);
@@ -250,9 +251,9 @@ const _routePoints = [
 ];
 
 class _FakeJourneyMapSnapshotService extends JourneyMapSnapshotService {
-  _FakeJourneyMapSnapshotService({required this.polygons});
+  _FakeJourneyMapSnapshotService({required this.regions});
 
-  final Set<Polygon> polygons;
+  final List<RegionPolygon> regions;
   Set<String>? loadedVisitedRegionIds;
 
   @override
@@ -265,24 +266,28 @@ class _FakeJourneyMapSnapshotService extends JourneyMapSnapshotService {
     loadedVisitedRegionIds = visitedRegionIds;
     return JourneyMapSnapshotOverlay(
       loadedBounds: route.bounds,
-      tilePolygons: {
-        ...polygons,
-        _tilePolygon(id: 'tile_fog', fillColor: const Color(0xCC000000)),
-      },
+      clearedRegions: regions,
     );
   }
 }
 
-Polygon _tilePolygon({required String id, required Color fillColor}) {
-  return Polygon(
-    polygonId: PolygonId(id),
-    points: const [
-      LatLng(-37.8140, 144.9630),
-      LatLng(-37.8140, 144.9640),
-      LatLng(-37.8130, 144.9640),
-      LatLng(-37.8130, 144.9630),
-    ],
-    fillColor: fillColor,
+RegionPolygon _region({required String id}) {
+  return RegionPolygon(
+    id: id,
+    name: id,
+    areaSquareMetres: 1000,
+    geometry: const <String, dynamic>{
+      'type': 'Polygon',
+      'coordinates': <dynamic>[
+        <dynamic>[
+          <double>[144.9630, -37.8140],
+          <double>[144.9640, -37.8140],
+          <double>[144.9640, -37.8130],
+          <double>[144.9630, -37.8130],
+          <double>[144.9630, -37.8140],
+        ],
+      ],
+    },
   );
 }
 

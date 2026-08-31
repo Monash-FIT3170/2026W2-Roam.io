@@ -16,6 +16,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
 
 import 'fog_atlas.dart';
+import 'fog_atlas_cache.dart';
 import 'fog_controller.dart';
 import 'fog_field.dart';
 import 'fog_painter.dart';
@@ -57,6 +58,9 @@ class _FogOverlayState extends State<FogOverlay>
   FogAtlas? _loadedAtlas;
   FogField? _field;
   Brightness? _loadedBrightness;
+
+  /// Brightness whose shared atlas this overlay currently holds a claim on.
+  Brightness? _heldAtlasBrightness;
   bool _isAppResumed = true;
 
   Duration _elapsed = Duration.zero;
@@ -112,28 +116,28 @@ class _FogOverlayState extends State<FogOverlay>
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
     _ticker.dispose();
-    _loadedAtlas?.dispose();
+    final held = _heldAtlasBrightness;
+    if (held != null) unawaited(FogAtlasCache.release(held));
     super.dispose();
   }
 
+  /// Loads the shared atlas for [brightness], releasing the previous one.
+  ///
+  /// The atlas is shared rather than owned because journey previews draw the
+  /// same clouds: a summary sheet opened over this map would otherwise bake a
+  /// second copy of the same megabytes of texture.
   Future<void> _loadAtlas(Brightness brightness) async {
-    final assets = brightness == Brightness.dark
-        ? (FogPalette.nightSprites.isEmpty
-              ? FogPalette.daySprites
-              : FogPalette.nightSprites)
-        : FogPalette.daySprites;
+    // Claimed and released before awaiting, so two loads racing a quick theme
+    // change cannot both see — and both release — the same claim.
+    final released = _heldAtlasBrightness;
+    _heldAtlasBrightness = brightness;
+    final pending = FogAtlasCache.acquire(brightness);
+    if (released != null) unawaited(FogAtlasCache.release(released));
 
-    final atlas = await FogAtlas.load(assetPaths: assets);
+    final atlas = await pending;
+    if (!mounted || brightness != _loadedBrightness) return;
 
-    if (!mounted || brightness != _loadedBrightness) {
-      atlas?.dispose();
-      return;
-    }
-
-    setState(() {
-      _loadedAtlas?.dispose();
-      _loadedAtlas = atlas;
-    });
+    setState(() => _loadedAtlas = atlas);
   }
 
   void _syncTicker() {

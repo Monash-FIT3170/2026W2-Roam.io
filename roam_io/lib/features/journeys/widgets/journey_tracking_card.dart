@@ -19,16 +19,12 @@ class JourneyTrackingCard extends StatelessWidget {
     required this.distanceMeters,
     required this.elapsedTime,
     required this.transportMode,
-    required this.isPaused,
-    required this.onPauseResume,
     required this.onEndJourney,
   });
 
   final double distanceMeters;
   final String elapsedTime;
   final TransportMode transportMode;
-  final bool isPaused;
-  final VoidCallback onPauseResume;
   final VoidCallback onEndJourney;
 
   String get _formattedDistance {
@@ -82,7 +78,7 @@ class JourneyTrackingCard extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      isPaused ? 'Journey Paused' : 'Journey in Progress',
+                      'Journey in Progress',
                       style: theme.textTheme.titleSmall?.copyWith(
                         fontWeight: FontWeight.w700,
                         color: AppSurfaces.textPrimary(context),
@@ -97,15 +93,8 @@ class JourneyTrackingCard extends StatelessWidget {
                   ],
                 ),
               ),
-              // Recording indicator reflects whether GPS tracking is active.
-              if (isPaused)
-                const Icon(
-                  Icons.pause_circle_outline,
-                  color: AppColors.clay,
-                  size: 22,
-                )
-              else
-                _RecordingIndicator(),
+              // Recording indicator shows GPS tracking is active.
+              _RecordingIndicator(),
             ],
           ),
 
@@ -138,42 +127,22 @@ class JourneyTrackingCard extends StatelessWidget {
 
           const SizedBox(height: 16),
 
-          // Live Journey controls.
-          Row(
-            children: [
-              Expanded(
-                child: OutlinedButton.icon(
-                  onPressed: onPauseResume,
-                  icon: Icon(
-                    isPaused ? Icons.play_arrow : Icons.pause,
-                    size: 20,
-                  ),
-                  label: Text(isPaused ? 'Resume' : 'Pause'),
-                  style: OutlinedButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(vertical: 12),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                  ),
+          // End Journey button.
+          SizedBox(
+            width: double.infinity,
+            child: FilledButton.icon(
+              onPressed: onEndJourney,
+              icon: const Icon(Icons.stop, size: 20),
+              label: const Text('End Journey'),
+              style: FilledButton.styleFrom(
+                padding: const EdgeInsets.symmetric(vertical: 12),
+                backgroundColor: AppColors.clay,
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
                 ),
               ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: FilledButton.icon(
-                  onPressed: onEndJourney,
-                  icon: const Icon(Icons.stop, size: 20),
-                  label: const Text('End Journey'),
-                  style: FilledButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(vertical: 12),
-                    backgroundColor: AppColors.clay,
-                    foregroundColor: Colors.white,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                  ),
-                ),
-              ),
-            ],
+            ),
           ),
         ],
       ),

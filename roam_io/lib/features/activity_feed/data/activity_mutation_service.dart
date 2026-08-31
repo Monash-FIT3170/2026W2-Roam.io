@@ -13,6 +13,7 @@ import 'package:flutter/foundation.dart';
 
 import '../../../services/storage_service.dart';
 import '../models/activity_feed_item.dart';
+import 'activity_map_image.dart';
 
 /// Gallery item derived from an activity's structured media.
 class ProfileActivityMediaEntry {
@@ -109,6 +110,42 @@ class ActivityMutationService {
     }
   }
 
+  /// Stores a map picture captured for an activity that was saved without one.
+  ///
+  /// Only the owner can write here, so callers must check that first.
+  Future<void> attachMapImage({
+    required String activityId,
+    required String ownerId,
+    required Uint8List bytes,
+  }) async {
+    final result = await _storageService.uploadActivityMedia(
+      uid: ownerId,
+      activityId: activityId,
+      mediaId: ActivityMapImage.mediaId,
+      bytes: bytes,
+      filename: ActivityMapImage.filename,
+      mediaType: ActivityMapImage.mediaType,
+    );
+    try {
+      await _activities.doc(activityId).update({
+        'mapImageUrl': result.url,
+        'mapImageStoragePath': result.storagePath,
+      });
+    } catch (_) {
+      try {
+        await _storageService.deleteActivityMedia(
+          storagePath: result.storagePath,
+        );
+      } catch (error) {
+        debugPrint(
+          '[ActivityMutationService] orphan map image cleanup failed '
+          'path=${result.storagePath} error=$error',
+        );
+      }
+      rethrow;
+    }
+  }
+
   Future<List<ActivityMediaItem>> _uploadPendingMedia({
     required ActivityFeedItem activity,
     required List<PendingActivityMedia> pendingMedia,
@@ -169,16 +206,18 @@ class ActivityMutationService {
   }
 
   Future<void> deleteActivity(ActivityFeedItem activity) async {
-    for (final media in activity.media) {
-      if (media.storagePath.isEmpty) continue;
+    final storagePaths = <String>[
+      for (final media in activity.media) media.storagePath,
+      activity.mapImageStoragePath ?? '',
+    ];
+    for (final storagePath in storagePaths) {
+      if (storagePath.isEmpty) continue;
       try {
-        await _storageService.deleteActivityMedia(
-          storagePath: media.storagePath,
-        );
+        await _storageService.deleteActivityMedia(storagePath: storagePath);
       } catch (error) {
         debugPrint(
           '[ActivityMutationService] activity media delete failed '
-          'path=${media.storagePath} error=$error',
+          'path=$storagePath error=$error',
         );
       }
     }
@@ -276,6 +315,8 @@ class ActivityMutationService {
           data['journeyEndTime'] as String? ?? '',
         ),
         transportMode: data['transportMode'] as String?,
+        mapImageUrl: data['mapImageUrl'] as String?,
+        mapImageStoragePath: data['mapImageStoragePath'] as String?,
         media: _mediaFromData(data['media']),
       );
     } catch (_) {
