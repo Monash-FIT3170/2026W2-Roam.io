@@ -21,7 +21,7 @@ void main() {
 
   test('journey route colours correspond to transport mode', () {
     expect(TransportMode.walk.routeColor, const Color(0xFFD946EF));
-      expect(TransportMode.drive.routeColor, const Color(0xFF5B21B6));
+    expect(TransportMode.drive.routeColor, const Color(0xFF5B21B6));
     expect(TransportMode.bus.routeColor, const Color(0xFFF97316));
     expect(TransportMode.train.routeColor, const Color(0xFF2563EB));
     expect(TransportMode.tram.routeColor, const Color(0xFF16A34A));
