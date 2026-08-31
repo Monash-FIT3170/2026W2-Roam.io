@@ -656,6 +656,12 @@ service cloud.firestore {
         allow delete: if request.auth != null && request.auth.uid == userId;
       }
 
+      // Side quest progress - one doc per quest the user has started.
+      match /quests/{questId} {
+        allow read, create, update: if isProfileOwner(userId);
+        allow delete: if false;
+      }
+
       // Timestamped XP gain events for weekly XP Gained analytics.
       match /xp_events/{eventId} {
         allow read: if canViewProfileActivity(userId);
@@ -727,6 +733,13 @@ service cloud.firestore {
         && request.resource.data.uid == userId
         && hasPublicProfileFields();
       allow delete: if false;
+    }
+
+    // Global side quest definitions shared by every user. Seeded with
+    // scripts/seed_quests.js, so clients only ever read them.
+    match /quests/{questId} {
+      allow read: if isSignedIn();
+      allow write: if false;
     }
 
     match /friend_requests/{requestId} {

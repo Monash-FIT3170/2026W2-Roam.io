@@ -3,15 +3,13 @@
  *   Displays available side quests, category filters, quest rewards and
  *   the current user's quest progress using the shared Roam.io visual style.
  *
- *   Global quests remain browsable while signed out. Starting and completing
- *   quests still requires an authenticated user.
+ *   Quest definitions are global and shared by every signed-in user.
+ *   Per-user progress is only loaded once a user id is available.
  */
 
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
-import '../../../shared/widgets/app_bottom_nav_bar.dart';
-import '../../../shared/widgets/app_page_header.dart';
 import '../../../theme/app_colours.dart';
 import '../../../theme/app_surfaces.dart';
 import '../../auth/providers/auth_provider.dart';
@@ -80,20 +78,28 @@ class _QuestsContent extends StatelessWidget {
   Widget build(BuildContext context) {
     final controller = context.watch<QuestController>();
 
-    final bottomClearance =
-        AppBottomNavBar.clearanceFromScreenBottom(context) + 16;
-
-    return Container(
-      color: AppSurfaces.pageBackground(context),
-      child: SafeArea(
-        bottom: false,
+    return Scaffold(
+      backgroundColor: AppSurfaces.pageBackground(context),
+      appBar: AppBar(
+        backgroundColor: AppSurfaces.pageBackground(context),
+        surfaceTintColor: Colors.transparent,
+        elevation: 0,
+        scrolledUnderElevation: 0,
+        leading: const BackButton(),
+        title: Text(
+          'Side Quests',
+          style: Theme.of(
+            context,
+          ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w800),
+        ),
+      ),
+      body: SafeArea(
+        top: false,
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const AppPageHeader(title: 'Side Quests'),
-
             Padding(
-              padding: const EdgeInsets.fromLTRB(20, 0, 20, 16),
+              padding: const EdgeInsets.fromLTRB(20, 4, 20, 16),
               child: Text(
                 'Discover new experiences, complete challenges and earn XP.',
                 style: Theme.of(context).textTheme.bodyMedium?.copyWith(
@@ -111,18 +117,14 @@ class _QuestsContent extends StatelessWidget {
 
             const SizedBox(height: 14),
 
-            Expanded(child: _buildBody(context, controller, bottomClearance)),
+            Expanded(child: _buildBody(context, controller)),
           ],
         ),
       ),
     );
   }
 
-  Widget _buildBody(
-    BuildContext context,
-    QuestController controller,
-    double bottomClearance,
-  ) {
+  Widget _buildBody(BuildContext context, QuestController controller) {
     if (controller.isLoading) {
       return Center(
         child: CircularProgressIndicator(
@@ -147,7 +149,7 @@ class _QuestsContent extends StatelessWidget {
       },
       child: ListView.separated(
         physics: const AlwaysScrollableScrollPhysics(),
-        padding: EdgeInsets.fromLTRB(20, 2, 20, bottomClearance),
+        padding: const EdgeInsets.fromLTRB(20, 2, 20, 24),
         itemCount: controller.quests.length,
         separatorBuilder: (_, _) => const SizedBox(height: 14),
         itemBuilder: (context, index) {
