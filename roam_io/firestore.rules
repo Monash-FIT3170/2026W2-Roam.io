@@ -650,8 +650,10 @@ service cloud.firestore {
       
       // Journeys subcollection - tracks user's journey history
       match /journeys/{journeyId} {
-        // Only the signed-in owner can read/create/update their own journeys.
-        allow read, create, update: if request.auth != null && request.auth.uid == userId;
+        // Allow reading if the user can view the profile's activity (e.g. followers)
+        allow read: if canViewProfileActivity(userId);
+        // Only the signed-in owner can create/update their own journeys.
+        allow create, update: if request.auth != null && request.auth.uid == userId;
         // Allow deleting journeys
         allow delete: if request.auth != null && request.auth.uid == userId;
       }

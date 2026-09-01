@@ -34,7 +34,7 @@ class FogPainter extends CustomPainter {
     required this.dissolves,
     this.returnTransition,
     required this.atlas,
-    required this.userSpeedMetresPerSecond,
+    required this.windOffset,
     this.isNight = false,
     this.motionEase = 1.0,
     super.repaint,
@@ -48,7 +48,10 @@ class FogPainter extends CustomPainter {
   final List<FogDissolve> dissolves;
   final FogReturnTransition? returnTransition;
   final FogAtlas? atlas;
-  final double userSpeedMetresPerSecond;
+
+  /// Accumulated ambient wind drift, in world units. Held still by the overlay
+  /// while a journey is running.
+  final Offset windOffset;
   final bool isNight;
 
   /// How settled the camera is: 1.0 at rest, 0.0 while moving.
@@ -136,7 +139,7 @@ class FogPainter extends CustomPainter {
       atlas: atlas,
       elapsed: elapsed,
       dissolves: dissolves,
-      userSpeedMetresPerSecond: userSpeedMetresPerSecond,
+      windOffset: windOffset,
       parallax: parallax,
       layerWeight: layerWeight,
       spriteTint: isNight ? FogPalette.nightSpriteTint : FogPalette.spriteTint,
@@ -250,7 +253,7 @@ class FogPainter extends CustomPainter {
         oldDelegate.geometry.length != geometry.length ||
         oldDelegate.dissolves.length != dissolves.length ||
         oldDelegate.returnTransition != returnTransition ||
-        oldDelegate.userSpeedMetresPerSecond != userSpeedMetresPerSecond ||
+        oldDelegate.windOffset != windOffset ||
         oldDelegate.isNight != isNight ||
         oldDelegate.motionEase != motionEase;
   }

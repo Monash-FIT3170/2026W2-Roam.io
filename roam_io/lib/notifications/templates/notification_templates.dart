@@ -1,6 +1,6 @@
 /*
  * Author: Sanjevan Rajasegar
- * Last Updated: 22 August 2026
+ * Last Updated: 29 August 2026 — Sanjevan Rajasegar
  * Description:
  *   Outlines the different notification templates used throughout the application. 
  *   Each template corresponds to a specific notification type and provides a consistent structure.
@@ -82,7 +82,6 @@ class NotificationTemplates {
       title: 'Glaze Received',
       body: '$username gave Glaze to your activity',
       timestamp: now,
-      showOnDevice: false,
       displayDuration: const Duration(seconds: 5),
       data: {
         'notificationId': ?notificationId,
@@ -117,7 +116,6 @@ class NotificationTemplates {
       title: 'New Comment',
       body: '$username commented on your activity',
       timestamp: now,
-      showOnDevice: false,
       displayDuration: const Duration(seconds: 5),
       data: {
         'notificationId': ?notificationId,
@@ -142,7 +140,6 @@ class NotificationTemplates {
       title: 'New Reply',
       body: '$username replied to your comment',
       timestamp: now,
-      showOnDevice: false,
       displayDuration: const Duration(seconds: 5),
       data: {
         'notificationId': ?notificationId,
@@ -167,7 +164,6 @@ class NotificationTemplates {
       title: 'New Reply',
       body: '$username replied to your comment',
       timestamp: now,
-      showOnDevice: false,
       displayDuration: const Duration(seconds: 5),
       data: {
         'notificationId': ?notificationId,
@@ -192,7 +188,6 @@ class NotificationTemplates {
       title: 'Comment Liked',
       body: '$username liked your comment',
       timestamp: now,
-      showOnDevice: false,
       displayDuration: const Duration(seconds: 5),
       data: {
         'notificationId': ?notificationId,
@@ -243,7 +238,7 @@ class NotificationTemplates {
     );
   }
 
-  /// In-app banner when [username] follows the current user (public profiles).
+  /// Notification when [username] follows the current user (public profiles).
   static AppNotification followedYou(
     String username, {
     String? notificationId,
@@ -256,7 +251,6 @@ class NotificationTemplates {
       title: 'New Follower',
       body: '$username followed you',
       timestamp: now,
-      showOnDevice: false,
       displayDuration: const Duration(seconds: 5),
       data: {'notificationId': ?notificationId, 'actorId': ?actorId},
     );
@@ -272,13 +266,12 @@ class NotificationTemplates {
       title: 'New Followers',
       body: '$safeCount people followed you',
       timestamp: now,
-      showOnDevice: false,
       displayDuration: const Duration(seconds: 6),
       data: {'followSummaryCount': '$safeCount'},
     );
   }
 
-  /// In-app banner when [username] requests to follow the current user.
+  /// Notification when [username] requests to follow the current user.
   static AppNotification followRequest(
     String username, {
     String? notificationId,
@@ -292,7 +285,6 @@ class NotificationTemplates {
       title: 'Follow Request',
       body: '$username requested to follow you',
       timestamp: now,
-      showOnDevice: false,
       displayDuration: const Duration(seconds: 7),
       actions: const [
         NotificationAction(
@@ -312,7 +304,7 @@ class NotificationTemplates {
     );
   }
 
-  /// In-app banner when a private-account follow request is accepted.
+  /// Notification when a private-account follow request is accepted.
   static AppNotification followRequestAccepted(
     String username, {
     String? notificationId,
@@ -325,7 +317,6 @@ class NotificationTemplates {
       title: 'Follow Request Accepted',
       body: '$username accepted your follow request',
       timestamp: now,
-      showOnDevice: false,
       displayDuration: const Duration(seconds: 5),
       data: {'notificationId': ?notificationId, 'actorId': ?actorId},
     );

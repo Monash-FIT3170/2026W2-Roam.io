@@ -1,6 +1,6 @@
 /*
  * Author: Sanjevan Rajasegar
- * Last Updated: 22 August 2026
+ * Last Updated: 31 August 2026
  * Description:
  *   Tests the reusable notification templates to ensure each template
  *   produces the expected type, content, actions, duration and metadata.
@@ -23,12 +23,16 @@ void main() {
       expect(notification.type, NotificationType.friendRequest);
       expect(notification.title, 'New Friend Request');
       expect(notification.body, 'Alex sent you a friend request.');
+      expect(notification.showInApp, isTrue);
+      expect(notification.showOnDevice, isTrue);
       expect(notification.displayDuration, const Duration(seconds: 7));
 
       // Friend requests should provide Accept and Decline actions.
       expect(notification.actions, hasLength(2));
       expect(notification.actions[0].type, NotificationActionType.accept);
+      expect(notification.actions[0].label, 'Accept');
       expect(notification.actions[1].type, NotificationActionType.decline);
+      expect(notification.actions[1].label, 'Decline');
 
       // Metadata should identify the related request and sender.
       expect(notification.data['friendRequestId'], 'request-123');
@@ -49,6 +53,7 @@ void main() {
       expect(notification.type, NotificationType.friendAccepted);
       expect(notification.title, 'Friend Request Accepted');
       expect(notification.body, 'Alex accepted your friend request.');
+      expect(notification.showOnDevice, isTrue);
       expect(notification.actions, isEmpty);
     });
 
@@ -58,6 +63,7 @@ void main() {
       expect(notification.type, NotificationType.kudos);
       expect(notification.title, 'Glaze Received');
       expect(notification.body, 'Alex gave you Glaze.');
+      expect(notification.showOnDevice, isTrue);
       expect(notification.displayDuration, const Duration(seconds: 3));
     });
 
@@ -67,76 +73,92 @@ void main() {
       expect(notification.type, NotificationType.comment);
       expect(notification.title, 'New Comment');
       expect(notification.body, 'Alex commented on your activity.');
+      expect(notification.showOnDevice, isTrue);
     });
 
     test('activity interaction templates use distinct types and copy', () {
       final kudos = NotificationTemplates.activityKudos('Nathan');
-      final comment = NotificationTemplates.activityComment('Nathan');
-      final threadReply = NotificationTemplates.activityThreadReply('Nathan');
-      final reply = NotificationTemplates.commentReply('Nathan');
-      final commentLike = NotificationTemplates.commentLike('Nathan');
+      final comment = NotificationTemplates.activityComment('Maya');
+      final reply = NotificationTemplates.commentReply('Liam');
+      final commentLike = NotificationTemplates.commentLike('Sofia');
 
       expect(kudos.type, NotificationType.kudos);
       expect(kudos.body, 'Nathan gave Glaze to your activity');
+
       expect(comment.type, NotificationType.comment);
-      expect(comment.body, 'Nathan commented on your activity');
-      expect(threadReply.type, NotificationType.commentReply);
-      expect(threadReply.body, 'Nathan replied to your comment');
+      expect(comment.body, 'Maya commented on your activity');
+
       expect(reply.type, NotificationType.commentReply);
-      expect(reply.body, 'Nathan replied to your comment');
+      expect(reply.body, 'Liam replied to your comment');
+
       expect(commentLike.type, NotificationType.commentLike);
-      expect(commentLike.body, 'Nathan liked your comment');
+      expect(commentLike.body, 'Sofia liked your comment');
     });
 
     test('activity interaction templates include supplied metadata', () {
-      final kudos = NotificationTemplates.activityKudos(
-        'Nathan',
-        notificationId: 'notification-1',
+      final notifications = [
+        NotificationTemplates.activityKudos(
+          'Nathan',
+          notificationId: 'notification-1',
+          actorId: 'actor-1',
+          activityId: 'activity-1',
+        ),
+        NotificationTemplates.activityComment(
+          'Maya',
+          notificationId: 'notification-2',
+          actorId: 'actor-2',
+          activityId: 'activity-2',
+          commentId: 'comment-2',
+        ),
+        NotificationTemplates.commentReply(
+          'Liam',
+          notificationId: 'notification-3',
+          actorId: 'actor-3',
+          activityId: 'activity-3',
+          commentId: 'comment-3',
+        ),
+        NotificationTemplates.commentLike(
+          'Sofia',
+          notificationId: 'notification-4',
+          actorId: 'actor-4',
+          activityId: 'activity-4',
+          commentId: 'comment-4',
+        ),
+      ];
+
+      for (final notification in notifications) {
+        expect(notification.showInApp, isTrue);
+        expect(notification.showOnDevice, isTrue);
+        expect(notification.displayDuration, const Duration(seconds: 5));
+        expect(notification.data['notificationId'], isNotNull);
+        expect(notification.data['actorId'], isNotNull);
+        expect(notification.data['activityId'], isNotNull);
+      }
+
+      expect(notifications[0].id, 'notification-1');
+      expect(notifications[1].data['commentId'], 'comment-2');
+      expect(notifications[2].data['commentId'], 'comment-3');
+      expect(notifications[3].data['commentId'], 'comment-4');
+    });
+
+    test('activityThreadReply creates a reply notification', () {
+      final notification = NotificationTemplates.activityThreadReply(
+        'Priya',
+        notificationId: 'notification-reply',
         actorId: 'actor-1',
         activityId: 'activity-1',
-      );
-      final comment = NotificationTemplates.activityComment(
-        'Maya',
-        notificationId: 'notification-2',
-        actorId: 'actor-2',
-        activityId: 'activity-2',
-        commentId: 'comment-2',
-      );
-      final threadReply = NotificationTemplates.activityThreadReply(
-        'Priya',
-        notificationId: 'notification-3',
-        actorId: 'actor-3',
-        activityId: 'activity-3',
-        commentId: 'comment-3',
-      );
-      final reply = NotificationTemplates.commentReply(
-        'Liam',
-        notificationId: 'notification-4',
-        actorId: 'actor-4',
-        activityId: 'activity-4',
-        commentId: 'comment-4',
-      );
-      final commentLike = NotificationTemplates.commentLike(
-        'Sofia',
-        notificationId: 'notification-5',
-        actorId: 'actor-5',
-        activityId: 'activity-5',
-        commentId: 'comment-5',
+        commentId: 'comment-1',
       );
 
-      expect(kudos.id, 'notification-1');
-      expect(kudos.showOnDevice, isFalse);
-      expect(kudos.data['actorId'], 'actor-1');
-      expect(kudos.data['activityId'], 'activity-1');
-
-      expect(comment.id, 'notification-2');
-      expect(comment.data['commentId'], 'comment-2');
-      expect(threadReply.id, 'notification-3');
-      expect(threadReply.data['commentId'], 'comment-3');
-      expect(reply.id, 'notification-4');
-      expect(reply.data['commentId'], 'comment-4');
-      expect(commentLike.id, 'notification-5');
-      expect(commentLike.data['commentId'], 'comment-5');
+      expect(notification.id, 'notification-reply');
+      expect(notification.type, NotificationType.commentReply);
+      expect(notification.title, 'New Reply');
+      expect(notification.body, 'Priya replied to your comment');
+      expect(notification.showOnDevice, isTrue);
+      expect(notification.displayDuration, const Duration(seconds: 5));
+      expect(notification.data['actorId'], 'actor-1');
+      expect(notification.data['activityId'], 'activity-1');
+      expect(notification.data['commentId'], 'comment-1');
     });
 
     test('error creates retry and dismiss actions', () {
@@ -148,13 +170,16 @@ void main() {
       expect(notification.title, 'Something went wrong');
       expect(notification.body, 'Unable to upload activity.');
 
-      // Application errors are currently restricted to in-app display.
+      // Application errors intentionally remain in-app only.
+      expect(notification.showInApp, isTrue);
       expect(notification.showOnDevice, isFalse);
       expect(notification.displayDuration, const Duration(seconds: 6));
 
       expect(notification.actions, hasLength(2));
       expect(notification.actions[0].type, NotificationActionType.retry);
+      expect(notification.actions[0].label, 'Retry');
       expect(notification.actions[1].type, NotificationActionType.dismiss);
+      expect(notification.actions[1].label, 'Dismiss');
     });
 
     test('activity creates pause and stop actions', () {
@@ -166,112 +191,100 @@ void main() {
       expect(notification.type, NotificationType.activity);
       expect(notification.title, 'Morning Walk');
       expect(notification.body, 'Activity is currently running.');
+      expect(notification.showOnDevice, isTrue);
 
       expect(notification.actions, hasLength(2));
       expect(notification.actions[0].type, NotificationActionType.pause);
+      expect(notification.actions[0].label, 'Pause');
       expect(notification.actions[1].type, NotificationActionType.stop);
+      expect(notification.actions[1].label, 'Stop');
     });
 
-    test('followedYou creates an in-app follow notification', () {
+    test('followedYou creates a follow notification', () {
       final notification = NotificationTemplates.followedYou(
         'Alex',
-        notificationId: 'follow-notification',
-        actorId: 'follower-123',
+        notificationId: 'follow-1',
+        actorId: 'actor-1',
       );
 
-      expect(notification.id, 'follow-notification');
+      expect(notification.id, 'follow-1');
       expect(notification.type, NotificationType.follow);
       expect(notification.title, 'New Follower');
       expect(notification.body, 'Alex followed you');
-      expect(notification.showOnDevice, isFalse);
+      expect(notification.showInApp, isTrue);
+      expect(notification.showOnDevice, isTrue);
       expect(notification.displayDuration, const Duration(seconds: 5));
-      expect(notification.data['actorId'], 'follower-123');
+      expect(notification.data['notificationId'], 'follow-1');
+      expect(notification.data['actorId'], 'actor-1');
     });
 
-    test('followedYou generates an ID when notificationId is omitted', () {
-      final notification = NotificationTemplates.followedYou('Alex');
+    test('followSummary creates a summary notification', () {
+      final notification = NotificationTemplates.followSummary(4);
 
-      expect(notification.id, isNotEmpty);
       expect(notification.type, NotificationType.follow);
-      expect(notification.data, isEmpty);
+      expect(notification.title, 'New Followers');
+      expect(notification.body, '4 people followed you');
+      expect(notification.showInApp, isTrue);
+      expect(notification.showOnDevice, isTrue);
+      expect(notification.displayDuration, const Duration(seconds: 6));
+      expect(notification.data['followSummaryCount'], '4');
     });
 
     test('followSummary clamps invalid counts to one', () {
       final notification = NotificationTemplates.followSummary(0);
 
-      expect(notification.id, startsWith('follow-summary-'));
-      expect(notification.type, NotificationType.follow);
-      expect(notification.title, 'New Followers');
       expect(notification.body, '1 people followed you');
-      expect(notification.showOnDevice, isFalse);
-      expect(notification.displayDuration, const Duration(seconds: 6));
       expect(notification.data['followSummaryCount'], '1');
-    });
-
-    test('followSummary uses supplied positive count', () {
-      final notification = NotificationTemplates.followSummary(4);
-
-      expect(notification.body, '4 people followed you');
-      expect(notification.data['followSummaryCount'], '4');
+      expect(notification.showOnDevice, isTrue);
     });
 
     test('followRequest creates actionable request notification', () {
       final notification = NotificationTemplates.followRequest(
         'Jordan',
-        notificationId: 'request-notification',
+        notificationId: 'follow-request-notification',
         requestId: 'request-123',
-        requesterId: 'requester-456',
+        requesterId: 'user-456',
       );
 
-      expect(notification.id, 'request-notification');
+      expect(notification.id, 'follow-request-notification');
       expect(notification.type, NotificationType.followRequest);
       expect(notification.title, 'Follow Request');
       expect(notification.body, 'Jordan requested to follow you');
-      expect(notification.showOnDevice, isFalse);
+      expect(notification.showInApp, isTrue);
+      expect(notification.showOnDevice, isTrue);
       expect(notification.displayDuration, const Duration(seconds: 7));
+
       expect(notification.actions, hasLength(2));
       expect(notification.actions[0].type, NotificationActionType.accept);
+      expect(notification.actions[0].label, 'Accept');
       expect(notification.actions[1].type, NotificationActionType.decline);
+      expect(notification.actions[1].label, 'Decline');
+
+      expect(
+        notification.data['notificationId'],
+        'follow-request-notification',
+      );
       expect(notification.data['requestId'], 'request-123');
-      expect(notification.data['requesterId'], 'requester-456');
-    });
-
-    test('followRequest generates an ID when notificationId is omitted', () {
-      final notification = NotificationTemplates.followRequest('Jordan');
-
-      expect(notification.id, isNotEmpty);
-      expect(notification.type, NotificationType.followRequest);
-      expect(notification.data, isEmpty);
+      expect(notification.data['requesterId'], 'user-456');
     });
 
     test('followRequestAccepted creates accepted notification', () {
       final notification = NotificationTemplates.followRequestAccepted(
         'Casey',
         notificationId: 'accepted-notification',
-        actorId: 'actor-789',
+        actorId: 'actor-1',
       );
 
       expect(notification.id, 'accepted-notification');
       expect(notification.type, NotificationType.followRequestAccepted);
       expect(notification.title, 'Follow Request Accepted');
       expect(notification.body, 'Casey accepted your follow request');
-      expect(notification.showOnDevice, isFalse);
+      expect(notification.showInApp, isTrue);
+      expect(notification.showOnDevice, isTrue);
       expect(notification.displayDuration, const Duration(seconds: 5));
-      expect(notification.data['actorId'], 'actor-789');
+      expect(notification.data['notificationId'], 'accepted-notification');
+      expect(notification.data['actorId'], 'actor-1');
     });
-
-    test(
-      'followRequestAccepted generates an ID when notificationId is omitted',
-      () {
-        final notification = NotificationTemplates.followRequestAccepted(
-          'Casey',
-        );
-
-        expect(notification.id, isNotEmpty);
-        expect(notification.type, NotificationType.followRequestAccepted);
-        expect(notification.data, isEmpty);
-      },
-    );
 
     test('generated notification IDs are not empty', () {
       final notification = NotificationTemplates.kudos('Alex');

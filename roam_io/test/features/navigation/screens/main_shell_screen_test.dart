@@ -1,6 +1,6 @@
 /*
  * Author: Sanjevan Rajasegar
- * Last Updated: 7 August 2026
+ * Last Updated: 29 August 2026 — Sanjevan Rajasegar
  * Description:
  *   Widget tests for main shell tab switching, real Home feed, and
  *   notification action toast feedback.
@@ -99,10 +99,10 @@ void main() {
 
     await tester.tap(find.text('YOU'));
     await _pumpShellFrame(tester);
-    expect(find.text('Stats'), findsOneWidget);
+    expect(find.text('Statistics'), findsOneWidget);
     expect(find.text('Milestones'), findsOneWidget);
 
-    await tester.tap(find.text('Stats'));
+    await tester.tap(find.text('Statistics'));
     await _pumpShellFrame(tester);
     expect(find.text('Visits by week'), findsOneWidget);
 
