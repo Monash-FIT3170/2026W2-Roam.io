@@ -81,7 +81,9 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
                     fillColor: AppSurfaces.innerCard(context),
                     border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(16),
-                      borderSide: BorderSide(color: AppSurfaces.border(context)),
+                      borderSide: BorderSide(
+                        color: AppSurfaces.border(context),
+                      ),
                     ),
                   ),
                   validator: (value) {
@@ -102,7 +104,9 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
                     fillColor: AppSurfaces.innerCard(context),
                     border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(16),
-                      borderSide: BorderSide(color: AppSurfaces.border(context)),
+                      borderSide: BorderSide(
+                        color: AppSurfaces.border(context),
+                      ),
                     ),
                   ),
                   validator: (value) {
@@ -125,7 +129,9 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
                     fillColor: AppSurfaces.innerCard(context),
                     border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(16),
-                      borderSide: BorderSide(color: AppSurfaces.border(context)),
+                      borderSide: BorderSide(
+                        color: AppSurfaces.border(context),
+                      ),
                     ),
                   ),
                   validator: (value) {

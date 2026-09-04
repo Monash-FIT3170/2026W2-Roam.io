@@ -156,7 +156,9 @@ class _LoginScreenState extends State<LoginScreen> {
         labelText: label,
         labelStyle: TextStyle(color: AppColors.ink.withValues(alpha: 0.7)),
         filled: true,
-        fillColor: AppColors.cream.withValues(alpha: 0.9), // Solid cream to stand out against clouds
+        fillColor: AppColors.cream.withValues(
+          alpha: 0.9,
+        ), // Solid cream to stand out against clouds
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(16),
           borderSide: BorderSide(color: AppColors.sage.withValues(alpha: 0.3)),

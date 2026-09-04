@@ -64,7 +64,9 @@ class AuthPageScaffold extends StatelessWidget {
                         ),
                         const SizedBox(height: 24),
                         child,
-                        if (footerText != null && footerLabel != null && onFooterTap != null) ...[
+                        if (footerText != null &&
+                            footerLabel != null &&
+                            onFooterTap != null) ...[
                           const SizedBox(height: 24),
                           Center(
                             child: Wrap(
@@ -72,7 +74,7 @@ class AuthPageScaffold extends StatelessWidget {
                               spacing: 4,
                               children: [
                                 Text(
-                                  footerText!, 
+                                  footerText!,
                                   style: textTheme.bodyMedium?.copyWith(
                                     color: AppColors.ink.withValues(alpha: 0.7),
                                   ),
@@ -137,9 +139,9 @@ class _CloudAuthBackgroundState extends State<CloudAuthBackground>
       animation: _controller,
       builder: (context, child) {
         final progress = _controller.value;
-        
+
         // Cloud Layers
-        Widget clouds = Stack(
+        final Widget clouds = Stack(
           fit: StackFit.expand,
           children: [
             _buildCloudLayer(
@@ -196,8 +198,9 @@ class _CloudAuthBackgroundState extends State<CloudAuthBackground>
   }) {
     // We create an oversized bounding box so we can translate the texture
     // without exposing the edges, allowing a natural pan.
-    const double extraSize = 800; // Enough padding to prevent edges showing during pan
-    
+    const double extraSize =
+        800; // Enough padding to prevent edges showing during pan
+
     // Smooth easing for translation
     final dx = (progress - 0.5) * speedX;
     final dy = (progress - 0.5) * speedY;
@@ -213,7 +216,8 @@ class _CloudAuthBackgroundState extends State<CloudAuthBackground>
           scale: scale,
           child: Image.asset(
             image,
-            repeat: ImageRepeat.repeat, // Tile at natural resolution to prevent blurry stretching
+            repeat: ImageRepeat
+                .repeat, // Tile at natural resolution to prevent blurry stretching
             filterQuality: FilterQuality.low,
           ),
         ),
@@ -221,4 +225,3 @@ class _CloudAuthBackgroundState extends State<CloudAuthBackground>
     );
   }
 }
-
