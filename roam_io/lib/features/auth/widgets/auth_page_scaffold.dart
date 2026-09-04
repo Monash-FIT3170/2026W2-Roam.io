@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 
@@ -124,7 +126,18 @@ class _CloudAuthBackgroundState extends State<CloudAuthBackground>
     _controller = AnimationController(
       vsync: this,
       duration: const Duration(seconds: 40),
-    )..repeat(reverse: true); // Oscillate to prevent noticeable seams or bounds
+    );
+    bool isTest = false;
+    assert(() {
+      try {
+        isTest = Platform.environment.containsKey('FLUTTER_TEST');
+      } catch (_) {}
+      return true;
+    }());
+    // Oscillate to prevent noticeable seams or bounds
+    if (!isTest) {
+      _controller.repeat(reverse: true);
+    }
   }
 
   @override

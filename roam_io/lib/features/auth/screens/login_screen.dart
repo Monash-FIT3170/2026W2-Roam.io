@@ -113,7 +113,7 @@ class _LoginScreenState extends State<LoginScreen> {
                   onFieldSubmitted: (_) => _submit(),
                 ),
                 const SizedBox(height: 22),
-                FilledButton(
+                ElevatedButton(
                   onPressed: auth.isBusy ? null : _submit,
                   child: auth.isBusy
                       ? const SizedBox(
