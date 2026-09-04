@@ -14,6 +14,7 @@ import 'package:roam_io/features/map/data/geolocator_service.dart';
 import 'package:roam_io/features/map/data/place_of_interest.dart';
 import 'package:roam_io/features/map/data/visit_service.dart';
 import 'package:roam_io/features/map/data/visited_region_service.dart';
+import 'package:roam_io/features/map/fog/fog_decay_difficulty.dart';
 import 'package:roam_io/services/polygon_service.dart';
 
 /// Test [Position] near Melbourne CBD.
@@ -61,7 +62,7 @@ class RecordingVisitService extends VisitService {
       Set<int>.from(_ids);
 
   @override
-  Future<void> markVisited({
+  Future<VisitWriteResult> markVisited({
     required String userId,
     required PlaceOfInterest place,
     String? customName,
@@ -74,7 +75,7 @@ class RecordingVisitService extends VisitService {
       throw err;
     }
     _ids.add(place.id);
-    await super.markVisited(
+    return super.markVisited(
       userId: userId,
       place: place,
       customName: customName,
@@ -102,7 +103,35 @@ class FakeVisitedRegionService extends VisitedRegionService {
   Future<Set<String>> loadVisitedRegionIds() async => <String>{};
 
   @override
-  Future<bool> markVisited(String regionId, {DateTime? visitedAt}) async {
+  Future<Set<String>> loadFogClearedRegionIds({
+    required FogDecayDifficulty difficulty,
+    DateTime? now,
+  }) async => <String>{};
+
+  @override
+  Future<void> refreshFogDecayWarnings({
+    required FogDecayDifficulty difficulty,
+    DateTime? now,
+  }) async {}
+
+  @override
+  Future<Map<String, DateTime>> loadUnpresentedFogDecayEvents({
+    required FogDecayDifficulty difficulty,
+    DateTime? now,
+  }) async => <String, DateTime>{};
+
+  @override
+  Future<void> markFogDecayEventsPresented(
+    Map<String, DateTime> decayAtByRegionId,
+  ) async {}
+
+  @override
+  Future<bool> markVisited(
+    String regionId, {
+    DateTime? visitedAt,
+    double? areaSquareMetres,
+    String? name,
+  }) async {
     markVisitedCalls++;
     return markVisitedResult;
   }

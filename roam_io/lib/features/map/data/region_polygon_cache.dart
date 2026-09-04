@@ -22,31 +22,29 @@ import 'region_polygon.dart';
 
 /// Keeps loaded [RegionPolygon] objects and rendered Google Maps polygons in sync.
 class RegionPolygonCache {
-  /*
-  static const Color _visitedStrokeColor = Color(0xB0F3D27A);
-  static const Color _visitedFillColor = Color(0x18F3D27A);
-  static const int _visitedStrokeWidth = 3;
+  RegionPolygonCache();
 
-  static const Color _unvisitedStrokeColor = Color(0xFF4A4A4A);
-  static const Color _unvisitedFillColor = Color(0xCC000000);
-  static const int _unvisitedStrokeWidth = 2;
-
-  static const Color _currentRegionStrokeColor = Color(0xFFF3D27A);
-  static const Color _currentRegionFillColor = Color(0x33F3D27A);
-  static const int _currentRegionStrokeWidth = 5;
-
-*/
   static const Color _visitedStrokeColor = Color(0xFFFFFFFF);
   static const Color _visitedFillColor = Color(0x30FFFFFF);
-  static const int _visitedStrokeWidth = 5;
+  static const int _visitedStrokeWidth = 3;
 
-  static const Color _currentRegionStrokeColor = Color(0xFFFFFFFF);
   static const Color _currentRegionFillColor = Color(0x30FFFFFF);
-  static const int _currentRegionStrokeWidth = 7;
 
-  static const Color _unvisitedStrokeColor = Color(0xFF4A4A4A);
-  static const Color _unvisitedFillColor = Color(0xCC000000);
-  static const int _unvisitedStrokeWidth = 2;
+  // Unvisited regions render nothing anywhere. Fog is no longer a black polygon
+  // per census tile — it is a single cloud layer covering the map minus holes
+  // for explored ground: animated by FogOverlay on the live map, frozen by
+  // StaticFog on Journey previews and the pictures taken of them. Per-tile
+  // black fills produced visible seams and double-blended borders wherever
+  // adjacent SA1 polygons shared an edge, and made a preview's cost grow with
+  // the number of tiles its journey crossed.
+  //
+  // MapController also stops caching unvisited regions altogether, so this
+  // styling is barely reachable there — only for the tile the user is standing
+  // in before its unlock persists, and the current-region branch claims that.
+  static const Color _unvisitedFillColor = Color(0x00000000);
+
+  static const Color _unvisitedStrokeColor = Color(0x00000000);
+  static const int _unvisitedStrokeWidth = 0;
 
   // Use a yellow->orange->red scale so low counts appear yellow, medium
   // counts orange, and the most visited tiles are red.
@@ -166,20 +164,68 @@ class RegionPolygonCache {
     return _regionsById[regionId];
   }
 
+  Iterable<RegionPolygon> get regions => _regionsById.values;
+
+  /// Builds a separate outline for the union of all explored regions.
+  ///
+  /// Polygon strokes cannot hide only a shared side, so explored polygons are
+  /// rendered without a stroke and this method cancels every edge that occurs
+  /// in two explored rings. The remaining edges have explored ground on only
+  /// one side and therefore form the external perimeter.
+  Set<Polyline> exploredBoundaryPolylines(
+    Set<String> exploredRegionIds, {
+    Color boundaryColor = _visitedStrokeColor,
+  }) {
+    final edgesByKey = <String, List<_BoundaryEdge>>{};
+
+    for (final regionId in exploredRegionIds) {
+      final region = _regionsById[regionId];
+      if (region == null) continue;
+
+      for (final polygon in region.toGooglePolygons()) {
+        final points = polygon.points;
+        if (points.length < 2) continue;
+
+        for (var index = 0; index < points.length; index++) {
+          final start = points[index];
+          final end = points[(index + 1) % points.length];
+          if (_pointKey(start) == _pointKey(end)) continue;
+
+          final edge = _BoundaryEdge(start, end);
+          (edgesByKey[edge.undirectedKey] ??= <_BoundaryEdge>[]).add(edge);
+        }
+      }
+    }
+
+    final externalEdges = <_BoundaryEdge>[
+      for (final matchingEdges in edgesByKey.values)
+        if (matchingEdges.length == 1) matchingEdges.single,
+    ];
+
+    return {
+      for (var index = 0; index < externalEdges.length; index++)
+        Polyline(
+          polylineId: PolylineId('explored-boundary-$index'),
+          points: <LatLng>[
+            externalEdges[index].start,
+            externalEdges[index].end,
+          ],
+          color: boundaryColor,
+          width: _visitedStrokeWidth,
+          zIndex: 1,
+        ),
+    };
+  }
+
   Color _strokeColorForRegion({
     required bool isVisited,
     required bool isCurrentRegion,
     double? heatmapIntensity,
   }) {
-    if (isCurrentRegion) {
-      return _currentRegionStrokeColor;
-    }
-
-    if (isVisited && heatmapIntensity != null) {
-      return _heatmapColor(heatmapIntensity).withValues(alpha: 0.95);
-    }
-
-    return isVisited ? _visitedStrokeColor : _unvisitedStrokeColor;
+    // The external explored perimeter is rendered by
+    // exploredBoundaryPolylines. A per-polygon stroke would make shared edges
+    // between adjacent explored regions visible.
+    return _unvisitedStrokeColor;
   }
 
   Color _fillColorForRegion({
@@ -206,11 +252,7 @@ class RegionPolygonCache {
     required bool isVisited,
     required bool isCurrentRegion,
   }) {
-    if (isCurrentRegion) {
-      return _currentRegionStrokeWidth;
-    }
-
-    return isVisited ? _visitedStrokeWidth : _unvisitedStrokeWidth;
+    return _unvisitedStrokeWidth;
   }
 
   Color _heatmapColor(double intensity) {
@@ -229,6 +271,24 @@ class RegionPolygonCache {
       _heatmapHotColor,
       (clampedIntensity - 0.5) * 2,
     )!;
+  }
+}
+
+String _pointKey(LatLng point) =>
+    '${point.latitude.toStringAsFixed(7)},${point.longitude.toStringAsFixed(7)}';
+
+class _BoundaryEdge {
+  const _BoundaryEdge(this.start, this.end);
+
+  final LatLng start;
+  final LatLng end;
+
+  String get undirectedKey {
+    final startKey = _pointKey(start);
+    final endKey = _pointKey(end);
+    return startKey.compareTo(endKey) <= 0
+        ? '$startKey|$endKey'
+        : '$endKey|$startKey';
   }
 }
 

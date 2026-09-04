@@ -1,8 +1,8 @@
 /*
  * Author: Sanjevan Rajasegar
- * Last Modified: 17/05/2026
+ * Last Updated: 5 August 2026
  * Description:
- *   Widget tests for bottom navigation tab taps and floating map tab index.
+ *   Widget tests for Home, Social, Map, You, and Settings bottom navigation.
  */
 
 import 'package:flutter/material.dart';
@@ -19,11 +19,14 @@ void main() {
       ),
     );
 
-    await tester.tap(find.text('QUESTS'));
+    await tester.tap(find.text('SOCIAL'));
     expect(taps, [1]);
 
-    await tester.tap(find.text('ANALYTICS'));
+    await tester.tap(find.text('YOU'));
     expect(taps, [1, 3]);
+
+    await tester.tap(find.text('SETTINGS'));
+    expect(taps, [1, 3, 4]);
   });
 
   // The centre MAP tab is index 2 even though it is rendered between other tabs.

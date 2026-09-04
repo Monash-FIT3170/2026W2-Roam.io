@@ -1,22 +1,32 @@
 /*
  * Author: Sanjevan Rajasegar
- * Last Modified: 27/05/2026
+ * Last Updated: 6 August 2026
  * Description:
  *   Owns the map feature's state and business logic. This controller resolves
  *   the user's current region, loads viewport polygons and places, caches map
  *   data for redraws, persists visits, awards visit and region unlock XP, and
- *   exposes heatmap styling state for visited tiles. MapPage keeps the widget
- *   layer thin by delegating map lifecycle, location updates, marker updates,
- *   region unlock callbacks, and visit validation to this file.
+ *   exposes heatmap styling state for visited tiles. Unlock XP toasts only fire
+ *   when the canonical XP award succeeds.
+ *
+ *   Region resolution is fed by two location sources: the map's own stream,
+ *   which only runs while the app is in the foreground, and journey tracking,
+ *   which keeps running in the background for the length of a journey. Both
+ *   land in [MapController._queueRegionCheck], so fog keeps clearing along a
+ *   tracked route with the phone in a pocket.
  */
 
 import 'dart:async';
+import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 
+import '../domain/exploration_mode.dart';
+import '../fog/fog_controller.dart';
+import '../fog/fog_decay_difficulty.dart';
 import '../../profile/domain/xp_reward_config.dart';
+import 'follow_camera_pacer.dart';
 import 'geolocator_service.dart';
 import 'map_viewport_policy.dart';
 import 'place_marker_manager.dart';
@@ -28,6 +38,7 @@ import 'tile_unlock_xp_service.dart';
 import 'visit_service.dart';
 import 'visited_region_service.dart';
 import 'viewport_region_loader.dart';
+import '../../you/services/exploration_stats_service.dart';
 import '../../../services/polygon_service.dart';
 
 enum VisitResult { success, notLoggedIn, alreadyVisited, tooFar, error }
@@ -37,35 +48,12 @@ class MapController extends ChangeNotifier {
   static const double defaultZoom = MapViewportPolicy.defaultZoom;
   static const double visitProximityThreshold = 100.0;
 
-  static const String _mapStyle = '''
-[
-  {
-    "featureType": "poi",
-    "elementType": "all",
-    "stylers": [{"visibility": "off"}]
-  },
-  {
-    "featureType": "road",
-    "elementType": "labels",
-    "stylers": [{"visibility": "off"}]
-  },
-  {
-    "featureType": "administrative.locality",
-    "elementType": "labels",
-    "stylers": [{"visibility": "off"}]
-  },
-  {
-    "featureType": "administrative.neighborhood",
-    "elementType": "labels",
-    "stylers": [{"visibility": "off"}]
-  },
-  {
-    "featureType": "transit",
-    "elementType": "all",
-    "stylers": [{"visibility": "off"}]
-  }
-]
-''';
+  /// Minimum movement, in metres, between two containing-region lookups.
+  ///
+  /// Sits below the GPS distance filter so every genuine move still resolves,
+  /// while the same fix arriving twice from two overlapping location sources
+  /// does not. See [_queueRegionCheck].
+  static const double regionCheckMovementThresholdMetres = 3.0;
 
   MapController({
     GeoLocatorService? geoLocatorService,
@@ -78,6 +66,8 @@ class MapController extends ChangeNotifier {
     PlaceMarkerManager? placeMarkerManager,
     MapViewportPolicy? viewportPolicy,
     PolygonService? polygonService,
+    ExplorationStatsService? explorationStatsService,
+    FogDecayDifficulty fogDecayDifficulty = FogDecayDifficulty.quarterly,
   }) : _geoLocatorService = geoLocatorService ?? GeoLocatorService(),
        _regionService = regionService ?? RegionService(),
        _visitService = visitService ?? VisitService(),
@@ -87,7 +77,9 @@ class MapController extends ChangeNotifier {
        _viewportRegionLoader = viewportRegionLoader ?? ViewportRegionLoader(),
        _placeMarkerManager = placeMarkerManager ?? PlaceMarkerManager(),
        _viewportPolicy = viewportPolicy ?? MapViewportPolicy(),
-       _polygonService = polygonService;
+       _polygonService = polygonService,
+       _explorationStatsService = explorationStatsService,
+       _fogDecayDifficulty = fogDecayDifficulty;
 
   final GeoLocatorService _geoLocatorService;
   final RegionService _regionService;
@@ -99,24 +91,46 @@ class MapController extends ChangeNotifier {
   final PlaceMarkerManager _placeMarkerManager;
   final MapViewportPolicy _viewportPolicy;
   PolygonService? _polygonService;
+  ExplorationStatsService? _explorationStatsService;
+  FogDecayDifficulty _fogDecayDifficulty;
 
   PolygonService get _resolvedPolygonService =>
       _polygonService ??= PolygonService();
 
+  ExplorationStatsService get _resolvedExplorationStatsService =>
+      _explorationStatsService ??= ExplorationStatsService(
+        polygonService: _resolvedPolygonService,
+      );
+
   GoogleMapController? _googleMapController;
   StreamSubscription<Position>? _locationUpdatesSubscription;
+  Timer? _fogDecayRefreshTimer;
+
+  /// Fog of war state, consumed by the FogOverlay stacked above the map.
+  final FogController fogController = FogController();
 
   String? _userId;
   Future<void> Function(int amount)? _onVisitXpAwarded;
 
   Set<int> _visitedPlaceIds = {};
   Set<String> _visitedRegionIds = <String>{};
+  Set<String> _fogClearedRegionIds = <String>{};
+  Map<String, DateTime> _pendingFogReturnEvents = <String, DateTime>{};
   Map<String, int> _visitCountsByRegion = <String, int>{};
   Map<String, int> _entryCountsByRegion = <String, int>{};
+  Set<String> _visibleViewportRegionIds = <String>{};
 
   bool _isHeatmapEnabled = false;
   bool _isResolvingCurrentRegion = false;
-  Position? _queuedRegionCheckPosition;
+  LatLng? _queuedRegionCheckLocation;
+  LatLng? _lastRegionCheckLocation;
+  Position? _latestPosition;
+  LatLng? _latestUserLatLng;
+  bool _isFollowingUser = true;
+  bool _isProgrammaticCameraMove = false;
+  final FollowCameraPacer _followCameraPacer = FollowCameraPacer();
+
+  ExplorationMode _currentMode = ExplorationMode.exploration;
 
   double _currentZoom = defaultZoom;
   MapLayerMode _currentLayerMode = MapLayerMode.sa1Detail;
@@ -138,12 +152,29 @@ class MapController extends ChangeNotifier {
   onRegionUnlockCelebrationRewarded;
 
   String? get userId => _userId;
-  String get mapStyle => _mapStyle;
   bool get isHeatmapEnabled => _isHeatmapEnabled;
+  bool get isFollowingUser => _isFollowingUser;
+  ExplorationMode get currentMode => _currentMode;
   Set<int> get visitedPlaceIds => Set.unmodifiable(_visitedPlaceIds);
   Set<String> get visitedRegionIds => Set.unmodifiable(_visitedRegionIds);
+  Set<String> get fogClearedRegionIds => Set.unmodifiable(_fogClearedRegionIds);
   Map<String, int> get visitCountsByRegion =>
       Map<String, int>.unmodifiable(_visitCountsByRegion);
+
+  Set<Polyline> exploredBoundaryPolylines(Color boundaryColor) {
+    return _regionPolygonCache.exploredBoundaryPolylines(<String>{
+      ..._visitedRegionIds,
+      ?currentRegion?.id,
+    }, boundaryColor: boundaryColor);
+  }
+
+  /// Sets the current exploration mode and notifies listeners.
+  void setMode(ExplorationMode mode) {
+    if (_currentMode != mode) {
+      _currentMode = mode;
+      notifyListeners();
+    }
+  }
 
   void bindVisitXpAwarding(
     Future<void> Function(int amount)? onVisitXpAwarded,
@@ -157,9 +188,11 @@ class MapController extends ChangeNotifier {
   }) async {
     _userId = userId;
     _onVisitXpAwarded = onVisitXpAwarded;
+    fogController.onFogReturnCompleted = _handleFogReturnCompleted;
 
     await PlaceOfInterest.preloadIcons();
     await _loadUserVisitState();
+    _startFogDecayRefresh();
 
     _placeMarkerManager.setVisitedPlaceIds(_visitedPlaceIds);
     _refreshCachedPolygonsStyles();
@@ -203,23 +236,38 @@ class MapController extends ChangeNotifier {
   }
 
   void disposeController() {
+    _fogDecayRefreshTimer?.cancel();
+    _fogDecayRefreshTimer = null;
     unawaited(_locationUpdatesSubscription?.cancel());
     _locationUpdatesSubscription = null;
     _googleMapController?.dispose();
+    fogController.onFogReturnCompleted = null;
+    fogController.dispose();
   }
 
   Future<void> onMapCreated(GoogleMapController controller) async {
     _googleMapController = controller;
 
-    await _googleMapController?.animateCamera(
-      CameraUpdate.newLatLngZoom(center, defaultZoom),
-    );
+    _isProgrammaticCameraMove = true;
+    try {
+      await _googleMapController?.animateCamera(
+        CameraUpdate.newLatLngZoom(center, defaultZoom),
+      );
+    } catch (_) {
+      _isProgrammaticCameraMove = false;
+      rethrow;
+    }
 
     // Initial viewport loading happens after the real user location is resolved.
   }
 
   void onCameraMove(CameraPosition position) {
     _currentZoom = position.zoom;
+
+    // The fog overlay projects geometry itself, so it needs the camera every
+    // frame. Deliberately not routed through notifyListeners: MapPage rebuilds
+    // its whole subtree on notification, and this fires once per gesture frame.
+    fogController.updateCamera(position, isMoving: true);
 
     final markerSizeChanged = _placeMarkerManager.updateMarkerSizeForZoom(
       position.zoom,
@@ -229,6 +277,107 @@ class MapController extends ChangeNotifier {
       _placeMarkerManager.rebuildMarkers(onPlaceTapped: onPlaceTapped);
       markers = _placeMarkerManager.markers;
       notifyListeners();
+    }
+  }
+
+  /// Stops automatic location following when the user moves the map.
+  void onCameraMoveStarted() {
+    fogController.setCameraMoving(true);
+
+    // The flag covers exactly one callback: the one raised by the animation we
+    // just issued. Consuming it here rather than waiting for camera-idle is
+    // what lets a drag land while that animation is still running — which is
+    // most of the time once follow animations are paced to the fixes driving
+    // them — instead of being mistaken for our own move and ignored, leaving
+    // the camera pulling against the user's hand.
+    if (_isProgrammaticCameraMove) {
+      _isProgrammaticCameraMove = false;
+      return;
+    }
+
+    _isFollowingUser = false;
+    _followCameraPacer.reset();
+  }
+
+  Future<void> onCameraIdle() async {
+    _isProgrammaticCameraMove = false;
+    fogController.setCameraMoving(false);
+    await loadViewportRegions();
+  }
+
+  /// Re-centres the map and resumes following future location updates.
+  Future<void> recenterOnUser() async {
+    _isFollowingUser = true;
+    _followCameraPacer.reset();
+    final position =
+        _latestPosition ?? await _geoLocatorService.getCurrentLocation();
+    _rememberPosition(position);
+    // Deliberately not a follow move: this answers a tap and stays snappy.
+    await _moveCameraTo(position);
+  }
+
+  /// Keeps the map in sync with a location produced by journey tracking.
+  ///
+  /// Journey tracking is the only location source that keeps running once the
+  /// app is backgrounded, so its route points are also what unlock tiles and
+  /// clear fog for the rest of a journey the user has walked with their phone
+  /// in their pocket. Routing them through the same region check as the map's
+  /// own stream is what makes that happen.
+  ///
+  /// A deliberate user camera movement still pauses following until
+  /// [recenterOnUser] is used again.
+  void followTrackedLocation(LatLng location) {
+    center = location;
+    _latestUserLatLng = location;
+    _queueRegionCheck(location);
+
+    if (_isFollowingUser) {
+      unawaited(_followCameraTo(location));
+    }
+  }
+
+  /// Records the newest device fix without resolving a region for it.
+  void _rememberPosition(Position position) {
+    _latestPosition = position;
+    _latestUserLatLng = LatLng(position.latitude, position.longitude);
+  }
+
+  Future<void> _moveCameraTo(Position position) async {
+    await _moveCameraToLatLng(LatLng(position.latitude, position.longitude));
+  }
+
+  /// Moves the camera to keep up with the user's own movement.
+  ///
+  /// Deliberately paced rather than issued straight through: an animation
+  /// restarted at a target the camera is already gliding toward eases from a
+  /// standstill, and one given the default length arrives long before the next
+  /// fix does. [FollowCameraPacer] decides both. A recentre stays a direct
+  /// [_moveCameraToLatLng] — it answers a tap, so it should be snappy.
+  Future<void> _followCameraTo(LatLng location) async {
+    if (_googleMapController == null) return;
+
+    final duration = _followCameraPacer.durationFor(location);
+    if (duration == null) return;
+
+    await _moveCameraToLatLng(location, duration: duration);
+  }
+
+  Future<void> _moveCameraToLatLng(
+    LatLng location, {
+    Duration? duration,
+  }) async {
+    final controller = _googleMapController;
+    if (controller == null) return;
+
+    _isProgrammaticCameraMove = true;
+    try {
+      await controller.animateCamera(
+        CameraUpdate.newLatLng(location),
+        duration: duration,
+      );
+    } catch (_) {
+      _isProgrammaticCameraMove = false;
+      rethrow;
     }
   }
 
@@ -243,6 +392,9 @@ class MapController extends ChangeNotifier {
 
     if (targetMode == MapLayerMode.sa3Overview) {
       _currentLayerMode = MapLayerMode.sa3Overview;
+      _visibleViewportRegionIds = <String>{};
+      _placeMarkerManager.setVisibleRegionIds(const <String>{});
+      markers = _placeMarkerManager.markers;
       _syncPolygonsForCurrentMode();
       notifyListeners();
       return;
@@ -254,6 +406,17 @@ class MapController extends ChangeNotifier {
       notifyListeners();
     }
 
+    final clearedRegionIds = _clearedRegionIds();
+
+    // Nothing explored means nothing the viewport fetch could usefully return,
+    // since only cleared regions are rendered. Skip the request entirely rather
+    // than downloading hundreds of polygons to throw all of them away, but
+    // still mark the fog ready so a new account sees cloud instead of nothing.
+    if (clearedRegionIds.isEmpty) {
+      fogController.markViewportLoaded();
+      return;
+    }
+
     isLoadingViewport = true;
     notifyListeners();
 
@@ -262,6 +425,7 @@ class MapController extends ChangeNotifier {
         mapController: controller,
         currentZoom: _currentZoom,
         currentMode: _currentLayerMode,
+        clearedRegionIds: clearedRegionIds,
         force: force,
       );
 
@@ -272,7 +436,15 @@ class MapController extends ChangeNotifier {
       if (!result.didSkip) {
         var newRegionCount = 0;
 
-        for (final region in result.regions) {
+        // Unvisited regions are dropped on arrival. The fog is drawn as the
+        // screen minus cleared holes, so unexplored geometry is not an input to
+        // it, and caching it would keep paying to parse, store and restyle
+        // hundreds of polygons that are never rendered.
+        final clearedRegions = result.regions
+            .where((region) => _isRegionCleared(region.id))
+            .toList();
+
+        for (final region in clearedRegions) {
           final cacheResult = _cacheRegionAsPolygons(region);
 
           if (cacheResult.wasAdded) {
@@ -280,10 +452,20 @@ class MapController extends ChangeNotifier {
           }
         }
 
+        fogController.addClearedRegions(clearedRegions);
+        await _startPendingFogReturnAnimation();
         message = 'Loaded $newRegionCount new nearby tiles';
       }
 
+      fogController.markViewportLoaded();
+
       _syncPolygonsForCurrentMode();
+      final visibleBounds = await controller.getVisibleRegion();
+      _visibleViewportRegionIds = _regionPolygonCache.regions
+          .where((region) => region.intersectsBounds(visibleBounds))
+          .map((region) => region.id)
+          .toSet();
+      await _syncVisibleUnlockedPlaces();
     } catch (error) {
       message = 'Could not load nearby regions: $error';
       debugPrint('[MapController] Viewport loading error: $error');
@@ -291,6 +473,21 @@ class MapController extends ChangeNotifier {
       isLoadingViewport = false;
       notifyListeners();
     }
+  }
+
+  /// Whether a region's fog has been cleared, so its geometry is worth keeping.
+  ///
+  /// The region the user is standing in counts even before its unlock has
+  /// persisted, because the dissipation animation needs its path to know where
+  /// to tear.
+  bool _isRegionCleared(String regionId) {
+    return _fogClearedRegionIds.contains(regionId) ||
+        currentRegion?.id == regionId;
+  }
+
+  /// Every region whose fog is cleared, used to narrow the viewport request.
+  Set<String> _clearedRegionIds() {
+    return <String>{..._fogClearedRegionIds, ?currentRegion?.id};
   }
 
   void onRegionTapped(String regionId, String regionName) {
@@ -312,6 +509,7 @@ class MapController extends ChangeNotifier {
   Future<double?> getDistanceToPlace(PlaceOfInterest place) async {
     try {
       final position = await _geoLocatorService.getCurrentLocation();
+      _rememberPosition(position);
 
       return Geolocator.distanceBetween(
         position.latitude,
@@ -335,6 +533,12 @@ class MapController extends ChangeNotifier {
     }
 
     return (isNear: distance <= visitProximityThreshold, distance: distance);
+  }
+
+  /// Returns the user's current GPS position.
+  /// Throws if location access fails.
+  Future<Position> getCurrentPosition() async {
+    return _geoLocatorService.getCurrentLocation();
   }
 
   Future<VisitResult> markPlaceAsVisited(
@@ -418,6 +622,13 @@ class MapController extends ChangeNotifier {
       myLocationEnabled = true;
       isLoading = false;
 
+      // Fixes the fog's world-space origin. Anchoring here rather than at the
+      // globe origin keeps path coordinates in the low thousands, which is what
+      // stops Float32 precision loss producing vertex jitter at high zoom.
+      fogController
+        ..setAnchor(userCenter)
+        ..updateCamera(CameraPosition(target: userCenter, zoom: defaultZoom));
+
       final region = await _regionService.getContainingRegion(
         lat: position.latitude,
         lng: position.longitude,
@@ -433,9 +644,7 @@ class MapController extends ChangeNotifier {
       _syncPolygonsForCurrentMode();
       notifyListeners();
 
-      await _googleMapController?.animateCamera(
-        CameraUpdate.newLatLngZoom(userCenter, defaultZoom),
-      );
+      await _moveCameraTo(position);
 
       await Future.delayed(const Duration(milliseconds: 350));
       await loadViewportRegions(force: true);
@@ -461,29 +670,84 @@ class MapController extends ChangeNotifier {
     currentRegion = effectiveRegion;
     message = effectiveRegion.name;
 
-    await _markRegionAsVisited(effectiveRegion);
+    final wasVisuallyFogged = !_fogClearedRegionIds.contains(
+      effectiveRegion.id,
+    );
+    final wasNewlyUnlocked = await _markRegionAsVisited(effectiveRegion);
     // Record an entry for heatmap counts (app opened / entered tile).
     await _recordRegionEntry(effectiveRegion);
     _refreshCachedPolygonsStyles();
+    _visibleViewportRegionIds.add(effectiveRegion.id);
 
-    await _loadPlacesForRegion(effectiveRegion.id);
+    _syncFogForCurrentRegion(
+      region: effectiveRegion,
+      shouldAnimate: wasNewlyUnlocked || wasVisuallyFogged,
+    );
+
+    if (wasNewlyUnlocked) {
+      _placeMarkerManager.setVisibleRegionIds(
+        _visibleViewportRegionIds.intersection(_visitedRegionIds),
+      );
+      await _placeMarkerManager.loadPlacesForRegion(
+        regionId: effectiveRegion.id,
+        onPlaceTapped: onPlaceTapped,
+      );
+      markers = _placeMarkerManager.markers;
+    }
+    await _syncVisibleUnlockedPlaces();
   }
 
-  Future<void> _loadPlacesForRegion(String regionId) async {
+  /// Clears the fog over the region the user has just entered.
+  ///
+  /// A first unlock or revisit of a decayed region blows clouds away from the
+  /// user's position. Re-entering an already-clear region only ensures its hole
+  /// exists, with no duplicate animation.
+  ///
+  /// [_latestUserLatLng] is deliberately still null during
+  /// [_loadInitialRegion], so a cold start into an unvisited tile clears
+  /// without animating. Assigning it there would fire a dissipation nobody
+  /// asked for every launch.
+  ///
+  /// A tile unlocked while the app is backgrounded still starts its dissolve
+  /// here. The fog clock only advances while the overlay's ticker runs, so the
+  /// animation is waiting fully formed rather than half-played when the user
+  /// comes back.
+  void _syncFogForCurrentRegion({
+    required RegionPolygon region,
+    required bool shouldAnimate,
+  }) {
+    final userLatLng = _latestUserLatLng;
+
+    if (shouldAnimate && userLatLng != null) {
+      fogController.startDissolve(region: region, userLatLng: userLatLng);
+      return;
+    }
+
+    fogController.addClearedRegion(region);
+  }
+
+  Future<void> _syncVisibleUnlockedPlaces() async {
+    final visibleUnlockedRegionIds = _visibleViewportRegionIds.intersection(
+      _visitedRegionIds,
+    );
+    _placeMarkerManager.setVisibleRegionIds(visibleUnlockedRegionIds);
+    markers = _placeMarkerManager.markers;
+
+    if (visibleUnlockedRegionIds.isEmpty) return;
+
     isLoadingPlaces = true;
     notifyListeners();
 
     try {
-      final places = await _placeMarkerManager.loadPlacesForRegion(
-        regionId: regionId,
+      await _placeMarkerManager.loadPlacesForRegions(
+        regionIds: visibleUnlockedRegionIds,
         onPlaceTapped: onPlaceTapped,
       );
 
       markers = _placeMarkerManager.markers;
-      message = 'Loaded ${places.length} places in this region';
     } catch (error) {
-      message = 'Could not load places: $error';
-      debugPrint('[MapController] Places loading error: $error');
+      message = 'Could not load visible places: $error';
+      debugPrint('[MapController] Visible places loading error: $error');
     } finally {
       isLoadingPlaces = false;
       notifyListeners();
@@ -497,7 +761,7 @@ class MapController extends ChangeNotifier {
       final locationUpdates = await _geoLocatorService.getLocationUpdates();
 
       _locationUpdatesSubscription = locationUpdates.listen(
-        _queueRegionCheck,
+        _handleLocationUpdate,
         onError: (Object error) {
           debugPrint('[MapController] Location updates error: $error');
         },
@@ -507,8 +771,41 @@ class MapController extends ChangeNotifier {
     }
   }
 
-  void _queueRegionCheck(Position position) {
-    _queuedRegionCheckPosition = position;
+  void _handleLocationUpdate(Position position) {
+    _rememberPosition(position);
+    // Couples wind speed to travel speed, so the clouds quicken when moving.
+    fogController.setUserSpeed(position.speed);
+    _queueRegionCheck(LatLng(position.latitude, position.longitude));
+    if (_isFollowingUser) {
+      unawaited(_followCameraTo(LatLng(position.latitude, position.longitude)));
+    }
+  }
+
+  /// Queues a containing-region lookup for [location].
+  ///
+  /// Both location sources land here and they overlap: journey tracking
+  /// republishes its latest route point on every notification, once a second
+  /// while its elapsed timer runs, and its stream runs alongside the map's own
+  /// whenever the app is in the foreground. Every lookup is a network round
+  /// trip, so anything that has not moved further than
+  /// [regionCheckMovementThresholdMetres] is treated as the same fix arriving
+  /// again and dropped.
+  void _queueRegionCheck(LatLng location) {
+    final lastChecked = _lastRegionCheckLocation;
+
+    if (lastChecked != null &&
+        Geolocator.distanceBetween(
+              lastChecked.latitude,
+              lastChecked.longitude,
+              location.latitude,
+              location.longitude,
+            ) <
+            regionCheckMovementThresholdMetres) {
+      return;
+    }
+
+    _lastRegionCheckLocation = location;
+    _queuedRegionCheckLocation = location;
 
     if (_isResolvingCurrentRegion) return;
 
@@ -521,23 +818,23 @@ class MapController extends ChangeNotifier {
     _isResolvingCurrentRegion = true;
 
     try {
-      while (_queuedRegionCheckPosition != null) {
-        final position = _queuedRegionCheckPosition!;
-        _queuedRegionCheckPosition = null;
-        await _syncCurrentRegionForPosition(position);
+      while (_queuedRegionCheckLocation != null) {
+        final location = _queuedRegionCheckLocation!;
+        _queuedRegionCheckLocation = null;
+        await _syncCurrentRegionForLocation(location);
       }
     } finally {
       _isResolvingCurrentRegion = false;
     }
   }
 
-  Future<void> _syncCurrentRegionForPosition(Position position) async {
+  Future<void> _syncCurrentRegionForLocation(LatLng location) async {
     final previousRegionId = currentRegion?.id;
 
     try {
       final region = await _regionService.getContainingRegion(
-        lat: position.latitude,
-        lng: position.longitude,
+        lat: location.latitude,
+        lng: location.longitude,
       );
 
       if (region?.id == previousRegionId) return;
@@ -607,7 +904,12 @@ class MapController extends ChangeNotifier {
     if (_userId == null) {
       _visitedPlaceIds = {};
       _visitedRegionIds = <String>{};
+      _fogClearedRegionIds = <String>{};
+      _pendingFogReturnEvents = <String, DateTime>{};
       _visitCountsByRegion = <String, int>{};
+      await _visitedRegionService.refreshFogDecayWarnings(
+        difficulty: _fogDecayDifficulty,
+      );
       return;
     }
 
@@ -640,12 +942,148 @@ class MapController extends ChangeNotifier {
 
     try {
       _visitedRegionIds = await _visitedRegionService.loadVisitedRegionIds();
+      _fogClearedRegionIds = await _visitedRegionService
+          .loadFogClearedRegionIds(difficulty: _fogDecayDifficulty);
+      _pendingFogReturnEvents = await _visitedRegionService
+          .loadUnpresentedFogDecayEvents(difficulty: _fogDecayDifficulty);
+      _fogClearedRegionIds.addAll(_pendingFogReturnEvents.keys);
+      await _visitedRegionService.refreshFogDecayWarnings(
+        difficulty: _fogDecayDifficulty,
+      );
       debugPrint(
         '[MapController] Loaded ${_visitedRegionIds.length} visited regions',
       );
     } catch (error) {
       debugPrint('[MapController] Error loading visited regions: $error');
     }
+  }
+
+  void _startFogDecayRefresh() {
+    _fogDecayRefreshTimer?.cancel();
+    _fogDecayRefreshTimer = Timer.periodic(
+      const Duration(minutes: 15),
+      (_) => unawaited(refreshFogDecayState()),
+    );
+  }
+
+  /// Recomputes visual fog from persisted timestamps without changing history.
+  Future<void> refreshFogDecayState() async {
+    if (_userId == null) return;
+    try {
+      final clearedIds = await _visitedRegionService.loadFogClearedRegionIds(
+        difficulty: _fogDecayDifficulty,
+      );
+      final pending = await _visitedRegionService.loadUnpresentedFogDecayEvents(
+        difficulty: _fogDecayDifficulty,
+      );
+      _pendingFogReturnEvents.addAll(pending);
+
+      // Pending regions remain clear until their return animation begins.
+      // Otherwise retainClearedRegions would make the fog snap back instantly.
+      _fogClearedRegionIds = <String>{...clearedIds, ...pending.keys};
+      await _visitedRegionService.refreshFogDecayWarnings(
+        difficulty: _fogDecayDifficulty,
+      );
+      fogController.retainClearedRegions(<String>{
+        ...clearedIds,
+        ...pending.keys,
+        ...?fogController.returnTransition?.regionIds,
+        ?currentRegion?.id,
+      });
+      await _startPendingFogReturnAnimation();
+      notifyListeners();
+    } catch (error) {
+      debugPrint('[MapController] Error refreshing fog decay state: $error');
+    }
+  }
+
+  /// Recomputes decay events after the app returns from the background.
+  Future<void> handleAppResumed() async {
+    if (_userId == null) return;
+    final cleared = await _visitedRegionService.loadFogClearedRegionIds(
+      difficulty: _fogDecayDifficulty,
+    );
+    final pending = await _visitedRegionService.loadUnpresentedFogDecayEvents(
+      difficulty: _fogDecayDifficulty,
+    );
+    _pendingFogReturnEvents.addAll(pending);
+    _fogClearedRegionIds = <String>{...cleared, ...pending.keys};
+    await loadViewportRegions(force: true);
+  }
+
+  Future<void> _startPendingFogReturnAnimation() async {
+    if (fogController.returnTransition != null) return;
+
+    final geometryIds = fogController.geometry?.regionIds.toSet() ?? <String>{};
+    final currentId = currentRegion?.id;
+    final renderable = _pendingFogReturnEvents.keys
+        .where((id) => id != currentId && geometryIds.contains(id))
+        .toSet();
+    if (renderable.isEmpty) return;
+
+    // Pause live-location camera following and frame every returning tile so
+    // the user sees where the fog is coming back before the transition starts.
+    final bounds = _boundsForRegions(renderable);
+    final controller = _googleMapController;
+    if (bounds != null && controller != null) {
+      _isFollowingUser = false;
+      _isProgrammaticCameraMove = true;
+      try {
+        await controller.animateCamera(
+          CameraUpdate.newLatLngBounds(bounds, 72),
+        );
+      } catch (error) {
+        debugPrint('[MapController] Could not focus fog return: $error');
+      }
+    }
+
+    _fogClearedRegionIds.removeAll(renderable);
+    fogController.startFogReturn(renderable);
+  }
+
+  LatLngBounds? _boundsForRegions(Set<String> regionIds) {
+    var south = 90.0;
+    var north = -90.0;
+    var west = 180.0;
+    var east = -180.0;
+    var foundPoint = false;
+
+    for (final regionId in regionIds) {
+      final region = _regionPolygonCache.regionForId(regionId);
+      if (region == null) continue;
+      for (final polygon in region.toGooglePolygons()) {
+        for (final point in polygon.points) {
+          foundPoint = true;
+          south = math.min(south, point.latitude);
+          north = math.max(north, point.latitude);
+          west = math.min(west, point.longitude);
+          east = math.max(east, point.longitude);
+        }
+      }
+    }
+
+    if (!foundPoint) return null;
+    return LatLngBounds(
+      southwest: LatLng(south, west),
+      northeast: LatLng(north, east),
+    );
+  }
+
+  void _handleFogReturnCompleted(Set<String> regionIds) {
+    final presented = <String, DateTime>{};
+    for (final id in regionIds) {
+      final decayAt = _pendingFogReturnEvents.remove(id);
+      if (decayAt != null) presented[id] = decayAt;
+    }
+    unawaited(_visitedRegionService.markFogDecayEventsPresented(presented));
+  }
+
+  /// Applies a changed preference and immediately recomputes visible fog.
+  Future<void> updateFogDecayDifficulty(FogDecayDifficulty difficulty) async {
+    if (_fogDecayDifficulty == difficulty) return;
+    _fogDecayDifficulty = difficulty;
+    await refreshFogDecayState();
+    await handleAppResumed();
   }
 
   Future<void> _loadVisitCountsByRegion() async {
@@ -696,11 +1134,12 @@ class MapController extends ChangeNotifier {
       // Optimistically update local cache so the heatmap updates immediately.
       _entryCountsByRegion.update(region.id, (c) => c + 1, ifAbsent: () => 1);
 
-      unawaited(
-        _resolvedPolygonService.incrementPolygonEntryCount(
-          profileId: _userId!,
-          polygonId: region.id,
-        ),
+      await _resolvedExplorationStatsService.recordReentry(
+        profileId: _userId!,
+        polygonId: region.id,
+      );
+      await _visitedRegionService.refreshFogDecayWarnings(
+        difficulty: _fogDecayDifficulty,
       );
     } catch (error) {
       debugPrint('[MapController] Error recording region entry: $error');
@@ -711,21 +1150,33 @@ class MapController extends ChangeNotifier {
     final regionId = region.id;
 
     if (_visitedRegionIds.contains(regionId)) {
+      _fogClearedRegionIds.add(regionId);
+      final pendingDecay = _pendingFogReturnEvents.remove(regionId);
+      if (pendingDecay != null) {
+        unawaited(
+          _visitedRegionService.markFogDecayEventsPresented(<String, DateTime>{
+            regionId: pendingDecay,
+          }),
+        );
+      }
       return false;
     }
 
     try {
-      final didPersistVisit = await _visitedRegionService.markVisited(regionId);
+      final didPersistVisit = await _resolvedExplorationStatsService
+          .recordUnlock(profileId: _userId!, region: region);
 
       if (!didPersistVisit) {
         return false;
       }
 
       _visitedRegionIds.add(regionId);
+      _fogClearedRegionIds.add(regionId);
 
       final xpResult = await _awardUnlockXp(region);
 
-      if (xpResult != null) {
+      // Only surface "+XP" feedback when the canonical award actually persisted.
+      if (xpResult != null && xpResult.succeeded) {
         if (xpResult.didLevelUp) {
           onRegionUnlockCelebrationRewarded?.call(region, xpResult.xpAwarded);
         } else {

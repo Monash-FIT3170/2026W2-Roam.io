@@ -1,10 +1,15 @@
 import 'dart:math' as math;
 
+import '../../../theme/app_theme_mode.dart';
+import '../../map/fog/fog_decay_difficulty.dart';
+import '../../social/domain/social_privacy_settings.dart';
+
 /*
- * Author: Alvin Liong
- * Last Modified: 4/05/2026
+ * Author: Sanjevan Rajasegar
+ * Last Updated: 8 August 2026
  * Description:
- *   Represents a user profile and maps profile data to and from Firestore.
+ *   Represents a user profile and maps profile data to and from Firestore,
+ *   including appearance preferences and nested social privacy settings.
  */
 
 /// App-level profile entity stored in Firestore at `profiles/{uid}`.
@@ -60,10 +65,15 @@ class ProfileModel {
     this.photoHash,
     required this.createdAt,
     required this.updatedAt,
-    this.darkModeEnabled = false,
+    AppThemeMode themeMode = AppThemeMode.light,
+    this.fogDecayDifficulty = FogDecayDifficulty.quarterly,
+    bool? darkModeEnabled,
+    this.privacy = const SocialPrivacySettings(),
     this.xp = 0,
     this.level = 1,
-  });
+  }) : themeMode = darkModeEnabled == null
+           ? themeMode
+           : (darkModeEnabled ? AppThemeMode.dark : AppThemeMode.light);
 
   final String uid;
   final String username;
@@ -73,9 +83,15 @@ class ProfileModel {
   final String? photoHash;
   final DateTime createdAt;
   final DateTime updatedAt;
-  final bool darkModeEnabled;
+  final AppThemeMode themeMode;
+  final FogDecayDifficulty fogDecayDifficulty;
+  final SocialPrivacySettings privacy;
   final int xp;
   final int level;
+
+  /// Compatibility view for older callers while profiles migrate to the
+  /// three-way [themeMode] preference.
+  bool get darkModeEnabled => themeMode == AppThemeMode.dark;
 
   /// Creates a profile copy with selected fields replaced.
   ProfileModel copyWith({
@@ -87,7 +103,10 @@ class ProfileModel {
     String? photoHash,
     DateTime? createdAt,
     DateTime? updatedAt,
+    AppThemeMode? themeMode,
+    FogDecayDifficulty? fogDecayDifficulty,
     bool? darkModeEnabled,
+    SocialPrivacySettings? privacy,
     int? xp,
     int? level,
   }) {
@@ -100,7 +119,11 @@ class ProfileModel {
       photoHash: photoHash ?? this.photoHash,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
-      darkModeEnabled: darkModeEnabled ?? this.darkModeEnabled,
+      themeMode: darkModeEnabled == null
+          ? (themeMode ?? this.themeMode)
+          : (darkModeEnabled ? AppThemeMode.dark : AppThemeMode.light),
+      fogDecayDifficulty: fogDecayDifficulty ?? this.fogDecayDifficulty,
+      privacy: privacy ?? this.privacy,
       xp: xp ?? this.xp,
       level: level ?? this.level,
     );
@@ -115,7 +138,11 @@ class ProfileModel {
       'email': email,
       'createdAt': createdAt.toIso8601String(),
       'updatedAt': updatedAt.toIso8601String(),
+      'themeMode': themeMode.storageValue,
+      'fogDecayDifficulty': fogDecayDifficulty.storageValue,
+      // Retained for compatibility with clients that predate Dynamic mode.
       'darkModeEnabled': darkModeEnabled,
+      'privacy': privacy.toMap(),
       'xp': xp,
       'level': level,
     };
@@ -144,8 +171,15 @@ class ProfileModel {
       updatedAt:
           DateTime.tryParse((map['updatedAt'] ?? '') as String) ??
           DateTime.now(),
-      // Older profile documents predate this optional preference field.
-      darkModeEnabled: (map['darkModeEnabled'] ?? false) as bool,
+      // Older profile documents only contain the boolean preference.
+      themeMode: AppThemeMode.fromStorage(
+        map['themeMode'],
+        legacyDarkModeEnabled: map['darkModeEnabled'] == true,
+      ),
+      fogDecayDifficulty: FogDecayDifficulty.fromStorage(
+        map['fogDecayDifficulty'],
+      ),
+      privacy: SocialPrivacySettings.fromMap(map['privacy']),
       xp: (map['xp'] as num?)?.toInt() ?? 0,
       level:
           (map['level'] as num?)?.toInt() ??
