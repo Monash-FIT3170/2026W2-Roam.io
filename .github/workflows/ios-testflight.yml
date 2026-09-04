@@ -67,32 +67,21 @@ jobs:
           cd ios
           pod install
 
-      - name: Install Apple certificate and provisioning profiles
+      - name: Install Apple certificate and provisioning profile
         env:
           BUILD_CERTIFICATE_BASE64: ${{ secrets.BUILD_CERTIFICATE_BASE64 }}
           P12_PASSWORD: ${{ secrets.P12_PASSWORD }}
           BUILD_PROVISION_PROFILE_BASE64: ${{ secrets.BUILD_PROVISION_PROFILE_BASE64 }}
-          BUILD_PROVISION_PROFILE_EXTENSION_BASE64: ${{ secrets.BUILD_PROVISION_PROFILE_EXTENSION_BASE64 }}
           KEYCHAIN_PASSWORD: ${{ secrets.KEYCHAIN_PASSWORD }}
         run: |
           set -euo pipefail
           KEYCHAIN_PASSWORD="${KEYCHAIN_PASSWORD:-roamio-ci-keychain}"
           CERTIFICATE_PATH="$RUNNER_TEMP/build_certificate.p12"
+          PP_PATH="$RUNNER_TEMP/build_pp.mobileprovision"
           KEYCHAIN_PATH="$RUNNER_TEMP/app-signing.keychain-db"
 
-          install_profile() {
-            local encoded="$1"
-            local label="$2"
-            local pp_path="$RUNNER_TEMP/${label}.mobileprovision"
-            echo -n "$encoded" | base64 --decode -o "$pp_path"
-            security cms -D -i "$pp_path" > "$RUNNER_TEMP/${label}.plist"
-            local profile_uuid
-            profile_uuid=$(plutil -extract UUID raw "$RUNNER_TEMP/${label}.plist")
-            cp "$pp_path" "$HOME/Library/MobileDevice/Provisioning Profiles/${profile_uuid}.mobileprovision"
-            echo "Installed ${label} provisioning profile UUID=${profile_uuid}"
-          }
-
           echo -n "$BUILD_CERTIFICATE_BASE64" | base64 --decode -o "$CERTIFICATE_PATH"
+          echo -n "$BUILD_PROVISION_PROFILE_BASE64" | base64 --decode -o "$PP_PATH"
 
           security create-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
           security set-keychain-settings -lut 21600 "$KEYCHAIN_PATH"
@@ -102,17 +91,17 @@ jobs:
           security list-keychain -d user -s "$KEYCHAIN_PATH"
 
           mkdir -p "$HOME/Library/MobileDevice/Provisioning Profiles"
-          install_profile "$BUILD_PROVISION_PROFILE_BASE64" "app"
-          install_profile "$BUILD_PROVISION_PROFILE_EXTENSION_BASE64" "live_activity"
+          security cms -D -i "$PP_PATH" > "$RUNNER_TEMP/profile.plist"
+          PROFILE_UUID=$(plutil -extract UUID raw "$RUNNER_TEMP/profile.plist")
+          cp "$PP_PATH" "$HOME/Library/MobileDevice/Provisioning Profiles/${PROFILE_UUID}.mobileprovision"
+          echo "Installed provisioning profile UUID=${PROFILE_UUID}"
 
       - name: Configure manual signing for CI release
         env:
           PROFILE_NAME: ${{ secrets.PROVISIONING_PROFILE_SPECIFIER }}
-          EXTENSION_PROFILE_NAME: ${{ secrets.EXTENSION_PROVISIONING_PROFILE_SPECIFIER }}
         run: |
           set -euo pipefail
           export PROFILE_NAME="${PROFILE_NAME:-Roamio App Store}"
-          export EXTENSION_PROFILE_NAME="${EXTENSION_PROFILE_NAME:-Roamio Live Activity App Store}"
           # Keep Automatic in git for local flutter run; override only on the runner.
           python3 <<'PY'
           from pathlib import Path
@@ -121,44 +110,28 @@ jobs:
 
           path = Path("ios/Runner.xcodeproj/project.pbxproj")
           text = path.read_text()
-          app_profile = os.environ["PROFILE_NAME"]
-          extension_profile = os.environ["EXTENSION_PROFILE_NAME"]
-
-          def patch_manual_signing(project_text, profile_name, info_plist):
-              signing_block = (
+          profile = os.environ["PROFILE_NAME"]
+          # Inject manual signing next to each Runner DEVELOPMENT_TEAM setting.
+          text, count = re.subn(
+              r"DEVELOPMENT_TEAM = AFC5WD785H;",
+              (
                   'CODE_SIGN_IDENTITY = "Apple Distribution";\n'
                   "\t\t\t\tCODE_SIGN_STYLE = Manual;\n"
                   "\t\t\t\tDEVELOPMENT_TEAM = AFC5WD785H;\n"
-                  f'\t\t\t\tPROVISIONING_PROFILE_SPECIFIER = "{profile_name}";\n'
-                  f"\t\t\t\tINFOPLIST_FILE = {info_plist};"
-              )
-              pattern = (
-                  r"DEVELOPMENT_TEAM = AFC5WD785H;\n"
-                  r"(?:\t\t\t\t.*\n)*?"
-                  rf"\t\t\t\tINFOPLIST_FILE = {re.escape(info_plist)};"
-              )
-              return re.subn(pattern, signing_block, project_text)
-
-          text, runner_count = patch_manual_signing(text, app_profile, "Runner/Info.plist")
-          text, extension_count = patch_manual_signing(
-              text, extension_profile, "RoamLiveActivity/Info.plist"
+                  f'\t\t\t\tPROVISIONING_PROFILE_SPECIFIER = "{profile}";'
+              ),
+              text,
           )
-          if runner_count == 0:
-              raise SystemExit("Failed to patch Runner manual signing")
-          if extension_count == 0:
-              raise SystemExit("Failed to patch RoamLiveActivity manual signing")
+          if count == 0:
+              raise SystemExit("Failed to patch DEVELOPMENT_TEAM for manual signing")
           path.write_text(text)
-          print(
-              f"Patched manual signing for Runner ({runner_count}) "
-              f"and RoamLiveActivity ({extension_count})"
-          )
+          print(f"Patched manual signing in {count} build configuration(s)")
           PY
 
           python3 <<PY
           from pathlib import Path
           import os
-          app_profile = os.environ["PROFILE_NAME"]
-          extension_profile = os.environ["EXTENSION_PROFILE_NAME"]
+          profile = os.environ["PROFILE_NAME"]
           Path("ios/ExportOptions.plist").write_text(f"""<?xml version="1.0" encoding="UTF-8"?>
           <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
           <plist version="1.0">
@@ -174,9 +147,7 @@ jobs:
             <key>provisioningProfiles</key>
             <dict>
               <key>com.fit3170.roamio</key>
-              <string>{app_profile}</string>
-              <key>com.fit3170.roamio.liveactivity</key>
-              <string>{extension_profile}</string>
+              <string>{profile}</string>
             </dict>
             <key>uploadSymbols</key>
             <true/>
