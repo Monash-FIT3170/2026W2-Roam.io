@@ -12,7 +12,6 @@ import 'package:provider/provider.dart';
 import '../../../shared/widgets/app_toast.dart';
 import '../../../theme/app_surfaces.dart';
 import '../providers/auth_provider.dart';
-import '../widgets/auth_page_scaffold.dart';
 
 /// Screen for changing the current user's password.
 class ChangePasswordScreen extends StatefulWidget {
