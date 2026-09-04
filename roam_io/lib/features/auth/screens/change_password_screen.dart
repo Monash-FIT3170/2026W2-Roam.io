@@ -150,7 +150,9 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
                       onPressed: auth.isBusy ? null : _submit,
                       style: ElevatedButton.styleFrom(
                         backgroundColor: Theme.of(context).colorScheme.primary,
-                        foregroundColor: Theme.of(context).colorScheme.onPrimary,
+                        foregroundColor: Theme.of(
+                          context,
+                        ).colorScheme.onPrimary,
                         minimumSize: const Size.fromHeight(48),
                       ),
                       child: auth.isBusy
