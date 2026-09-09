@@ -53,4 +53,28 @@ async function resetPartySeason({ db, partyId, now }) {
   return summary;
 }
 
-module.exports = { resetPartySeason };
+const SEASON_LENGTH_DAYS = 14;
+
+/// Whether a party's current season has run its full 14-day cadence.
+/// Parties with no recorded start (not yet seeded) are never due.
+function isSeasonDue({ party, now, seasonLengthDays = SEASON_LENGTH_DAYS }) {
+  if (!party || !party.currentSeasonStartAt) return false;
+  const elapsedMs = now.getTime() - new Date(party.currentSeasonStartAt).getTime();
+  return elapsedMs >= seasonLengthDays * 24 * 60 * 60 * 1000;
+}
+
+/// Resets every party whose season has run its 14-day cadence.
+async function runDueSeasonResets({ db, now, seasonLengthDays = SEASON_LENGTH_DAYS }) {
+  const partiesSnapshot = await db.collection('parties').get();
+  const results = [];
+
+  for (const doc of partiesSnapshot.docs) {
+    if (isSeasonDue({ party: doc.data(), now, seasonLengthDays })) {
+      results.push(await resetPartySeason({ db, partyId: doc.id, now }));
+    }
+  }
+
+  return results;
+}
+
+module.exports = { resetPartySeason, isSeasonDue, runDueSeasonResets };

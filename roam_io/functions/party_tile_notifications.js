@@ -5,7 +5,15 @@
  *   schema at profiles/{uid}/notifications/{id}.
  */
 
+const { onDocumentWritten } = require('firebase-functions/v2/firestore');
+const { initializeApp, getApps } = require('firebase-admin/app');
+const { getFirestore } = require('firebase-admin/firestore');
+
 const { deriveOwnership } = require('./party_dwell');
+
+if (getApps().length === 0) {
+  initializeApp();
+}
 
 async function notifyTileFlip({ db, partyId, tileId, beforeData, afterData }) {
   const before = deriveOwnership(beforeData);

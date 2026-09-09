@@ -4,7 +4,7 @@
  */
 
 const assert = require('node:assert/strict');
-const { resetPartySeason } = require('./party_season');
+const { resetPartySeason, runDueSeasonResets } = require('./party_season');
 
 // Minimal Firestore-like fake supporting doc get/set/delete and collection
 // listing, matching the fakes used in party_dwell.test.js / party_tile_notifications.test.js.
@@ -169,6 +169,64 @@ class FakeDb {
     ],
     'season summary must only carry team-level fields, no per-tile/per-user breakdown',
   );
+})();
+
+(async () => {
+  const db = new FakeDb({
+    'parties/due-party': {
+      teamAMembers: ['u1'],
+      teamBMembers: ['u2'],
+      currentSeasonStartAt: '2026-08-25T00:00:00.000Z', // 15 days before now
+    },
+    'parties/due-party/tiles/t1': {
+      teamADwellSeconds: 400,
+      teamBDwellSeconds: 0,
+    },
+    'parties/not-due-party': {
+      teamAMembers: ['u3'],
+      teamBMembers: ['u4'],
+      currentSeasonStartAt: '2026-09-07T00:00:00.000Z', // 2 days before now
+    },
+    'parties/not-due-party/tiles/t1': {
+      teamADwellSeconds: 400,
+      teamBDwellSeconds: 0,
+    },
+  });
+
+  await runDueSeasonResets({
+    db,
+    now: new Date('2026-09-09T00:00:00Z'),
+  });
+
+  const dueTiles = await db
+    .collection('parties')
+    .doc('due-party')
+    .collection('tiles')
+    .get();
+  assert.equal(dueTiles.docs.length, 0, 'due party tiles should be wiped');
+  const dueSeasons = await db
+    .collection('parties')
+    .doc('due-party')
+    .collection('seasons')
+    .get();
+  assert.equal(dueSeasons.docs.length, 1);
+
+  const notDueTiles = await db
+    .collection('parties')
+    .doc('not-due-party')
+    .collection('tiles')
+    .get();
+  assert.equal(
+    notDueTiles.docs.length,
+    1,
+    'not-due party tiles should be untouched',
+  );
+  const notDueSeasons = await db
+    .collection('parties')
+    .doc('not-due-party')
+    .collection('seasons')
+    .get();
+  assert.equal(notDueSeasons.docs.length, 0);
 
   console.log('party_season.test.js: all assertions passed');
 })();

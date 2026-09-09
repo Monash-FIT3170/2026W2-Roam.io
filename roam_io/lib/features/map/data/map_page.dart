@@ -38,6 +38,8 @@ import '../../../shared/widgets/activity_saved_celebration.dart';
 import '../../../shared/widgets/app_toast.dart';
 import '../../../theme/app_colours.dart';
 import '../../../theme/app_surfaces.dart';
+import '../../party/data/party_service.dart';
+import '../../party/screens/party_screen.dart';
 import '../fog/fog_overlay.dart';
 import '../fog/fog_decay_difficulty.dart';
 import '../widgets/map_render.dart';
@@ -212,6 +214,14 @@ class _MapPageState extends State<MapPage> with WidgetsBindingObserver {
     Navigator.of(
       context,
     ).push(MaterialPageRoute<void>(builder: (_) => const QuestsScreen()));
+  }
+
+  void _openPartyMode() {
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => PartyScreen(partyService: PartyService()),
+      ),
+    );
   }
 
   /// Creates polylines and markers for saved journeys.
@@ -926,6 +936,11 @@ class _MapPageState extends State<MapPage> with WidgetsBindingObserver {
           bottom: isLiveJourneyActive ? 220 : 120,
           child: _SideQuestsButton(onPressed: _openSideQuests),
         ),
+        Positioned(
+          right: 16,
+          top: MediaQuery.paddingOf(context).top + 64,
+          child: _PartyModeButton(onPressed: _openPartyMode),
+        ),
         // Start Journey is available only while no Journey is active.
         if (canStartJourney)
           Positioned(
@@ -1106,6 +1121,34 @@ class _SideQuestsButton extends StatelessWidget {
                 ),
               ),
             ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _PartyModeButton extends StatelessWidget {
+  const _PartyModeButton({required this.onPressed});
+
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: AppSurfaces.card(context),
+      elevation: 6,
+      shadowColor: Colors.black.withValues(alpha: 0.18),
+      shape: const CircleBorder(),
+      child: InkWell(
+        customBorder: const CircleBorder(),
+        onTap: onPressed,
+        child: Padding(
+          padding: const EdgeInsets.all(12),
+          child: Icon(
+            Icons.groups_rounded,
+            size: 22,
+            color: Theme.of(context).colorScheme.primary,
           ),
         ),
       ),
