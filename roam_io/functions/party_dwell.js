@@ -38,12 +38,11 @@ async function recordDwellPing({ db, partyId, tileId, uid, team, pingAt }) {
 
 const CLAIM_GATE_SECONDS = 5 * 60;
 
-async function getTileOwnership({ db, partyId, tileId }) {
-  const ref = tileRef({ db, partyId, tileId });
-  const existing = await ref.get();
-  if (!existing.exists) return null;
-
-  const data = existing.data();
+/// Pure ownership derivation from a tile's stored dwell counters, shared by
+/// getTileOwnership (reads live data) and the tile-flip notification trigger
+/// (compares before/after snapshots without a re-read).
+function deriveOwnership(data) {
+  if (!data) return null;
   const aEligible = data.teamADwellSeconds > CLAIM_GATE_SECONDS;
   const bEligible = data.teamBDwellSeconds > CLAIM_GATE_SECONDS;
 
@@ -53,4 +52,10 @@ async function getTileOwnership({ db, partyId, tileId }) {
   return data.teamADwellSeconds >= data.teamBDwellSeconds ? 'A' : 'B';
 }
 
-module.exports = { recordDwellPing, getTileOwnership };
+async function getTileOwnership({ db, partyId, tileId }) {
+  const ref = tileRef({ db, partyId, tileId });
+  const existing = await ref.get();
+  return existing.exists ? deriveOwnership(existing.data()) : null;
+}
+
+module.exports = { recordDwellPing, getTileOwnership, deriveOwnership };

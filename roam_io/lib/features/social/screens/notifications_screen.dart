@@ -234,6 +234,8 @@ class _FollowNotificationRow extends StatelessWidget {
             ' replied to your comment · $relative',
           SocialNotificationType.commentLike =>
             ' liked your comment · $relative',
+          SocialNotificationType.partyTileLost =>
+            ' your team lost a Party Mode tile · $relative',
         };
 
         return Container(

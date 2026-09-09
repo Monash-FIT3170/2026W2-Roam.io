@@ -17,6 +17,7 @@ enum SocialNotificationType {
   activityComment,
   commentReply,
   commentLike,
+  partyTileLost,
 }
 
 /// One persisted social notification row for a recipient.
@@ -30,6 +31,8 @@ class SocialNotification {
     this.readAt,
     this.activityId,
     this.commentId,
+    this.partyId,
+    this.tileId,
   });
 
   final String id;
@@ -40,6 +43,8 @@ class SocialNotification {
   final DateTime? readAt;
   final String? activityId;
   final String? commentId;
+  final String? partyId;
+  final String? tileId;
 
   bool get isRead => readAt != null;
   bool get isFollow => type == SocialNotificationType.follow;
@@ -116,6 +121,8 @@ class SocialNotification {
       readAt: _parseDate(data['readAt']),
       activityId: data['activityId'] as String?,
       commentId: data['commentId'] as String?,
+      partyId: data['partyId'] as String?,
+      tileId: data['tileId'] as String?,
     );
   }
 
@@ -128,6 +135,8 @@ class SocialNotification {
       'readAt': readAt?.toIso8601String(),
       if (activityId != null) 'activityId': activityId,
       if (commentId != null) 'commentId': commentId,
+      if (partyId != null) 'partyId': partyId,
+      if (tileId != null) 'tileId': tileId,
     };
   }
 
@@ -140,6 +149,7 @@ class SocialNotification {
       'activityComment' => SocialNotificationType.activityComment,
       'commentReply' => SocialNotificationType.commentReply,
       'commentLike' => SocialNotificationType.commentLike,
+      'partyTileLost' => SocialNotificationType.partyTileLost,
       _ => null,
     };
   }
