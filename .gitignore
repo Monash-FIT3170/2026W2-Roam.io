@@ -7,3 +7,10 @@ roam_io/spatial-api/node_modules/
 roam_io/functions/node_modules/
 spatial-api/node_modules/
 roam_io/spatial-api/node_modules/
+
+# Agent skills scaffolding (setup-matt-pocock-skills, to-spec, to-tickets)
+AGENTS.md
+docs/agents/domain.md
+docs/agents/issue-tracker.md
+docs/agents/triage-labels.md
+.scratch/
