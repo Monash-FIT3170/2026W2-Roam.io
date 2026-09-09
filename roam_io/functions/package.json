@@ -15,7 +15,8 @@
     "test:backfill": "node scripts/backfill_public_profiles.test.js",
     "test:seed-activity": "node scripts/seed_test_activity.test.js && node scripts/cleanup_stub_activities.test.js",
     "test:rules": "node scripts/firestore_rules_activity_access.test.js",
-    "test:storage-rules": "node scripts/storage_rules_activity_media.test.js"
+    "test:storage-rules": "node scripts/storage_rules_activity_media.test.js",
+    "test:party-dwell": "node party_dwell.test.js"
   },
   "engines": {
     "node": "22"
