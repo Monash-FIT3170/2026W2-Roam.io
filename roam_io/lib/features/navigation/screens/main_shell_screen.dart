@@ -29,6 +29,7 @@ import '../../activity_feed/screens/comments_screen.dart';
 import '../../auth/providers/auth_provider.dart';
 import '../../home/screens/home_screen.dart';
 import '../../map/data/map_page.dart';
+import '../../party/providers/current_party_provider.dart';
 import '../../settings/screens/settings_screen.dart';
 import '../../social/data/follow_request_service.dart';
 import '../../social/data/follow_service.dart';
@@ -94,6 +95,7 @@ class _MainShellScreenState extends State<MainShellScreen> {
   late final SocialNotificationCoordinator _socialNotificationCoordinator;
   late final List<Widget> pages;
   var _ownsCoordinator = false;
+  final CurrentPartyProvider _currentPartyProvider = CurrentPartyProvider();
 
   @override
   void initState() {
@@ -172,6 +174,7 @@ class _MainShellScreenState extends State<MainShellScreen> {
     if (_ownsCoordinator) {
       _socialNotificationCoordinator.dispose();
     }
+    _currentPartyProvider.dispose();
     super.dispose();
   }
 
@@ -339,26 +342,32 @@ class _MainShellScreenState extends State<MainShellScreen> {
 
     return ChangeNotifierProvider<SocialNotificationCoordinator>.value(
       value: _socialNotificationCoordinator,
-      child: Scaffold(
-        extendBody: true,
+      child: ChangeNotifierProvider<CurrentPartyProvider>.value(
+        value: _currentPartyProvider,
+        child: Scaffold(
+          extendBody: true,
 
-        // IndexedStack keeps every page mounted. TickerMode prevents hidden
-        // tabs, particularly the map's fog overlay, from animating offscreen.
-        body: IndexedStack(
-          index: selectedIndex,
-          children: <Widget>[
-            for (var index = 0; index < pages.length; index++)
-              TickerMode(enabled: index == selectedIndex, child: pages[index]),
-          ],
-        ),
-        bottomNavigationBar: Consumer<SocialNotificationCoordinator>(
-          builder: (context, coordinator, _) {
-            return AppBottomNavBar(
-              currentIndex: selectedIndex,
-              onTap: _selectPage,
-              youUnreadCount: coordinator.unreadCount,
-            );
-          },
+          // IndexedStack keeps every page mounted. TickerMode prevents hidden
+          // tabs, particularly the map's fog overlay, from animating offscreen.
+          body: IndexedStack(
+            index: selectedIndex,
+            children: <Widget>[
+              for (var index = 0; index < pages.length; index++)
+                TickerMode(
+                  enabled: index == selectedIndex,
+                  child: pages[index],
+                ),
+            ],
+          ),
+          bottomNavigationBar: Consumer<SocialNotificationCoordinator>(
+            builder: (context, coordinator, _) {
+              return AppBottomNavBar(
+                currentIndex: selectedIndex,
+                onTap: _selectPage,
+                youUnreadCount: coordinator.unreadCount,
+              );
+            },
+          ),
         ),
       ),
     );

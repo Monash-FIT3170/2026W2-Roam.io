@@ -25,6 +25,8 @@ import 'package:google_maps_flutter/google_maps_flutter.dart';
 import '../domain/exploration_mode.dart';
 import '../fog/fog_controller.dart';
 import '../fog/fog_decay_difficulty.dart';
+import '../../party/data/party_tile_ownership_service.dart';
+import '../party/party_tile_style.dart';
 import '../../profile/domain/xp_reward_config.dart';
 import 'follow_camera_pacer.dart';
 import 'geolocator_service.dart';
@@ -67,6 +69,7 @@ class MapController extends ChangeNotifier {
     MapViewportPolicy? viewportPolicy,
     PolygonService? polygonService,
     ExplorationStatsService? explorationStatsService,
+    PartyTileOwnershipService? partyTileOwnershipService,
     FogDecayDifficulty fogDecayDifficulty = FogDecayDifficulty.quarterly,
   }) : _geoLocatorService = geoLocatorService ?? GeoLocatorService(),
        _regionService = regionService ?? RegionService(),
@@ -79,6 +82,7 @@ class MapController extends ChangeNotifier {
        _viewportPolicy = viewportPolicy ?? MapViewportPolicy(),
        _polygonService = polygonService,
        _explorationStatsService = explorationStatsService,
+       _partyTileOwnershipService = partyTileOwnershipService,
        _fogDecayDifficulty = fogDecayDifficulty;
 
   final GeoLocatorService _geoLocatorService;
@@ -92,6 +96,7 @@ class MapController extends ChangeNotifier {
   final MapViewportPolicy _viewportPolicy;
   PolygonService? _polygonService;
   ExplorationStatsService? _explorationStatsService;
+  PartyTileOwnershipService? _partyTileOwnershipService;
   FogDecayDifficulty _fogDecayDifficulty;
 
   PolygonService get _resolvedPolygonService =>
@@ -102,9 +107,15 @@ class MapController extends ChangeNotifier {
         polygonService: _resolvedPolygonService,
       );
 
+  PartyTileOwnershipService get _resolvedPartyTileOwnershipService =>
+      _partyTileOwnershipService ??= PartyTileOwnershipService();
+
   GoogleMapController? _googleMapController;
   StreamSubscription<Position>? _locationUpdatesSubscription;
   Timer? _fogDecayRefreshTimer;
+  StreamSubscription<Map<String, String?>>? _partyTileOwnershipSubscription;
+  String? _currentPartyId;
+  Map<String, String?> _partyTileOwnership = <String, String?>{};
 
   /// Fog of war state, consumed by the FogOverlay stacked above the map.
   final FogController fogController = FogController();
@@ -235,11 +246,45 @@ class MapController extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// Ownership by tile ID for the currently bound party, or empty if none.
+  Map<String, String?> get partyTileOwnership =>
+      Map<String, String?>.unmodifiable(_partyTileOwnership);
+
+  /// Watches [partyId]'s tile ownership for the Party Mode overlay. Pass
+  /// `null` to stop watching (e.g. the user left their party).
+  void bindCurrentParty(String? partyId) {
+    if (_currentPartyId == partyId) return;
+    _currentPartyId = partyId;
+    unawaited(_partyTileOwnershipSubscription?.cancel());
+    _partyTileOwnershipSubscription = null;
+    _partyTileOwnership = <String, String?>{};
+
+    if (partyId != null) {
+      _partyTileOwnershipSubscription = _resolvedPartyTileOwnershipService
+          .watchOwnership(partyId)
+          .listen((ownership) {
+            _partyTileOwnership = ownership;
+            _refreshCachedPolygonsStyles();
+            notifyListeners();
+          });
+    }
+
+    _refreshCachedPolygonsStyles();
+    notifyListeners();
+  }
+
+  Color? _partyFillColorForRegion(String regionId) {
+    if (_currentMode != ExplorationMode.party) return null;
+    return partyTileFillColor(_partyTileOwnership[regionId]);
+  }
+
   void disposeController() {
     _fogDecayRefreshTimer?.cancel();
     _fogDecayRefreshTimer = null;
     unawaited(_locationUpdatesSubscription?.cancel());
     _locationUpdatesSubscription = null;
+    unawaited(_partyTileOwnershipSubscription?.cancel());
+    _partyTileOwnershipSubscription = null;
     _googleMapController?.dispose();
     fogController.onFogReturnCompleted = null;
     fogController.dispose();
@@ -865,6 +910,7 @@ class MapController extends ChangeNotifier {
       isCurrentRegion: currentRegion?.id == region.id,
       onRegionTapped: onRegionTapped,
       heatmapIntensity: _heatmapIntensityForRegion(region.id),
+      overrideFillColor: _partyFillColorForRegion(region.id),
     );
 
     _syncPolygonsForCurrentMode();
@@ -878,12 +924,26 @@ class MapController extends ChangeNotifier {
       isCurrentRegion: (regionId) => currentRegion?.id == regionId,
       onRegionTapped: onRegionTapped,
       heatmapIntensityForRegion: _heatmapIntensityForRegion,
+      overrideFillColorForRegion: _partyFillColorForRegion,
     );
 
     _syncPolygonsForCurrentMode();
   }
 
   void _syncPolygonsForCurrentMode() {
+    // Party Mode ownership isn't gated by the viewer's own visited tiles - a
+    // teammate may own a tile this user never personally explored. Unowned
+    // tiles still render transparent (partyTileFillColor(null)), so nothing
+    // extra becomes visible; it just keeps them ready to flip colour live.
+    if (_currentMode == ExplorationMode.party) {
+      polygons = _regionPolygonCache.polygonsForDisplay(
+        showUnvisitedRegions: true,
+        visitedRegionIds: _visitedRegionIds,
+        currentRegionId: currentRegion?.id,
+      );
+      return;
+    }
+
     if (_currentLayerMode == MapLayerMode.sa1Detail) {
       polygons = _regionPolygonCache.polygonsForDisplay(
         showUnvisitedRegions: true,

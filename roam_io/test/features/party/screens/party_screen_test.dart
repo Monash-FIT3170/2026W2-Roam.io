@@ -11,6 +11,7 @@ import 'package:provider/provider.dart';
 import 'package:roam_io/features/auth/data/auth_repository.dart';
 import 'package:roam_io/features/auth/providers/auth_provider.dart';
 import 'package:roam_io/features/party/data/party_service.dart';
+import 'package:roam_io/features/party/domain/party.dart';
 import 'package:roam_io/features/party/screens/party_screen.dart';
 
 import '../../../support/fake_firebase_user.dart';
@@ -19,12 +20,18 @@ Future<void> _pumpPartyScreen(
   WidgetTester tester, {
   required PartyService partyService,
   required String uid,
+  ValueChanged<Party?>? onPartyChanged,
 }) async {
   final auth = AuthProvider(authRepository: _PartyAuthRepository(uid));
   await tester.pumpWidget(
     ChangeNotifierProvider<AuthProvider>.value(
       value: auth,
-      child: MaterialApp(home: PartyScreen(partyService: partyService)),
+      child: MaterialApp(
+        home: PartyScreen(
+          partyService: partyService,
+          onPartyChanged: onPartyChanged,
+        ),
+      ),
     ),
   );
   await tester.pumpAndSettle();
@@ -112,6 +119,28 @@ void main() {
 
     expect(find.text('Create Party'), findsOneWidget);
     expect(find.text('Join Party'), findsOneWidget);
+  });
+
+  testWidgets('onPartyChanged fires with the joined party, then null on leave', (
+    tester,
+  ) async {
+    final partyService = PartyService(firestore: FakeFirebaseFirestore());
+    final changes = <Party?>[];
+
+    await _pumpPartyScreen(
+      tester,
+      partyService: partyService,
+      uid: 'user-1',
+      onPartyChanged: changes.add,
+    );
+    await tester.tap(find.text('Create Party'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Leave Party'));
+    await tester.pumpAndSettle();
+
+    expect(changes, hasLength(2));
+    expect(changes.first?.teamAMembers, ['user-1']);
+    expect(changes.last, isNull);
   });
 }
 

@@ -8,9 +8,17 @@ import '../domain/party.dart';
 /// Entry point for Party Mode: create/join a party, or view party-home once
 /// in one.
 class PartyScreen extends StatefulWidget {
-  const PartyScreen({super.key, required this.partyService});
+  const PartyScreen({
+    super.key,
+    required this.partyService,
+    this.onPartyChanged,
+  });
 
   final PartyService partyService;
+
+  /// Notified whenever the active party changes (created, joined, or left),
+  /// so callers can keep a shared "current party" context up to date.
+  final ValueChanged<Party?>? onPartyChanged;
 
   @override
   State<PartyScreen> createState() => _PartyScreenState();
@@ -22,6 +30,11 @@ class _PartyScreenState extends State<PartyScreen> {
   String? _joinError;
   final _codeController = TextEditingController();
 
+  void _setParty(Party? party) {
+    setState(() => _party = party);
+    widget.onPartyChanged?.call(party);
+  }
+
   Future<void> _createParty() async {
     final uid = context.read<AuthProvider>().currentUser!.uid;
     final created = await widget.partyService.createParty();
@@ -29,7 +42,7 @@ class _PartyScreenState extends State<PartyScreen> {
       code: created.joinCode,
       uid: uid,
     );
-    setState(() => _party = joined);
+    _setParty(joined);
   }
 
   Future<void> _submitJoinCode() async {
@@ -39,7 +52,7 @@ class _PartyScreenState extends State<PartyScreen> {
         code: _codeController.text,
         uid: uid,
       );
-      setState(() => _party = joined);
+      _setParty(joined);
     } on PartyNotFoundException {
       setState(() => _joinError = 'No party found for that code.');
     } on PartyFullException {
@@ -50,8 +63,8 @@ class _PartyScreenState extends State<PartyScreen> {
   Future<void> _leaveParty() async {
     final uid = context.read<AuthProvider>().currentUser!.uid;
     await widget.partyService.leaveParty(partyId: _party!.id, uid: uid);
+    _setParty(null);
     setState(() {
-      _party = null;
       _isJoining = false;
       _joinError = null;
     });
