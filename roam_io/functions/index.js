@@ -35,6 +35,7 @@ const {
 const {
   onPartyTileWritten,
   onPartySeasonSchedule,
+  submitDwellPing,
 } = require('./party_triggers');
 
 const DATABASE_URL = defineSecret('DATABASE_URL');
@@ -915,3 +916,4 @@ exports.onFollowRequestDeleted = onFollowRequestDeleted;
 exports.onFollowRequestAccepted = onFollowRequestAccepted;
 exports.onPartyTileWritten = onPartyTileWritten;
 exports.onPartySeasonSchedule = onPartySeasonSchedule;
+exports.submitDwellPing = submitDwellPing;

@@ -58,4 +58,22 @@ async function getTileOwnership({ db, partyId, tileId }) {
   return existing.exists ? deriveOwnership(existing.data()) : null;
 }
 
-module.exports = { recordDwellPing, getTileOwnership, deriveOwnership };
+/// Server-trusted team lookup: never trust a client-claimed team, always
+/// resolve it from the party roster.
+async function resolvePingTeam({ db, partyId, uid }) {
+  const partyDoc = await db.collection('parties').doc(partyId).get();
+  if (!partyDoc.exists) {
+    throw new Error(`Party "${partyId}" not found`);
+  }
+  const party = partyDoc.data();
+  if ((party.teamAMembers || []).includes(uid)) return 'A';
+  if ((party.teamBMembers || []).includes(uid)) return 'B';
+  throw new Error(`User "${uid}" is not a member of party "${partyId}"`);
+}
+
+module.exports = {
+  recordDwellPing,
+  getTileOwnership,
+  deriveOwnership,
+  resolvePingTeam,
+};

@@ -8,15 +8,53 @@
 
 const { onDocumentWritten } = require('firebase-functions/v2/firestore');
 const { onSchedule } = require('firebase-functions/v2/scheduler');
+const { onCall, HttpsError } = require('firebase-functions/v2/https');
 const { initializeApp, getApps } = require('firebase-admin/app');
 const { getFirestore } = require('firebase-admin/firestore');
 
 const { notifyTileFlip } = require('./party_tile_notifications');
 const { runDueSeasonResets } = require('./party_season');
+const { recordDwellPing, resolvePingTeam } = require('./party_dwell');
 
 if (getApps().length === 0) {
   initializeApp();
 }
+
+/**
+ * Callable ping endpoint: records dwell time for the caller's tile, using a
+ * server-resolved team (never the client-claimed one) so a client can't
+ * attribute time to a team it isn't on.
+ */
+exports.submitDwellPing = onCall(
+  {
+    region: 'australia-southeast1',
+  },
+  async (request) => {
+    if (!request.auth) {
+      throw new HttpsError(
+        'unauthenticated',
+        'You must be signed in to send a Party Mode ping.',
+      );
+    }
+    const { partyId, tileId, pingAt } = request.data || {};
+    if (typeof partyId !== 'string' || typeof tileId !== 'string') {
+      throw new HttpsError('invalid-argument', 'partyId and tileId are required.');
+    }
+
+    const db = getFirestore();
+    const uid = request.auth.uid;
+    const team = await resolvePingTeam({ db, partyId, uid });
+
+    await recordDwellPing({
+      db,
+      partyId,
+      tileId,
+      uid,
+      team,
+      pingAt: pingAt ? new Date(pingAt) : new Date(),
+    });
+  },
+);
 
 /**
  * On parties/{partyId}/tiles/{tileId} write, notify the team that lost the

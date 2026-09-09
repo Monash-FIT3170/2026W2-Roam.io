@@ -4,7 +4,7 @@
  */
 
 const assert = require('node:assert/strict');
-const { recordDwellPing, getTileOwnership } = require('./party_dwell');
+const { recordDwellPing, getTileOwnership, resolvePingTeam } = require('./party_dwell');
 
 // Minimal Firestore-like fake: a flat path->data store, addressed by
 // chained collection()/doc() calls, mirroring the existing scripts/*.test.js fakes.
@@ -271,8 +271,6 @@ class FakeDb {
     tileId: 't1',
   });
   assert.equal(afterFlip, 'A');
-
-  console.log('party_dwell.test.js: all assertions passed');
 })();
 
 (async () => {
@@ -308,4 +306,26 @@ class FakeDb {
     .get();
 
   assert.equal(tileDoc.data().teamADwellSeconds, 360);
+})();
+
+(async () => {
+  const db = new FakeDb({
+    'parties/p1': { teamAMembers: ['u1'], teamBMembers: ['u2'] },
+  });
+
+  const team = await resolvePingTeam({ db, partyId: 'p1', uid: 'u1' });
+
+  assert.equal(team, 'A');
+})();
+
+(async () => {
+  const db = new FakeDb({
+    'parties/p1': { teamAMembers: ['u1'], teamBMembers: ['u2'] },
+  });
+
+  await assert.rejects(() =>
+    resolvePingTeam({ db, partyId: 'p1', uid: 'not-a-member' }),
+  );
+
+  console.log('party_dwell.test.js: all assertions passed');
 })();
