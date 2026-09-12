@@ -234,6 +234,7 @@ class SocialNotificationCoordinator extends ChangeNotifier {
       ),
       // In-app inbox only for now, no live banner.
       SocialNotificationType.partyTileLost => null,
+      SocialNotificationType.partyInvite => null,
     };
     if (banner == null) return;
     await _bannerService.show(banner);

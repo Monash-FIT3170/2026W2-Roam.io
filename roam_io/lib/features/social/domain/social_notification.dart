@@ -18,6 +18,7 @@ enum SocialNotificationType {
   commentReply,
   commentLike,
   partyTileLost,
+  partyInvite,
 }
 
 /// One persisted social notification row for a recipient.
@@ -150,6 +151,7 @@ class SocialNotification {
       'commentReply' => SocialNotificationType.commentReply,
       'commentLike' => SocialNotificationType.commentLike,
       'partyTileLost' => SocialNotificationType.partyTileLost,
+      'partyInvite' => SocialNotificationType.partyInvite,
       _ => null,
     };
   }

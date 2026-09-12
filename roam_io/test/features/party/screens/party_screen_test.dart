@@ -64,6 +64,10 @@ Future<void> _createNamedParty(
     ),
   );
   await tester.pumpAndSettle();
+  if (find.text('Invite friends').evaluate().isNotEmpty) {
+    await tester.tap(find.text('Done'));
+    await tester.pumpAndSettle();
+  }
 }
 
 void main() {
@@ -164,6 +168,14 @@ void main() {
     );
     await tester.pumpAndSettle();
 
+    expect(find.text('Invite friends'), findsOneWidget);
+    expect(
+      find.text('No friends or people you follow available to invite yet.'),
+      findsOneWidget,
+    );
+    await tester.tap(find.text('Done'));
+    await tester.pumpAndSettle();
+
     final created = await firestore.collection('parties').get();
     final joinCode = created.docs.single.data()['joinCode'] as String;
 
@@ -201,6 +213,108 @@ void main() {
     await _createNamedParty(tester);
 
     expect(find.text('Team A (You)'), findsOneWidget);
+  });
+
+  testWidgets('creator can invite a friend before opening the map', (
+    tester,
+  ) async {
+    final firestore = FakeFirebaseFirestore();
+    final partyService = PartyService(firestore: firestore);
+    await firestore.collection('follows').doc('user-1_user-2').set({
+      'followerId': 'user-1',
+      'followeeId': 'user-2',
+    });
+    await firestore.collection('public_profiles').doc('user-2').set({
+      'uid': 'user-2',
+      'username': 'friend',
+      'displayName': 'Alex',
+    });
+    await _pumpPartyScreen(tester, partyService: partyService, uid: 'user-1');
+    await tester.tap(find.text('Create Party'));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(TextField), 'Saturday Roam');
+    await tester.pump();
+    await tester.tap(
+      find.descendant(
+        of: find.byType(AlertDialog),
+        matching: find.text('Create Party'),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Invite friends'), findsOneWidget);
+    expect(find.text('Alex'), findsOneWidget);
+    await tester.tap(find.text('Invite'));
+    await tester.pumpAndSettle();
+    final inbox = await firestore
+        .collection('profiles')
+        .doc('user-2')
+        .collection('notifications')
+        .get();
+    expect(inbox.docs.single.data()['type'], 'partyInvite');
+    expect(inbox.docs.single.data()['partyId'], isNotEmpty);
+    await tester.tap(find.text('Done'));
+    await tester.pumpAndSettle();
+    expect(find.byType(PartyMapScreen), findsOneWidget);
+  });
+
+  testWidgets('a party member can invite a friend from Party Mode', (
+    tester,
+  ) async {
+    final firestore = FakeFirebaseFirestore();
+    final partyService = PartyService(firestore: firestore);
+    await partyService.createParty(uid: 'user-1', name: 'Sunday Roam');
+    await firestore.collection('follows').doc('user-1_user-2').set({
+      'followerId': 'user-1',
+      'followeeId': 'user-2',
+    });
+    await firestore.collection('public_profiles').doc('user-2').set({
+      'uid': 'user-2',
+      'username': 'friend',
+      'displayName': 'Alex',
+    });
+    await _pumpPartyScreen(tester, partyService: partyService, uid: 'user-1');
+    await tester.tap(find.text('Invite Friends'));
+    await tester.pumpAndSettle();
+    expect(find.text('Alex'), findsOneWidget);
+    await tester.tap(find.text('Invite'));
+    await tester.pumpAndSettle();
+    expect(find.byIcon(Icons.check_circle_rounded), findsOneWidget);
+  });
+
+  testWidgets('a friend in another party is greyed out and explains why', (
+    tester,
+  ) async {
+    final firestore = FakeFirebaseFirestore();
+    final parties = PartyService(firestore: firestore);
+    await parties.createParty(uid: 'user-1');
+    await parties.createParty(uid: 'user-2');
+    await firestore.collection('follows').doc('user-1_user-2').set({
+      'followerId': 'user-1',
+      'followeeId': 'user-2',
+    });
+    await firestore.collection('public_profiles').doc('user-2').set({
+      'uid': 'user-2',
+      'username': 'friend',
+      'displayName': 'Alex',
+    });
+    await _pumpPartyScreen(tester, partyService: parties, uid: 'user-1');
+    await tester.tap(find.text('Invite Friends'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Alex'), findsOneWidget);
+    expect(find.text('Already in a party'), findsOneWidget);
+    expect(find.text('Invite'), findsNothing);
+    final label = tester.widget<Text>(find.text('Alex'));
+    expect(label.style?.color, isNotNull);
+    await tester.tap(find.text('Alex'));
+    await tester.pumpAndSettle();
+    expect(
+      find.text(
+        'Cannot invite because this user is already a member of another party',
+      ),
+      findsOneWidget,
+    );
   });
 
   testWidgets('entering a code in Join Party joins that party and opens map', (

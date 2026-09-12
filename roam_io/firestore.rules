@@ -436,7 +436,8 @@ service cloud.firestore {
           'createdAt',
           'readAt',
           'activityId',
-          'commentId'
+          'commentId',
+          'partyId'
         ])
         && data.recipientId == userId
         && data.actorId is string
@@ -448,12 +449,15 @@ service cloud.firestore {
           'activityKudos',
           'activityComment',
           'commentReply',
-          'commentLike'
+          'commentLike',
+          'partyInvite'
         ]
         && data.createdAt is string
         && (data.readAt == null || data.readAt is string)
         && (!data.keys().hasAny(['activityId']) || data.activityId is string)
-        && (!data.keys().hasAny(['commentId']) || data.commentId is string);
+        && (!data.keys().hasAny(['commentId']) || data.commentId is string)
+        && (!data.keys().hasAny(['partyId']) || data.partyId is string)
+        && (data.type == 'partyInvite' || !data.keys().hasAny(['partyId']));
     }
 
     function isValidFollowNotificationWrite(notificationId, data, userId) {
@@ -512,7 +516,22 @@ service cloud.firestore {
           || isValidRequestNotificationWrite(notificationId, data, userId)
           || isValidAcceptedNotificationWrite(notificationId, data, userId)
           || isValidActivityNotificationWrite(notificationId, data, userId)
+          || isValidPartyInviteNotificationWrite(notificationId, data, userId)
         );
+    }
+
+    function isValidPartyInviteNotificationWrite(notificationId, data, userId) {
+      return data.type == 'partyInvite'
+        && data.keys().hasAll(['partyId'])
+        && !data.keys().hasAny(['activityId', 'commentId'])
+        && request.auth.uid == data.actorId
+        && notificationId == 'party_invite_' + data.partyId + '_' + data.actorId
+        && !exists(/databases/$(database)/documents/party_memberships/$(userId))
+        && (exists(/databases/$(database)/documents/friendships/$(sortedPairKey(data.actorId, userId)))
+          || exists(/databases/$(database)/documents/follows/$(data.actorId + '_' + userId)))
+        && exists(/databases/$(database)/documents/parties/$(data.partyId))
+        && (get(/databases/$(database)/documents/parties/$(data.partyId)).data.teamAMembers.hasAny([data.actorId])
+          || get(/databases/$(database)/documents/parties/$(data.partyId)).data.teamBMembers.hasAny([data.actorId]));
     }
 
     function canInteractWithActivity(activityId) {

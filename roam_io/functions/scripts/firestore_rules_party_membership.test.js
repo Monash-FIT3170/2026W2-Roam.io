@@ -39,6 +39,39 @@ async function run() {
       tx.set(bobMembership, { partyId: 'two' });
     }));
 
+    await env.withSecurityRulesDisabled(async (context) => {
+      await context.firestore().collection('friendships').doc('alice_charlie').set({
+        pairKey: 'alice_charlie', memberIds: ['alice', 'charlie'],
+        acceptedRequestId: 'alice_charlie', createdAt: new Date().toISOString(),
+      });
+      await context.firestore().collection('follows').doc('alice_dave').set({
+        followerId: 'alice', followeeId: 'dave', createdAt: new Date().toISOString(),
+      });
+    });
+    const charlieInbox = alice.collection('profiles').doc('charlie').collection('notifications');
+    const validInvite = {
+      recipientId: 'charlie', actorId: 'alice', type: 'partyInvite',
+      partyId: 'one', createdAt: new Date().toISOString(), readAt: null,
+    };
+    await assertSucceeds(charlieInbox.doc('party_invite_one_alice').set(validInvite));
+    await assertSucceeds(alice.collection('profiles').doc('dave').collection('notifications')
+      .doc('party_invite_one_alice').set({ ...validInvite, recipientId: 'dave' }));
+    await assertFails(alice.collection('friendships').doc('alice_dave').get());
+    await assertSucceeds(alice.collection('follows').doc('alice_dave').get());
+    await assertSucceeds(alice.collection('follow_requests').doc('alice_dave').get());
+    await assertFails(alice.collection('follow_requests').doc('alice_dave').delete());
+    await env.withSecurityRulesDisabled(async (context) => {
+      await context.firestore().collection('party_memberships').doc('dave').set({ partyId: 'other' });
+    });
+    await assertFails(alice.collection('profiles').doc('dave').collection('notifications')
+      .doc('party_invite_one_alice').set({ ...validInvite, recipientId: 'dave' }));
+    await assertFails(charlieInbox.doc('party_invite_one_bob').set({
+      ...validInvite, actorId: 'bob',
+    }));
+    await assertFails(charlieInbox.doc('wrong_id').set(validInvite));
+    await assertFails(alice.collection('profiles').doc('mallory').collection('notifications')
+      .doc('party_invite_one_alice').set({ ...validInvite, recipientId: 'mallory' }));
+
     await assertFails(partyOne.update({ teamBMembers: ['mallory'] }));
     await assertSucceeds(partyOne.update({ name: 'New Adventure' }));
     await assertFails(bob.collection('parties').doc('one').update({ name: 'Hijacked' }));

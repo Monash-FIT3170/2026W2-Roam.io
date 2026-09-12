@@ -57,6 +57,12 @@ class PartyService {
 
   FirebaseFirestore get firestore => _firestore;
 
+  Future<Party?> getParty(String partyId) async {
+    final doc = await _parties.doc(partyId).get();
+    final data = doc.data();
+    return data == null ? null : Party.fromMap(doc.id, data);
+  }
+
   CollectionReference<Map<String, dynamic>> get _parties =>
       _firestore.collection(partiesCollection);
 

@@ -15,9 +15,11 @@ import '../../../shared/widgets/app_toast.dart';
 import '../../../theme/app_surfaces.dart';
 import '../../auth/providers/auth_provider.dart';
 import '../data/party_service.dart';
+import '../data/party_invite_service.dart';
 import '../data/party_tile_ownership_service.dart';
 import '../domain/party.dart';
 import '../widgets/confirm_leave_party.dart';
+import '../widgets/invite_friends_sheet.dart';
 import '../widgets/party_landing.dart';
 import '../widgets/party_member_name.dart';
 import '../widgets/party_name_dialog.dart';
@@ -185,6 +187,8 @@ class _PartyScreenState extends State<PartyScreen> {
       if (!mounted) return;
       setState(() => _createError = null);
       _setParty(joined);
+      await _showInviteFriends(joined);
+      if (!mounted) return;
       _openPartyMap(joined);
     } on AlreadyInPartyException {
       if (mounted) {
@@ -202,6 +206,19 @@ class _PartyScreenState extends State<PartyScreen> {
     } finally {
       if (mounted) setState(() => _isSubmitting = false);
     }
+  }
+
+  Future<void> _showInviteFriends(Party party) async {
+    final uid = context.read<AuthProvider>().currentUser?.uid;
+    if (uid == null || !party.isMember(uid)) return;
+    await showInviteFriendsSheet(
+      context,
+      party: party,
+      inviterId: uid,
+      inviteService: PartyInviteService(
+        firestore: widget.partyService.firestore,
+      ),
+    );
   }
 
   Future<void> _submitJoinCode() async {
@@ -455,6 +472,17 @@ class _PartyScreenState extends State<PartyScreen> {
                       ],
                     ),
                   ),
+                ),
+              ),
+              const SizedBox(height: 10),
+              Align(
+                alignment: Alignment.centerLeft,
+                child: TextButton.icon(
+                  onPressed: _isSubmitting
+                      ? null
+                      : () => _showInviteFriends(party),
+                  icon: const Icon(Icons.person_add_alt_1_rounded, size: 18),
+                  label: const Text('Invite Friends'),
                 ),
               ),
               const SizedBox(height: 10),
