@@ -23,6 +23,7 @@ Future<void> recordDwellPingDirectly({
   required String tileId,
   required String uid,
   required DateTime pingAt,
+  double? addedDwellSeconds,
   FirebaseFirestore? firestore,
 }) async {
   final db = firestore ?? FirebaseFirestore.instance;
@@ -30,61 +31,61 @@ Future<void> recordDwellPingDirectly({
   final subDocRef = partyDocRef.collection('tiles').doc(tileId);
 
   try {
-    await db.runTransaction((transaction) async {
-      final partyDoc = await transaction.get(partyDocRef);
-      if (!partyDoc.exists || partyDoc.data() == null) return;
+    final partyDoc = await partyDocRef.get();
+    if (!partyDoc.exists || partyDoc.data() == null) return;
 
-      final subDoc = await transaction.get(subDocRef);
-
-      final partyData = partyDoc.data()!;
-      var resolvedTeam = team;
-      if (resolvedTeam == null) {
-        final teamA =
-            List<String>.from(partyData['teamAMembers'] as List? ?? const []);
-        final teamB =
-            List<String>.from(partyData['teamBMembers'] as List? ?? const []);
-        if (teamA.contains(uid)) {
-          resolvedTeam = 'A';
-        } else if (teamB.contains(uid)) {
-          resolvedTeam = 'B';
-        }
+    final partyData = partyDoc.data()!;
+    var resolvedTeam = team;
+    if (resolvedTeam == null) {
+      final teamA =
+          List<String>.from(partyData['teamAMembers'] as List? ?? const []);
+      final teamB =
+          List<String>.from(partyData['teamBMembers'] as List? ?? const []);
+      if (teamA.contains(uid)) {
+        resolvedTeam = 'A';
+      } else if (teamB.contains(uid)) {
+        resolvedTeam = 'B';
       }
+    }
 
-      if (resolvedTeam == null) return;
+    if (resolvedTeam == null) return;
 
-      final existingTiles = Map<String, dynamic>.from(
-        partyData['tiles'] as Map? ?? const {},
-      );
+    final subDoc = await subDocRef.get();
 
-      final subData = subDoc.exists && subDoc.data() != null
-          ? Map<String, dynamic>.from(subDoc.data()!)
-          : null;
+    final existingTiles = Map<String, dynamic>.from(
+      partyData['tiles'] as Map? ?? const {},
+    );
 
-      final docData = existingTiles[tileId] is Map
-          ? Map<String, dynamic>.from(existingTiles[tileId] as Map)
-          : null;
+    final subData = subDoc.exists && subDoc.data() != null
+        ? Map<String, dynamic>.from(subDoc.data()!)
+        : null;
 
-      final baseA = max(
-        (subData?['teamADwellSeconds'] as num?)?.toDouble() ?? 0.0,
-        (docData?['teamADwellSeconds'] as num?)?.toDouble() ?? 0.0,
-      );
-      final baseB = max(
-        (subData?['teamBDwellSeconds'] as num?)?.toDouble() ?? 0.0,
-        (docData?['teamBDwellSeconds'] as num?)?.toDouble() ?? 0.0,
-      );
+    final docData = existingTiles[tileId] is Map
+        ? Map<String, dynamic>.from(existingTiles[tileId] as Map)
+        : null;
 
-      final lastPingByUser = Map<String, dynamic>.from(
-        subData?['lastPingByUser'] as Map? ??
-            docData?['lastPingByUser'] as Map? ??
-            const {},
-      );
+    var baseA = max(
+      (subData?['teamADwellSeconds'] as num?)?.toDouble() ?? 0.0,
+      (docData?['teamADwellSeconds'] as num?)?.toDouble() ?? 0.0,
+    );
+    var baseB = max(
+      (subData?['teamBDwellSeconds'] as num?)?.toDouble() ?? 0.0,
+      (docData?['teamBDwellSeconds'] as num?)?.toDouble() ?? 0.0,
+    );
 
-      final rawTileData = <String, dynamic>{
-        'teamADwellSeconds': baseA,
-        'teamBDwellSeconds': baseB,
-        'lastPingByUser': lastPingByUser,
-      };
+    final lastPingByUser = Map<String, dynamic>.from(
+      subData?['lastPingByUser'] as Map? ??
+          docData?['lastPingByUser'] as Map? ??
+          const {},
+    );
 
+    if (addedDwellSeconds != null && addedDwellSeconds > 0) {
+      if (resolvedTeam == 'A') {
+        baseA += addedDwellSeconds;
+      } else {
+        baseB += addedDwellSeconds;
+      }
+    } else {
       final prev = lastPingByUser[uid] as Map<String, dynamic>?;
       if (prev != null &&
           prev['team'] == resolvedTeam &&
@@ -93,28 +94,31 @@ Future<void> recordDwellPingDirectly({
         if (prevPingAt != null) {
           final elapsed = pingAt.difference(prevPingAt).inMilliseconds / 1000.0;
           if (elapsed > 0 && elapsed <= 300) {
-            final key =
-                resolvedTeam == 'A' ? 'teamADwellSeconds' : 'teamBDwellSeconds';
-            final currentVal = (rawTileData[key] as num?)?.toDouble() ?? 0.0;
-            rawTileData[key] = currentVal + elapsed;
+            if (resolvedTeam == 'A') {
+              baseA += elapsed;
+            } else {
+              baseB += elapsed;
+            }
           }
         }
       }
+    }
 
-      lastPingByUser[uid] = {
-        'team': resolvedTeam,
-        'pingAt': pingAt.toIso8601String(),
-      };
-      rawTileData['lastPingByUser'] = lastPingByUser;
-      existingTiles[tileId] = rawTileData;
+    lastPingByUser[uid] = {
+      'team': resolvedTeam,
+      'pingAt': pingAt.toIso8601String(),
+    };
 
-      transaction.set(
-        partyDocRef,
-        {'tiles': existingTiles},
-        SetOptions(merge: true),
-      );
-      transaction.set(subDocRef, rawTileData, SetOptions(merge: true));
-    });
+    final rawTileData = <String, dynamic>{
+      'teamADwellSeconds': baseA,
+      'teamBDwellSeconds': baseB,
+      'lastPingByUser': lastPingByUser,
+    };
+
+    existingTiles[tileId] = rawTileData;
+
+    await subDocRef.set(rawTileData, SetOptions(merge: true));
+    await partyDocRef.set({'tiles': existingTiles}, SetOptions(merge: true));
   } catch (e) {
     debugPrint('[PartyDwellPing] Error updating party document tiles: $e');
   }
@@ -127,6 +131,7 @@ Future<void> _callSubmitDwellPing({
   required String tileId,
   required String uid,
   required DateTime pingAt,
+  double? addedDwellSeconds,
   FirebaseFirestore? firestore,
 }) async {
   await recordDwellPingDirectly(
@@ -135,6 +140,7 @@ Future<void> _callSubmitDwellPing({
     tileId: tileId,
     uid: uid,
     pingAt: pingAt,
+    addedDwellSeconds: addedDwellSeconds,
     firestore: firestore,
   );
   try {
@@ -156,7 +162,8 @@ class PartyDwellPingService {
     SendDwellPing? sendPing,
     this.pingInterval = const Duration(seconds: 60),
     FirebaseFirestore? firestore,
-  }) : sendPing = sendPing ??
+  })  : _firestore = firestore,
+        sendPing = sendPing ??
            (({
              required String partyId,
              required String? team,
@@ -175,6 +182,7 @@ class PartyDwellPingService {
 
   final SendDwellPing sendPing;
   final Duration pingInterval;
+  final FirebaseFirestore? _firestore;
 
   bool _isEngaged = false;
   String? _partyId;
@@ -206,18 +214,31 @@ class PartyDwellPingService {
     required String uid,
     required String? team,
     required String tileId,
+    double? addedDwellSeconds,
   }) async {
     _partyId = partyId;
     _uid = uid;
     _team = team;
     try {
-      await sendPing(
-        partyId: partyId,
-        team: team,
-        tileId: tileId,
-        uid: uid,
-        pingAt: now,
-      );
+      if (addedDwellSeconds != null) {
+        await recordDwellPingDirectly(
+          partyId: partyId,
+          team: team,
+          tileId: tileId,
+          uid: uid,
+          pingAt: now,
+          addedDwellSeconds: addedDwellSeconds,
+          firestore: _firestore,
+        );
+      } else {
+        await sendPing(
+          partyId: partyId,
+          team: team,
+          tileId: tileId,
+          uid: uid,
+          pingAt: now,
+        );
+      }
     } catch (_) {}
   }
 

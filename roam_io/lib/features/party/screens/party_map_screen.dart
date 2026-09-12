@@ -67,6 +67,7 @@ class _PartyMapScreenState extends State<PartyMapScreen> {
   DateTime? _tileEnteredAt;
   String? _activeTileId;
   String? _currentUid;
+  int _flushedSecondsInCurrentTile = 0;
 
   @override
   void didChangeDependencies() {
@@ -112,20 +113,31 @@ class _PartyMapScreenState extends State<PartyMapScreen> {
 
       if (currentTileId != _activeTileId) {
         if (_activeTileId != null && _currentUid != null) {
-          final userTeam = _party.teamForUser(_currentUid!);
-          if (userTeam != null) {
-            unawaited(_dwellPingService.flushNow(
-              now: now,
-              partyId: _party.id,
-              uid: _currentUid!,
-              team: userTeam,
+          final totalSessionSeconds = _sessionDwellDuration.inSeconds;
+          final uncommitted = totalSessionSeconds - _flushedSecondsInCurrentTile;
+          if (uncommitted > 0) {
+            unawaited(_commitDwell(
               tileId: _activeTileId!,
+              addedSeconds: uncommitted.toDouble(),
             ));
           }
         }
+        _flushedSecondsInCurrentTile = 0;
         _activeTileId = currentTileId;
         _tileEnteredAt = currentTileId != null ? now : null;
         _dwellPingService.updateCurrentTile(currentTileId);
+      } else if (_activeTileId != null && _currentUid != null) {
+        // Incrementally commit dwell every 5 seconds while remaining in tile
+        final totalSessionSeconds = _sessionDwellDuration.inSeconds;
+        final uncommitted = totalSessionSeconds - _flushedSecondsInCurrentTile;
+        if (uncommitted >= 5) {
+          final toFlush = uncommitted.toDouble();
+          _flushedSecondsInCurrentTile += uncommitted;
+          unawaited(_commitDwell(
+            tileId: _activeTileId!,
+            addedSeconds: toFlush,
+          ));
+        }
       }
 
       if (currentTileId != null && _currentUid != null) {
@@ -155,21 +167,19 @@ class _PartyMapScreenState extends State<PartyMapScreen> {
     if (!mounted) return;
     final currentTileId = _mapController.currentRegion?.id;
     if (currentTileId != _activeTileId) {
-      final now = DateTime.now();
       if (_activeTileId != null && _currentUid != null) {
-        final userTeam = _party.teamForUser(_currentUid!);
-        if (userTeam != null) {
-          unawaited(_dwellPingService.flushNow(
-            now: now,
-            partyId: _party.id,
-            uid: _currentUid!,
-            team: userTeam,
+        final totalSessionSeconds = _sessionDwellDuration.inSeconds;
+        final uncommitted = totalSessionSeconds - _flushedSecondsInCurrentTile;
+        if (uncommitted > 0) {
+          unawaited(_commitDwell(
             tileId: _activeTileId!,
+            addedSeconds: uncommitted.toDouble(),
           ));
         }
       }
+      _flushedSecondsInCurrentTile = 0;
       _activeTileId = currentTileId;
-      _tileEnteredAt = currentTileId != null ? now : null;
+      _tileEnteredAt = currentTileId != null ? DateTime.now() : null;
       _dwellPingService.updateCurrentTile(currentTileId);
       _syncEffectiveOwnership();
     } else {
@@ -192,13 +202,16 @@ class _PartyMapScreenState extends State<PartyMapScreen> {
       final userTeam = _party.teamForUser(_currentUid!);
       if (userTeam != null) {
         final baseData = _tilesData[_activeTileId!];
-        final sessionSec = _sessionDwellDuration.inSeconds;
+        final uncommittedSec = max(
+          0,
+          _sessionDwellDuration.inSeconds - _flushedSecondsInCurrentTile,
+        );
         final effectiveTeamA =
             (baseData?.teamADwellSeconds ?? 0) +
-            (userTeam == 'A' ? sessionSec : 0);
+            (userTeam == 'A' ? uncommittedSec : 0);
         final effectiveTeamB =
             (baseData?.teamBDwellSeconds ?? 0) +
-            (userTeam == 'B' ? sessionSec : 0);
+            (userTeam == 'B' ? uncommittedSec : 0);
         final activeOwner = deriveOwnership({
           'teamADwellSeconds': effectiveTeamA,
           'teamBDwellSeconds': effectiveTeamB,
@@ -259,6 +272,43 @@ class _PartyMapScreenState extends State<PartyMapScreen> {
         });
   }
 
+  Future<void> _commitDwell({
+    required String tileId,
+    required double addedSeconds,
+  }) async {
+    if (addedSeconds <= 0) return;
+    final uid = _currentUid;
+    if (uid == null) return;
+    final userTeam = _party.teamForUser(uid);
+    if (userTeam == null) return;
+
+    final now = DateTime.now();
+    final prevData = _tilesData[tileId];
+    final updatedA = (prevData?.teamADwellSeconds ?? 0) +
+        (userTeam == 'A' ? addedSeconds : 0);
+    final updatedB = (prevData?.teamBDwellSeconds ?? 0) +
+        (userTeam == 'B' ? addedSeconds : 0);
+    _tilesData[tileId] = PartyTileData(
+      tileId: tileId,
+      teamADwellSeconds: updatedA,
+      teamBDwellSeconds: updatedB,
+    );
+    _firestoreOwnership[tileId] = deriveOwnership({
+      'teamADwellSeconds': updatedA,
+      'teamBDwellSeconds': updatedB,
+    });
+    _syncEffectiveOwnership();
+
+    await _dwellPingService.flushNow(
+      now: now,
+      partyId: _party.id,
+      uid: uid,
+      team: userTeam,
+      tileId: tileId,
+      addedDwellSeconds: addedSeconds,
+    );
+  }
+
   @override
   void dispose() {
     _secondTimer?.cancel();
@@ -267,14 +317,12 @@ class _PartyMapScreenState extends State<PartyMapScreen> {
     _tileDataSubscription?.cancel();
 
     if (_activeTileId != null && _currentUid != null) {
-      final userTeam = _party.teamForUser(_currentUid!);
-      if (userTeam != null) {
-        unawaited(_dwellPingService.flushNow(
-          now: DateTime.now(),
-          partyId: _party.id,
-          uid: _currentUid!,
-          team: userTeam,
+      final totalSessionSeconds = _sessionDwellDuration.inSeconds;
+      final uncommitted = totalSessionSeconds - _flushedSecondsInCurrentTile;
+      if (uncommitted > 0) {
+        unawaited(_commitDwell(
           tileId: _activeTileId!,
+          addedSeconds: uncommitted.toDouble(),
         ));
       }
     }
@@ -489,7 +537,8 @@ class _PartyMapScreenState extends State<PartyMapScreen> {
           MapRender(
             initialCenter: _mapController.center,
             polygons: _mapController.polygons,
-            markers: _mapController.markers,
+            markers: const {},
+            polylines: const {},
             myLocationEnabled: _mapController.myLocationEnabled,
             onMapCreated: _mapController.onMapCreated,
             onCameraIdle: _mapController.onCameraIdle,
@@ -520,6 +569,7 @@ class _PartyMapScreenState extends State<PartyMapScreen> {
               currentTileId: currentTileId,
               tileData: currentTileData,
               sessionDwell: _sessionDwellDuration,
+              flushedSeconds: _flushedSecondsInCurrentTile,
             ),
           ),
           // Recenter Button (positioned directly above the bottom card)
@@ -698,6 +748,7 @@ class _CurrentTileCountdownCard extends StatelessWidget {
     required this.currentTileId,
     required this.tileData,
     required this.sessionDwell,
+    this.flushedSeconds = 0,
   });
 
   final String? userTeam;
@@ -705,6 +756,7 @@ class _CurrentTileCountdownCard extends StatelessWidget {
   final String? currentTileId;
   final PartyTileData? tileData;
   final Duration sessionDwell;
+  final int flushedSeconds;
 
   static String _formatDuration(Duration duration) {
     final totalSec = max(0, duration.inSeconds);
@@ -777,16 +829,16 @@ class _CurrentTileCountdownCard extends StatelessWidget {
       );
     }
 
-    final sessionSeconds = sessionDwell.inSeconds;
+    final uncommittedSec = max(0, sessionDwell.inSeconds - flushedSeconds);
     final baseTeamA = tileData?.teamADwellSeconds ?? 0.0;
     final baseTeamB = tileData?.teamBDwellSeconds ?? 0.0;
 
-    final effectiveTeamA = baseTeamA + (userTeam == 'A' ? sessionSeconds : 0);
-    final effectiveTeamB = baseTeamB + (userTeam == 'B' ? sessionSeconds : 0);
+    final effectiveTeamA = baseTeamA + (userTeam == 'A' ? uncommittedSec : 0);
+    final effectiveTeamB = baseTeamB + (userTeam == 'B' ? uncommittedSec : 0);
 
     final myDwell = userTeam == 'A'
         ? effectiveTeamA
-        : (userTeam == 'B' ? effectiveTeamB : sessionSeconds.toDouble());
+        : (userTeam == 'B' ? effectiveTeamB : sessionDwell.inSeconds.toDouble());
     final opponentDwell = userTeam == 'A'
         ? effectiveTeamB
         : (userTeam == 'B' ? effectiveTeamA : 0.0);
