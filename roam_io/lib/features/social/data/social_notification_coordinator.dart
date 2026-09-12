@@ -232,7 +232,11 @@ class SocialNotificationCoordinator extends ChangeNotifier {
         activityId: item.activityId,
         commentId: item.commentId,
       ),
+      // In-app inbox only for now, no live banner.
+      SocialNotificationType.partyTileLost => null,
+      SocialNotificationType.partyInvite => null,
     };
+    if (banner == null) return;
     await _bannerService.show(banner);
   }
 

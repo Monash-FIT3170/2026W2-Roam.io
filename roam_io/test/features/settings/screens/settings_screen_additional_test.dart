@@ -14,6 +14,7 @@ import 'package:provider/provider.dart';
 import 'package:roam_io/features/auth/data/auth_repository.dart';
 import 'package:roam_io/features/auth/providers/auth_provider.dart';
 import 'package:roam_io/features/auth/screens/change_password_screen.dart';
+import 'package:roam_io/features/party/screens/party_screen.dart';
 import 'package:roam_io/features/profile/domain/profile_model.dart';
 import 'package:roam_io/features/settings/screens/change_display_name_screen.dart';
 import 'package:roam_io/features/settings/screens/change_email_screen.dart';
@@ -146,6 +147,33 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.byType(ChangeEmailScreen), findsOneWidget);
 
+    provider.dispose();
+  });
+
+  testWidgets('navigates to party mode screen from Settings row', (
+    tester,
+  ) async {
+    final repo = _SettingsActionsRepository();
+    final provider = AuthProvider(authRepository: repo);
+
+    await tester.pumpWidget(
+      ChangeNotifierProvider<AuthProvider>.value(
+        value: provider,
+        child: const MaterialApp(home: Scaffold(body: SettingsScreen())),
+      ),
+    );
+    await tester.pump();
+    await tester.pump();
+
+    final partyModeRow = find.text('Party Mode');
+    await tester.ensureVisible(partyModeRow);
+    await tester.tap(partyModeRow);
+    // The destination may keep a loading spinner visible while its party
+    // stream starts, so wait for the route transition rather than quiescence.
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+
+    expect(find.byType(PartyScreen), findsOneWidget);
     provider.dispose();
   });
 

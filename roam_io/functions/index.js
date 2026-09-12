@@ -32,6 +32,12 @@ const {
   onFollowRequestAccepted,
 } = require('./follow_notifications');
 
+const {
+  onPartyTileWritten,
+  onPartySeasonSchedule,
+  submitDwellPing,
+} = require('./party_triggers');
+
 const DATABASE_URL = defineSecret('DATABASE_URL');
 const GOOGLE_PLACES_API_KEY = defineSecret('GOOGLE_PLACES_API_KEY');
 const GEMINI_API_KEY = defineSecret("GEMINI_API_KEY");
@@ -908,3 +914,6 @@ exports.onFollowDeleted = onFollowDeleted;
 exports.onFollowRequestCreated = onFollowRequestCreated;
 exports.onFollowRequestDeleted = onFollowRequestDeleted;
 exports.onFollowRequestAccepted = onFollowRequestAccepted;
+exports.onPartyTileWritten = onPartyTileWritten;
+exports.onPartySeasonSchedule = onPartySeasonSchedule;
+exports.submitDwellPing = submitDwellPing;
