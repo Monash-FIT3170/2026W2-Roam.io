@@ -5,6 +5,7 @@ class Party {
   const Party({
     required this.id,
     required this.joinCode,
+    this.name = '',
     required this.teamAMembers,
     required this.teamBMembers,
     this.tiles = const <String, dynamic>{},
@@ -12,6 +13,7 @@ class Party {
 
   final String id;
   final String joinCode;
+  final String name;
   final List<String> teamAMembers;
   final List<String> teamBMembers;
   final Map<String, dynamic> tiles;
@@ -19,6 +21,7 @@ class Party {
   Map<String, dynamic> toMap() {
     return <String, dynamic>{
       'joinCode': joinCode,
+      'name': name,
       'teamAMembers': teamAMembers,
       'teamBMembers': teamBMembers,
       'tiles': tiles,
@@ -29,11 +32,15 @@ class Party {
     return Party(
       id: id,
       joinCode: (map['joinCode'] as String?) ?? '',
+      name: (map['name'] as String?) ?? '',
       teamAMembers: List<String>.from(map['teamAMembers'] as List? ?? const []),
       teamBMembers: List<String>.from(map['teamBMembers'] as List? ?? const []),
       tiles: Map<String, dynamic>.from(map['tiles'] as Map? ?? const {}),
     );
   }
+
+  /// Older parties had no saved name; keep their familiar heading until renamed.
+  String get displayName => name.trim().isEmpty ? 'Party #$joinCode' : name;
 
   /// Ownership by tile ID derived from the party's stored tiles map.
   Map<String, String?> get tileOwnership {

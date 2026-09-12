@@ -35,6 +35,12 @@ class AlreadyInPartyException implements Exception {
   String toString() => 'Already in party "$partyId"';
 }
 
+class NotPartyMemberException implements Exception {
+  const NotPartyMemberException(this.partyId);
+
+  final String partyId;
+}
+
 /// Firestore persistence for Party Mode parties, at `parties/{partyId}`.
 class PartyService {
   PartyService({FirebaseFirestore? firestore})
@@ -45,6 +51,7 @@ class PartyService {
   static const int _joinCodeLength = 6;
   static const String _joinCodeAlphabet = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
   static const int maxTeamSize = 8;
+  static const int maxNameLength = 40;
 
   final FirebaseFirestore _firestore;
 
@@ -58,12 +65,14 @@ class PartyService {
 
   /// Creates and joins a party in one transaction. The membership document is
   /// the single per-user lock shared by both create and join.
-  Future<Party> createParty({required String uid}) async {
+  Future<Party> createParty({required String uid, String? name}) async {
     await _checkLegacyMembership(uid);
     final ref = _parties.doc();
+    final joinCode = _generateJoinCode();
     final party = Party(
       id: ref.id,
-      joinCode: _generateJoinCode(),
+      joinCode: joinCode,
+      name: _validatedName(name ?? 'Party #$joinCode'),
       teamAMembers: [uid],
       teamBMembers: const [],
     );
@@ -77,6 +86,37 @@ class PartyService {
       transaction.set(_membership(uid), {'partyId': ref.id});
     });
     return party;
+  }
+
+  static String _validatedName(String name) {
+    final trimmed = name.trim();
+    if (trimmed.isEmpty || trimmed.length > maxNameLength) {
+      throw ArgumentError.value(
+        name,
+        'name',
+        'Use 1–$maxNameLength characters.',
+      );
+    }
+    return trimmed;
+  }
+
+  /// Renames an active party. Any current member may edit its shared name.
+  Future<Party> renameParty({
+    required String partyId,
+    required String uid,
+    required String name,
+  }) {
+    final validated = _validatedName(name);
+    return _firestore.runTransaction<Party>((transaction) async {
+      final ref = _parties.doc(partyId);
+      final doc = await transaction.get(ref);
+      final data = doc.data();
+      if (data == null) throw PartyNotFoundException(partyId);
+      final party = Party.fromMap(doc.id, data);
+      if (!party.isMember(uid)) throw NotPartyMemberException(partyId);
+      transaction.update(ref, {'name': validated});
+      return Party.fromMap(doc.id, {...data, 'name': validated});
+    });
   }
 
   // Older party documents have team rosters but no per-user membership record.
@@ -158,6 +198,7 @@ class PartyService {
       final updated = Party(
         id: party.id,
         joinCode: party.joinCode,
+        name: party.name,
         teamAMembers: joinTeamA
             ? [...party.teamAMembers, uid]
             : party.teamAMembers,
@@ -193,6 +234,7 @@ class PartyService {
       final updated = Party(
         id: party.id,
         joinCode: party.joinCode,
+        name: party.name,
         teamAMembers: party.teamAMembers.where((m) => m != uid).toList(),
         teamBMembers: party.teamBMembers.where((m) => m != uid).toList(),
         tiles: party.tiles,

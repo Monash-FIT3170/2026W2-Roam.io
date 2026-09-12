@@ -24,22 +24,27 @@ async function run() {
     const bobMembership = bob.collection('party_memberships').doc('bob');
 
     await assertFails(partyOne.set({
-      joinCode: 'ABC123', teamAMembers: ['alice'], teamBMembers: [], tiles: {},
+      joinCode: 'ABC123', name: 'Alice Adventurers', teamAMembers: ['alice'], teamBMembers: [], tiles: {},
     }));
     await assertSucceeds(alice.runTransaction(async (tx) => {
       tx.set(partyOne, {
-        joinCode: 'ABC123', teamAMembers: ['alice'], teamBMembers: [], tiles: {},
+        joinCode: 'ABC123', name: 'Alice Adventurers', teamAMembers: ['alice'], teamBMembers: [], tiles: {},
       });
       tx.set(aliceMembership, { partyId: 'one' });
     }));
     await assertSucceeds(bob.runTransaction(async (tx) => {
       tx.set(partyTwo, {
-        joinCode: 'XYZ789', teamAMembers: ['bob'], teamBMembers: [], tiles: {},
+        joinCode: 'XYZ789', name: 'Bob Explorers', teamAMembers: ['bob'], teamBMembers: [], tiles: {},
       });
       tx.set(bobMembership, { partyId: 'two' });
     }));
 
     await assertFails(partyOne.update({ teamBMembers: ['mallory'] }));
+    await assertSucceeds(partyOne.update({ name: 'New Adventure' }));
+    await assertFails(bob.collection('parties').doc('one').update({ name: 'Hijacked' }));
+    await assertFails(partyOne.update({ name: ' ' }));
+    await assertFails(partyOne.update({ name: 'x'.repeat(41) }));
+    await assertFails(partyOne.update({ joinCode: 'CHANGED' }));
     await assertFails(aliceMembership.set({ partyId: 'two' }));
     await assertFails(alice.runTransaction(async (tx) => {
       tx.update(partyTwoForAlice, { teamBMembers: ['alice'] });

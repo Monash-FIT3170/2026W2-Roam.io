@@ -17,6 +17,80 @@ void main() {
     },
   );
 
+  test(
+    'custom names persist through roster changes and can be edited',
+    () async {
+      final firestore = FakeFirebaseFirestore();
+      final service = PartyService(firestore: firestore);
+      final party = await service.createParty(
+        uid: 'creator',
+        name: '  Weekend Wanderers  ',
+      );
+      expect(party.name, 'Weekend Wanderers');
+      expect(party.displayName, 'Weekend Wanderers');
+
+      final joined = await service.joinParty(
+        code: party.joinCode,
+        uid: 'member',
+      );
+      expect(joined.name, 'Weekend Wanderers');
+
+      final renamed = await service.renameParty(
+        partyId: party.id,
+        uid: 'member',
+        name: '  City Explorers  ',
+      );
+      expect(renamed.name, 'City Explorers');
+      expect(
+        (await service.getUserParties('creator')).single.name,
+        'City Explorers',
+      );
+      expect(
+        (await firestore.collection('parties').doc(party.id).get())
+            .data()?['joinCode'],
+        party.joinCode,
+      );
+
+      final afterLeaving = await service.leaveParty(
+        partyId: party.id,
+        uid: 'member',
+      );
+      expect(afterLeaving.name, 'City Explorers');
+    },
+  );
+
+  test('only members can rename and names must be valid', () async {
+    final service = PartyService(firestore: FakeFirebaseFirestore());
+    final party = await service.createParty(uid: 'creator');
+
+    await expectLater(
+      service.renameParty(partyId: party.id, uid: 'outsider', name: 'Nope'),
+      throwsA(isA<NotPartyMemberException>()),
+    );
+    await expectLater(
+      () => service.renameParty(partyId: party.id, uid: 'creator', name: '   '),
+      throwsA(isA<ArgumentError>()),
+    );
+    await expectLater(
+      () => service.renameParty(
+        partyId: party.id,
+        uid: 'creator',
+        name: List.filled(PartyService.maxNameLength + 1, 'x').join(),
+      ),
+      throwsA(isA<ArgumentError>()),
+    );
+  });
+
+  test('legacy parties use the join code as their heading until renamed', () {
+    final party = Party.fromMap('legacy', {
+      'joinCode': 'ABC123',
+      'teamAMembers': ['creator'],
+      'teamBMembers': <String>[],
+    });
+    expect(party.name, isEmpty);
+    expect(party.displayName, 'Party #ABC123');
+  });
+
   test('joining a party assigns the next user to team B', () async {
     final service = PartyService(firestore: FakeFirebaseFirestore());
     final party = await service.createParty(uid: 'creator');

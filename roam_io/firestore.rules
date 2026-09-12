@@ -1011,6 +1011,11 @@ service cloud.firestore {
         && getAfter(partyMembershipPath(uid)).data.partyId == partyId;
     }
 
+    function validPartyName(name) {
+      return name is string && name.size() > 0 && name.size() <= 40
+        && name.matches('.*[^ ].*');
+    }
+
     function isJoiningParty(partyId) {
       let uid = request.auth.uid;
       let beforeA = resource.data.teamAMembers;
@@ -1066,19 +1071,25 @@ service cloud.firestore {
         && !getAfter(/databases/$(database)/documents/parties/$(resource.data.partyId)).data.teamBMembers.hasAny([uid]);
     }
 
-    // Party Mode: parties/{partyId} holds join code + team rosters.
+    // Party Mode: parties/{partyId} holds the name, join code, and team rosters.
     match /parties/{partyId} {
       allow read: if isSignedIn();
       allow create: if isSignedIn()
-        && request.resource.data.keys().hasOnly(['joinCode', 'teamAMembers', 'teamBMembers', 'tiles'])
-        && request.resource.data.keys().hasAll(['joinCode', 'teamAMembers', 'teamBMembers', 'tiles'])
+        && request.resource.data.keys().hasOnly(['joinCode', 'name', 'teamAMembers', 'teamBMembers', 'tiles'])
+        && request.resource.data.keys().hasAll(['joinCode', 'name', 'teamAMembers', 'teamBMembers', 'tiles'])
         && request.resource.data.joinCode is string
+        && validPartyName(request.resource.data.name)
         && request.resource.data.teamAMembers == [request.auth.uid]
         && request.resource.data.teamBMembers == []
         && request.resource.data.tiles is map
         && hasPartyMembershipAfter(request.auth.uid, partyId);
       allow update: if isJoiningParty(partyId)
         || isLeavingParty(partyId)
+        || (isSignedIn()
+          && (resource.data.teamAMembers.hasAny([request.auth.uid])
+            || resource.data.teamBMembers.hasAny([request.auth.uid]))
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['name'])
+          && validPartyName(request.resource.data.name))
         || (isSignedIn() && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['tiles']));
       allow delete: if false;
 

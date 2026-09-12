@@ -24,6 +24,8 @@ import '../data/party_dwell_ping_service.dart';
 import '../data/party_service.dart';
 import '../data/party_tile_ownership_service.dart';
 import '../domain/party.dart';
+import '../widgets/confirm_leave_party.dart';
+import '../widgets/party_member_name.dart';
 
 /// Full-screen map view for a specific Party Mode party.
 class PartyMapScreen extends StatefulWidget {
@@ -114,12 +116,15 @@ class _PartyMapScreenState extends State<PartyMapScreen> {
       if (currentTileId != _activeTileId) {
         if (_activeTileId != null && _currentUid != null) {
           final totalSessionSeconds = _sessionDwellDuration.inSeconds;
-          final uncommitted = totalSessionSeconds - _flushedSecondsInCurrentTile;
+          final uncommitted =
+              totalSessionSeconds - _flushedSecondsInCurrentTile;
           if (uncommitted > 0) {
-            unawaited(_commitDwell(
-              tileId: _activeTileId!,
-              addedSeconds: uncommitted.toDouble(),
-            ));
+            unawaited(
+              _commitDwell(
+                tileId: _activeTileId!,
+                addedSeconds: uncommitted.toDouble(),
+              ),
+            );
           }
         }
         _flushedSecondsInCurrentTile = 0;
@@ -133,10 +138,9 @@ class _PartyMapScreenState extends State<PartyMapScreen> {
         if (uncommitted >= 5) {
           final toFlush = uncommitted.toDouble();
           _flushedSecondsInCurrentTile += uncommitted;
-          unawaited(_commitDwell(
-            tileId: _activeTileId!,
-            addedSeconds: toFlush,
-          ));
+          unawaited(
+            _commitDwell(tileId: _activeTileId!, addedSeconds: toFlush),
+          );
         }
       }
 
@@ -157,9 +161,7 @@ class _PartyMapScreenState extends State<PartyMapScreen> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       _currentUid = context.read<AuthProvider>().currentUser?.uid;
-      _mapController.initialise(
-        userId: _currentUid,
-      );
+      _mapController.initialise(userId: _currentUid);
     });
   }
 
@@ -171,10 +173,12 @@ class _PartyMapScreenState extends State<PartyMapScreen> {
         final totalSessionSeconds = _sessionDwellDuration.inSeconds;
         final uncommitted = totalSessionSeconds - _flushedSecondsInCurrentTile;
         if (uncommitted > 0) {
-          unawaited(_commitDwell(
-            tileId: _activeTileId!,
-            addedSeconds: uncommitted.toDouble(),
-          ));
+          unawaited(
+            _commitDwell(
+              tileId: _activeTileId!,
+              addedSeconds: uncommitted.toDouble(),
+            ),
+          );
         }
       }
       _flushedSecondsInCurrentTile = 0;
@@ -238,9 +242,12 @@ class _PartyMapScreenState extends State<PartyMapScreen> {
   }
 
   void _watchParty() {
-    _partySubscription = widget.partyService.watchParty(_party.id).listen((live) {
+    _partySubscription = widget.partyService.watchParty(_party.id).listen((
+      live,
+    ) {
       if (!mounted) return;
-      if (live == null || (_currentUid != null && !live.isMember(_currentUid!))) {
+      if (live == null ||
+          (_currentUid != null && !live.isMember(_currentUid!))) {
         widget.onPartyChanged?.call(null);
         if (Navigator.of(context).canPop()) {
           Navigator.of(context).pop();
@@ -253,28 +260,29 @@ class _PartyMapScreenState extends State<PartyMapScreen> {
   }
 
   void _watchTileOwnership() {
-    _ownershipSubscription = _ownershipService
-        .watchOwnership(_party.id)
-        .listen((ownership) {
-          if (!mounted) return;
-          _firestoreOwnership = ownership;
-          _syncEffectiveOwnership();
-        });
+    _ownershipSubscription = _ownershipService.watchOwnership(_party.id).listen(
+      (ownership) {
+        if (!mounted) return;
+        _firestoreOwnership = ownership;
+        _syncEffectiveOwnership();
+      },
+    );
   }
 
   void _watchTileData() {
-    _tileDataSubscription = _ownershipService
-        .watchTileData(_party.id)
-        .listen((data) {
-          if (!mounted) return;
-          _tilesData = data;
-          _syncEffectiveOwnership();
-        });
+    _tileDataSubscription = _ownershipService.watchTileData(_party.id).listen((
+      data,
+    ) {
+      if (!mounted) return;
+      _tilesData = data;
+      _syncEffectiveOwnership();
+    });
   }
 
   Future<void> _commitDwell({
     required String tileId,
     required double addedSeconds,
+    bool updateUi = true,
   }) async {
     if (addedSeconds <= 0) return;
     final uid = _currentUid;
@@ -284,9 +292,11 @@ class _PartyMapScreenState extends State<PartyMapScreen> {
 
     final now = DateTime.now();
     final prevData = _tilesData[tileId];
-    final updatedA = (prevData?.teamADwellSeconds ?? 0) +
+    final updatedA =
+        (prevData?.teamADwellSeconds ?? 0) +
         (userTeam == 'A' ? addedSeconds : 0);
-    final updatedB = (prevData?.teamBDwellSeconds ?? 0) +
+    final updatedB =
+        (prevData?.teamBDwellSeconds ?? 0) +
         (userTeam == 'B' ? addedSeconds : 0);
     _tilesData[tileId] = PartyTileData(
       tileId: tileId,
@@ -297,7 +307,7 @@ class _PartyMapScreenState extends State<PartyMapScreen> {
       'teamADwellSeconds': updatedA,
       'teamBDwellSeconds': updatedB,
     });
-    _syncEffectiveOwnership();
+    if (updateUi) _syncEffectiveOwnership();
 
     await _dwellPingService.flushNow(
       now: now,
@@ -320,10 +330,13 @@ class _PartyMapScreenState extends State<PartyMapScreen> {
       final totalSessionSeconds = _sessionDwellDuration.inSeconds;
       final uncommitted = totalSessionSeconds - _flushedSecondsInCurrentTile;
       if (uncommitted > 0) {
-        unawaited(_commitDwell(
-          tileId: _activeTileId!,
-          addedSeconds: uncommitted.toDouble(),
-        ));
+        unawaited(
+          _commitDwell(
+            tileId: _activeTileId!,
+            addedSeconds: uncommitted.toDouble(),
+            updateUi: false,
+          ),
+        );
       }
     }
 
@@ -356,7 +369,29 @@ class _PartyMapScreenState extends State<PartyMapScreen> {
 
   void _copyJoinCode() {
     Clipboard.setData(ClipboardData(text: _party.joinCode));
-    AppToast.success(context, 'Join code ${_party.joinCode} copied to clipboard!');
+    AppToast.success(
+      context,
+      'Join code ${_party.joinCode} copied to clipboard!',
+    );
+  }
+
+  Widget _memberRoster(List<String> members, String? currentUid) {
+    final style = Theme.of(
+      context,
+    ).textTheme.bodySmall?.copyWith(color: AppSurfaces.textMuted(context));
+    if (members.isEmpty) return Text('No members yet', style: style);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        for (final member in members)
+          PartyMemberName(
+            uid: member,
+            currentUserId: currentUid,
+            firestore: widget.partyService.firestore,
+            style: style,
+          ),
+      ],
+    );
   }
 
   void _showPartyDetailsSheet() {
@@ -450,14 +485,7 @@ class _PartyMapScreenState extends State<PartyMapScreen> {
                 ),
               ),
               const SizedBox(height: 4),
-              Text(
-                _party.teamAMembers.isEmpty
-                    ? 'No members yet'
-                    : _party.teamAMembers.join(', '),
-                style: theme.textTheme.bodySmall?.copyWith(
-                  color: AppSurfaces.textMuted(context),
-                ),
-              ),
+              _memberRoster(_party.teamAMembers, uid),
               const SizedBox(height: 12),
               Text(
                 'Team B (${_party.teamBMembers.length} members):',
@@ -466,26 +494,30 @@ class _PartyMapScreenState extends State<PartyMapScreen> {
                 ),
               ),
               const SizedBox(height: 4),
-              Text(
-                _party.teamBMembers.isEmpty
-                    ? 'No members yet'
-                    : _party.teamBMembers.join(', '),
-                style: theme.textTheme.bodySmall?.copyWith(
-                  color: AppSurfaces.textMuted(context),
-                ),
-              ),
+              _memberRoster(_party.teamBMembers, uid),
               const SizedBox(height: 24),
               SizedBox(
                 width: double.infinity,
                 child: OutlinedButton.icon(
-                  onPressed: () {
+                  onPressed: () async {
+                    if (!await confirmLeaveParty(sheetContext) ||
+                        !sheetContext.mounted ||
+                        !mounted) {
+                      return;
+                    }
                     Navigator.of(sheetContext).pop();
-                    _leaveParty();
+                    await _leaveParty();
                   },
-                  icon: const Icon(Icons.exit_to_app_rounded, color: Colors.red),
+                  icon: const Icon(
+                    Icons.exit_to_app_rounded,
+                    color: Colors.red,
+                  ),
                   label: const Text(
                     'Leave Party',
-                    style: TextStyle(color: Colors.red, fontWeight: FontWeight.w700),
+                    style: TextStyle(
+                      color: Colors.red,
+                      fontWeight: FontWeight.w700,
+                    ),
                   ),
                   style: OutlinedButton.styleFrom(
                     side: const BorderSide(color: Colors.red),
@@ -512,12 +544,13 @@ class _PartyMapScreenState extends State<PartyMapScreen> {
     final userTeam = uid != null ? _party.teamForUser(uid) : null;
     final currentRegion = _mapController.currentRegion;
     final currentTileId = currentRegion?.id;
-    final currentTileData =
-        currentTileId != null ? _tilesData[currentTileId] : null;
+    final currentTileData = currentTileId != null
+        ? _tilesData[currentTileId]
+        : null;
 
     return Scaffold(
       appBar: AppBar(
-        title: Text('Party: ${_party.joinCode}'),
+        title: Text(_party.displayName),
         centerTitle: false,
         actions: [
           IconButton(
@@ -558,34 +591,40 @@ class _PartyMapScreenState extends State<PartyMapScreen> {
               onTapDetails: _showPartyDetailsSheet,
             ),
           ),
-          // Bottom Tile Claim & Countdown Card
+          // Bottom tile summary, expandable details, and recenter control.
           Positioned(
             bottom: 16,
             left: 16,
             right: 16,
-            child: _CurrentTileCountdownCard(
-              userTeam: userTeam,
-              currentRegionName: currentRegion?.name,
-              currentTileId: currentTileId,
-              tileData: currentTileData,
-              sessionDwell: _sessionDwellDuration,
-              flushedSeconds: _flushedSecondsInCurrentTile,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                if (_mapController.myLocationEnabled) ...[
+                  Align(
+                    alignment: Alignment.centerRight,
+                    child: FloatingActionButton.small(
+                      heroTag: 'recenter_party_map',
+                      tooltip: 'Centre on my location',
+                      onPressed: _mapController.recenterOnUser,
+                      backgroundColor: AppSurfaces.card(context),
+                      foregroundColor: AppSurfaces.textPrimary(context),
+                      child: const Icon(Icons.my_location),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                ],
+                _CurrentTileCountdownCard(
+                  userTeam: userTeam,
+                  currentRegionName: currentRegion?.name,
+                  currentTileId: currentTileId,
+                  tileData: currentTileData,
+                  sessionDwell: _sessionDwellDuration,
+                  flushedSeconds: _flushedSecondsInCurrentTile,
+                ),
+              ],
             ),
           ),
-          // Recenter Button (positioned directly above the bottom card)
-          if (_mapController.myLocationEnabled)
-            Positioned(
-              right: 16,
-              bottom: 164,
-              child: FloatingActionButton.small(
-                heroTag: 'recenter_party_map',
-                tooltip: 'Centre on my location',
-                onPressed: _mapController.recenterOnUser,
-                backgroundColor: AppSurfaces.card(context),
-                foregroundColor: AppSurfaces.textPrimary(context),
-                child: const Icon(Icons.my_location),
-              ),
-            ),
         ],
       ),
     );
@@ -651,11 +690,14 @@ class _PartyScoreboard extends StatelessWidget {
                             ),
                           ),
                           const SizedBox(width: 4),
-                          Text(
-                            userTeam == 'A' ? 'Team A (You)' : 'Team A',
-                            style: theme.textTheme.labelSmall?.copyWith(
-                              fontWeight: FontWeight.w800,
-                              color: const Color(0xFF0288D1),
+                          Flexible(
+                            child: Text(
+                              userTeam == 'A' ? 'Team A (You)' : 'Team A',
+                              textAlign: TextAlign.center,
+                              style: theme.textTheme.labelSmall?.copyWith(
+                                fontWeight: FontWeight.w800,
+                                color: const Color(0xFF0288D1),
+                              ),
                             ),
                           ),
                         ],
@@ -711,11 +753,14 @@ class _PartyScoreboard extends StatelessWidget {
                             ),
                           ),
                           const SizedBox(width: 4),
-                          Text(
-                            userTeam == 'B' ? 'Team B (You)' : 'Team B',
-                            style: theme.textTheme.labelSmall?.copyWith(
-                              fontWeight: FontWeight.w800,
-                              color: const Color(0xFFE53935),
+                          Flexible(
+                            child: Text(
+                              userTeam == 'B' ? 'Team B (You)' : 'Team B',
+                              textAlign: TextAlign.center,
+                              style: theme.textTheme.labelSmall?.copyWith(
+                                fontWeight: FontWeight.w800,
+                                color: const Color(0xFFE53935),
+                              ),
                             ),
                           ),
                         ],
@@ -740,8 +785,8 @@ class _PartyScoreboard extends StatelessWidget {
   }
 }
 
-/// Floating bottom card displaying live countdown to claim the tile and time spent.
-class _CurrentTileCountdownCard extends StatelessWidget {
+/// Compact tile summary with expandable claim and dwell details.
+class _CurrentTileCountdownCard extends StatefulWidget {
   const _CurrentTileCountdownCard({
     required this.userTeam,
     required this.currentRegionName,
@@ -758,6 +803,22 @@ class _CurrentTileCountdownCard extends StatelessWidget {
   final Duration sessionDwell;
   final int flushedSeconds;
 
+  @override
+  State<_CurrentTileCountdownCard> createState() =>
+      _CurrentTileCountdownCardState();
+}
+
+class _CurrentTileCountdownCardState extends State<_CurrentTileCountdownCard> {
+  bool _showDetails = false;
+
+  @override
+  void didUpdateWidget(_CurrentTileCountdownCard oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.currentTileId != widget.currentTileId) {
+      _showDetails = false;
+    }
+  }
+
   static String _formatDuration(Duration duration) {
     final totalSec = max(0, duration.inSeconds);
     final minutes = totalSec ~/ 60;
@@ -772,6 +833,12 @@ class _CurrentTileCountdownCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final userTeam = widget.userTeam;
+    final currentRegionName = widget.currentRegionName;
+    final currentTileId = widget.currentTileId;
+    final tileData = widget.tileData;
+    final sessionDwell = widget.sessionDwell;
+    final flushedSeconds = widget.flushedSeconds;
 
     if (currentTileId == null) {
       return Container(
@@ -838,13 +905,16 @@ class _CurrentTileCountdownCard extends StatelessWidget {
 
     final myDwell = userTeam == 'A'
         ? effectiveTeamA
-        : (userTeam == 'B' ? effectiveTeamB : sessionDwell.inSeconds.toDouble());
+        : (userTeam == 'B'
+              ? effectiveTeamB
+              : sessionDwell.inSeconds.toDouble());
     final opponentDwell = userTeam == 'A'
         ? effectiveTeamB
         : (userTeam == 'B' ? effectiveTeamA : 0.0);
     final opponentTeam = userTeam == 'A' ? 'B' : 'A';
 
-    final isClaimedByMe = myDwell > claimGateSeconds && myDwell >= opponentDwell;
+    final isClaimedByMe =
+        myDwell > claimGateSeconds && myDwell >= opponentDwell;
     final isClaimedByOpponent =
         opponentDwell > claimGateSeconds && opponentDwell > myDwell;
 
@@ -869,11 +939,12 @@ class _CurrentTileCountdownCard extends StatelessWidget {
       final remaining = max(0, (target - myDwell).ceil());
       progress = (myDwell / target).clamp(0.0, 1.0);
       countdownText = '${_formatSeconds(remaining)} to overtake';
-      statusSubtitle = 'Enemy tile (Team $opponentTeam: ${_formatSeconds(opponentDwell)})';
+      statusSubtitle =
+          'Enemy tile (Team $opponentTeam: ${_formatSeconds(opponentDwell)})';
       statusColor = userTeam == 'A'
           ? const Color(0xFFE53935)
           : const Color(0xFF0288D1);
-      badgeLabel = 'Team $opponentTeam Territory';
+      badgeLabel = 'Claimed by Team $opponentTeam';
     } else {
       final target = max(claimGateSeconds.toDouble(), opponentDwell);
       final remaining = max(0, (target - myDwell).ceil());
@@ -889,143 +960,170 @@ class _CurrentTileCountdownCard extends StatelessWidget {
         ? currentRegionName!
         : 'Tile #$currentTileId';
 
-    return Container(
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: AppSurfaces.card(context),
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: AppSurfaces.border(context)),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.12),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          // Header: Tile name & badge
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Expanded(
-                child: Row(
-                  children: [
-                    Icon(
-                      Icons.flag_rounded,
-                      size: 18,
-                      color: statusColor,
+    return AnimatedSize(
+      duration: const Duration(milliseconds: 220),
+      curve: Curves.easeInOut,
+      child: Container(
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          color: AppSurfaces.card(context),
+          borderRadius: BorderRadius.circular(18),
+          border: Border.all(color: AppSurfaces.border(context)),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.12),
+              blurRadius: 10,
+              offset: const Offset(0, 4),
+            ),
+          ],
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            // Let the full tile name wrap before showing claim details.
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Icon(Icons.flag_rounded, size: 18, color: statusColor),
+                const SizedBox(width: 6),
+                Expanded(
+                  child: Text(
+                    displayName,
+                    style: theme.textTheme.titleSmall?.copyWith(
+                      fontWeight: FontWeight.w800,
                     ),
-                    const SizedBox(width: 6),
-                    Expanded(
-                      child: Text(
-                        displayName,
-                        style: theme.textTheme.titleSmall?.copyWith(
-                          fontWeight: FontWeight.w800,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            Wrap(
+              spacing: 12,
+              runSpacing: 6,
+              crossAxisAlignment: WrapCrossAlignment.center,
+              children: [
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 3,
+                  ),
+                  decoration: BoxDecoration(
+                    color: statusColor.withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(
+                      color: statusColor.withValues(alpha: 0.3),
+                    ),
+                  ),
+                  child: Text(
+                    badgeLabel,
+                    style: TextStyle(
+                      color: statusColor,
+                      fontSize: 11,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                ),
+                if (!isClaimedByMe)
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.timer_outlined, size: 16, color: statusColor),
+                      const SizedBox(width: 4),
+                      Text(
+                        countdownText,
+                        style: theme.textTheme.bodyMedium?.copyWith(
+                          fontWeight: FontWeight.w900,
+                          color: statusColor,
                         ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ],
+                  ),
+              ],
+            ),
+            if (_showDetails) ...[
+              const SizedBox(height: 12),
+              if (isClaimedByMe)
+                Text(
+                  countdownText,
+                  style: theme.textTheme.bodyMedium?.copyWith(
+                    fontWeight: FontWeight.w900,
+                    color: statusColor,
+                  ),
+                ),
+              Text(
+                statusSubtitle,
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: AppSurfaces.textMuted(context),
+                ),
+              ),
+              const SizedBox(height: 8),
+              ClipRRect(
+                borderRadius: BorderRadius.circular(4),
+                child: LinearProgressIndicator(
+                  value: progress,
+                  minHeight: 6,
+                  backgroundColor: statusColor.withValues(alpha: 0.15),
+                  valueColor: AlwaysStoppedAnimation<Color>(statusColor),
+                ),
+              ),
+              const SizedBox(height: 10),
+              Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 8,
+                ),
+                decoration: BoxDecoration(
+                  color: AppSurfaces.innerCard(context),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Time in tile: ${_formatDuration(sessionDwell)}',
+                      style: theme.textTheme.labelSmall?.copyWith(
+                        fontWeight: FontWeight.w800,
+                        color: AppSurfaces.textPrimary(context),
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      'Team A: ${_formatSeconds(effectiveTeamA)} · Team B: ${_formatSeconds(effectiveTeamB)}',
+                      style: theme.textTheme.labelSmall?.copyWith(
+                        color: AppSurfaces.textMuted(context),
+                        fontWeight: FontWeight.w600,
                       ),
                     ),
                   ],
                 ),
               ),
-              const SizedBox(width: 8),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                decoration: BoxDecoration(
-                  color: statusColor.withValues(alpha: 0.12),
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(
-                    color: statusColor.withValues(alpha: 0.3),
-                  ),
-                ),
-                child: Text(
-                  badgeLabel,
-                  style: TextStyle(
-                    color: statusColor,
-                    fontSize: 11,
-                    fontWeight: FontWeight.w800,
-                  ),
-                ),
-              ),
             ],
-          ),
-          const SizedBox(height: 10),
-          // Countdown Timer & Progress Bar
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Row(
-                children: [
-                  Icon(
-                    isClaimedByMe
-                        ? Icons.check_circle_rounded
-                        : Icons.timer_outlined,
-                    size: 16,
-                    color: statusColor,
-                  ),
-                  const SizedBox(width: 4),
-                  Text(
-                    countdownText,
-                    style: theme.textTheme.bodyMedium?.copyWith(
-                      fontWeight: FontWeight.w900,
-                      color: statusColor,
+            Align(
+              alignment: Alignment.center,
+              child: TextButton(
+                onPressed: () => setState(() => _showDetails = !_showDetails),
+                style: TextButton.styleFrom(
+                  foregroundColor: theme.colorScheme.primary,
+                  visualDensity: VisualDensity.compact,
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(_showDetails ? 'Show less' : 'Show more'),
+                    const SizedBox(width: 4),
+                    Icon(
+                      _showDetails
+                          ? Icons.keyboard_arrow_down_rounded
+                          : Icons.keyboard_arrow_up_rounded,
+                      size: 18,
                     ),
-                  ),
-                ],
-              ),
-              Text(
-                statusSubtitle,
-                style: theme.textTheme.bodySmall?.copyWith(
-                  color: AppSurfaces.textMuted(context),
-                  fontSize: 11,
+                  ],
                 ),
               ),
-            ],
-          ),
-          const SizedBox(height: 6),
-          ClipRRect(
-            borderRadius: BorderRadius.circular(4),
-            child: LinearProgressIndicator(
-              value: progress,
-              minHeight: 6,
-              backgroundColor: statusColor.withValues(alpha: 0.15),
-              valueColor: AlwaysStoppedAnimation<Color>(statusColor),
             ),
-          ),
-          const SizedBox(height: 10),
-          // Time spent in tile summary
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-            decoration: BoxDecoration(
-              color: AppSurfaces.innerCard(context),
-              borderRadius: BorderRadius.circular(10),
-            ),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text(
-                  'Time in tile: ${_formatDuration(sessionDwell)}',
-                  style: theme.textTheme.labelSmall?.copyWith(
-                    fontWeight: FontWeight.w800,
-                    color: AppSurfaces.textPrimary(context),
-                  ),
-                ),
-                Text(
-                  'Team A: ${_formatSeconds(effectiveTeamA)} · Team B: ${_formatSeconds(effectiveTeamB)}',
-                  style: theme.textTheme.labelSmall?.copyWith(
-                    color: AppSurfaces.textMuted(context),
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
