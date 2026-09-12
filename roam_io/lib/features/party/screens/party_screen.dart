@@ -118,6 +118,7 @@ class _PartyScreenState extends State<PartyScreen> {
       if (!mounted) return;
       setState(() => _createError = null);
       _setParty(joined);
+      _openPartyMap(joined);
     } catch (_) {
       if (mounted) {
         setState(
@@ -150,6 +151,7 @@ class _PartyScreenState extends State<PartyScreen> {
       });
       _codeController.clear();
       _setParty(joined);
+      _openPartyMap(joined);
     } on PartyNotFoundException {
       if (mounted) {
         setState(() => _joinError = 'No party found for that code.');
@@ -212,28 +214,16 @@ class _PartyScreenState extends State<PartyScreen> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Party Mode'),
-        actions: [
-          if (_party != null && _userParties.length > 1)
-            IconButton(
-              tooltip: 'Switch party',
-              icon: const Icon(Icons.list_alt_rounded),
-              onPressed: () => setState(() => _party = null),
-            ),
-        ],
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            if (_party == null) ...[
-              _buildForm(),
-              if (_userParties.isNotEmpty) ...[
-                const SizedBox(height: 28),
-                _buildUserPartiesList(),
-              ],
-            ] else ...[
-              _buildPartyHome(_party!),
+            _buildForm(),
+            if (_userParties.isNotEmpty) ...[
+              const SizedBox(height: 28),
+              _buildUserPartiesList(),
             ],
           ],
         ),
@@ -274,26 +264,6 @@ class _PartyScreenState extends State<PartyScreen> {
           child: const Text('Join Party'),
         ),
         if (_createError != null) Text(_createError!),
-      ],
-    );
-  }
-
-  Widget _buildPartyHome(Party party) {
-    return Column(
-      children: [
-        Text(
-          'Join code: ${party.joinCode}\n'
-          'Team A: ${party.teamAMembers}\n'
-          'Team B: ${party.teamBMembers}',
-        ),
-        ElevatedButton(
-          onPressed: () => _openPartyMap(party),
-          child: const Text('View Party Map'),
-        ),
-        ElevatedButton(
-          onPressed: () => _leaveParty(partyId: party.id),
-          child: const Text('Leave Party'),
-        ),
       ],
     );
   }

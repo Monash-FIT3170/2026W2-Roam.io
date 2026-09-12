@@ -60,7 +60,7 @@ void main() {
     expect(find.text('Join Party'), findsOneWidget);
   });
 
-  testWidgets('tapping Create Party shows the generated join code', (
+  testWidgets('tapping Create Party opens the party map with join code', (
     tester,
   ) async {
     final firestore = FakeFirebaseFirestore();
@@ -73,7 +73,8 @@ void main() {
     final created = await firestore.collection('parties').get();
     final joinCode = created.docs.single.data()['joinCode'] as String;
 
-    expect(find.textContaining(joinCode), findsOneWidget);
+    expect(find.byType(PartyMapScreen), findsOneWidget);
+    expect(find.text('Party: $joinCode'), findsOneWidget);
   });
 
   testWidgets('creating a party assigns the creator to a team', (
@@ -85,10 +86,10 @@ void main() {
     await tester.tap(find.text('Create Party'));
     await tester.pumpAndSettle();
 
-    expect(find.textContaining('Team A'), findsOneWidget);
+    expect(find.text('Team A (You)'), findsOneWidget);
   });
 
-  testWidgets('entering a code in Join Party joins that party', (
+  testWidgets('entering a code in Join Party joins that party and opens map', (
     tester,
   ) async {
     final firestore = FakeFirebaseFirestore();
@@ -103,7 +104,8 @@ void main() {
     await tester.tap(find.text('Submit'));
     await tester.pumpAndSettle();
 
-    expect(find.textContaining('Team B'), findsOneWidget);
+    expect(find.byType(PartyMapScreen), findsOneWidget);
+    expect(find.text('Team B (You)'), findsOneWidget);
   });
 
   testWidgets('an invalid join code shows a clear error', (tester) async {
@@ -119,22 +121,23 @@ void main() {
     expect(find.text('No party found for that code.'), findsOneWidget);
   });
 
-  testWidgets('Leave Party returns to the no-active-party state', (
+  testWidgets('Leave Party returns to the create/join form', (
     tester,
   ) async {
     final partyService = PartyService(firestore: FakeFirebaseFirestore());
+    final party = await partyService.createParty();
+    await partyService.joinParty(code: party.joinCode, uid: 'user-1');
 
     await _pumpPartyScreen(tester, partyService: partyService, uid: 'user-1');
-    await tester.tap(find.text('Create Party'));
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('Leave Party'));
+    expect(find.text('Leave'), findsOneWidget);
+    await tester.tap(find.text('Leave'));
     await tester.pumpAndSettle();
 
     expect(find.text('Create Party'), findsOneWidget);
     expect(find.text('Join Party'), findsOneWidget);
   });
 
-  testWidgets('onPartyChanged fires with the joined party, then null on leave', (
+  testWidgets('onPartyChanged fires with the joined party', (
     tester,
   ) async {
     final partyService = PartyService(firestore: FakeFirebaseFirestore());
@@ -148,14 +151,8 @@ void main() {
     );
     await tester.tap(find.text('Create Party'));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Leave Party'));
-    await tester.pumpAndSettle();
 
-    // The live party subscription can echo extra snapshots, so only the first
-    // and last transitions are contractual.
     expect(changes.first?.teamAMembers, ['user-1']);
-    expect(changes.last, isNull);
-    expect(changes.whereType<Party>(), isNotEmpty);
   });
 
   testWidgets('a Create Party failure shows an error instead of nothing', (
@@ -173,54 +170,8 @@ void main() {
     );
   });
 
-  testWidgets('reopening with an existing party shows the party home', (
-    tester,
-  ) async {
-    final partyService = PartyService(firestore: FakeFirebaseFirestore());
-    final created = await partyService.createParty();
-    final joined = await partyService.joinParty(
-      code: created.joinCode,
-      uid: 'user-1',
-    );
-
-    await _pumpPartyScreen(
-      tester,
-      partyService: partyService,
-      uid: 'user-1',
-      initialParty: joined,
-    );
-
-    expect(find.text('Leave Party'), findsOneWidget);
-    expect(find.textContaining(created.joinCode), findsOneWidget);
-  });
-
   testWidgets(
-    'the party-home view live-updates when another user joins remotely',
-    (tester) async {
-      final firestore = FakeFirebaseFirestore();
-      final partyService = PartyService(firestore: firestore);
-
-      await _pumpPartyScreen(
-        tester,
-        partyService: partyService,
-        uid: 'user-1',
-      );
-      await tester.tap(find.text('Create Party'));
-      await tester.pumpAndSettle();
-
-      expect(find.textContaining('Team B: []'), findsOneWidget);
-
-      final created = await firestore.collection('parties').get();
-      final joinCode = created.docs.single.data()['joinCode'] as String;
-      await partyService.joinParty(code: joinCode, uid: 'user-2');
-      await tester.pumpAndSettle();
-
-      expect(find.textContaining('Team B: [user-2]'), findsOneWidget);
-    },
-  );
-
-  testWidgets(
-    'shows user parties in Your Parties list when not viewing a single party',
+    'shows user parties in Your Parties list',
     (tester) async {
       final firestore = FakeFirebaseFirestore();
       final partyService = PartyService(firestore: firestore);
@@ -240,12 +191,12 @@ void main() {
   );
 
   testWidgets(
-    'tapping View Party Map opens PartyMapScreen for that party',
+    'tapping View Map opens PartyMapScreen for that party',
     (tester) async {
       final firestore = FakeFirebaseFirestore();
       final partyService = PartyService(firestore: firestore);
       final party = await partyService.createParty();
-      final joined = await partyService.joinParty(
+      await partyService.joinParty(
         code: party.joinCode,
         uid: 'user-1',
       );
@@ -254,11 +205,10 @@ void main() {
         tester,
         partyService: partyService,
         uid: 'user-1',
-        initialParty: joined,
       );
 
-      expect(find.text('View Party Map'), findsOneWidget);
-      await tester.tap(find.text('View Party Map'));
+      expect(find.text('View Map'), findsOneWidget);
+      await tester.tap(find.text('View Map'));
       await tester.pumpAndSettle();
 
       expect(find.byType(PartyMapScreen), findsOneWidget);
