@@ -37,10 +37,12 @@ Future<void> recordDwellPingDirectly({
     final partyData = partyDoc.data()!;
     var resolvedTeam = team;
     if (resolvedTeam == null) {
-      final teamA =
-          List<String>.from(partyData['teamAMembers'] as List? ?? const []);
-      final teamB =
-          List<String>.from(partyData['teamBMembers'] as List? ?? const []);
+      final teamA = List<String>.from(
+        partyData['teamAMembers'] as List? ?? const [],
+      );
+      final teamB = List<String>.from(
+        partyData['teamBMembers'] as List? ?? const [],
+      );
       if (teamA.contains(uid)) {
         resolvedTeam = 'A';
       } else if (teamB.contains(uid)) {
@@ -144,9 +146,9 @@ Future<void> _callSubmitDwellPing({
     firestore: firestore,
   );
   try {
-    await FirebaseFunctions.instanceFor(region: 'australia-southeast1')
-        .httpsCallable('submitDwellPing')
-        .call({
+    await FirebaseFunctions.instanceFor(
+      region: 'australia-southeast1',
+    ).httpsCallable('submitDwellPing').call({
       'partyId': partyId,
       'tileId': tileId,
       'pingAt': pingAt.toIso8601String(),
@@ -162,23 +164,23 @@ class PartyDwellPingService {
     SendDwellPing? sendPing,
     this.pingInterval = const Duration(seconds: 60),
     FirebaseFirestore? firestore,
-  })  : _firestore = firestore,
-        sendPing = sendPing ??
+  }) : _firestore = firestore,
+       sendPing =
+           sendPing ??
            (({
              required String partyId,
              required String? team,
              required String tileId,
              required String uid,
              required DateTime pingAt,
-           }) =>
-               _callSubmitDwellPing(
-                 partyId: partyId,
-                 team: team,
-                 tileId: tileId,
-                 uid: uid,
-                 pingAt: pingAt,
-                 firestore: firestore,
-               ));
+           }) => _callSubmitDwellPing(
+             partyId: partyId,
+             team: team,
+             tileId: tileId,
+             uid: uid,
+             pingAt: pingAt,
+             firestore: firestore,
+           ));
 
   final SendDwellPing sendPing;
   final Duration pingInterval;
@@ -264,11 +266,7 @@ class PartyDwellPingService {
     }
   }
 
-  void configure({
-    required String partyId,
-    required String uid,
-    String? team,
-  }) {
+  void configure({required String partyId, required String uid, String? team}) {
     _partyId = partyId;
     _uid = uid;
     _team = team;

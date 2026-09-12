@@ -168,7 +168,10 @@ void main() {
     final partyModeRow = find.text('Party Mode');
     await tester.ensureVisible(partyModeRow);
     await tester.tap(partyModeRow);
-    await tester.pumpAndSettle();
+    // The destination may keep a loading spinner visible while its party
+    // stream starts, so wait for the route transition rather than quiescence.
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
 
     expect(find.byType(PartyScreen), findsOneWidget);
     provider.dispose();

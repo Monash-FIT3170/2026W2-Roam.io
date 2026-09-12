@@ -308,10 +308,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
                               onTap: auth.isBusy || profile == null
                                   ? null
                                   : () => _open(
-                                        PartyScreen(
-                                          partyService: PartyService(),
-                                        ),
-                                      ),
+                                      PartyScreen(partyService: PartyService()),
+                                    ),
                               showDivider: false,
                             ),
                           ],

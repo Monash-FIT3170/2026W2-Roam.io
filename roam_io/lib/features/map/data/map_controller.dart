@@ -505,8 +505,8 @@ class MapController extends ChangeNotifier {
         final regionsToCache = isPartyMode
             ? result.regions
             : result.regions
-                .where((region) => _isRegionCleared(region.id))
-                .toList();
+                  .where((region) => _isRegionCleared(region.id))
+                  .toList();
 
         for (final region in regionsToCache) {
           final cacheResult = _cacheRegionAsPolygons(region);

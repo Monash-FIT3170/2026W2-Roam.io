@@ -22,25 +22,28 @@ void main() {
     expect(notifyCount, 1);
   });
 
-  test('the current party stays live after the party screen is closed', () async {
-    final partyService = PartyService(firestore: FakeFirebaseFirestore());
-    final provider = CurrentPartyProvider(partyService: partyService);
-    final created = await partyService.createParty(uid: 'user-1');
-    final joined = await partyService.joinParty(
-      code: created.joinCode,
-      uid: 'user-1',
-    );
+  test(
+    'the current party stays live after the party screen is closed',
+    () async {
+      final partyService = PartyService(firestore: FakeFirebaseFirestore());
+      final provider = CurrentPartyProvider(partyService: partyService);
+      final created = await partyService.createParty(uid: 'user-1');
+      final joined = await partyService.joinParty(
+        code: created.joinCode,
+        uid: 'user-1',
+      );
 
-    provider.setParty(joined);
-    await partyService.joinParty(code: created.joinCode, uid: 'user-2');
-    await Future<void>.delayed(Duration.zero);
+      provider.setParty(joined);
+      await partyService.joinParty(code: created.joinCode, uid: 'user-2');
+      await Future<void>.delayed(Duration.zero);
 
-    final members = [
-      ...?provider.currentParty?.teamAMembers,
-      ...?provider.currentParty?.teamBMembers,
-    ];
-    expect(members, containsAll(['user-1', 'user-2']));
+      final members = [
+        ...?provider.currentParty?.teamAMembers,
+        ...?provider.currentParty?.teamBMembers,
+      ];
+      expect(members, containsAll(['user-1', 'user-2']));
 
-    provider.dispose();
-  });
+      provider.dispose();
+    },
+  );
 }

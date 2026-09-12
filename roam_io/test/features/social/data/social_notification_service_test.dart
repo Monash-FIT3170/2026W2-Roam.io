@@ -95,20 +95,23 @@ void main() {
     expect(notification.activityId, 'activity-1');
   });
 
-  test('a party tile-loss notification parses with partyId and tileId', () async {
-    final notification = SocialNotification.fromMap('party_tile_lost_p1_t1', {
-      'recipientId': 'user-a',
-      'actorId': null,
-      'type': 'partyTileLost',
-      'createdAt': DateTime(2026, 9, 9).toIso8601String(),
-      'partyId': 'p1',
-      'tileId': 't1',
-    });
+  test(
+    'a party tile-loss notification parses with partyId and tileId',
+    () async {
+      final notification = SocialNotification.fromMap('party_tile_lost_p1_t1', {
+        'recipientId': 'user-a',
+        'actorId': null,
+        'type': 'partyTileLost',
+        'createdAt': DateTime(2026, 9, 9).toIso8601String(),
+        'partyId': 'p1',
+        'tileId': 't1',
+      });
 
-    expect(notification.type, SocialNotificationType.partyTileLost);
-    expect(notification.partyId, 'p1');
-    expect(notification.tileId, 't1');
-  });
+      expect(notification.type, SocialNotificationType.partyTileLost);
+      expect(notification.partyId, 'p1');
+      expect(notification.tileId, 't1');
+    },
+  );
 
   test(
     'unknown persisted type is skipped instead of becoming follow',
