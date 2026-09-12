@@ -1,7 +1,7 @@
 /*
  * Author: Sanjevan Rajasegar & Copilot
  * Description:
- *   Entry point for Party Mode: create/join a party, view active user parties,
+ *   Entry point for Party Mode: create/join a party, view the active party,
  *   or view party home with team rosters and map navigation.
  */
 
@@ -49,9 +49,16 @@ class _PartyScreenState extends State<PartyScreen> {
   final _codeController = TextEditingController();
   StreamSubscription<Party?>? _partySubscription;
   StreamSubscription<List<Party>>? _userPartiesSubscription;
-  List<Party> _userParties = [];
+  bool _hasLoadedParty = false;
+  bool _isSubmitting = false;
+  bool _partyLoadFailed = false;
 
   void _setParty(Party? party) {
+    if (_party?.id == party?.id) {
+      setState(() => _party = party);
+      widget.onPartyChanged?.call(party);
+      return;
+    }
     setState(() => _party = party);
     widget.onPartyChanged?.call(party);
     _watchParty(party);
@@ -63,8 +70,8 @@ class _PartyScreenState extends State<PartyScreen> {
         ? null
         : widget.partyService.watchParty(party.id).listen((live) {
             if (!mounted) return;
-            setState(() => _party = live);
-            widget.onPartyChanged?.call(live);
+            final uid = context.read<AuthProvider>().currentUser?.uid;
+            _setParty(uid != null && live?.isMember(uid) == true ? live : null);
           });
   }
 
@@ -76,10 +83,29 @@ class _PartyScreenState extends State<PartyScreen> {
     }
     _userPartiesSubscription = widget.partyService
         .watchUserParties(uid)
-        .listen((parties) {
-          if (!mounted) return;
-          setState(() => _userParties = parties);
-        });
+        .listen(
+          (parties) {
+            if (!mounted) return;
+            setState(() {
+              _hasLoadedParty = true;
+              _partyLoadFailed = false;
+            });
+            if (parties.isNotEmpty) {
+              _setParty(parties.first);
+              setState(() => _isJoining = false);
+            } else if (_party != null && !_isSubmitting) {
+              _setParty(null);
+            }
+          },
+          onError: (Object _) {
+            if (mounted) {
+              setState(() {
+                _hasLoadedParty = true;
+                _partyLoadFailed = true;
+              });
+            }
+          },
+        );
   }
 
   @override
@@ -109,22 +135,29 @@ class _PartyScreenState extends State<PartyScreen> {
       setState(() => _createError = 'Must be signed in to create a party.');
       return;
     }
+    if (_party != null || _isSubmitting) return;
+    setState(() => _isSubmitting = true);
     try {
-      final created = await widget.partyService.createParty();
-      final joined = await widget.partyService.joinParty(
-        code: created.joinCode,
-        uid: uid,
-      );
+      final joined = await widget.partyService.createParty(uid: uid);
       if (!mounted) return;
       setState(() => _createError = null);
       _setParty(joined);
       _openPartyMap(joined);
+    } on AlreadyInPartyException {
+      if (mounted) {
+        setState(
+          () => _createError =
+              'You are already in a party. Leave it before creating another.',
+        );
+      }
     } catch (_) {
       if (mounted) {
         setState(
           () => _createError = 'Could not create a party. Please try again.',
         );
       }
+    } finally {
+      if (mounted) setState(() => _isSubmitting = false);
     }
   }
 
@@ -139,11 +172,10 @@ class _PartyScreenState extends State<PartyScreen> {
       setState(() => _joinError = 'Please enter a join code.');
       return;
     }
+    if (_party != null || _isSubmitting) return;
+    setState(() => _isSubmitting = true);
     try {
-      final joined = await widget.partyService.joinParty(
-        code: code,
-        uid: uid,
-      );
+      final joined = await widget.partyService.joinParty(code: code, uid: uid);
       if (!mounted) return;
       setState(() {
         _joinError = null;
@@ -160,10 +192,19 @@ class _PartyScreenState extends State<PartyScreen> {
       if (mounted) {
         setState(() => _joinError = 'That party is full.');
       }
+    } on AlreadyInPartyException {
+      if (mounted) {
+        setState(
+          () => _joinError =
+              'You are already in a party. Leave it before joining another.',
+        );
+      }
     } catch (_) {
       if (mounted) {
         setState(() => _joinError = 'Could not join party. Please try again.');
       }
+    } finally {
+      if (mounted) setState(() => _isSubmitting = false);
     }
   }
 
@@ -212,19 +253,20 @@ class _PartyScreenState extends State<PartyScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Party Mode'),
-      ),
+      appBar: AppBar(title: const Text('Party Mode')),
       body: SingleChildScrollView(
         padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            _buildForm(),
-            if (_userParties.isNotEmpty) ...[
-              const SizedBox(height: 28),
-              _buildUserPartiesList(),
-            ],
+            if (!_hasLoadedParty && _party == null)
+              const Center(child: CircularProgressIndicator())
+            else if (_partyLoadFailed && _party == null)
+              const Text('Could not load your party. Please reopen Party Mode.')
+            else if (_party == null)
+              _buildForm()
+            else
+              _buildActiveParty(_party!),
           ],
         ),
       ),
@@ -237,7 +279,7 @@ class _PartyScreenState extends State<PartyScreen> {
         children: [
           TextField(controller: _codeController),
           ElevatedButton(
-            onPressed: _submitJoinCode,
+            onPressed: _isSubmitting ? null : _submitJoinCode,
             child: const Text('Submit'),
           ),
           if (_joinError != null) Text(_joinError!),
@@ -256,11 +298,13 @@ class _PartyScreenState extends State<PartyScreen> {
     return Column(
       children: [
         ElevatedButton(
-          onPressed: _createParty,
+          onPressed: _isSubmitting ? null : _createParty,
           child: const Text('Create Party'),
         ),
         ElevatedButton(
-          onPressed: () => setState(() => _isJoining = true),
+          onPressed: _isSubmitting
+              ? null
+              : () => setState(() => _isJoining = true),
           child: const Text('Join Party'),
         ),
         if (_createError != null) Text(_createError!),
@@ -268,7 +312,7 @@ class _PartyScreenState extends State<PartyScreen> {
     );
   }
 
-  Widget _buildUserPartiesList() {
+  Widget _buildActiveParty(Party party) {
     final theme = Theme.of(context);
     final uid = context.watch<AuthProvider>().currentUser?.uid;
 
@@ -276,13 +320,13 @@ class _PartyScreenState extends State<PartyScreen> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          'Your Parties',
+          'Your Party',
           style: theme.textTheme.titleMedium?.copyWith(
             fontWeight: FontWeight.w800,
           ),
         ),
         const SizedBox(height: 10),
-        ..._userParties.map((party) {
+        ...[party].map((party) {
           final userTeam = uid != null ? party.teamForUser(uid) : null;
           final isSelected = _party?.id == party.id;
 

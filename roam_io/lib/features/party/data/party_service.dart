@@ -25,12 +25,23 @@ class PartyFullException implements Exception {
   String toString() => 'Party "$partyId" is full';
 }
 
+/// Thrown when a user tries to enter another party before leaving their own.
+class AlreadyInPartyException implements Exception {
+  const AlreadyInPartyException(this.partyId);
+
+  final String partyId;
+
+  @override
+  String toString() => 'Already in party "$partyId"';
+}
+
 /// Firestore persistence for Party Mode parties, at `parties/{partyId}`.
 class PartyService {
   PartyService({FirebaseFirestore? firestore})
     : _firestore = firestore ?? FirebaseFirestore.instance;
 
   static const String partiesCollection = 'parties';
+  static const String membershipsCollection = 'party_memberships';
   static const int _joinCodeLength = 6;
   static const String _joinCodeAlphabet = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
   static const int maxTeamSize = 8;
@@ -42,16 +53,45 @@ class PartyService {
   CollectionReference<Map<String, dynamic>> get _parties =>
       _firestore.collection(partiesCollection);
 
-  Future<Party> createParty() async {
+  DocumentReference<Map<String, dynamic>> _membership(String uid) =>
+      _firestore.collection(membershipsCollection).doc(uid);
+
+  /// Creates and joins a party in one transaction. The membership document is
+  /// the single per-user lock shared by both create and join.
+  Future<Party> createParty({required String uid}) async {
+    await _checkLegacyMembership(uid);
     final ref = _parties.doc();
     final party = Party(
       id: ref.id,
       joinCode: _generateJoinCode(),
-      teamAMembers: const [],
+      teamAMembers: [uid],
       teamBMembers: const [],
     );
-    await ref.set(party.toMap());
+    await _firestore.runTransaction<void>((transaction) async {
+      final membership = await transaction.get(_membership(uid));
+      final existingPartyId = membership.data()?['partyId'] as String?;
+      if (existingPartyId != null) {
+        throw AlreadyInPartyException(existingPartyId);
+      }
+      transaction.set(ref, party.toMap());
+      transaction.set(_membership(uid), {'partyId': ref.id});
+    });
     return party;
+  }
+
+  // Older party documents have team rosters but no per-user membership record.
+  // Keep those users from creating/joining again until they leave. Existing
+  // rosters should be backfilled before enforcing the new rules in production.
+  Future<void> _checkLegacyMembership(
+    String uid, {
+    String? allowedPartyId,
+  }) async {
+    final existing = await getUserParties(uid);
+    for (final party in existing) {
+      if (party.id != allowedPartyId) {
+        throw AlreadyInPartyException(party.id);
+      }
+    }
   }
 
   /// Live updates for a party doc (e.g. teammates joining/leaving), or `null`
@@ -82,8 +122,14 @@ class PartyService {
       throw PartyNotFoundException(code);
     }
     final ref = query.docs.first.reference;
+    await _checkLegacyMembership(uid, allowedPartyId: ref.id);
 
     return _firestore.runTransaction<Party>((transaction) async {
+      final membership = await transaction.get(_membership(uid));
+      final existingPartyId = membership.data()?['partyId'] as String?;
+      if (existingPartyId != null && existingPartyId != ref.id) {
+        throw AlreadyInPartyException(existingPartyId);
+      }
       final doc = await transaction.get(ref);
       final data = doc.data();
       if (data == null) {
@@ -93,7 +139,14 @@ class PartyService {
 
       if (party.teamAMembers.contains(uid) ||
           party.teamBMembers.contains(uid)) {
+        if (existingPartyId == null) {
+          transaction.set(_membership(uid), {'partyId': ref.id});
+        }
         return party;
+      }
+
+      if (existingPartyId != null) {
+        throw AlreadyInPartyException(existingPartyId);
       }
 
       if (party.teamAMembers.length >= maxTeamSize &&
@@ -111,9 +164,14 @@ class PartyService {
         teamBMembers: joinTeamA
             ? party.teamBMembers
             : [...party.teamBMembers, uid],
+        tiles: party.tiles,
       );
 
-      transaction.set(ref, updated.toMap());
+      transaction.update(ref, {
+        'teamAMembers': updated.teamAMembers,
+        'teamBMembers': updated.teamBMembers,
+      });
+      transaction.set(_membership(uid), {'partyId': ref.id});
       return updated;
     });
   }
@@ -123,6 +181,8 @@ class PartyService {
   Future<Party> leaveParty({required String partyId, required String uid}) {
     return _firestore.runTransaction<Party>((transaction) async {
       final ref = _parties.doc(partyId);
+      final membershipRef = _membership(uid);
+      final membership = await transaction.get(membershipRef);
       final doc = await transaction.get(ref);
       final data = doc.data();
       if (data == null) {
@@ -135,9 +195,16 @@ class PartyService {
         joinCode: party.joinCode,
         teamAMembers: party.teamAMembers.where((m) => m != uid).toList(),
         teamBMembers: party.teamBMembers.where((m) => m != uid).toList(),
+        tiles: party.tiles,
       );
 
-      transaction.set(ref, updated.toMap());
+      transaction.update(ref, {
+        'teamAMembers': updated.teamAMembers,
+        'teamBMembers': updated.teamBMembers,
+      });
+      if (membership.data()?['partyId'] == partyId) {
+        transaction.delete(membershipRef);
+      }
       return updated;
     });
   }
@@ -149,8 +216,11 @@ class PartyService {
     StreamSubscription<QuerySnapshot<Map<String, dynamic>>>? subB;
     var partiesA = <String, Party>{};
     var partiesB = <String, Party>{};
+    var hasTeamA = false;
+    var hasTeamB = false;
 
     void emit() {
+      if (!hasTeamA || !hasTeamB) return;
       final combined = <String, Party>{...partiesA, ...partiesB};
       if (!controller.isClosed) {
         controller.add(combined.values.toList());
@@ -168,6 +238,7 @@ class PartyService {
                   for (final doc in snapshot.docs)
                     doc.id: Party.fromMap(doc.id, doc.data()),
                 };
+                hasTeamA = true;
                 emit();
               },
               onError: (Object error, StackTrace stackTrace) {
@@ -186,6 +257,7 @@ class PartyService {
                   for (final doc in snapshot.docs)
                     doc.id: Party.fromMap(doc.id, doc.data()),
                 };
+                hasTeamB = true;
                 emit();
               },
               onError: (Object error, StackTrace stackTrace) {

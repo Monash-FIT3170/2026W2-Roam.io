@@ -78,7 +78,7 @@ void main() {
   ) async {
     final firestore = FakeFirebaseFirestore();
     final partyService = PartyService(firestore: firestore);
-    final party = await partyService.createParty();
+    final party = await partyService.createParty(uid: 'user-1');
     final joined = await partyService.joinParty(
       code: party.joinCode,
       uid: 'user-1',
@@ -103,7 +103,7 @@ void main() {
     (tester) async {
       final firestore = FakeFirebaseFirestore();
       final partyService = PartyService(firestore: firestore);
-      final party = await partyService.createParty();
+      final party = await partyService.createParty(uid: 'user-1');
       final joined = await partyService.joinParty(
         code: party.joinCode,
         uid: 'user-1',
@@ -141,7 +141,7 @@ void main() {
     (tester) async {
       final firestore = FakeFirebaseFirestore();
       final partyService = PartyService(firestore: firestore);
-      final party = await partyService.createParty();
+      final party = await partyService.createParty(uid: 'user-1');
       final joined = await partyService.joinParty(
         code: party.joinCode,
         uid: 'user-1', // Team A
@@ -183,7 +183,7 @@ void main() {
     (tester) async {
       final firestore = FakeFirebaseFirestore();
       final partyService = PartyService(firestore: firestore);
-      final party = await partyService.createParty();
+      final party = await partyService.createParty(uid: 'user-1');
       final joined = await partyService.joinParty(
         code: party.joinCode,
         uid: 'user-1', // Team A
@@ -227,7 +227,7 @@ void main() {
     (tester) async {
       final firestore = FakeFirebaseFirestore();
       final partyService = PartyService(firestore: firestore);
-      final party = await partyService.createParty();
+      final party = await partyService.createParty(uid: 'user-1');
       final joined = await partyService.joinParty(
         code: party.joinCode,
         uid: 'user-1', // Team A
@@ -285,7 +285,7 @@ void main() {
   ) async {
     final firestore = FakeFirebaseFirestore();
     final partyService = PartyService(firestore: firestore);
-    final party = await partyService.createParty();
+    final party = await partyService.createParty(uid: 'user-1');
     await partyService.joinParty(code: party.joinCode, uid: 'user-1');
     final joined = await partyService.joinParty(
       code: party.joinCode,
@@ -313,7 +313,7 @@ void main() {
   ) async {
     final firestore = FakeFirebaseFirestore();
     final partyService = PartyService(firestore: firestore);
-    final party = await partyService.createParty();
+    final party = await partyService.createParty(uid: 'user-1');
     final joined = await partyService.joinParty(
       code: party.joinCode,
       uid: 'user-1',

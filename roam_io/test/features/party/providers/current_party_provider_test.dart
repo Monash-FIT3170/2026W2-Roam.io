@@ -25,7 +25,7 @@ void main() {
   test('the current party stays live after the party screen is closed', () async {
     final partyService = PartyService(firestore: FakeFirebaseFirestore());
     final provider = CurrentPartyProvider(partyService: partyService);
-    final created = await partyService.createParty();
+    final created = await partyService.createParty(uid: 'user-1');
     final joined = await partyService.joinParty(
       code: created.joinCode,
       uid: 'user-1',

@@ -60,6 +60,21 @@ void main() {
     expect(find.text('Join Party'), findsOneWidget);
   });
 
+  testWidgets(
+    'an external join replaces create and join with the active party',
+    (tester) async {
+      final service = PartyService(firestore: FakeFirebaseFirestore());
+      await _pumpPartyScreen(tester, partyService: service, uid: 'user-1');
+      final party = await service.createParty(uid: 'user-2');
+      await service.joinParty(code: party.joinCode, uid: 'user-1');
+      await tester.pumpAndSettle();
+
+      expect(find.text('Your Party'), findsOneWidget);
+      expect(find.text('Create Party'), findsNothing);
+      expect(find.text('Join Party'), findsNothing);
+    },
+  );
+
   testWidgets('tapping Create Party opens the party map with join code', (
     tester,
   ) async {
@@ -77,9 +92,7 @@ void main() {
     expect(find.text('Party: $joinCode'), findsOneWidget);
   });
 
-  testWidgets('creating a party assigns the creator to a team', (
-    tester,
-  ) async {
+  testWidgets('creating a party assigns the creator to a team', (tester) async {
     final partyService = PartyService(firestore: FakeFirebaseFirestore());
 
     await _pumpPartyScreen(tester, partyService: partyService, uid: 'user-1');
@@ -94,7 +107,7 @@ void main() {
   ) async {
     final firestore = FakeFirebaseFirestore();
     final partyService = PartyService(firestore: firestore);
-    final party = await partyService.createParty();
+    final party = await partyService.createParty(uid: 'user-1');
     await partyService.joinParty(code: party.joinCode, uid: 'user-1');
 
     await _pumpPartyScreen(tester, partyService: partyService, uid: 'user-2');
@@ -121,15 +134,15 @@ void main() {
     expect(find.text('No party found for that code.'), findsOneWidget);
   });
 
-  testWidgets('Leave Party returns to the create/join form', (
-    tester,
-  ) async {
+  testWidgets('Leave Party returns to the create/join form', (tester) async {
     final partyService = PartyService(firestore: FakeFirebaseFirestore());
-    final party = await partyService.createParty();
+    final party = await partyService.createParty(uid: 'user-1');
     await partyService.joinParty(code: party.joinCode, uid: 'user-1');
 
     await _pumpPartyScreen(tester, partyService: partyService, uid: 'user-1');
     expect(find.text('Leave'), findsOneWidget);
+    expect(find.text('Create Party'), findsNothing);
+    expect(find.text('Join Party'), findsNothing);
     await tester.tap(find.text('Leave'));
     await tester.pumpAndSettle();
 
@@ -137,9 +150,7 @@ void main() {
     expect(find.text('Join Party'), findsOneWidget);
   });
 
-  testWidgets('onPartyChanged fires with the joined party', (
-    tester,
-  ) async {
+  testWidgets('onPartyChanged fires with the joined party', (tester) async {
     final partyService = PartyService(firestore: FakeFirebaseFirestore());
     final changes = <Party?>[];
 
@@ -170,61 +181,50 @@ void main() {
     );
   });
 
-  testWidgets(
-    'shows user parties in Your Parties list',
-    (tester) async {
-      final firestore = FakeFirebaseFirestore();
-      final partyService = PartyService(firestore: firestore);
-      final party = await partyService.createParty();
-      await partyService.joinParty(code: party.joinCode, uid: 'user-1');
+  testWidgets('shows the current party without create or join actions', (
+    tester,
+  ) async {
+    final firestore = FakeFirebaseFirestore();
+    final partyService = PartyService(firestore: firestore);
+    final party = await partyService.createParty(uid: 'user-1');
+    await partyService.joinParty(code: party.joinCode, uid: 'user-1');
 
-      await _pumpPartyScreen(
-        tester,
-        partyService: partyService,
-        uid: 'user-1',
-      );
+    await _pumpPartyScreen(tester, partyService: partyService, uid: 'user-1');
 
-      expect(find.text('Your Parties'), findsOneWidget);
-      expect(find.textContaining(party.joinCode), findsOneWidget);
-      expect(find.text('View Map'), findsOneWidget);
-    },
-  );
+    expect(find.text('Your Party'), findsOneWidget);
+    expect(find.textContaining(party.joinCode), findsOneWidget);
+    expect(find.text('View Map'), findsOneWidget);
+    expect(find.text('Create Party'), findsNothing);
+    expect(find.text('Join Party'), findsNothing);
+  });
 
-  testWidgets(
-    'tapping View Map opens PartyMapScreen for that party',
-    (tester) async {
-      final firestore = FakeFirebaseFirestore();
-      final partyService = PartyService(firestore: firestore);
-      final party = await partyService.createParty();
-      await partyService.joinParty(
-        code: party.joinCode,
-        uid: 'user-1',
-      );
+  testWidgets('tapping View Map opens PartyMapScreen for that party', (
+    tester,
+  ) async {
+    final firestore = FakeFirebaseFirestore();
+    final partyService = PartyService(firestore: firestore);
+    final party = await partyService.createParty(uid: 'user-1');
+    await partyService.joinParty(code: party.joinCode, uid: 'user-1');
 
-      await _pumpPartyScreen(
-        tester,
-        partyService: partyService,
-        uid: 'user-1',
-      );
+    await _pumpPartyScreen(tester, partyService: partyService, uid: 'user-1');
 
-      expect(find.text('View Map'), findsOneWidget);
-      await tester.tap(find.text('View Map'));
-      await tester.pumpAndSettle();
+    expect(find.text('View Map'), findsOneWidget);
+    await tester.tap(find.text('View Map'));
+    await tester.pumpAndSettle();
 
-      expect(find.byType(PartyMapScreen), findsOneWidget);
-      expect(find.text('Party: ${party.joinCode}'), findsOneWidget);
-    },
-  );
+    expect(find.byType(PartyMapScreen), findsOneWidget);
+    expect(find.text('Party: ${party.joinCode}'), findsOneWidget);
+  });
 }
 
 class _FailingPartyService implements PartyService {
   @override
-  Future<Party> createParty() async {
+  Future<Party> createParty({required String uid}) async {
     throw Exception('permission-denied');
   }
 
   @override
-  Stream<List<Party>> watchUserParties(String uid) => const Stream.empty();
+  Stream<List<Party>> watchUserParties(String uid) => Stream.value([]);
 
   @override
   dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
