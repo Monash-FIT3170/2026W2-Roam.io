@@ -18,6 +18,8 @@ import '../../../theme/app_theme_mode.dart';
 import '../../auth/providers/auth_provider.dart';
 import '../../auth/screens/change_password_screen.dart';
 import '../../map/fog/fog_decay_difficulty.dart';
+import '../../party/data/party_service.dart';
+import '../../party/screens/party_screen.dart';
 import '../widgets/settings_group.dart';
 import 'change_display_name_screen.dart';
 import 'change_email_screen.dart';
@@ -293,6 +295,24 @@ class _SettingsScreenState extends State<SettingsScreen> {
                                   ),
                                 ],
                               ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 22),
+                        SettingsGroup(
+                          title: 'Game Modes',
+                          children: [
+                            SettingsRow(
+                              icon: Icons.groups_rounded,
+                              title: 'Party Mode',
+                              onTap: auth.isBusy || profile == null
+                                  ? null
+                                  : () => _open(
+                                        PartyScreen(
+                                          partyService: PartyService(),
+                                        ),
+                                      ),
+                              showDivider: false,
                             ),
                           ],
                         ),

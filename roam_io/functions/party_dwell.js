@@ -36,7 +36,7 @@ async function recordDwellPing({ db, partyId, tileId, uid, team, pingAt }) {
   return data;
 }
 
-const CLAIM_GATE_SECONDS = 5 * 60;
+const CLAIM_GATE_SECONDS = 30;
 
 /// Pure ownership derivation from a tile's stored dwell counters, shared by
 /// getTileOwnership (reads live data) and the tile-flip notification trigger

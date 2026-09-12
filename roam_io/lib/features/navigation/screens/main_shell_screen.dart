@@ -29,6 +29,7 @@ import '../../activity_feed/screens/comments_screen.dart';
 import '../../auth/providers/auth_provider.dart';
 import '../../home/screens/home_screen.dart';
 import '../../map/data/map_page.dart';
+import '../../party/data/party_service.dart';
 import '../../party/providers/current_party_provider.dart';
 import '../../settings/screens/settings_screen.dart';
 import '../../social/data/follow_request_service.dart';
@@ -95,7 +96,9 @@ class _MainShellScreenState extends State<MainShellScreen> {
   late final SocialNotificationCoordinator _socialNotificationCoordinator;
   late final List<Widget> pages;
   var _ownsCoordinator = false;
-  final CurrentPartyProvider _currentPartyProvider = CurrentPartyProvider();
+  final CurrentPartyProvider _currentPartyProvider = CurrentPartyProvider(
+    partyService: PartyService(),
+  );
 
   @override
   void initState() {

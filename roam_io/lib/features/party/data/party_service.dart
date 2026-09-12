@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:math';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -36,6 +37,8 @@ class PartyService {
 
   final FirebaseFirestore _firestore;
 
+  FirebaseFirestore get firestore => _firestore;
+
   CollectionReference<Map<String, dynamic>> get _parties =>
       _firestore.collection(partiesCollection);
 
@@ -51,6 +54,15 @@ class PartyService {
     return party;
   }
 
+  /// Live updates for a party doc (e.g. teammates joining/leaving), or `null`
+  /// once the party no longer exists.
+  Stream<Party?> watchParty(String partyId) {
+    return _parties.doc(partyId).snapshots().map((doc) {
+      final data = doc.data();
+      return data == null ? null : Party.fromMap(doc.id, data);
+    });
+  }
+
   String _generateJoinCode() {
     final random = Random.secure();
     return List<String>.generate(
@@ -60,13 +72,29 @@ class PartyService {
   }
 
   Future<Party> joinParty({required String code, required String uid}) async {
+    // Queries cannot run inside a transaction, so the code is resolved to a
+    // document reference first and the roster is then read transactionally.
+    final query = await _parties
+        .where('joinCode', isEqualTo: code)
+        .limit(1)
+        .get();
+    if (query.docs.isEmpty) {
+      throw PartyNotFoundException(code);
+    }
+    final ref = query.docs.first.reference;
+
     return _firestore.runTransaction<Party>((transaction) async {
-      final query = await _parties.where('joinCode', isEqualTo: code).get();
-      if (query.docs.isEmpty) {
+      final doc = await transaction.get(ref);
+      final data = doc.data();
+      if (data == null) {
         throw PartyNotFoundException(code);
       }
-      final doc = query.docs.single;
-      final party = Party.fromMap(doc.id, doc.data());
+      final party = Party.fromMap(doc.id, data);
+
+      if (party.teamAMembers.contains(uid) ||
+          party.teamBMembers.contains(uid)) {
+        return party;
+      }
 
       if (party.teamAMembers.length >= maxTeamSize &&
           party.teamBMembers.length >= maxTeamSize) {
@@ -85,7 +113,7 @@ class PartyService {
             : [...party.teamBMembers, uid],
       );
 
-      transaction.set(doc.reference, updated.toMap());
+      transaction.set(ref, updated.toMap());
       return updated;
     });
   }
@@ -112,5 +140,81 @@ class PartyService {
       transaction.set(ref, updated.toMap());
       return updated;
     });
+  }
+
+  /// Live updates for all parties where [uid] is in either Team A or Team B.
+  Stream<List<Party>> watchUserParties(String uid) {
+    late final StreamController<List<Party>> controller;
+    StreamSubscription<QuerySnapshot<Map<String, dynamic>>>? subA;
+    StreamSubscription<QuerySnapshot<Map<String, dynamic>>>? subB;
+    var partiesA = <String, Party>{};
+    var partiesB = <String, Party>{};
+
+    void emit() {
+      final combined = <String, Party>{...partiesA, ...partiesB};
+      if (!controller.isClosed) {
+        controller.add(combined.values.toList());
+      }
+    }
+
+    controller = StreamController<List<Party>>.broadcast(
+      onListen: () {
+        subA = _parties
+            .where('teamAMembers', arrayContains: uid)
+            .snapshots()
+            .listen(
+              (snapshot) {
+                partiesA = {
+                  for (final doc in snapshot.docs)
+                    doc.id: Party.fromMap(doc.id, doc.data()),
+                };
+                emit();
+              },
+              onError: (Object error, StackTrace stackTrace) {
+                if (!controller.isClosed) {
+                  controller.addError(error, stackTrace);
+                }
+              },
+            );
+
+        subB = _parties
+            .where('teamBMembers', arrayContains: uid)
+            .snapshots()
+            .listen(
+              (snapshot) {
+                partiesB = {
+                  for (final doc in snapshot.docs)
+                    doc.id: Party.fromMap(doc.id, doc.data()),
+                };
+                emit();
+              },
+              onError: (Object error, StackTrace stackTrace) {
+                if (!controller.isClosed) {
+                  controller.addError(error, stackTrace);
+                }
+              },
+            );
+      },
+      onCancel: () async {
+        await subA?.cancel();
+        await subB?.cancel();
+      },
+    );
+
+    return controller.stream;
+  }
+
+  /// Gets all parties where [uid] is in either Team A or Team B.
+  Future<List<Party>> getUserParties(String uid) async {
+    final resA = await _parties.where('teamAMembers', arrayContains: uid).get();
+    final resB = await _parties.where('teamBMembers', arrayContains: uid).get();
+    final parties = <String, Party>{};
+    for (final doc in resA.docs) {
+      parties[doc.id] = Party.fromMap(doc.id, doc.data());
+    }
+    for (final doc in resB.docs) {
+      parties[doc.id] = Party.fromMap(doc.id, doc.data());
+    }
+    return parties.values.toList();
   }
 }

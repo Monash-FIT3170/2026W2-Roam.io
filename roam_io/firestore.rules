@@ -1002,6 +1002,28 @@ service cloud.firestore {
       }
     }
 
+    // Party Mode: parties/{partyId} holds join code + team rosters, written
+    // directly by clients via PartyService. Its tiles/seasons subcollections
+    // can be written by clients or Cloud Functions (admin SDK).
+    match /parties/{partyId} {
+      allow read: if isSignedIn();
+      allow create: if isSignedIn();
+      allow update: if isSignedIn();
+      allow delete: if false;
+
+      match /tiles/{tileId} {
+        allow read: if isSignedIn();
+        allow create: if isSignedIn();
+        allow update: if isSignedIn();
+        allow delete: if false;
+      }
+
+      match /seasons/{seasonId} {
+        allow read: if isSignedIn();
+        allow write: if false;
+      }
+    }
+
     match /{document=**} {
       allow read, write: if false;
     }

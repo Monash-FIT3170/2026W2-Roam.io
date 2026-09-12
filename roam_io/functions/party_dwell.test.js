@@ -179,7 +179,7 @@ class FakeDb {
     tileId: 't1',
     uid: 'u1',
     team: 'A',
-    pingAt: new Date('2026-01-01T00:01:00Z'), // 60s, under the 5-minute gate
+    pingAt: new Date('2026-01-01T00:00:15Z'), // 15s, under the 30s gate
   });
 
   const owner = await getTileOwnership({ db, partyId: 'p1', tileId: 't1' });
@@ -204,7 +204,7 @@ class FakeDb {
     tileId: 't1',
     uid: 'u1',
     team: 'A',
-    pingAt: new Date('2026-01-01T00:06:00Z'), // 360s, past the 5-minute gate
+    pingAt: new Date('2026-01-01T00:00:45Z'), // 45s, past the 30s gate
   });
 
   const owner = await getTileOwnership({ db, partyId: 'p1', tileId: 't1' });

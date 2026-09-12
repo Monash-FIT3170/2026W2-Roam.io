@@ -65,6 +65,7 @@ class RegionPolygonCache {
     double? heatmapIntensity,
     Color? overrideFillColor,
     Color? overrideStrokeColor,
+    int? overrideStrokeWidth,
   }) {
     final wasAlreadyCached = _regionsById.containsKey(region.id);
     final previousRegion = _regionsById[region.id];
@@ -97,10 +98,12 @@ class RegionPolygonCache {
             isCurrentRegion: isCurrentRegion,
             heatmapIntensity: heatmapIntensity,
           ),
-      strokeWidth: _strokeWidthForRegion(
-        isVisited: isVisited,
-        isCurrentRegion: isCurrentRegion,
-      ),
+      strokeWidth:
+          overrideStrokeWidth ??
+          _strokeWidthForRegion(
+            isVisited: isVisited,
+            isCurrentRegion: isCurrentRegion,
+          ),
       onTap: onRegionTapped,
     );
 
@@ -123,6 +126,7 @@ class RegionPolygonCache {
     double? Function(String regionId)? heatmapIntensityForRegion,
     Color? Function(String regionId)? overrideFillColorForRegion,
     Color? Function(String regionId)? overrideStrokeColorForRegion,
+    int? Function(String regionId)? overrideStrokeWidthForRegion,
   }) {
     for (final region in _regionsById.values) {
       cacheRegion(
@@ -133,6 +137,7 @@ class RegionPolygonCache {
         heatmapIntensity: heatmapIntensityForRegion?.call(region.id),
         overrideFillColor: overrideFillColorForRegion?.call(region.id),
         overrideStrokeColor: overrideStrokeColorForRegion?.call(region.id),
+        overrideStrokeWidth: overrideStrokeWidthForRegion?.call(region.id),
       );
     }
   }

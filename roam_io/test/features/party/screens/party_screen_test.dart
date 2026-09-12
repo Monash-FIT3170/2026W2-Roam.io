@@ -5,6 +5,8 @@
 
 import 'package:fake_cloud_firestore/fake_cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart' as firebase_auth;
+import 'package:firebase_core/firebase_core.dart';
+import 'package:firebase_core_platform_interface/test.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:provider/provider.dart';
@@ -12,6 +14,7 @@ import 'package:roam_io/features/auth/data/auth_repository.dart';
 import 'package:roam_io/features/auth/providers/auth_provider.dart';
 import 'package:roam_io/features/party/data/party_service.dart';
 import 'package:roam_io/features/party/domain/party.dart';
+import 'package:roam_io/features/party/screens/party_map_screen.dart';
 import 'package:roam_io/features/party/screens/party_screen.dart';
 
 import '../../../support/fake_firebase_user.dart';
@@ -20,6 +23,7 @@ Future<void> _pumpPartyScreen(
   WidgetTester tester, {
   required PartyService partyService,
   required String uid,
+  Party? initialParty,
   ValueChanged<Party?>? onPartyChanged,
 }) async {
   final auth = AuthProvider(authRepository: _PartyAuthRepository(uid));
@@ -29,6 +33,7 @@ Future<void> _pumpPartyScreen(
       child: MaterialApp(
         home: PartyScreen(
           partyService: partyService,
+          initialParty: initialParty,
           onPartyChanged: onPartyChanged,
         ),
       ),
@@ -38,6 +43,14 @@ Future<void> _pumpPartyScreen(
 }
 
 void main() {
+  setUpAll(() async {
+    TestWidgetsFlutterBinding.ensureInitialized();
+    setupFirebaseCoreMocks();
+    if (Firebase.apps.isEmpty) {
+      await Firebase.initializeApp();
+    }
+  });
+
   testWidgets('no active party shows the create/join form', (tester) async {
     final partyService = PartyService(firestore: FakeFirebaseFirestore());
 
@@ -138,10 +151,133 @@ void main() {
     await tester.tap(find.text('Leave Party'));
     await tester.pumpAndSettle();
 
-    expect(changes, hasLength(2));
+    // The live party subscription can echo extra snapshots, so only the first
+    // and last transitions are contractual.
     expect(changes.first?.teamAMembers, ['user-1']);
     expect(changes.last, isNull);
+    expect(changes.whereType<Party>(), isNotEmpty);
   });
+
+  testWidgets('a Create Party failure shows an error instead of nothing', (
+    tester,
+  ) async {
+    final partyService = _FailingPartyService();
+
+    await _pumpPartyScreen(tester, partyService: partyService, uid: 'user-1');
+    await tester.tap(find.text('Create Party'));
+    await tester.pumpAndSettle();
+
+    expect(
+      find.text('Could not create a party. Please try again.'),
+      findsOneWidget,
+    );
+  });
+
+  testWidgets('reopening with an existing party shows the party home', (
+    tester,
+  ) async {
+    final partyService = PartyService(firestore: FakeFirebaseFirestore());
+    final created = await partyService.createParty();
+    final joined = await partyService.joinParty(
+      code: created.joinCode,
+      uid: 'user-1',
+    );
+
+    await _pumpPartyScreen(
+      tester,
+      partyService: partyService,
+      uid: 'user-1',
+      initialParty: joined,
+    );
+
+    expect(find.text('Leave Party'), findsOneWidget);
+    expect(find.textContaining(created.joinCode), findsOneWidget);
+  });
+
+  testWidgets(
+    'the party-home view live-updates when another user joins remotely',
+    (tester) async {
+      final firestore = FakeFirebaseFirestore();
+      final partyService = PartyService(firestore: firestore);
+
+      await _pumpPartyScreen(
+        tester,
+        partyService: partyService,
+        uid: 'user-1',
+      );
+      await tester.tap(find.text('Create Party'));
+      await tester.pumpAndSettle();
+
+      expect(find.textContaining('Team B: []'), findsOneWidget);
+
+      final created = await firestore.collection('parties').get();
+      final joinCode = created.docs.single.data()['joinCode'] as String;
+      await partyService.joinParty(code: joinCode, uid: 'user-2');
+      await tester.pumpAndSettle();
+
+      expect(find.textContaining('Team B: [user-2]'), findsOneWidget);
+    },
+  );
+
+  testWidgets(
+    'shows user parties in Your Parties list when not viewing a single party',
+    (tester) async {
+      final firestore = FakeFirebaseFirestore();
+      final partyService = PartyService(firestore: firestore);
+      final party = await partyService.createParty();
+      await partyService.joinParty(code: party.joinCode, uid: 'user-1');
+
+      await _pumpPartyScreen(
+        tester,
+        partyService: partyService,
+        uid: 'user-1',
+      );
+
+      expect(find.text('Your Parties'), findsOneWidget);
+      expect(find.textContaining(party.joinCode), findsOneWidget);
+      expect(find.text('View Map'), findsOneWidget);
+    },
+  );
+
+  testWidgets(
+    'tapping View Party Map opens PartyMapScreen for that party',
+    (tester) async {
+      final firestore = FakeFirebaseFirestore();
+      final partyService = PartyService(firestore: firestore);
+      final party = await partyService.createParty();
+      final joined = await partyService.joinParty(
+        code: party.joinCode,
+        uid: 'user-1',
+      );
+
+      await _pumpPartyScreen(
+        tester,
+        partyService: partyService,
+        uid: 'user-1',
+        initialParty: joined,
+      );
+
+      expect(find.text('View Party Map'), findsOneWidget);
+      await tester.tap(find.text('View Party Map'));
+      await tester.pumpAndSettle();
+
+      expect(find.byType(PartyMapScreen), findsOneWidget);
+      expect(find.text('Party: ${party.joinCode}'), findsOneWidget);
+    },
+  );
+}
+
+class _FailingPartyService implements PartyService {
+  @override
+  Future<Party> createParty() async {
+    throw Exception('permission-denied');
+  }
+
+  @override
+  Stream<List<Party>> watchUserParties(String uid) => const Stream.empty();
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
 }
 
 class _PartyAuthRepository implements AuthRepository {

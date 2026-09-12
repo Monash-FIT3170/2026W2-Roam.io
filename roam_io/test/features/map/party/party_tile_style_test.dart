@@ -15,4 +15,14 @@ void main() {
     expect(teamBColor.a, greaterThan(0));
     expect(teamAColor, isNot(equals(teamBColor)));
   });
+
+  test('stroke colors and widths match team ownership', () {
+    expect(partyTileStrokeColor(null), const Color(0x00000000));
+    expect(partyTileStrokeColor('A'), const Color(0xFF0288D1));
+    expect(partyTileStrokeColor('B'), const Color(0xFFE53935));
+
+    expect(partyTileStrokeWidth(null), 0);
+    expect(partyTileStrokeWidth('A'), 2);
+    expect(partyTileStrokeWidth('B'), 2);
+  });
 }

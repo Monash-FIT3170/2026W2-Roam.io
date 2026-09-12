@@ -38,10 +38,6 @@ import '../../../shared/widgets/activity_saved_celebration.dart';
 import '../../../shared/widgets/app_toast.dart';
 import '../../../theme/app_colours.dart';
 import '../../../theme/app_surfaces.dart';
-import '../../party/data/party_service.dart';
-import '../../party/providers/current_party_provider.dart';
-import '../../party/screens/party_screen.dart';
-import '../domain/exploration_mode.dart';
 import '../fog/fog_overlay.dart';
 import '../fog/fog_decay_difficulty.dart';
 import '../widgets/map_render.dart';
@@ -216,37 +212,6 @@ class _MapPageState extends State<MapPage> with WidgetsBindingObserver {
     Navigator.of(
       context,
     ).push(MaterialPageRoute<void>(builder: (_) => const QuestsScreen()));
-  }
-
-  void _openPartyMode() {
-    Navigator.of(context).push(
-      MaterialPageRoute<void>(
-        builder: (_) => PartyScreen(
-          partyService: PartyService(),
-          onPartyChanged: context.read<CurrentPartyProvider>().setParty,
-        ),
-      ),
-    );
-  }
-
-  void _togglePartyModeOverlay() {
-    _mapController.setMode(
-      _mapController.currentMode == ExplorationMode.party
-          ? ExplorationMode.exploration
-          : ExplorationMode.party,
-    );
-  }
-
-  /// With no active party, opens the party screen to create/join one.
-  /// With one, toggles the team-coloured tile overlay on the map.
-  void _handlePartyModeButtonTap() {
-    final hasActiveParty =
-        context.read<CurrentPartyProvider>().currentParty != null;
-    if (hasActiveParty) {
-      _togglePartyModeOverlay();
-    } else {
-      _openPartyMode();
-    }
   }
 
   /// Creates polylines and markers for saved journeys.
@@ -897,8 +862,6 @@ class _MapPageState extends State<MapPage> with WidgetsBindingObserver {
   @override
   Widget build(BuildContext context) {
     final journeyController = context.watch<JourneyController>();
-    final currentParty = context.watch<CurrentPartyProvider>().currentParty;
-    _mapController.bindCurrentParty(currentParty?.id);
     final isTracking = journeyController.currentPhase == JourneyPhase.tracking;
     final exploredBoundaryColor =
         Theme.of(context).brightness == Brightness.dark
@@ -962,11 +925,6 @@ class _MapPageState extends State<MapPage> with WidgetsBindingObserver {
           left: 16,
           bottom: isLiveJourneyActive ? 220 : 120,
           child: _SideQuestsButton(onPressed: _openSideQuests),
-        ),
-        Positioned(
-          right: 16,
-          top: MediaQuery.paddingOf(context).top + 64,
-          child: _PartyModeButton(onPressed: _handlePartyModeButtonTap),
         ),
         // Start Journey is available only while no Journey is active.
         if (canStartJourney)
@@ -1148,34 +1106,6 @@ class _SideQuestsButton extends StatelessWidget {
                 ),
               ),
             ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _PartyModeButton extends StatelessWidget {
-  const _PartyModeButton({required this.onPressed});
-
-  final VoidCallback onPressed;
-
-  @override
-  Widget build(BuildContext context) {
-    return Material(
-      color: AppSurfaces.card(context),
-      elevation: 6,
-      shadowColor: Colors.black.withValues(alpha: 0.18),
-      shape: const CircleBorder(),
-      child: InkWell(
-        customBorder: const CircleBorder(),
-        onTap: onPressed,
-        child: Padding(
-          padding: const EdgeInsets.all(12),
-          child: Icon(
-            Icons.groups_rounded,
-            size: 22,
-            color: Theme.of(context).colorScheme.primary,
           ),
         ),
       ),

@@ -18,6 +18,7 @@
 import 'dart:async';
 import 'dart:math' as math;
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
@@ -250,6 +251,15 @@ class MapController extends ChangeNotifier {
   Map<String, String?> get partyTileOwnership =>
       Map<String, String?>.unmodifiable(_partyTileOwnership);
 
+  /// Updates party tile ownership directly and refreshes map polygon styling.
+  void setPartyTileOwnership(Map<String, String?> ownership) {
+    if (mapEquals(_partyTileOwnership, ownership)) return;
+    _partyTileOwnership = Map<String, String?>.from(ownership);
+    _refreshCachedPolygonsStyles();
+    _syncPolygonsForCurrentMode();
+    notifyListeners();
+  }
+
   /// Watches [partyId]'s tile ownership for the Party Mode overlay. Pass
   /// `null` to stop watching (e.g. the user left their party).
   void bindCurrentParty(String? partyId) {
@@ -276,6 +286,16 @@ class MapController extends ChangeNotifier {
   Color? _partyFillColorForRegion(String regionId) {
     if (_currentMode != ExplorationMode.party) return null;
     return partyTileFillColor(_partyTileOwnership[regionId]);
+  }
+
+  Color? _partyStrokeColorForRegion(String regionId) {
+    if (_currentMode != ExplorationMode.party) return null;
+    return partyTileStrokeColor(_partyTileOwnership[regionId]);
+  }
+
+  int? _partyStrokeWidthForRegion(String regionId) {
+    if (_currentMode != ExplorationMode.party) return null;
+    return partyTileStrokeWidth(_partyTileOwnership[regionId]);
   }
 
   void disposeController() {
@@ -451,13 +471,12 @@ class MapController extends ChangeNotifier {
       notifyListeners();
     }
 
-    final clearedRegionIds = _clearedRegionIds();
+    final isPartyMode = _currentMode == ExplorationMode.party;
+    final clearedRegionIds = isPartyMode ? null : _clearedRegionIds();
 
     // Nothing explored means nothing the viewport fetch could usefully return,
-    // since only cleared regions are rendered. Skip the request entirely rather
-    // than downloading hundreds of polygons to throw all of them away, but
-    // still mark the fog ready so a new account sees cloud instead of nothing.
-    if (clearedRegionIds.isEmpty) {
+    // since only cleared regions are rendered in exploration mode.
+    if (!isPartyMode && (clearedRegionIds?.isEmpty ?? false)) {
       fogController.markViewportLoaded();
       return;
     }
@@ -481,15 +500,15 @@ class MapController extends ChangeNotifier {
       if (!result.didSkip) {
         var newRegionCount = 0;
 
-        // Unvisited regions are dropped on arrival. The fog is drawn as the
-        // screen minus cleared holes, so unexplored geometry is not an input to
-        // it, and caching it would keep paying to parse, store and restyle
-        // hundreds of polygons that are never rendered.
-        final clearedRegions = result.regions
-            .where((region) => _isRegionCleared(region.id))
-            .toList();
+        // In party mode, cache all tiles in the viewport so territory overlays
+        // render live. In exploration mode, cache only cleared regions.
+        final regionsToCache = isPartyMode
+            ? result.regions
+            : result.regions
+                .where((region) => _isRegionCleared(region.id))
+                .toList();
 
-        for (final region in clearedRegions) {
+        for (final region in regionsToCache) {
           final cacheResult = _cacheRegionAsPolygons(region);
 
           if (cacheResult.wasAdded) {
@@ -497,7 +516,7 @@ class MapController extends ChangeNotifier {
           }
         }
 
-        fogController.addClearedRegions(clearedRegions);
+        fogController.addClearedRegions(regionsToCache);
         await _startPendingFogReturnAnimation();
         message = 'Loaded $newRegionCount new nearby tiles';
       }
@@ -527,12 +546,18 @@ class MapController extends ChangeNotifier {
   /// to tear.
   bool _isRegionCleared(String regionId) {
     return _fogClearedRegionIds.contains(regionId) ||
-        currentRegion?.id == regionId;
+        currentRegion?.id == regionId ||
+        _partyTileOwnership.containsKey(regionId) ||
+        _currentMode == ExplorationMode.party;
   }
 
   /// Every region whose fog is cleared, used to narrow the viewport request.
   Set<String> _clearedRegionIds() {
-    return <String>{..._fogClearedRegionIds, ?currentRegion?.id};
+    return <String>{
+      ..._fogClearedRegionIds,
+      ...?currentRegion?.id != null ? [currentRegion!.id] : null,
+      ..._partyTileOwnership.keys,
+    };
   }
 
   void onRegionTapped(String regionId, String regionName) {
@@ -911,6 +936,8 @@ class MapController extends ChangeNotifier {
       onRegionTapped: onRegionTapped,
       heatmapIntensity: _heatmapIntensityForRegion(region.id),
       overrideFillColor: _partyFillColorForRegion(region.id),
+      overrideStrokeColor: _partyStrokeColorForRegion(region.id),
+      overrideStrokeWidth: _partyStrokeWidthForRegion(region.id),
     );
 
     _syncPolygonsForCurrentMode();
@@ -925,6 +952,8 @@ class MapController extends ChangeNotifier {
       onRegionTapped: onRegionTapped,
       heatmapIntensityForRegion: _heatmapIntensityForRegion,
       overrideFillColorForRegion: _partyFillColorForRegion,
+      overrideStrokeColorForRegion: _partyStrokeColorForRegion,
+      overrideStrokeWidthForRegion: _partyStrokeWidthForRegion,
     );
 
     _syncPolygonsForCurrentMode();
