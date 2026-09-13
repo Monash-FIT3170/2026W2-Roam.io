@@ -29,6 +29,8 @@ class FriendshipService {
 
   final FirebaseFirestore _firestore;
 
+  FirebaseFirestore get firestore => _firestore;
+
   CollectionReference<Map<String, dynamic>> get _publicProfiles =>
       _firestore.collection(publicProfilesCollection);
 

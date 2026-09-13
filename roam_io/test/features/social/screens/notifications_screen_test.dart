@@ -18,6 +18,10 @@ import 'package:roam_io/features/activity_feed/screens/comments_screen.dart';
 import 'package:roam_io/features/auth/data/auth_repository.dart';
 import 'package:roam_io/features/auth/providers/auth_provider.dart';
 import 'package:roam_io/features/profile/domain/profile_model.dart';
+import 'package:roam_io/features/party/data/party_invite_service.dart';
+import 'package:roam_io/features/party/data/party_service.dart';
+import 'package:roam_io/features/party/providers/current_party_provider.dart';
+import 'package:roam_io/features/party/screens/party_screen.dart';
 import 'package:roam_io/features/social/data/follow_request_service.dart';
 import 'package:roam_io/features/social/data/follow_service.dart';
 import 'package:roam_io/features/social/data/friendship_service.dart';
@@ -43,24 +47,70 @@ void main() {
     required FriendshipService friendship,
     ActivityFeedService? activityFeed,
     FollowRequestService? requests,
+    CurrentPartyProvider? currentPartyProvider,
   }) async {
+    final screen = NotificationsScreen(
+      notificationService: notif,
+      followService: follow,
+      followRequestService: requests,
+      friendshipService: friendship,
+      activityFeedService: activityFeed,
+      currentPartyProvider: currentPartyProvider,
+    );
     await tester.pumpWidget(
       ChangeNotifierProvider<AuthProvider>.value(
         value: auth,
-        child: MaterialApp(
-          home: NotificationsScreen(
-            notificationService: notif,
-            followService: follow,
-            followRequestService: requests,
-            friendshipService: friendship,
-            activityFeedService: activityFeed,
-          ),
-        ),
+        child: MaterialApp(home: screen),
       ),
     );
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 50));
   }
+
+  testWidgets('recipient joins a party from a friend invitation', (
+    tester,
+  ) async {
+    final firestore = FakeFirebaseFirestore();
+    final partyService = PartyService(firestore: firestore);
+    final party = await partyService.createParty(
+      uid: 'actor',
+      name: 'Weekend Roam',
+    );
+    await firestore.collection('friendships').doc('actor_current-user').set({
+      'memberIds': ['actor', 'current-user'],
+    });
+    final friendship = FriendshipService(firestore: firestore);
+    await friendship.upsertPublicProfile(
+      uid: 'actor',
+      username: 'actor',
+      displayName: 'Alex',
+    );
+    await PartyInviteService(
+      firestore: firestore,
+    ).invite(party: party, senderId: 'actor', recipientId: 'current-user');
+    final auth = AuthProvider(authRepository: _NotifAuthRepository());
+    final currentParty = CurrentPartyProvider(partyService: partyService);
+    await pumpNotifScreen(
+      tester,
+      auth: auth,
+      notif: SocialNotificationService(firestore: firestore),
+      follow: FollowService(firestore: firestore),
+      friendship: friendship,
+      currentPartyProvider: currentParty,
+    );
+
+    expect(find.textContaining('Alex invited you to a party'), findsOneWidget);
+    await tester.tap(find.text('Join'));
+    await tester.pumpAndSettle();
+    expect(currentParty.currentParty?.isMember('current-user'), isTrue);
+    expect(find.byType(PartyScreen), findsOneWidget);
+    expect(
+      find.text('Could not join this party. Please try again.'),
+      findsNothing,
+    );
+    currentParty.dispose();
+    auth.dispose();
+  });
 
   testWidgets('row shows actor message, Follow Back, and marks read on open', (
     tester,
