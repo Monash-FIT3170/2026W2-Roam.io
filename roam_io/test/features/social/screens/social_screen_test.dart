@@ -2,7 +2,7 @@
  * Author: Sanjevan Rajasegar
  * Last Updated: 9 August 2026
  * Description:
- *   Widget tests for the Social destination header and Find People entry.
+ *   Widget tests for the Social destination and its feature entry points.
  */
 
 import 'package:fake_cloud_firestore/fake_cloud_firestore.dart';
@@ -13,6 +13,8 @@ import 'package:provider/provider.dart';
 import 'package:roam_io/features/auth/data/auth_repository.dart';
 import 'package:roam_io/features/auth/providers/auth_provider.dart';
 import 'package:roam_io/features/profile/domain/profile_model.dart';
+import 'package:roam_io/features/party/data/party_service.dart';
+import 'package:roam_io/features/party/screens/party_screen.dart';
 import 'package:roam_io/features/social/data/follow_service.dart';
 import 'package:roam_io/features/social/data/friendship_service.dart';
 import 'package:roam_io/features/social/screens/find_people_screen.dart';
@@ -60,6 +62,31 @@ void main() {
     expect(find.byType(FindPeopleScreen), findsOneWidget);
     expect(find.text('Find People'), findsOneWidget);
     expect(find.text('Search results'), findsNothing);
+  });
+
+  testWidgets('Party Mode opens from Social', (tester) async {
+    final auth = AuthProvider(authRepository: _SocialAuthRepository());
+    final partyService = PartyService(firestore: FakeFirebaseFirestore());
+
+    await tester.pumpWidget(
+      ChangeNotifierProvider<AuthProvider>.value(
+        value: auth,
+        child: MaterialApp(
+          home: Scaffold(body: SocialScreen(partyService: partyService)),
+        ),
+      ),
+    );
+    await tester.pump();
+
+    expect(find.text('Party Mode'), findsOneWidget);
+    await tester.tap(find.text('Party Mode'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+
+    expect(find.byType(PartyScreen), findsOneWidget);
+    expect(find.text('Create Party'), findsOneWidget);
+    expect(find.text('Join Party'), findsOneWidget);
+    auth.dispose();
   });
 
   testWidgets('title and search action share the same header row', (
