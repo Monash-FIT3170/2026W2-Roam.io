@@ -29,6 +29,7 @@ import '../../journeys/domain/nearby_place.dart';
 import '../../journeys/domain/transport_mode.dart';
 import '../../journeys/widgets/end_journey_sheet.dart';
 import '../../journeys/widgets/custom_location_details_sheet.dart';
+import '../../journeys/widgets/driving_safety_dialog.dart';
 import '../../journeys/widgets/journey_summary_sheet.dart';
 import '../../journeys/widgets/journey_tracking_card.dart';
 import '../../journeys/widgets/past_journey_summary_sheet.dart';
@@ -486,9 +487,14 @@ class _MapPageState extends State<MapPage> with WidgetsBindingObserver {
       availableTransportModes: availableTransportModes,
     );
 
-    if (result == null) {
+    if (result == null || !mounted) {
       // User cancelled
       return;
+    }
+
+    if (result.transportMode == TransportMode.drive) {
+      final acknowledged = await showDrivingSafetyDialog(context);
+      if (!acknowledged || !mounted) return;
     }
 
     // Configure and start the journey
