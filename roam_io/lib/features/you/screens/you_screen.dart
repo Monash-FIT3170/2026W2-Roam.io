@@ -27,7 +27,6 @@ import '../../activity_feed/widgets/activity_feed_card.dart';
 import '../../auth/providers/auth_provider.dart';
 import '../../map/data/visit_service.dart';
 import '../../map/data/visited_region_service.dart';
-import '../../party/providers/current_party_provider.dart';
 import '../../profile/domain/profile_model.dart';
 import '../../profile/domain/profile_stats.dart';
 import '../../profile/domain/xp_event.dart';
@@ -315,12 +314,9 @@ class _YouTabBar extends StatelessWidget {
               IconButton(
                 tooltip: 'Notifications',
                 onPressed: () {
-                  final currentParty = context.read<CurrentPartyProvider>();
                   Navigator.of(context).push(
                     MaterialPageRoute<void>(
-                      builder: (_) => NotificationsScreen(
-                        currentPartyProvider: currentParty,
-                      ),
+                      builder: (_) => const NotificationsScreen(),
                     ),
                   );
                 },
