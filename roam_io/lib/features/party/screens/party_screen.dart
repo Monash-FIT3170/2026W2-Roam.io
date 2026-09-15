@@ -59,26 +59,42 @@ class _PartyScreenState extends State<PartyScreen> {
   StreamSubscription<List<Party>>? _userPartiesSubscription;
   StreamSubscription<Map<String, String?>>? _tileOwnershipSubscription;
   Map<String, String?>? _tileOwnership;
+  Map<String, String?> _subcollectionTileOwnership = const {};
   bool _hasLoadedParty = false;
   bool _isSubmitting = false;
   bool _partyLoadFailed = false;
 
   void _setParty(Party? party) {
     if (_party?.id == party?.id) {
-      setState(() => _party = party);
+      setState(() {
+        _party = party;
+        _tileOwnership = _combinedTileOwnership(party);
+      });
       widget.onPartyChanged?.call(party);
       return;
     }
-    setState(() => _party = party);
+    setState(() {
+      _party = party;
+      _subcollectionTileOwnership = const {};
+      _tileOwnership = party?.tileOwnership;
+    });
     widget.onPartyChanged?.call(party);
     _watchParty(party);
     _watchTileOwnership(party);
   }
 
+  Map<String, String?> _combinedTileOwnership(Party? party) {
+    return <String, String?>{
+      ...?party?.tileOwnership,
+      ..._subcollectionTileOwnership,
+    };
+  }
+
   void _watchTileOwnership(Party? party) {
     unawaited(_tileOwnershipSubscription?.cancel());
     _tileOwnershipSubscription = null;
-    _tileOwnership = null;
+    _subcollectionTileOwnership = const {};
+    _tileOwnership = party?.tileOwnership;
     if (party == null) return;
     _tileOwnershipSubscription =
         PartyTileOwnershipService(firestore: widget.partyService.firestore)
@@ -86,12 +102,22 @@ class _PartyScreenState extends State<PartyScreen> {
             .listen(
               (ownership) {
                 if (mounted && _party?.id == party.id) {
-                  setState(() => _tileOwnership = ownership);
+                  setState(() {
+                    _subcollectionTileOwnership = ownership;
+                    _tileOwnership = _combinedTileOwnership(_party);
+                  });
                 }
               },
-              onError: (Object _, StackTrace _) {
+              onError: (Object error, StackTrace stackTrace) {
+                debugPrint(
+                  '[PartyScreen] Could not watch tile subcollection for '
+                  '${party.id}: $error\n$stackTrace',
+                );
                 if (mounted && _party?.id == party.id) {
-                  setState(() => _tileOwnership = null);
+                  setState(() {
+                    _subcollectionTileOwnership = const {};
+                    _tileOwnership = _party?.tileOwnership ?? const {};
+                  });
                 }
               },
             );
@@ -145,6 +171,7 @@ class _PartyScreenState extends State<PartyScreen> {
   void initState() {
     super.initState();
     _party = widget.initialParty;
+    _tileOwnership = _party?.tileOwnership;
     _watchParty(_party);
     _watchTileOwnership(_party);
 
