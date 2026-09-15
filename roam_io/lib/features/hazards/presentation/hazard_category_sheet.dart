@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../../theme/app_colours.dart';
 import '../../../theme/app_surfaces.dart';
 import '../domain/hazard_category.dart';
+import 'hazard_category_icon.dart';
 
 class HazardCategorySheet extends StatelessWidget {
   const HazardCategorySheet({super.key});
@@ -70,7 +71,11 @@ class HazardCategorySheet extends StatelessWidget {
                           padding: const EdgeInsets.symmetric(horizontal: 12),
                           child: Row(
                             children: [
-                              Icon(category.icon, color: AppColors.sage),
+                              HazardCategoryIcon(
+                                category: category,
+                                color: AppColors.sage,
+                                size: 29,
+                              ),
                               const SizedBox(width: 9),
                               Expanded(
                                 child: Text(

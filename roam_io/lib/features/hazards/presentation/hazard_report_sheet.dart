@@ -6,6 +6,7 @@ import '../../../theme/app_colours.dart';
 import '../../../theme/app_surfaces.dart';
 import '../domain/hazard_category.dart';
 import '../domain/hazard_submission_exception.dart';
+import 'hazard_category_icon.dart';
 
 class HazardSelectedPhoto {
   const HazardSelectedPhoto({required this.bytes, required this.filename});
@@ -181,7 +182,10 @@ class _HazardReportSheetState extends State<HazardReportSheet> {
                   ),
                   child: Row(
                     children: [
-                      Icon(widget.category.icon, color: AppColors.sage),
+                      HazardCategoryIcon(
+                        category: widget.category,
+                        color: AppColors.sage,
+                      ),
                       const SizedBox(width: 10),
                       Text(
                         widget.category.displayLabel,

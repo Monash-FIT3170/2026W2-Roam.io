@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../../theme/app_colours.dart';
 import '../../../theme/app_surfaces.dart';
 import '../domain/hazard_report.dart';
+import 'hazard_category_icon.dart';
 
 class HazardDetailsSheet extends StatefulWidget {
   const HazardDetailsSheet({
@@ -103,7 +104,11 @@ class _HazardDetailsSheetState extends State<HazardDetailsSheet> {
                   CircleAvatar(
                     backgroundColor: AppColors.sage,
                     foregroundColor: Colors.white,
-                    child: Icon(report.category.icon),
+                    child: HazardCategoryIcon(
+                      category: report.category,
+                      color: Colors.white,
+                      size: 26,
+                    ),
                   ),
                   const SizedBox(width: 12),
                   Expanded(

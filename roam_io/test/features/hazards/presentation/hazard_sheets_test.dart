@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -8,6 +9,7 @@ import 'package:roam_io/features/hazards/domain/hazard_category.dart';
 import 'package:roam_io/features/hazards/domain/hazard_report.dart';
 import 'package:roam_io/features/hazards/domain/hazard_submission_exception.dart';
 import 'package:roam_io/features/hazards/presentation/hazard_category_sheet.dart';
+import 'package:roam_io/features/hazards/presentation/hazard_category_icon.dart';
 import 'package:roam_io/features/hazards/presentation/hazard_details_sheet.dart';
 import 'package:roam_io/features/hazards/presentation/hazard_marker_builder.dart';
 import 'package:roam_io/features/hazards/presentation/hazard_report_sheet.dart';
@@ -73,10 +75,38 @@ void main() {
     await tester.pumpAndSettle();
     for (final category in HazardCategory.values) {
       expect(find.text(category.displayLabel), findsOneWidget);
+      final icon = tester.widget<HazardCategoryIcon>(
+        find.descendant(
+          of: find.byKey(ValueKey('hazard_category_${category.id}')),
+          matching: find.byType(HazardCategoryIcon),
+        ),
+      );
+      expect(icon.category, category);
+      expect(icon.color, AppColors.sage);
+      expect(icon.size, 29);
     }
     await tester.tap(find.text('Roadworks'));
     await tester.pumpAndSettle();
     expect(selected, HazardCategory.roadworks);
+  });
+
+  testWidgets('two-column hazard grid fits a narrow phone', (tester) async {
+    tester.view.physicalSize = const Size(320, 640);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    await tester.pumpWidget(
+      const MaterialApp(home: Scaffold(body: HazardCategorySheet())),
+    );
+
+    for (final category in HazardCategory.values) {
+      expect(find.text(category.displayLabel), findsOneWidget);
+      expect(
+        find.byKey(ValueKey('hazard_category_${category.id}')),
+        findsOneWidget,
+      );
+    }
+    expect(tester.takeException(), isNull);
   });
 
   testWidgets('report details supports photo preview, remove, and submission', (
@@ -148,8 +178,12 @@ void main() {
       ),
     );
 
+    final categoryIcon = tester.widget<HazardCategoryIcon>(
+      find.byType(HazardCategoryIcon),
+    );
+    expect(categoryIcon.category, HazardCategory.crash);
+    expect(categoryIcon.color, AppColors.sage);
     for (final iconData in [
-      HazardCategory.crash.icon,
       Icons.photo_library_outlined,
       Icons.camera_alt_outlined,
     ]) {
@@ -228,6 +262,11 @@ void main() {
     );
 
     expect(find.text('Obstruction'), findsOneWidget);
+    final icon = tester.widget<HazardCategoryIcon>(
+      find.byType(HazardCategoryIcon),
+    );
+    expect(icon.category, HazardCategory.obstruction);
+    expect(icon.color, Colors.white);
     expect(find.text('Tree branch across the lane'), findsOneWidget);
     expect(find.text('Reported 3 min ago'), findsOneWidget);
     await tester.tap(find.byKey(const ValueKey('confirm_hazard')));
@@ -239,6 +278,7 @@ void main() {
   });
 
   test('hazard marker is smaller than a major place marker', () {
+    expect(HazardMarkerBuilder.markerSize, 24);
     expect(
       HazardMarkerBuilder.markerSize,
       lessThan(MarkerSize.large.pixelSize),
@@ -260,13 +300,55 @@ void main() {
       expiresAt: now.add(const Duration(hours: 12)),
     );
     final builder = HazardMarkerBuilder();
+    HazardReport? tappedReport;
 
     await tester.runAsync(builder.preload);
-    final marker = builder.build(report, onTap: (_) {});
+    final marker = builder.build(
+      report,
+      onTap: (tapped) => tappedReport = tapped,
+    );
 
     expect(marker.markerId.value, 'hazard_persisted-id');
     expect(marker.position, report.location);
     expect(marker.icon, isNot(BitmapDescriptor.defaultMarker));
+    marker.onTap?.call();
+    expect(tappedReport, same(report));
+    final bytes = (marker.icon as BytesMapBitmap).byteData;
+    final png = ByteData.sublistView(bytes);
+    expect(png.getUint32(16), 48);
+    expect(png.getUint32(20), 48);
+  });
+
+  testWidgets('all six marker illustrations are distinct and stay compact', (
+    tester,
+  ) async {
+    final builder = HazardMarkerBuilder();
+    await tester.runAsync(builder.preload);
+    final now = DateTime.utc(2026, 9, 15, 4);
+    final bitmaps = <String>{};
+    for (final category in HazardCategory.values) {
+      final report = HazardReport(
+        id: category.id,
+        reporterId: 'user-1',
+        category: category,
+        latitude: -37.8136,
+        longitude: 144.9631,
+        createdAt: now,
+        lastConfirmedAt: now,
+        expiresAt: now.add(const Duration(hours: 12)),
+      );
+      final marker = builder.build(report, onTap: (_) {});
+      expect(marker.position, report.location);
+      expect(marker.markerId.value, 'hazard_${category.id}');
+      final bytes = (marker.icon as BytesMapBitmap).byteData;
+      expect(bytes, isNotEmpty);
+      bitmaps.add(base64Encode(bytes));
+    }
+    expect(bitmaps, hasLength(HazardCategory.values.length));
+    expect(
+      HazardMarkerBuilder.markerSize,
+      lessThan(MarkerSize.large.pixelSize),
+    );
   });
 
   test('map marker composition retains hazards when place markers refresh', () {
