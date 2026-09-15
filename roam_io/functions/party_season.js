@@ -47,7 +47,7 @@ async function resetPartySeason({ db, partyId, now }) {
     await doc.ref.delete();
   }
   await partyRef.set(
-    { ...party, currentSeasonStartAt: nowIso },
+    { ...party, tiles: {}, currentSeasonStartAt: nowIso },
   );
 
   return summary;

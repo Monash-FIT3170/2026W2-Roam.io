@@ -561,6 +561,28 @@ void main() {
     expect(find.text('1 tile'), findsOneWidget);
   });
 
+  testWidgets('claimed tile counts fall back to the party document', (
+    tester,
+  ) async {
+    final firestore = FakeFirebaseFirestore();
+    final partyService = PartyService(firestore: firestore);
+    final party = await partyService.createParty(uid: 'user-1');
+
+    await firestore.collection('parties').doc(party.id).update({
+      'tiles': {
+        'a-tile': {'teamADwellSeconds': 31, 'teamBDwellSeconds': 0},
+        'b-tile': {'teamADwellSeconds': 0, 'teamBDwellSeconds': 31},
+        'another-b-tile': {'teamADwellSeconds': 0, 'teamBDwellSeconds': 45},
+      },
+    });
+
+    await _pumpPartyScreen(tester, partyService: partyService, uid: 'user-1');
+
+    expect(find.text('1 tile'), findsOneWidget);
+    expect(find.text('2 tiles'), findsOneWidget);
+    expect(find.text('—'), findsNothing);
+  });
+
   testWidgets('team rosters update while Party Mode is open', (tester) async {
     final service = PartyService(firestore: FakeFirebaseFirestore());
     final party = await service.createParty(uid: 'user-1');

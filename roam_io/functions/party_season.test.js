@@ -125,6 +125,9 @@ class FakeDb {
       teamAMembers: ['u1'],
       teamBMembers: ['u2'],
       currentSeasonStartAt: '2026-08-26T00:00:00.000Z',
+      tiles: {
+        t1: { teamADwellSeconds: 400, teamBDwellSeconds: 0 },
+      },
     },
     'parties/p1/tiles/t1': { teamADwellSeconds: 400, teamBDwellSeconds: 0 },
   });
@@ -141,6 +144,13 @@ class FakeDb {
     .collection('tiles')
     .get();
   assert.equal(tilesAfter.docs.length, 0, 'tiles should be wiped');
+
+  const partyAfter = await db.collection('parties').doc('p1').get();
+  assert.deepEqual(
+    partyAfter.data().tiles,
+    {},
+    'embedded tile fallback should also be wiped',
+  );
 
   const seasonsAfter = await db
     .collection('parties')
