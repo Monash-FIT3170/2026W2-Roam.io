@@ -34,6 +34,23 @@ typedef ActivityMediaUploadFn =
 typedef ActivityMediaDeleteFn =
     Future<void> Function({required String storagePath});
 
+typedef HazardPhotoUploadFn =
+    Future<HazardPhotoUploadResult> Function({
+      required String uid,
+      required Uint8List bytes,
+      required String filename,
+    });
+
+typedef HazardPhotoDeleteFn =
+    Future<void> Function({required String storagePath});
+
+class HazardPhotoUploadResult {
+  const HazardPhotoUploadResult({required this.url, required this.storagePath});
+
+  final String url;
+  final String storagePath;
+}
+
 /// Result of uploading one structured activity media object.
 class ActivityMediaUploadResult {
   const ActivityMediaUploadResult({
@@ -52,15 +69,21 @@ class StorageService {
     VisitMediaUploadFn? visitMediaUploadOverride,
     ActivityMediaUploadFn? activityMediaUploadOverride,
     ActivityMediaDeleteFn? activityMediaDeleteOverride,
+    HazardPhotoUploadFn? hazardPhotoUploadOverride,
+    HazardPhotoDeleteFn? hazardPhotoDeleteOverride,
   }) : _explicitFirebaseStorage = firebaseStorage,
        _visitMediaUploadOverride = visitMediaUploadOverride,
        _activityMediaUploadOverride = activityMediaUploadOverride,
-       _activityMediaDeleteOverride = activityMediaDeleteOverride;
+       _activityMediaDeleteOverride = activityMediaDeleteOverride,
+       _hazardPhotoUploadOverride = hazardPhotoUploadOverride,
+       _hazardPhotoDeleteOverride = hazardPhotoDeleteOverride;
 
   final FirebaseStorage? _explicitFirebaseStorage;
   final VisitMediaUploadFn? _visitMediaUploadOverride;
   final ActivityMediaUploadFn? _activityMediaUploadOverride;
   final ActivityMediaDeleteFn? _activityMediaDeleteOverride;
+  final HazardPhotoUploadFn? _hazardPhotoUploadOverride;
+  final HazardPhotoDeleteFn? _hazardPhotoDeleteOverride;
   FirebaseStorage? _defaultFirebaseStorage;
 
   FirebaseStorage get _firebaseStorage {
@@ -215,6 +238,44 @@ class StorageService {
   /// Deletes previously uploaded activity media by Storage full path.
   Future<void> deleteActivityMedia({required String storagePath}) async {
     final override = _activityMediaDeleteOverride;
+    if (override != null) {
+      await override(storagePath: storagePath);
+      return;
+    }
+    if (storagePath.isEmpty) return;
+    await _firebaseStorage.ref(storagePath).delete();
+  }
+
+  /// Uploads the single optional photo attached to a hazard report.
+  Future<HazardPhotoUploadResult> uploadHazardPhoto({
+    required String uid,
+    required Uint8List bytes,
+    required String filename,
+  }) async {
+    final override = _hazardPhotoUploadOverride;
+    if (override != null) {
+      return override(uid: uid, bytes: bytes, filename: filename);
+    }
+
+    final safeFilename = filename.replaceAll(RegExp(r"[^a-zA-Z0-9_.-]"), '_');
+    final ref = _firebaseStorage
+        .ref()
+        .child('hazard_photos')
+        .child(uid)
+        .child('${DateTime.now().microsecondsSinceEpoch}_$safeFilename');
+    await ref.putData(
+      bytes,
+      SettableMetadata(contentType: _contentType(filename, 'image')),
+    );
+    return HazardPhotoUploadResult(
+      url: await ref.getDownloadURL(),
+      storagePath: ref.fullPath,
+    );
+  }
+
+  /// Removes an uploaded hazard photo when report creation cannot complete.
+  Future<void> deleteHazardPhoto({required String storagePath}) async {
+    final override = _hazardPhotoDeleteOverride;
     if (override != null) {
       await override(storagePath: storagePath);
       return;
