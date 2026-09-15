@@ -106,6 +106,14 @@ List available devices with `flutter devices`. VS Code / Cursor launch configs a
 
 #### 4. Deploy Firestore rules and indexes (when needed)
 
+Before deploying the one-party membership rules to a project with existing parties, backfill the old rosters. The command is a dry run unless `--apply` is passed; review its plan first. For users in multiple old parties, it keeps their existing valid membership pointer, or otherwise the party with the lowest document ID.
+
+```bash
+cd roam_io/functions
+npm run backfill:party-memberships -- --project roam-io-71e2c
+npm run backfill:party-memberships -- --project roam-io-71e2c --apply
+```
+
 From `roam_io/`, redeploy whenever `firestore.rules` or `firestore.indexes.json` change on the branch you are shipping:
 
 ```bash

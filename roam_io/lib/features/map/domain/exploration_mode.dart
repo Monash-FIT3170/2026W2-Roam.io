@@ -15,6 +15,9 @@ enum ExplorationMode {
 
   /// Journey mode - follow a planned route (placeholder for future implementation).
   journey,
+
+  /// Party Mode - territory-claiming tiles coloured by owning team.
+  party,
 }
 
 /// Extension methods for [ExplorationMode] to provide display properties.
@@ -26,6 +29,8 @@ extension ExplorationModeExtension on ExplorationMode {
         return 'Exploration';
       case ExplorationMode.journey:
         return 'Journey';
+      case ExplorationMode.party:
+        return 'Party Mode';
     }
   }
 
@@ -36,6 +41,8 @@ extension ExplorationModeExtension on ExplorationMode {
         return Icons.explore;
       case ExplorationMode.journey:
         return Icons.route;
+      case ExplorationMode.party:
+        return Icons.groups_rounded;
     }
   }
 
@@ -45,6 +52,8 @@ extension ExplorationModeExtension on ExplorationMode {
       case ExplorationMode.exploration:
         return ExplorationMode.journey;
       case ExplorationMode.journey:
+        return ExplorationMode.party;
+      case ExplorationMode.party:
         return ExplorationMode.exploration;
     }
   }
@@ -55,6 +64,8 @@ extension ExplorationModeExtension on ExplorationMode {
       case ExplorationMode.exploration:
         return false;
       case ExplorationMode.journey:
+        return false;
+      case ExplorationMode.party:
         return false;
     }
   }
