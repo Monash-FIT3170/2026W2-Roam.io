@@ -291,11 +291,11 @@ class _ActivityMapPreviewState extends State<ActivityMapPreview> {
       child: DecoratedBox(
         decoration: BoxDecoration(
           color: AppSurfaces.softCard(context),
-          borderRadius: BorderRadius.circular(widget._isDetail ? 18 : 16),
+          borderRadius: BorderRadius.circular(widget._isDetail ? 14 : 12),
           border: Border.all(color: AppSurfaces.border(context)),
         ),
         child: ClipRRect(
-          borderRadius: BorderRadius.circular(widget._isDetail ? 18 : 16),
+          borderRadius: BorderRadius.circular(widget._isDetail ? 14 : 12),
           child: Stack(
             fit: StackFit.expand,
             children: [
@@ -363,7 +363,7 @@ class ActivityMapSnapshotImage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final radius = BorderRadius.circular(_isDetail ? 18 : 16);
+    final radius = BorderRadius.circular(_isDetail ? 14 : 12);
 
     return AspectRatio(
       aspectRatio: ActivityMapImage.aspectRatio,

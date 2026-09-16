@@ -107,7 +107,7 @@ void main() {
     expect(find.text('Traveller Activity 1'), findsOneWidget);
     expect(find.text('August 3, 2026 at 10:07 AM'), findsOneWidget);
     expect(find.text('47m 51s'), findsOneWidget);
-    expect(find.text('Tiles Unlocked'), findsOneWidget);
+    expect(find.text('Tiles Explored'), findsOneWidget);
     expect(find.text('4'), findsOneWidget);
     expect(find.text('+200 XP'), findsOneWidget);
     expect(find.text('Map preview'), findsNothing);
@@ -146,7 +146,7 @@ void main() {
     expect(map.myLocationButtonEnabled, isFalse);
     expect(map.zoomControlsEnabled, isFalse);
     expect(find.text('Glaze'), findsOneWidget);
-    expect(find.text('0 comments'), findsOneWidget);
+    expect(find.text('Comment'), findsOneWidget);
     expect(find.text('Share'), findsOneWidget);
     // Full labels — no ellipsis clipping on the three-action row.
     expect(find.textContaining('…'), findsNothing);
@@ -154,7 +154,7 @@ void main() {
     expect(find.text('Morning Weight Training'), findsNothing);
     expect(find.byIcon(Icons.fitness_center), findsNothing);
 
-    final label = tester.widget<Text>(find.text('Tiles Unlocked'));
+    final label = tester.widget<Text>(find.text('Tiles Explored'));
     expect(label.maxLines, 1);
     expect(label.softWrap, isFalse);
     expect(label.textAlign, TextAlign.center);
@@ -168,7 +168,7 @@ void main() {
       title: 'Traveller Activity 2',
       metrics: const [
         ActivityFeedMetric(label: 'Time', value: '1h 12m'),
-        ActivityFeedMetric(label: 'Tiles Unlocked', value: '3'),
+        ActivityFeedMetric(label: 'Tiles Explored', value: '3'),
         ActivityFeedMetric(label: 'XP Gained', value: '+150 XP'),
       ],
     );
@@ -191,11 +191,11 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Sidequest Progress'), findsNothing);
-    expect(find.text('Tiles Unlocked'), findsOneWidget);
+    expect(find.text('Tiles Explored'), findsOneWidget);
     expect(find.text('3'), findsOneWidget);
     expect(find.text('Share'), findsNothing);
     expect(find.text('Glaze'), findsOneWidget);
-    expect(find.text('0 comments'), findsOneWidget);
+    expect(find.text('Comment'), findsOneWidget);
 
     counts.add(1);
     await tester.pumpAndSettle();
@@ -208,7 +208,7 @@ void main() {
     await counts.close();
   });
 
-  testWidgets('activity card carousel shows media first and route map last', (
+  testWidgets('activity card carousel shows the route map first, then media', (
     tester,
   ) async {
     await tester.binding.setSurfaceSize(const Size(400, 1200));
@@ -243,7 +243,12 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.byType(ActivityMediaCarousel), findsOneWidget);
-    expect(find.byIcon(Icons.videocam_outlined), findsWidgets);
+
+    // The route map opens the carousel so a post reads like a journey
+    // summary first; swiping reveals the photos/videos after it.
+    expect(find.byType(ActivityMapPreview), findsOneWidget);
+    final map = tester.widget<GoogleMap>(find.byType(GoogleMap));
+    expect(map.polylines.single.points, _decodedRoutePoints);
 
     // The carousel frames every slide, so it has to hold the shape the map
     // picture was captured in — a wider slot crops the route's ends off with
@@ -257,12 +262,8 @@ void main() {
 
     await tester.drag(find.byType(PageView), const Offset(-360, 0));
     await tester.pumpAndSettle();
-    await tester.drag(find.byType(PageView), const Offset(-360, 0));
-    await tester.pumpAndSettle();
 
-    expect(find.byType(ActivityMapPreview), findsOneWidget);
-    final map = tester.widget<GoogleMap>(find.byType(GoogleMap));
-    expect(map.polylines.single.points, _decodedRoutePoints);
+    expect(find.byIcon(Icons.videocam_outlined), findsWidgets);
   });
 
   testWidgets('formatCommentCount uses singular and plural forms', (
@@ -529,7 +530,7 @@ ActivityFeedItem _testActivity({
   ActivityRouteBounds? routeBounds = _routeBounds,
   List<ActivityFeedMetric> metrics = const [
     ActivityFeedMetric(label: 'Time', value: '47m 51s'),
-    ActivityFeedMetric(label: 'Tiles Unlocked', value: '4'),
+    ActivityFeedMetric(label: 'Tiles Explored', value: '4'),
     ActivityFeedMetric(label: 'XP Gained', value: '+200 XP'),
   ],
   String? transportMode = 'walk',

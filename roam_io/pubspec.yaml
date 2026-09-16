@@ -90,6 +90,7 @@ flutter:
     - assets/map_styles/visited_tiles.json
     - assets/map_styles/unvisited_tiles.json
     - assets/logos/roam_io_logo.png
+    - assets/logos/roam_io_logo_transparent.png
     - assets/logos/roam_io_logo_with_text.png
     - assets/badges/
     - assets/badges/milestones/clocked_cruiser_1.png

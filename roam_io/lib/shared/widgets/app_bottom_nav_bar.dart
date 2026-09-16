@@ -12,7 +12,7 @@ import 'package:flutter/material.dart';
 /// Renders the app's five-tab bottom navigation with a raised center map tab.
 class AppBottomNavBar extends StatelessWidget {
   /// Height of the bar content inside the shell nav [SafeArea].
-  static const double barHeight = 98;
+  static const double barHeight = 88;
 
   /// Bottom inset applied by the shell nav [SafeArea] (see [build]).
   static const double outerBottomMinimum = 8;
@@ -73,7 +73,7 @@ class AppBottomNavBar extends StatelessWidget {
               right: 0,
               bottom: 0,
               child: Container(
-                height: 74,
+                height: 64,
                 decoration: BoxDecoration(
                   color: backgroundColor,
                   borderRadius: BorderRadius.circular(28),
@@ -169,8 +169,8 @@ class AppBottomNavBar extends StatelessWidget {
                     AnimatedContainer(
                       duration: const Duration(milliseconds: 240),
                       curve: Curves.easeOutCubic,
-                      width: 66,
-                      height: 66.5,
+                      width: 54,
+                      height: 54.5,
                       decoration: BoxDecoration(
                         color: selectedColor,
                         shape: BoxShape.circle,
@@ -193,7 +193,7 @@ class AppBottomNavBar extends StatelessWidget {
                             ? Icons.public
                             : Icons.public_outlined,
                         color: Colors.white,
-                        size: 32,
+                        size: 26,
                       ),
                     ),
                     const SizedBox(height: 4),

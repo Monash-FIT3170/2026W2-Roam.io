@@ -134,7 +134,7 @@ void main() {
       findsOneWidget,
     );
     expect(find.text('Locations Visited'), findsNothing);
-    expect(find.text('Tiles Unlocked'), findsNothing);
+    expect(find.text('Tiles Explored'), findsNothing);
     expect(find.text('Most Visited Location'), findsNothing);
     expect(find.text('Recent Visited Locations'), findsNothing);
     expect(find.text('Visit volume by week'), findsNothing);
@@ -516,7 +516,7 @@ void main() {
     expect(find.text('Traveller'), findsWidgets);
     expect(find.text('Glaze'), findsOneWidget);
     expect(find.text('Share'), findsOneWidget);
-    expect(find.text('0 comments'), findsOneWidget);
+    expect(find.text('Comment'), findsOneWidget);
 
     await tester.tap(find.byIcon(Icons.more_horiz_rounded));
     await tester.pumpAndSettle();
@@ -524,18 +524,18 @@ void main() {
     expect(find.text('Journey route map'), findsNothing);
     expect(find.byType(ActivityMapPreview), findsOneWidget);
     expect(find.text('Glaze'), findsOneWidget);
-    expect(find.text('0 comments'), findsOneWidget);
+    expect(find.text('Comment'), findsOneWidget);
     expect(find.text('Share'), findsOneWidget);
     await tester.pageBack();
     await tester.pumpAndSettle();
 
     // Personal card still exposes Glaze + Comments + Share after detail pop.
-    expect(find.text('0 comments'), findsOneWidget);
+    expect(find.text('Comment'), findsOneWidget);
     expect(find.text('Glaze'), findsOneWidget);
     expect(find.text('Share'), findsOneWidget);
 
-    await tester.ensureVisible(find.text('0 comments'));
-    await tester.tap(find.text('0 comments'));
+    await tester.ensureVisible(find.text('Comment'));
+    await tester.tap(find.text('Comment'));
     await tester.pumpAndSettle();
     expect(find.byType(CommentsScreen), findsOneWidget);
     expect(find.text('No comments yet'), findsOneWidget);
@@ -848,11 +848,11 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Glaze'), findsOneWidget);
-    expect(find.text('0 comments'), findsOneWidget);
+    expect(find.text('Comment'), findsOneWidget);
     expect(find.text('Share'), findsOneWidget);
 
-    await tester.ensureVisible(find.text('0 comments'));
-    await tester.tap(find.text('0 comments'));
+    await tester.ensureVisible(find.text('Comment'));
+    await tester.tap(find.text('Comment'));
     await tester.pumpAndSettle();
     expect(find.byType(CommentsScreen), findsOneWidget);
 
@@ -1168,7 +1168,7 @@ void main() {
       expect(find.text('Journey route map'), findsNothing);
       expect(find.byType(ActivityMapPreview), findsOneWidget);
       expect(find.text('Glaze'), findsOneWidget);
-      expect(find.text('0 comments'), findsOneWidget);
+      expect(find.text('Comment'), findsOneWidget);
       expect(find.text('Share'), findsOneWidget);
 
       await tester.pageBack();

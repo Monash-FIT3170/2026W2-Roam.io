@@ -21,6 +21,7 @@ class ActivityMediaCarousel extends StatefulWidget {
     this.onTap,
     this.routeSlide,
     this.routeFirst = false,
+    this.borderRadius = 16,
   });
 
   final List<ActivityMediaItem> media;
@@ -32,6 +33,10 @@ class ActivityMediaCarousel extends StatefulWidget {
   final ValueChanged<int>? onTap;
   final Widget? routeSlide;
   final bool routeFirst;
+
+  /// Corner radius of the media frame. Pass 0 for a full-bleed placement
+  /// (e.g. mid-card, not touching the card's own rounded corners).
+  final double borderRadius;
 
   @override
   State<ActivityMediaCarousel> createState() => _ActivityMediaCarouselState();
@@ -56,7 +61,7 @@ class _ActivityMediaCarouselState extends State<ActivityMediaCarousel> {
     return AspectRatio(
       aspectRatio: widget.aspectRatio,
       child: ClipRRect(
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(widget.borderRadius),
         child: DecoratedBox(
           decoration: BoxDecoration(color: AppSurfaces.softCard(context)),
           child: Stack(
@@ -81,19 +86,19 @@ class _ActivityMediaCarouselState extends State<ActivityMediaCarousel> {
                 Positioned(
                   left: 0,
                   right: 0,
-                  bottom: 10,
+                  bottom: 6,
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
                       for (var i = 0; i < itemCount; i += 1)
                         AnimatedContainer(
                           duration: const Duration(milliseconds: 180),
-                          width: i == _index ? 18 : 6,
-                          height: 6,
+                          width: 5,
+                          height: 5,
                           margin: const EdgeInsets.symmetric(horizontal: 3),
                           decoration: BoxDecoration(
                             color: Colors.white.withValues(
-                              alpha: i == _index ? 0.95 : 0.55,
+                              alpha: i == _index ? 0.9 : 0.4,
                             ),
                             borderRadius: BorderRadius.circular(999),
                           ),

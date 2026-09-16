@@ -172,7 +172,7 @@ ActivityFeedItem _activity({String? mapImageUrl}) {
     kind: ActivityFeedKind.journey,
     metrics: const [
       ActivityFeedMetric(label: 'Time', value: '21m 0s'),
-      ActivityFeedMetric(label: 'Tiles Unlocked', value: '4'),
+      ActivityFeedMetric(label: 'Tiles Explored', value: '4'),
       ActivityFeedMetric(label: 'XP Gained', value: '+1527 XP'),
     ],
     sourceJourneyId: 'journey-1',

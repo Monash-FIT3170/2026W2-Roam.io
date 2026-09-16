@@ -120,7 +120,7 @@ class ActivityCreationService {
             value: _formatDuration(journey.durationSeconds),
           ),
           ActivityFeedMetric(
-            label: 'Tiles Unlocked',
+            label: 'Tiles Explored',
             value: '${journey.tilesUnlocked}',
           ),
           ActivityFeedMetric(
