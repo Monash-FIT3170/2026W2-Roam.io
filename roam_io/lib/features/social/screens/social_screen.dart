@@ -2,16 +2,21 @@
  * Author: Sanjevan Rajasegar
  * Last Updated: 9 August 2026
  * Description:
- *   Provides the Social destination with Find People as the entry point.
+ *   Provides the Social destination with Find People, leaderboards, and
+ *   Party Mode entry points.
  *   Private follow requests are managed from Notifications only.
  */
 
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
+import 'package:provider/provider.dart';
 
 import '../../../shared/widgets/app_page_header.dart';
 import '../../../theme/app_surfaces.dart';
 import '../../../theme/app_colours.dart';
+import '../../party/data/party_service.dart';
+import '../../party/providers/current_party_provider.dart';
+import '../../party/screens/party_screen.dart';
 import '../data/follow_service.dart';
 import '../data/friendship_service.dart';
 import '../domain/public_profile.dart';
@@ -24,11 +29,14 @@ class SocialScreen extends StatelessWidget {
     super.key,
     FriendshipService? friendshipService,
     FollowService? followService,
+    PartyService? partyService,
   }) : _friendshipService = friendshipService,
-       _followService = followService;
+       _followService = followService,
+       _partyService = partyService;
 
   final FriendshipService? _friendshipService;
   final FollowService? _followService;
+  final PartyService? _partyService;
 
   @override
   Widget build(BuildContext context) {
@@ -63,67 +71,109 @@ class SocialScreen extends StatelessWidget {
                 },
               ),
             ),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
-              child: InkWell(
-                onTap: () {
-                  Navigator.of(context).push(
-                    MaterialPageRoute(
-                      builder: (_) => const LeaderboardScreen(),
-                    ),
-                  );
-                },
-                borderRadius: BorderRadius.circular(16),
-                child: Container(
-                  padding: const EdgeInsets.all(20),
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(16),
+            Expanded(
+              child: ListView(
+                padding: const EdgeInsets.fromLTRB(24, 16, 24, 118),
+                children: [
+                  _SocialDestinationCard(
+                    title: 'Leaderboards',
+                    subtitle: 'Compete with your social group!',
+                    icon: Icons.leaderboard,
                     color: AppColors.sage,
-                  ),
-                  child: Row(
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.all(12),
-                        decoration: BoxDecoration(
-                          color: Colors.white.withValues(alpha: 0.2),
-                          shape: BoxShape.circle,
-                        ),
-                        child: const Icon(
-                          Icons.leaderboard,
-                          color: Colors.white,
-                          size: 28,
-                        ),
+                    onTap: () => Navigator.of(context).push(
+                      MaterialPageRoute<void>(
+                        builder: (_) => const LeaderboardScreen(),
                       ),
-                      const SizedBox(width: 16),
-                      const Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              'Leaderboards',
-                              style: TextStyle(
-                                fontSize: 20,
-                                fontWeight: FontWeight.bold,
-                                color: Colors.white,
-                              ),
-                            ),
-                            SizedBox(height: 4),
-                            Text(
-                              'Compete with your social group!',
-                              style: TextStyle(
-                                fontSize: 14,
-                                color: Colors.white70,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      const Icon(Icons.chevron_right, color: Colors.white),
-                    ],
+                    ),
                   ),
-                ),
+                  const SizedBox(height: 16),
+                  _SocialDestinationCard(
+                    title: 'Party Mode',
+                    subtitle: 'Team up and claim map tiles together.',
+                    icon: Icons.groups_rounded,
+                    color: AppColors.clay,
+                    onTap: () {
+                      final currentParty = context
+                          .read<CurrentPartyProvider?>();
+                      Navigator.of(context).push(
+                        MaterialPageRoute<void>(
+                          builder: (_) => PartyScreen(
+                            partyService: _partyService ?? PartyService(),
+                            initialParty: currentParty?.currentParty,
+                            onPartyChanged: currentParty?.setParty,
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+                ],
               ),
             ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _SocialDestinationCard extends StatelessWidget {
+  const _SocialDestinationCard({
+    required this.title,
+    required this.subtitle,
+    required this.icon,
+    required this.color,
+    required this.onTap,
+  });
+
+  final String title;
+  final String subtitle;
+  final IconData icon;
+  final Color color;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(16),
+      child: Container(
+        padding: const EdgeInsets.all(20),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(16),
+          color: color,
+        ),
+        child: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.white.withValues(alpha: 0.2),
+                shape: BoxShape.circle,
+              ),
+              child: Icon(icon, color: Colors.white, size: 28),
+            ),
+            const SizedBox(width: 16),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    style: const TextStyle(
+                      fontSize: 20,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.white,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    subtitle,
+                    style: const TextStyle(fontSize: 14, color: Colors.white70),
+                  ),
+                ],
+              ),
+            ),
+            const Icon(Icons.chevron_right, color: Colors.white),
           ],
         ),
       ),

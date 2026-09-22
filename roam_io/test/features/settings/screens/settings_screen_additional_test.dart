@@ -149,6 +149,24 @@ void main() {
     provider.dispose();
   });
 
+  testWidgets('does not show Party Mode in Settings', (tester) async {
+    final repo = _SettingsActionsRepository();
+    final provider = AuthProvider(authRepository: repo);
+
+    await tester.pumpWidget(
+      ChangeNotifierProvider<AuthProvider>.value(
+        value: provider,
+        child: const MaterialApp(home: Scaffold(body: SettingsScreen())),
+      ),
+    );
+    await tester.pump();
+    await tester.pump();
+
+    expect(find.text('Party Mode'), findsNothing);
+    expect(find.text('Game Modes'), findsNothing);
+    provider.dispose();
+  });
+
   testWidgets('display name screen validates empty values', (tester) async {
     final repo = _SettingsActionsRepository(
       profile: _buildProfile(displayName: '-'),

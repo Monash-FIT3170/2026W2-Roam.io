@@ -7,7 +7,7 @@ import 'api_config.dart';
 import '../../journeys/domain/nearby_place.dart';
 
 class PlacesService {
-  static const int transportEligibilityRadiusMeters = 10;
+  static const int transportEligibilityRadiusMeters = 200;
 
   final http.Client _client;
 

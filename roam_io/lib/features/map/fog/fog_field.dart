@@ -59,8 +59,10 @@ class FogField {
 
   /// Generates instances covering the viewport.
   ///
-  /// [elapsed] drives wind drift and rotation. [parallax] generates the larger,
-  /// slower, fainter secondary layer.
+  /// [elapsed] times the active dissolves. [windOffset] is the ambient drift,
+  /// integrated frame by frame by [FogWind] rather than derived from [elapsed]
+  /// here, so a change in wind speed never moves clouds that have already
+  /// drifted. [parallax] generates the larger, slower, fainter secondary layer.
   ///
   /// [layerWeight] scales the whole layer's opacity, and is how the painter
   /// fades the parallax layer out while the camera moves. It is applied before
@@ -72,7 +74,7 @@ class FogField {
     required FogAtlas atlas,
     required Duration elapsed,
     required List<FogDissolve> dissolves,
-    double userSpeedMetresPerSecond = 0.0,
+    Offset windOffset = Offset.zero,
     bool parallax = false,
     double layerWeight = 1.0,
     Color spriteTint = FogPalette.spriteTint,
@@ -107,7 +109,10 @@ class FogField {
     final upperWeight = blend * layerWeight;
     final lowerWeight = (1.0 - blend) * layerWeight;
 
-    final windOffset = _windOffset(elapsed, userSpeedMetresPerSecond, parallax);
+    // The secondary layer trails the main one, which is what reads as depth.
+    final layerWind = parallax
+        ? windOffset * FogPalette.parallaxSpeedFactor
+        : windOffset;
     final worldBounds = projection.visibleWorldBounds(
       camera: camera,
       size: size,
@@ -119,7 +124,7 @@ class FogField {
         weight: lowerWeight,
         atlas: atlas,
         worldBounds: worldBounds,
-        windOffset: windOffset,
+        windOffset: layerWind,
         elapsed: elapsed,
         dissolves: dissolves,
         parallax: parallax,
@@ -133,7 +138,7 @@ class FogField {
         weight: upperWeight,
         atlas: atlas,
         worldBounds: worldBounds,
-        windOffset: windOffset,
+        windOffset: layerWind,
         elapsed: elapsed,
         dissolves: dissolves,
         parallax: parallax,
@@ -264,30 +269,6 @@ class FogField {
         );
       }
     }
-  }
-
-  /// Wind displacement in world units for the elapsed time.
-  static Offset _windOffset(
-    Duration elapsed,
-    double userSpeedMetresPerSecond,
-    bool parallax,
-  ) {
-    final seconds = elapsed.inMicroseconds / Duration.microsecondsPerSecond;
-
-    final speedBoost =
-        (userSpeedMetresPerSecond.abs() * FogPalette.windSpeedCoupling).clamp(
-          0.0,
-          FogPalette.windSpeedCeiling,
-        );
-
-    final base = FogPalette.windVelocity;
-    final magnitude = base.distance;
-    final direction = magnitude < 1e-6 ? Offset.zero : base / magnitude;
-
-    final velocity = base + direction * speedBoost;
-    final layerFactor = parallax ? FogPalette.parallaxSpeedFactor : 1.0;
-
-    return velocity * seconds * layerFactor;
   }
 
   static double _log2(double value) {

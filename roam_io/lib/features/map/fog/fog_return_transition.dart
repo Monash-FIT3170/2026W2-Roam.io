@@ -5,7 +5,7 @@ class FogReturnTransition {
   FogReturnTransition({
     required Set<String> regionIds,
     required this.startedAt,
-    this.duration = FogPalette.dissolveDuration,
+    this.duration = FogPalette.fogReturnDuration,
   }) : regionIds = Set<String>.unmodifiable(regionIds);
 
   final Set<String> regionIds;

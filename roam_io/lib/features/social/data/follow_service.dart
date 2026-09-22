@@ -304,9 +304,12 @@ class FollowService {
     required String followeeId,
   }) async {
     try {
-      await _followRequests
-          .doc(FollowRequestService.requestIdFor(followerId, followeeId))
-          .delete();
+      final ref = _followRequests.doc(
+        FollowRequestService.requestIdFor(followerId, followeeId),
+      );
+      final request = await ref.get();
+      if (request.data()?['status'] != 'pending') return;
+      await ref.delete();
     } catch (error) {
       final code = error is FirebaseException ? error.code : 'unknown';
       debugPrint(

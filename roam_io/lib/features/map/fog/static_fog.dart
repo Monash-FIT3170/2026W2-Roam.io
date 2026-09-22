@@ -79,7 +79,7 @@ class StaticFog {
       elapsed: Duration.zero,
       dissolves: const [],
       atlas: atlas,
-      userSpeedMetresPerSecond: 0.0,
+      windOffset: Offset.zero,
       isNight: isNight,
     );
   }

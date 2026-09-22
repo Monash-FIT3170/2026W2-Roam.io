@@ -198,7 +198,7 @@ Future<ui.Image> _render({
     elapsed: elapsed,
     dissolves: dissolves,
     atlas: atlas,
-    userSpeedMetresPerSecond: 0.0,
+    windOffset: Offset.zero,
   ).paint(canvas, _size);
 
   final picture = recorder.endRecording();

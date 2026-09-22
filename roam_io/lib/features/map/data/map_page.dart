@@ -513,7 +513,7 @@ class _MapPageState extends State<MapPage> with WidgetsBindingObserver {
       placesService.getNearbyPlaces(
         lat: currentPosition.latitude,
         lng: currentPosition.longitude,
-        radiusMeters: 10,
+        radiusMeters: 200,
       ),
       placesService.getNearbyPlaces(
         lat: currentPosition.latitude,
@@ -539,7 +539,7 @@ class _MapPageState extends State<MapPage> with WidgetsBindingObserver {
     // Get custom saved locations within radius
     final customLocations = await _getNearbySavedLocations(
       currentPosition: currentPosition,
-      radiusMeters: 10,
+      radiusMeters: 200,
       userId: userId,
       journeyController: journeyController,
     );
@@ -631,13 +631,13 @@ class _MapPageState extends State<MapPage> with WidgetsBindingObserver {
     final googlePlaces = await placesService.getNearbyPlaces(
       lat: currentPosition.latitude,
       lng: currentPosition.longitude,
-      radiusMeters: 10,
+      radiusMeters: 200,
     );
 
     // Get custom saved locations within radius.
     final customLocations = await _getNearbySavedLocations(
       currentPosition: currentPosition,
-      radiusMeters: 10,
+      radiusMeters: 200,
       userId: userId,
       journeyController: journeyController,
     );
@@ -662,16 +662,6 @@ class _MapPageState extends State<MapPage> with WidgetsBindingObserver {
       await journeyController.cancelJourney();
       _activeJourneyPolyline = {};
       setState(() => _isOpeningJourneyCompletionFlow = false);
-      return;
-    }
-
-    // User chose to continue tracking.
-    if (endResult.continueTracking) {
-      await journeyController.resumeTracking();
-      if (mounted && journeyController.isTracking) {
-        setState(() => _isOpeningJourneyCompletionFlow = false);
-        AppToast.show(context, 'Journey resumed');
-      }
       return;
     }
 
@@ -955,8 +945,7 @@ class _MapPageState extends State<MapPage> with WidgetsBindingObserver {
         Theme.of(context).brightness == Brightness.dark
         ? AppColors.lightSage
         : AppColors.sage;
-    final isPaused = journeyController.currentPhase == JourneyPhase.paused;
-    final isLiveJourneyActive = isTracking || isPaused;
+    final isLiveJourneyActive = isTracking;
     final isCompleting =
         journeyController.currentPhase == JourneyPhase.completing;
     final isReviewing =
@@ -1010,7 +999,12 @@ class _MapPageState extends State<MapPage> with WidgetsBindingObserver {
         ),
         // Fog of war. Must sit directly above the map and below every control,
         // and is an IgnorePointer internally so map gestures pass through.
-        FogOverlay(controller: _mapController.fogController),
+        // The cloud drift is held for a live journey, where the map is already
+        // sliding under the fog as it follows the user.
+        FogOverlay(
+          controller: _mapController.fogController,
+          isJourneyActive: isLiveJourneyActive,
+        ),
         if (_mapController.myLocationEnabled)
           Positioned(
             right: 16,
@@ -1079,7 +1073,7 @@ class _MapPageState extends State<MapPage> with WidgetsBindingObserver {
             onPressed: _mapController.toggleHeatmap,
           ),
         ),
-        // Journey tracking card remains available while tracking is paused.
+        // Journey tracking card shown during active tracking.
         if (isLiveJourneyActive)
           Positioned(
             bottom: 100,
@@ -1089,14 +1083,6 @@ class _MapPageState extends State<MapPage> with WidgetsBindingObserver {
               distanceMeters: journeyController.distanceMeters,
               elapsedTime: journeyController.formattedElapsedTime,
               transportMode: journeyController.transportMode,
-              isPaused: isPaused,
-              onPauseResume: () {
-                if (isPaused) {
-                  journeyController.resumeTracking();
-                } else {
-                  journeyController.pauseTracking();
-                }
-              },
               onEndJourney: _endJourneyFlow,
             ),
           ),

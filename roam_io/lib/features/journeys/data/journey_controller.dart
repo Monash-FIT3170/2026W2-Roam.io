@@ -508,12 +508,6 @@ class JourneyController extends ChangeNotifier {
       return null;
     }
 
-    if (_distanceMeters < 50) {
-      _errorMessage = 'Journey too short (minimum 50m required)';
-      notifyListeners();
-      return null;
-    }
-
     try {
       final reviewedTitle = title?.trim();
       final existing = _persistedReviewedJourney;
