@@ -16,6 +16,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:roam_io/features/activity_feed/data/activity_map_image.dart';
 import 'package:roam_io/features/activity_feed/data/activity_mutation_service.dart';
+import 'package:roam_io/features/activity_feed/data/kudos_service.dart';
 import 'package:roam_io/features/activity_feed/domain/activity_route.dart';
 import 'package:roam_io/features/activity_feed/models/activity_comment.dart';
 import 'package:roam_io/features/activity_feed/models/activity_feed_item.dart';
@@ -520,6 +521,43 @@ void main() {
     expect(find.byTooltip('Record video'), findsOneWidget);
     expect(find.byIcon(Icons.arrow_upward), findsNothing);
     expect(find.byIcon(Icons.arrow_downward), findsNothing);
+  });
+
+  testWidgets('owner tapping Glaze opens the full glazer list', (tester) async {
+    final firestore = FakeFirebaseFirestore();
+    await firestore.collection('public_profiles').doc('glazer-1').set({
+      'displayName': 'Sahib Singh',
+      'username': 'sahib',
+    });
+    await firestore
+        .collection('activities')
+        .doc('activity-1')
+        .collection('kudos')
+        .doc('glazer-1')
+        .set({'userId': 'glazer-1'});
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: ActivityFeedCard.fromItem(
+            _testActivity(encodedRoute: null, routeBounds: null),
+            currentUserId: 'user-1',
+            kudosService: KudosService(firestore: firestore),
+            showComments: false,
+            showShare: false,
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('1 Glaze'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Glazes'), findsOneWidget);
+    expect(find.text('Sahib Singh'), findsOneWidget);
+    expect(find.text('@sahib'), findsOneWidget);
+    expect(find.byType(BackButton), findsOneWidget);
   });
 }
 

@@ -632,6 +632,7 @@ class _OwnedActivitiesList extends StatelessWidget {
           activityOwnerId: activity.ownerId,
           commentService: comments,
           commentLikeService: commentLikeService,
+          title: currentUserId == activity.ownerId ? 'Discussion' : 'Comments',
         ),
       ),
     );

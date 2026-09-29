@@ -9,7 +9,6 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../../shared/widgets/app_bottom_nav_bar.dart';
-import '../../../shared/widgets/app_page_header.dart';
 import '../../../shared/widgets/app_toast.dart';
 import '../../../theme/app_colours.dart';
 import '../../../theme/app_surfaces.dart';
@@ -78,31 +77,7 @@ class _HomeScreenState extends State<HomeScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            AppPageHeader(
-              title: 'Home',
-              trailing: Row(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.center,
-                children: [
-                  Text(
-                    'Roam.io',
-                    style: Theme.of(context).textTheme.headlineLarge?.copyWith(
-                      fontSize: 18,
-                      height: 1.1,
-                      color: AppColors.sage,
-                    ),
-                  ),
-                  const SizedBox(width: 9),
-                  Image.asset(
-                    'assets/logos/roam_io_logo_transparent.png',
-                    height: 16,
-                    width: 16,
-                    color: AppColors.sage,
-                    colorBlendMode: BlendMode.srcIn,
-                  ),
-                ],
-              ),
-            ),
+            const _HomeHeader(),
             Expanded(
               child: ShaderMask(
                 blendMode: BlendMode.dstIn,
@@ -217,6 +192,73 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 }
 
+class _HomeHeader extends StatelessWidget {
+  const _HomeHeader();
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(20, 18, 20, 18),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          Expanded(
+            child: Semantics(
+              header: true,
+              child: Text(
+                'Home',
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: theme.textTheme.headlineLarge?.copyWith(
+                  color: AppSurfaces.textPrimary(context),
+                  fontSize: 32,
+                  height: 1,
+                  fontWeight: FontWeight.w900,
+                  letterSpacing: -1.1,
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(width: 16),
+          Container(
+            padding: const EdgeInsets.fromLTRB(12, 8, 10, 8),
+            decoration: BoxDecoration(
+              color: AppColors.sage.withValues(alpha: 0.1),
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(color: AppColors.sage.withValues(alpha: 0.16)),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  'Roam.io',
+                  style: theme.textTheme.titleMedium?.copyWith(
+                    color: AppColors.sage,
+                    fontSize: 17,
+                    height: 1,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: -0.35,
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Image.asset(
+                  'assets/logos/roam_io_logo_transparent.png',
+                  height: 17,
+                  width: 17,
+                  color: AppColors.sage,
+                  colorBlendMode: BlendMode.srcIn,
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 class _HomeEmptyState extends StatelessWidget {
   const _HomeEmptyState({required this.message});
 
@@ -287,6 +329,7 @@ class _HomeActivityCard extends StatelessWidget {
       currentUserId: currentUserId,
       showShare: true,
       edgeToEdge: true,
+      largeEngagementActions: true,
       onShareTap: () {
         JourneyShareSheet.shareFromActivity(
           context,
@@ -313,6 +356,7 @@ class _HomeActivityCard extends StatelessWidget {
               activityOwnerId: activity.ownerId,
               commentService: commentService,
               commentLikeService: commentLikeService,
+              title: _isOwner ? 'Discussion' : 'Comments',
             ),
           ),
         );

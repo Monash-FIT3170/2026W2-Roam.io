@@ -262,6 +262,9 @@ class ActivityDetailScreen extends StatelessWidget {
                               activityOwnerId: activity.ownerId,
                               commentService: commentService,
                               commentLikeService: commentLikeService,
+                              title: currentUserId == activity.ownerId
+                                  ? 'Discussion'
+                                  : 'Comments',
                             ),
                           ),
                         );
@@ -290,7 +293,6 @@ class ActivityDetailScreen extends StatelessWidget {
       ),
     );
   }
-
 }
 
 class _DetailAction extends StatelessWidget {

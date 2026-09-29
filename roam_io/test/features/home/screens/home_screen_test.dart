@@ -165,13 +165,13 @@ void main() {
     expect(find.text('Journey route map'), findsNothing);
     expect(find.byType(ActivityMapPreview), findsOneWidget);
     expect(find.text('Glaze'), findsOneWidget);
-    expect(find.text('Comment'), findsOneWidget);
+    expect(find.text('0 comments'), findsOneWidget);
     expect(find.text('Share'), findsNothing);
 
     await harness.dispose();
   });
 
-  testWidgets('Comment opens Comments page and count updates after post', (
+  testWidgets('Comment opens owner Discussion and count updates after post', (
     tester,
   ) async {
     await tester.binding.setSurfaceSize(const Size(400, 1200));
@@ -194,7 +194,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.byType(CommentsScreen), findsOneWidget);
-    expect(find.text('Comments'), findsOneWidget);
+    expect(find.text('Discussion'), findsOneWidget);
     expect(find.text('Write a comment...'), findsOneWidget);
     expect(find.text('No comments yet'), findsOneWidget);
 

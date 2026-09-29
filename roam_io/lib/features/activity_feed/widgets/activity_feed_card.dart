@@ -72,6 +72,7 @@ class ActivityFeedCard extends StatelessWidget {
     this.commentLabel = 'Comment',
     this.shareLabel = 'Share',
     this.edgeToEdge = false,
+    this.largeEngagementActions = false,
   });
 
   /// Builds a card from a shared [ActivityFeedItem] model.
@@ -94,6 +95,7 @@ class ActivityFeedCard extends StatelessWidget {
     ActivityMutationService? mutationService,
     RouteEndpointMarkerIcons? endpointMarkerIcons,
     bool edgeToEdge = false,
+    bool largeEngagementActions = false,
   }) {
     final route = item.showMapPreview
         ? ActivityRoute.tryCreate(
@@ -134,6 +136,7 @@ class ActivityFeedCard extends StatelessWidget {
       onCommentTap: onCommentTap,
       onShareTap: onShareTap,
       edgeToEdge: edgeToEdge,
+      largeEngagementActions: largeEngagementActions,
     );
   }
 
@@ -182,6 +185,9 @@ class ActivityFeedCard extends StatelessWidget {
   /// shadow — the card spans the screen edge-to-edge with a hairline
   /// divider below it instead of a floating card look.
   final bool edgeToEdge;
+
+  /// Slightly larger engagement controls for the edge-to-edge Home feed.
+  final bool largeEngagementActions;
 
   bool get _hasEngagementActions => showKudos || showComments || showShare;
 
@@ -233,13 +239,13 @@ class ActivityFeedCard extends StatelessWidget {
     // Neutral, low-contrast hairline rather than AppSurfaces.border (which is
     // tinted toward the brand primary and reads as a slightly different grey
     // next to the card's plain-grey text).
-    final hairline = AppSurfaces.textPrimary(context).withValues(
-      alpha: AppSurfaces.isDark(context) ? 0.08 : 0.05,
-    );
+    final hairline = AppSurfaces.textPrimary(
+      context,
+    ).withValues(alpha: AppSurfaces.isDark(context) ? 0.08 : 0.05);
     final decoration = edgeToEdge
         ? BoxDecoration(
             color: AppSurfaces.pageBackground(context),
-            border: Border(bottom: BorderSide(color: hairline)),
+            border: Border(bottom: BorderSide(color: hairline, width: 2.5)),
           )
         : BoxDecoration(
             color: AppSurfaces.card(context),
@@ -301,7 +307,7 @@ class ActivityFeedCard extends StatelessWidget {
                             style: theme.textTheme.bodySmall?.copyWith(
                               color: AppSurfaces.textSubtle(context),
                               fontSize: 12,
-                              fontWeight: FontWeight.w500,
+                              fontWeight: FontWeight.w700,
                             ),
                           ),
                         ],
@@ -331,7 +337,7 @@ class ActivityFeedCard extends StatelessWidget {
                     color: AppSurfaces.textPrimary(context),
                     fontSize: title.length > 40 ? 15 : 18,
                     height: 1.2,
-                    fontWeight: FontWeight.w500,
+                    fontWeight: FontWeight.w700,
                     letterSpacing: -0.2,
                   ),
                 ),
@@ -354,7 +360,7 @@ class ActivityFeedCard extends StatelessWidget {
           ],
           if (_hasEngagementActions)
             Padding(
-              padding: const EdgeInsets.fromLTRB(16, 10, 12, 6),
+              padding: const EdgeInsets.fromLTRB(16, 12, 12, 8),
               child: Row(
                 children: [
                   if (showKudos)
@@ -364,6 +370,7 @@ class ActivityFeedCard extends StatelessWidget {
                       fallbackLabel: kudosLabel,
                       activityId: activityId,
                       onTap: onKudosTap ?? () => _toggleKudos(context),
+                      large: largeEngagementActions,
                     ),
                   if (showComments)
                     _CommentActionButton(
@@ -371,12 +378,14 @@ class ActivityFeedCard extends StatelessWidget {
                       fallbackLabel: commentLabel,
                       activityId: activityId,
                       onTap: onCommentTap,
+                      large: largeEngagementActions,
                     ),
                   if (showShare)
                     _ActionButton(
                       icon: Icons.ios_share,
                       label: shareLabel,
                       onTap: onShareTap,
+                      large: largeEngagementActions,
                     ),
                 ],
               ),
@@ -451,6 +460,8 @@ class ActivityFeedCard extends StatelessWidget {
       return;
     }
     if (uid == ownerId) {
+      // Owners inspect the people who reacted; they cannot Glaze themselves.
+      // This follows the same full-page drill-in pattern as Discussions.
       await ActivityGlazersSheet.show(
         context: context,
         activityId: id,
@@ -510,7 +521,7 @@ class ActivityMetricsRow extends StatelessWidget {
                       style: theme.textTheme.labelMedium?.copyWith(
                         color: AppSurfaces.textSubtle(context),
                         fontSize: 11,
-                        fontWeight: FontWeight.w500,
+                        fontWeight: FontWeight.w700,
                         letterSpacing: 0,
                       ),
                     ),
@@ -550,12 +561,14 @@ class _CommentActionButton extends StatelessWidget {
     required this.fallbackLabel,
     required this.onTap,
     this.activityId,
+    this.large = false,
   });
 
   final Stream<int>? countStream;
   final String fallbackLabel;
   final VoidCallback? onTap;
   final String? activityId;
+  final bool large;
 
   @override
   Widget build(BuildContext context) {
@@ -564,6 +577,7 @@ class _CommentActionButton extends StatelessWidget {
         icon: Icons.chat_bubble_outline_rounded,
         label: fallbackLabel,
         onTap: onTap,
+        large: large,
       );
     }
 
@@ -581,6 +595,7 @@ class _CommentActionButton extends StatelessWidget {
               label: 'Comments',
               onTap: onTap,
               expand: false,
+              large: large,
             );
           }
           if (!snapshot.hasData) {
@@ -589,6 +604,7 @@ class _CommentActionButton extends StatelessWidget {
               label: 'Comments',
               onTap: onTap,
               expand: false,
+              large: large,
             );
           }
           final count = snapshot.data!;
@@ -597,6 +613,7 @@ class _CommentActionButton extends StatelessWidget {
             label: count == 0 ? fallbackLabel : formatCommentCount(count),
             onTap: onTap,
             expand: false,
+            large: large,
           );
         },
       ),
@@ -611,6 +628,7 @@ class _KudosActionButton extends StatelessWidget {
     required this.fallbackLabel,
     required this.onTap,
     this.activityId,
+    this.large = false,
   });
 
   final Stream<int>? countStream;
@@ -618,6 +636,7 @@ class _KudosActionButton extends StatelessWidget {
   final String fallbackLabel;
   final VoidCallback? onTap;
   final String? activityId;
+  final bool large;
 
   @override
   Widget build(BuildContext context) {
@@ -626,6 +645,7 @@ class _KudosActionButton extends StatelessWidget {
         icon: Icons.thumb_up_alt_outlined,
         label: fallbackLabel,
         onTap: onTap,
+        large: large,
       );
     }
 
@@ -643,6 +663,7 @@ class _KudosActionButton extends StatelessWidget {
               label: fallbackLabel,
               onTap: onTap,
               expand: false,
+              large: large,
             );
           }
           final count = countSnapshot.hasData ? countSnapshot.data! : null;
@@ -652,6 +673,7 @@ class _KudosActionButton extends StatelessWidget {
               label: count == null ? fallbackLabel : _formatKudosCount(count),
               onTap: onTap,
               expand: false,
+              large: large,
             );
           }
           return StreamBuilder<bool>(
@@ -673,6 +695,7 @@ class _KudosActionButton extends StatelessWidget {
                 expand: false,
                 active: hasKudos,
                 bounceOnActive: true,
+                large: large,
               );
             },
           );
@@ -692,6 +715,7 @@ class _ActionButton extends StatelessWidget {
     this.expand = true,
     this.active = false,
     this.bounceOnActive = false,
+    this.large = false,
   });
 
   final IconData icon;
@@ -699,6 +723,7 @@ class _ActionButton extends StatelessWidget {
   final VoidCallback? onTap;
   final bool expand;
   final bool active;
+  final bool large;
 
   /// Plays a bounce animation when [active] flips from false to true.
   final bool bounceOnActive;
@@ -714,7 +739,7 @@ class _ActionButton extends StatelessWidget {
       onTap: onTap,
       borderRadius: BorderRadius.circular(10),
       child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 9, horizontal: 2),
+        padding: EdgeInsets.symmetric(vertical: large ? 11 : 9, horizontal: 2),
         child: FittedBox(
           fit: BoxFit.scaleDown,
           child: Row(
@@ -722,9 +747,14 @@ class _ActionButton extends StatelessWidget {
             mainAxisSize: MainAxisSize.min,
             children: [
               bounceOnActive
-                  ? _BounceIcon(icon: icon, color: iconColor, active: active)
-                  : Icon(icon, size: 16, color: iconColor),
-              const SizedBox(width: 5),
+                  ? _BounceIcon(
+                      icon: icon,
+                      color: iconColor,
+                      active: active,
+                      size: large ? 23 : 16,
+                    )
+                  : Icon(icon, size: large ? 23 : 21, color: iconColor),
+              SizedBox(width: large ? 7 : 5),
               Text(
                 label,
                 maxLines: 1,
@@ -733,6 +763,7 @@ class _ActionButton extends StatelessWidget {
                   color: active
                       ? theme.colorScheme.primary
                       : AppSurfaces.textMuted(context),
+                  fontSize: large ? 14 : null,
                   fontWeight: FontWeight.w600,
                 ),
               ),
@@ -752,11 +783,17 @@ class _ActionButton extends StatelessWidget {
 /// Icon that plays a quick scale bounce when [active] flips from false to
 /// true, so giving Glaze feels responsive rather than just swapping icons.
 class _BounceIcon extends StatefulWidget {
-  const _BounceIcon({required this.icon, required this.color, required this.active});
+  const _BounceIcon({
+    required this.icon,
+    required this.color,
+    required this.active,
+    required this.size,
+  });
 
   final IconData icon;
   final Color color;
   final bool active;
+  final double size;
 
   @override
   State<_BounceIcon> createState() => _BounceIconState();
@@ -803,7 +840,7 @@ class _BounceIconState extends State<_BounceIcon>
   Widget build(BuildContext context) {
     return ScaleTransition(
       scale: _scale,
-      child: Icon(widget.icon, size: 16, color: widget.color),
+      child: Icon(widget.icon, size: widget.size, color: widget.color),
     );
   }
 }
