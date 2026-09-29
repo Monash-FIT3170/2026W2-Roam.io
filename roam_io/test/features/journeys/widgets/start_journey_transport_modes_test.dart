@@ -29,4 +29,39 @@ void main() {
     expect(find.text('Train'), findsNothing);
     expect(find.text('Tram'), findsNothing);
   });
+
+  for (final mode in [TransportMode.drive, TransportMode.walk]) {
+    testWidgets('returns the typed ${mode.name} transport mode', (
+      tester,
+    ) async {
+      StartJourneyResult? result;
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: Builder(
+              builder: (context) => FilledButton(
+                onPressed: () async {
+                  result = await StartJourneySheet.show(
+                    context: context,
+                    currentPosition: const LatLng(-37.81, 144.96),
+                  );
+                },
+                child: const Text('Open journey setup'),
+              ),
+            ),
+          ),
+        ),
+      );
+
+      await tester.tap(find.text('Open journey setup'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text(mode.displayName));
+      await tester.pump();
+      await tester.tap(find.widgetWithText(FilledButton, 'Start Journey'));
+      await tester.pumpAndSettle();
+
+      expect(result?.transportMode, mode);
+    });
+  }
 }
