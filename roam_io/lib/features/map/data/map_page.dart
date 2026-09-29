@@ -42,6 +42,7 @@ import '../fog/fog_overlay.dart';
 import '../fog/fog_decay_difficulty.dart';
 import '../widgets/map_render.dart';
 import '../widgets/mode_toggle_chip.dart';
+import '../widgets/roammate_overlay.dart';
 import 'map_controller.dart';
 import 'place_details_sheet.dart';
 import 'place_of_interest.dart';
@@ -920,6 +921,12 @@ class _MapPageState extends State<MapPage> with WidgetsBindingObserver {
               child: const Icon(Icons.my_location),
             ),
           ),
+
+        Positioned(
+          right: 16,
+          bottom: isLiveJourneyActive ? 420 : 180,
+          child: RoammateOverlay(mapController: _mapController),
+        ),
 
         Positioned(
           left: 16,
