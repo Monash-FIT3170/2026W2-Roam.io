@@ -370,7 +370,6 @@ class MapController extends ChangeNotifier {
     await loadViewportRegions();
   }
 
-  /// Re-centres the map and resumes following future location updates.
   Future<void> recenterOnUser() async {
     _isFollowingUser = true;
     _followCameraPacer.reset();
@@ -379,6 +378,13 @@ class MapController extends ChangeNotifier {
     _rememberPosition(position);
     // Deliberately not a follow move: this answers a tap and stays snappy.
     await _moveCameraTo(position);
+  }
+
+  /// Animates the camera to a specific location on the map.
+  Future<void> animateToLocation(LatLng location) async {
+    _isFollowingUser = false;
+    _followCameraPacer.reset();
+    await _moveCameraToLatLng(location);
   }
 
   /// Keeps the map in sync with a location produced by journey tracking.

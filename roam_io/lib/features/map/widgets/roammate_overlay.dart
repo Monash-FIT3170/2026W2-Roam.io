@@ -1,8 +1,10 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:google_maps_flutter/google_maps_flutter.dart';
 import '../data/map_controller.dart';
 import '../data/places_service.dart';
 import '../data/place_of_interest.dart';
+import '../../../theme/app_colours.dart';
 
 class RoammateOverlay extends StatefulWidget {
   final MapController mapController;
@@ -26,8 +28,13 @@ class _RoammateOverlayState extends State<RoammateOverlay>
 
   List<PlaceOfInterest> _allPlaces = [];
   String _mockedSafetyIssue = '';
+  LatLng? _mockedHazardLocation;
 
   final PlacesService _placesService = PlacesService();
+
+  // ValueNotifiers for dynamic scroll shadows
+  final ValueNotifier<bool> _canScrollUp = ValueNotifier(false);
+  final ValueNotifier<bool> _canScrollDown = ValueNotifier(true);
 
   @override
   void initState() {
@@ -50,6 +57,8 @@ class _RoammateOverlayState extends State<RoammateOverlay>
   void dispose() {
     widget.mapController.removeListener(_onMapControllerChanged);
     _breathingController.dispose();
+    _canScrollUp.dispose();
+    _canScrollDown.dispose();
     super.dispose();
   }
 
@@ -72,6 +81,10 @@ class _RoammateOverlayState extends State<RoammateOverlay>
     ];
     _mockedSafetyIssue = safetyIssues[regionId.hashCode.abs() % safetyIssues.length];
 
+    // Mock a hazard location near the center of the current tile
+    final center = widget.mapController.center;
+    _mockedHazardLocation = LatLng(center.latitude + 0.001, center.longitude + 0.001);
+
     try {
       final places = await _placesService.getPlacesForRegion(regionId: regionId);
       if (mounted) {
@@ -91,6 +104,16 @@ class _RoammateOverlayState extends State<RoammateOverlay>
     });
   }
 
+  void _onHazardTapped() {
+    if (_mockedHazardLocation != null) {
+      widget.mapController.animateToLocation(_mockedHazardLocation!);
+      // Optionally hide details to let them see the map
+      setState(() {
+        _showDetails = false;
+      });
+    }
+  }
+
   List<PlaceOfInterest> get _sortedPlaces {
     final places = List<PlaceOfInterest>.from(_allPlaces);
     places.sort((a, b) {
@@ -102,9 +125,49 @@ class _RoammateOverlayState extends State<RoammateOverlay>
     return places;
   }
 
+  Widget _buildLocationCard(PlaceOfInterest p, bool isVisited, ThemeData theme) {
+    final isDark = theme.brightness == Brightness.dark;
+    
+    // Colors matching AppColors
+    final unvisitedBg = isDark ? Colors.white10 : Colors.white;
+    final unvisitedText = isDark ? AppColors.cream : AppColors.ink;
+    final unvisitedBorder = isDark ? Colors.white24 : AppColors.sand;
+
+    final visitedBg = isDark ? AppColors.lightSage : AppColors.sage;
+    final visitedText = isDark ? AppColors.ink : AppColors.cream;
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 8),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+      decoration: BoxDecoration(
+        color: isVisited ? visitedBg : unvisitedBg,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: isVisited ? Colors.transparent : unvisitedBorder,
+          width: 1,
+        ),
+      ),
+      child: Text(
+        p.name,
+        style: theme.textTheme.bodyMedium?.copyWith(
+          color: isVisited ? visitedText : unvisitedText,
+          fontWeight: isVisited ? FontWeight.bold : FontWeight.w500,
+          decoration: isVisited ? TextDecoration.lineThrough : null,
+          decorationColor: isVisited ? visitedText : null,
+          decorationThickness: isVisited ? 2.0 : null,
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+    
+    // Clean, flat box appearance using AppColors
+    final boxBackgroundColor = isDark ? AppColors.ink : AppColors.cream;
+    final titleColor = isDark ? AppColors.cream : AppColors.ink;
 
     return Column(
       mainAxisSize: MainAxisSize.min,
@@ -113,7 +176,7 @@ class _RoammateOverlayState extends State<RoammateOverlay>
         // The detail box morphing up
         if (_showDetails)
           Padding(
-            padding: const EdgeInsets.only(bottom: 8),
+            padding: const EdgeInsets.only(bottom: 12),
             child: TweenAnimationBuilder<double>(
               tween: Tween(begin: 0.0, end: 1.0),
               duration: const Duration(milliseconds: 300),
@@ -125,103 +188,180 @@ class _RoammateOverlayState extends State<RoammateOverlay>
                   child: child,
                 );
               },
-              child: Material(
-                elevation: 8,
-                borderRadius: const BorderRadius.only(
-                  topLeft: Radius.circular(16),
-                  topRight: Radius.circular(16),
-                  bottomLeft: Radius.circular(16),
-                  bottomRight: Radius.circular(4),
+              child: Container(
+                width: 280,
+                constraints: const BoxConstraints(maxHeight: 440),
+                decoration: BoxDecoration(
+                  color: boxBackgroundColor,
+                  borderRadius: BorderRadius.circular(24), // Heavily rounded corners
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.15),
+                      blurRadius: 20,
+                      offset: const Offset(0, 8),
+                    ),
+                  ],
                 ),
-                color: theme.colorScheme.surface,
-                child: Container(
-                  width: 280,
-                  constraints: const BoxConstraints(maxHeight: 400),
-                  padding: const EdgeInsets.all(16),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      // Red Box for safety features
-                      Container(
-                        padding: const EdgeInsets.all(12),
-                        decoration: BoxDecoration(
-                          color: Colors.red.shade50,
-                          borderRadius: BorderRadius.circular(8),
-                          border: Border.all(color: Colors.red.shade200),
-                        ),
-                        child: Row(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Icon(Icons.security, color: Colors.red.shade700, size: 20),
-                            const SizedBox(width: 8),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    'Safety Alert',
-                                    style: theme.textTheme.labelMedium?.copyWith(
-                                      color: Colors.red.shade900,
-                                      fontWeight: FontWeight.bold,
-                                    ),
-                                  ),
-                                  const SizedBox(height: 2),
-                                  Text(
-                                    _mockedSafetyIssue.isNotEmpty ? _mockedSafetyIssue : 'No active safety alerts.',
-                                    style: theme.textTheme.bodySmall?.copyWith(
-                                      color: Colors.red.shade900,
-                                    ),
-                                  ),
-                                ],
-                              ),
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    // Tappable Inline Hazard Banner
+                    if (_mockedSafetyIssue.isNotEmpty)
+                      Material(
+                        color: Colors.transparent,
+                        child: InkWell(
+                          onTap: _onHazardTapped,
+                          borderRadius: BorderRadius.circular(12),
+                          child: Container(
+                            padding: const EdgeInsets.all(12),
+                            decoration: BoxDecoration(
+                              color: Colors.red.shade50,
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(color: Colors.red.shade200),
                             ),
-                          ],
-                        ),
-                      ),
-                      const SizedBox(height: 16),
-                      Text(
-                        'Locations in this tile',
-                        style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
-                      ),
-                      const SizedBox(height: 8),
-                      if (_allPlaces.isEmpty)
-                        Text(
-                          'No locations available.',
-                          style: theme.textTheme.bodySmall,
-                        )
-                      else
-                        Flexible(
-                          child: Scrollbar(
-                            thumbVisibility: true,
-                            child: ListView(
-                              padding: EdgeInsets.zero,
-                              shrinkWrap: true,
-                              physics: const AlwaysScrollableScrollPhysics(),
-                              children: _sortedPlaces.map((p) {
-                                final isVisited = widget.mapController.isPlaceVisited(p.id);
-                                return ListTile(
-                                  contentPadding: EdgeInsets.zero,
-                                  dense: true,
-                                  leading: Icon(
-                                    isVisited ? Icons.check_circle : Icons.radio_button_unchecked,
-                                    color: isVisited ? Colors.green : Colors.grey,
-                                    size: 20,
+                            child: Row(
+                              crossAxisAlignment: CrossAxisAlignment.center,
+                              children: [
+                                Icon(Icons.warning_amber_rounded, color: Colors.red.shade700, size: 24),
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        'Hazard Nearby',
+                                        style: theme.textTheme.labelMedium?.copyWith(
+                                          color: Colors.red.shade900,
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                      ),
+                                      const SizedBox(height: 2),
+                                      Text(
+                                        _mockedSafetyIssue,
+                                        style: theme.textTheme.bodySmall?.copyWith(
+                                          color: Colors.red.shade800,
+                                        ),
+                                      ),
+                                    ],
                                   ),
-                                  title: Text(
-                                    p.name,
-                                    style: theme.textTheme.bodyMedium?.copyWith(
-                                      decoration: isVisited ? TextDecoration.lineThrough : null,
-                                      color: isVisited ? Colors.grey : null,
-                                    ),
-                                  ),
-                                );
-                              }).toList(),
+                                ),
+                                Icon(Icons.chevron_right, color: Colors.red.shade700, size: 20),
+                              ],
                             ),
                           ),
                         ),
-                    ],
-                  ),
+                      ),
+                    
+                    const SizedBox(height: 20),
+                    
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 12),
+                      child: Text(
+                        'Locations in this tile',
+                        style: theme.textTheme.titleMedium?.copyWith(
+                          fontWeight: FontWeight.w800,
+                          color: titleColor,
+                          letterSpacing: -0.5,
+                        ),
+                      ),
+                    ),
+                    
+                    if (_allPlaces.isEmpty)
+                      Text(
+                        'No locations available.',
+                        style: theme.textTheme.bodyMedium?.copyWith(color: titleColor.withOpacity(0.6)),
+                      )
+                    else
+                      Flexible(
+                        child: NotificationListener<ScrollNotification>(
+                          onNotification: (notification) {
+                            if (notification.metrics.axis == Axis.vertical) {
+                              _canScrollUp.value = notification.metrics.extentBefore > 0;
+                              _canScrollDown.value = notification.metrics.extentAfter > 0;
+                            }
+                            return false; // Let the scrollbar handle it too
+                          },
+                          child: Stack(
+                            children: [
+                              Scrollbar(
+                                thumbVisibility: true,
+                                child: ListView(
+                                  padding: const EdgeInsets.only(right: 8), // Padding for scrollbar
+                                  shrinkWrap: true,
+                                  physics: const AlwaysScrollableScrollPhysics(),
+                                  children: _sortedPlaces.map((p) {
+                                    final isVisited = widget.mapController.isPlaceVisited(p.id);
+                                    return _buildLocationCard(p, isVisited, theme);
+                                  }).toList(),
+                                ),
+                              ),
+                              // Top Scroll Shadow
+                              Positioned(
+                                top: 0,
+                                left: 0,
+                                right: 0,
+                                child: ValueListenableBuilder<bool>(
+                                  valueListenable: _canScrollUp,
+                                  builder: (context, canScrollUp, child) {
+                                    return IgnorePointer(
+                                      child: AnimatedOpacity(
+                                        opacity: canScrollUp ? 1.0 : 0.0,
+                                        duration: const Duration(milliseconds: 150),
+                                        child: Container(
+                                          height: 12,
+                                          decoration: BoxDecoration(
+                                            gradient: LinearGradient(
+                                              begin: Alignment.topCenter,
+                                              end: Alignment.bottomCenter,
+                                              colors: [
+                                                isDark ? Colors.black.withOpacity(0.4) : Colors.black.withOpacity(0.1),
+                                                Colors.transparent,
+                                              ],
+                                            ),
+                                          ),
+                                        ),
+                                      ),
+                                    );
+                                  },
+                                ),
+                              ),
+                              // Bottom Scroll Shadow
+                              Positioned(
+                                bottom: 0,
+                                left: 0,
+                                right: 0,
+                                child: ValueListenableBuilder<bool>(
+                                  valueListenable: _canScrollDown,
+                                  builder: (context, canScrollDown, child) {
+                                    return IgnorePointer(
+                                      child: AnimatedOpacity(
+                                        opacity: canScrollDown ? 1.0 : 0.0,
+                                        duration: const Duration(milliseconds: 150),
+                                        child: Container(
+                                          height: 12,
+                                          decoration: BoxDecoration(
+                                            gradient: LinearGradient(
+                                              begin: Alignment.bottomCenter,
+                                              end: Alignment.topCenter,
+                                              colors: [
+                                                isDark ? Colors.black.withOpacity(0.4) : Colors.black.withOpacity(0.1),
+                                                Colors.transparent,
+                                              ],
+                                            ),
+                                          ),
+                                        ),
+                                      ),
+                                    );
+                                  },
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                  ],
                 ),
               ),
             ),
