@@ -22,10 +22,9 @@ class _RoammateOverlayState extends State<RoammateOverlay>
   late Animation<double> _scaleAnimation;
 
   String? _lastRegionId;
-  bool _showBubble = false;
-  Timer? _bubbleTimer;
+  bool _showDetails = false;
 
-  List<PlaceOfInterest> _placesToVisit = [];
+  List<PlaceOfInterest> _allPlaces = [];
   String _mockedSafetyIssue = '';
 
   final PlacesService _placesService = PlacesService();
@@ -51,7 +50,6 @@ class _RoammateOverlayState extends State<RoammateOverlay>
   void dispose() {
     widget.mapController.removeListener(_onMapControllerChanged);
     _breathingController.dispose();
-    _bubbleTimer?.cancel();
     super.dispose();
   }
 
@@ -59,11 +57,11 @@ class _RoammateOverlayState extends State<RoammateOverlay>
     final currentRegion = widget.mapController.currentRegion;
     if (currentRegion != null && currentRegion.id != _lastRegionId) {
       _lastRegionId = currentRegion.id;
-      _triggerNotification(currentRegion.id, currentRegion.name);
+      _fetchRegionData(currentRegion.id, currentRegion.name);
     }
   }
 
-  Future<void> _triggerNotification(String regionId, String regionName) async {
+  Future<void> _fetchRegionData(String regionId, String regionName) async {
     // Generate mocked safety issue based on region name length to make it deterministic but varied
     final safetyIssues = [
       'Slippery paths due to recent rain.',
@@ -78,21 +76,8 @@ class _RoammateOverlayState extends State<RoammateOverlay>
       final places = await _placesService.getPlacesForRegion(regionId: regionId);
       if (mounted) {
         setState(() {
-          // Take up to 3 unvisited places
-          _placesToVisit = places
-              .where((p) => !widget.mapController.isPlaceVisited(p.id))
-              .take(3)
-              .toList();
-          _showBubble = true;
-        });
-
-        _bubbleTimer?.cancel();
-        _bubbleTimer = Timer(const Duration(seconds: 5), () {
-          if (mounted) {
-            setState(() {
-              _showBubble = false;
-            });
-          }
+          // Filter out public transport (like bus stops) from the locations list
+          _allPlaces = places.where((p) => p.category != PlaceCategory.publicTransport).toList();
         });
       }
     } catch (e) {
@@ -100,49 +85,35 @@ class _RoammateOverlayState extends State<RoammateOverlay>
     }
   }
 
+  void _toggleDetails() {
+    setState(() {
+      _showDetails = !_showDetails;
+    });
+  }
+
+  List<PlaceOfInterest> get _sortedPlaces {
+    final places = List<PlaceOfInterest>.from(_allPlaces);
+    places.sort((a, b) {
+      final aVisited = widget.mapController.isPlaceVisited(a.id);
+      final bVisited = widget.mapController.isPlaceVisited(b.id);
+      if (aVisited == bVisited) return a.name.compareTo(b.name);
+      return aVisited ? 1 : -1;
+    });
+    return places;
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
 
-    return Stack(
-      clipBehavior: Clip.none,
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.end,
       children: [
-        // The breathing avatar
-        ScaleTransition(
-          scale: _scaleAnimation,
-          child: Container(
-            width: 56,
-            height: 56,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              color: theme.colorScheme.primary,
-              boxShadow: [
-                BoxShadow(
-                  color: theme.colorScheme.primary.withOpacity(0.4),
-                  blurRadius: 12,
-                  spreadRadius: 4,
-                ),
-              ],
-              border: Border.all(
-                color: Colors.white,
-                width: 2,
-              ),
-            ),
-            child: const Center(
-              child: Icon(
-                Icons.smart_toy_rounded,
-                color: Colors.white,
-                size: 32,
-              ),
-            ),
-          ),
-        ),
-
-        // The chat bubble notification
-        if (_showBubble)
-          Positioned(
-            bottom: 64, // Above the avatar
-            right: 0,
+        // The detail box morphing up
+        if (_showDetails)
+          Padding(
+            padding: const EdgeInsets.only(bottom: 8),
             child: TweenAnimationBuilder<double>(
               tween: Tween(begin: 0.0, end: 1.0),
               duration: const Duration(milliseconds: 300),
@@ -164,72 +135,131 @@ class _RoammateOverlayState extends State<RoammateOverlay>
                 ),
                 color: theme.colorScheme.surface,
                 child: Container(
-                  width: 240,
-                  padding: const EdgeInsets.all(12),
+                  width: 280,
+                  constraints: const BoxConstraints(maxHeight: 400),
+                  padding: const EdgeInsets.all(16),
                   child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      Row(
-                        children: [
-                          Icon(Icons.info_outline, size: 16, color: theme.colorScheme.primary),
-                          const SizedBox(width: 6),
-                          Expanded(
-                            child: Text(
-                              'Tile Entered',
-                              style: theme.textTheme.labelMedium?.copyWith(
-                                fontWeight: FontWeight.bold,
-                                color: theme.colorScheme.primary,
+                      // Red Box for safety features
+                      Container(
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: Colors.red.shade50,
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(color: Colors.red.shade200),
+                        ),
+                        child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Icon(Icons.security, color: Colors.red.shade700, size: 20),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    'Safety Alert',
+                                    style: theme.textTheme.labelMedium?.copyWith(
+                                      color: Colors.red.shade900,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 2),
+                                  Text(
+                                    _mockedSafetyIssue.isNotEmpty ? _mockedSafetyIssue : 'No active safety alerts.',
+                                    style: theme.textTheme.bodySmall?.copyWith(
+                                      color: Colors.red.shade900,
+                                    ),
+                                  ),
+                                ],
                               ),
                             ),
-                          ),
-                        ],
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                      Text(
+                        'Locations in this tile',
+                        style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
                       ),
                       const SizedBox(height: 8),
-                      if (_placesToVisit.isNotEmpty) ...[
+                      if (_allPlaces.isEmpty)
                         Text(
-                          'Places to visit:',
-                          style: theme.textTheme.bodySmall?.copyWith(fontWeight: FontWeight.bold),
-                        ),
-                        const SizedBox(height: 4),
-                        ..._placesToVisit.map((p) => Padding(
-                              padding: const EdgeInsets.only(bottom: 2),
-                              child: Text(
-                                '• ${p.name}',
-                                style: theme.textTheme.bodySmall,
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                            )),
-                        const SizedBox(height: 8),
-                      ] else ...[
-                        Text(
-                          'No new places nearby.',
+                          'No locations available.',
                           style: theme.textTheme.bodySmall,
-                        ),
-                        const SizedBox(height: 8),
-                      ],
-                      Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const Icon(Icons.warning_amber_rounded, size: 16, color: Colors.orange),
-                          const SizedBox(width: 6),
-                          Expanded(
-                            child: Text(
-                              _mockedSafetyIssue,
-                              style: theme.textTheme.bodySmall?.copyWith(
-                                color: Colors.orange[800],
-                              ),
+                        )
+                      else
+                        Flexible(
+                          child: Scrollbar(
+                            thumbVisibility: true,
+                            child: ListView(
+                              padding: EdgeInsets.zero,
+                              shrinkWrap: true,
+                              physics: const AlwaysScrollableScrollPhysics(),
+                              children: _sortedPlaces.map((p) {
+                                final isVisited = widget.mapController.isPlaceVisited(p.id);
+                                return ListTile(
+                                  contentPadding: EdgeInsets.zero,
+                                  dense: true,
+                                  leading: Icon(
+                                    isVisited ? Icons.check_circle : Icons.radio_button_unchecked,
+                                    color: isVisited ? Colors.green : Colors.grey,
+                                    size: 20,
+                                  ),
+                                  title: Text(
+                                    p.name,
+                                    style: theme.textTheme.bodyMedium?.copyWith(
+                                      decoration: isVisited ? TextDecoration.lineThrough : null,
+                                      color: isVisited ? Colors.grey : null,
+                                    ),
+                                  ),
+                                );
+                              }).toList(),
                             ),
                           ),
-                        ],
-                      ),
+                        ),
                     ],
                   ),
                 ),
               ),
             ),
           ),
+          
+        // The breathing avatar
+        GestureDetector(
+          onTap: _toggleDetails,
+          child: ScaleTransition(
+            scale: _scaleAnimation,
+            child: Container(
+              width: 56,
+              height: 56,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: theme.colorScheme.primary,
+                boxShadow: [
+                  BoxShadow(
+                    color: theme.colorScheme.primary.withOpacity(0.4),
+                    blurRadius: 12,
+                    spreadRadius: 4,
+                  ),
+                ],
+                border: Border.all(
+                  color: Colors.white,
+                  width: 2,
+                ),
+              ),
+              child: const Center(
+                child: Icon(
+                  Icons.smart_toy_rounded,
+                  color: Colors.white,
+                  size: 32,
+                ),
+              ),
+            ),
+          ),
+        ),
       ],
     );
   }
