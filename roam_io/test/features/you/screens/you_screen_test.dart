@@ -98,7 +98,7 @@ Future<void> _scrollStatsTo(WidgetTester tester, Finder finder) async {
 }
 
 void main() {
-  testWidgets('shows current profile XP instead of placeholder XP', (
+  testWidgets('moves current profile XP progression into Statistics', (
     tester,
   ) async {
     final provider = AuthProvider(
@@ -129,22 +129,25 @@ void main() {
     expect(find.text('Statistics'), findsOneWidget);
     expect(find.text('Milestones'), findsOneWidget);
     expect(find.text('XP Count'), findsNothing);
-    expect(
-      find.text('Level ${ProfileModel.levelFromXp(12345)}'),
-      findsOneWidget,
-    );
+    expect(find.text('Level ${ProfileModel.levelFromXp(12345)}'), findsNothing);
     expect(find.text('Locations Visited'), findsNothing);
     expect(find.text('Tiles Explored'), findsNothing);
-    expect(find.text('Most Visited Location'), findsNothing);
-    expect(find.text('Recent Visited Locations'), findsNothing);
+    expect(find.text('Most visited'), findsNothing);
+    expect(find.text('Recent visits'), findsNothing);
     expect(find.text('Visit volume by week'), findsNothing);
     expect(find.text('Total Visits'), findsNothing);
     expect(find.text('2,450'), findsNothing);
 
+    await _openStatsTab(tester);
+    expect(
+      find.textContaining('Level ${ProfileModel.levelFromXp(12345)}'),
+      findsOneWidget,
+    );
+
     provider.dispose();
   });
 
-  testWidgets('shows total visited tile count from all visited regions', (
+  testWidgets('moves exploration totals from Profile into Statistics', (
     tester,
   ) async {
     final provider = AuthProvider(
@@ -176,13 +179,16 @@ void main() {
 
     expect(find.text('Traveller'), findsWidgets);
     expect(find.text('@traveller'), findsOneWidget);
-    expect(find.text('Tiles'), findsOneWidget);
     expect(find.text('Following'), findsOneWidget);
     expect(find.text('Followers'), findsOneWidget);
-    expect(find.text('Journeys'), findsOneWidget);
-    expect(find.text('Sidequests'), findsOneWidget);
-    expect(find.text('6'), findsWidgets);
+    expect(find.text('Tiles'), findsNothing);
+    expect(find.text('Journeys'), findsNothing);
+    expect(find.text('Sidequests'), findsNothing);
     expect(find.text('48'), findsNothing);
+
+    await _openStatsCategory(tester, 'Tiles');
+    expect(find.text('Tiles unlocked'), findsOneWidget);
+    expect(find.text('6'), findsOneWidget);
 
     provider.dispose();
   });
@@ -216,11 +222,14 @@ void main() {
     expect(find.text('Total Visits'), findsNothing);
     expect(find.text('XP Count'), findsNothing);
     expect(find.text('Visits'), findsNothing);
-    expect(find.text('Most Visited Location'), findsNothing);
-    expect(find.text('Recent Visited Locations'), findsNothing);
+    expect(find.text('Most visited'), findsNothing);
+    expect(find.text('Recent visits'), findsNothing);
     expect(find.text('This Week'), findsNothing);
-    expect(find.text('3'), findsWidgets);
+    expect(find.text('3'), findsNothing);
     expect(find.text('156'), findsNothing);
+
+    await _openStatsCategory(tester, 'Tiles');
+    expect(find.text('3'), findsOneWidget);
 
     provider.dispose();
   });
@@ -303,9 +312,9 @@ void main() {
     expect(find.text('Top category'), findsOneWidget);
     expect(find.text('Visit streak'), findsOneWidget);
     expect(find.text('Visits by week'), findsOneWidget);
-    expect(find.text('Most Visited Location'), findsOneWidget);
-    await _scrollStatsTo(tester, find.text('Recent Visited Locations'));
-    expect(find.text('Recent Visited Locations'), findsOneWidget);
+    expect(find.text('Most visited'), findsOneWidget);
+    await _scrollStatsTo(tester, find.text('Recent visits'));
+    expect(find.text('Recent visits'), findsOneWidget);
     expect(find.byType(CustomPaint), findsWidgets);
 
     provider.dispose();
@@ -345,9 +354,26 @@ void main() {
 
     await _openStatsTab(tester);
     expect(find.text('Visits by week'), findsOneWidget);
-    expect(find.text('Most Visited Location'), findsOneWidget);
-    await _scrollStatsTo(tester, find.text('Recent Visited Locations'));
-    expect(find.text('Recent Visited Locations'), findsOneWidget);
+    expect(find.text('Most visited'), findsOneWidget);
+    for (final label in ['4W', '3M', '6M', '1Y', 'All']) {
+      expect(find.text(label), findsOneWidget);
+    }
+    expect(
+      find.byKey(const ValueKey<String>('stats-graph-point-12')),
+      findsOneWidget,
+    );
+    await tester.tap(find.byKey(const ValueKey<String>('stats-range-4W')));
+    await tester.pumpAndSettle();
+    expect(
+      find.byKey(const ValueKey<String>('stats-graph-point-3')),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(const ValueKey<String>('stats-graph-point-4')),
+      findsNothing,
+    );
+    await _scrollStatsTo(tester, find.text('Recent visits'));
+    expect(find.text('Recent visits'), findsOneWidget);
 
     await _openStatsCategory(tester, 'Tiles');
     expect(find.text('Tiles unlocked by week'), findsOneWidget);
@@ -448,10 +474,11 @@ void main() {
       });
       await tester.pumpAndSettle();
 
-      expect(find.text('2'), findsWidgets);
+      expect(find.text('2'), findsNothing);
 
       await _openStatsTab(tester);
       expect(find.text('Visits by week'), findsOneWidget);
+      expect(find.text('2'), findsWidgets);
 
       await visitService.dispose();
       await visitedRegionService.dispose();
@@ -505,7 +532,7 @@ void main() {
     expect(find.text('View Media'), findsNothing);
     expect(find.text("Sanjevan's Test Activity"), findsOneWidget);
     expect(find.text('Other user activity'), findsNothing);
-    expect(find.text('10/8/2026 at 0:00'), findsOneWidget);
+    expect(find.text('10 Aug 2026 · 12:00 AM'), findsOneWidget);
     expect(find.text('12m 34s'), findsOneWidget);
     expect(find.text('Locations Visited'), findsOneWidget);
     expect(find.text('3'), findsOneWidget);
@@ -524,7 +551,7 @@ void main() {
     expect(find.text('Journey route map'), findsNothing);
     expect(find.byType(ActivityMapPreview), findsOneWidget);
     expect(find.text('Glaze'), findsOneWidget);
-    expect(find.text('Comment'), findsOneWidget);
+    expect(find.text('0 comments'), findsOneWidget);
     expect(find.text('Share'), findsOneWidget);
     await tester.pageBack();
     await tester.pumpAndSettle();
@@ -593,7 +620,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Media'), findsOneWidget);
-    expect(find.text('View all media'), findsOneWidget);
+    expect(find.text('View all'), findsOneWidget);
     expect(find.text('View Media'), findsNothing);
     expect(find.text('Media Journey'), findsOneWidget);
 
@@ -916,7 +943,7 @@ void main() {
     await provider.refreshCurrentUser();
 
     final xpController = StreamController<List<XpEvent>>.broadcast();
-    final weekStart = _mondayOnOrBefore(DateTime(2026, 8, 5));
+    final weekStart = _mondayOnOrBefore(DateTime.now());
 
     await tester.pumpWidget(
       ChangeNotifierProvider<AuthProvider>.value(
@@ -975,7 +1002,7 @@ void main() {
     );
     await provider.refreshCurrentUser();
 
-    final weekStart = _mondayOnOrBefore(DateTime(2026, 8, 5));
+    final weekStart = _mondayOnOrBefore(DateTime.now());
     final visits = <Visit>[
       Visit(
         placeId: 1,
@@ -1024,9 +1051,13 @@ void main() {
 
     await _openStatsTab(tester);
 
-    final lastPoint = find.byKey(const ValueKey<String>('stats-graph-point-5'));
+    final lastPoint = find.byKey(
+      const ValueKey<String>('stats-graph-point-12'),
+    );
     expect(lastPoint, findsOneWidget);
 
+    await tester.drag(find.byType(CustomScrollView), const Offset(0, -120));
+    await tester.pumpAndSettle();
     await tester.tap(lastPoint);
     await tester.pumpAndSettle();
 
@@ -1043,7 +1074,7 @@ void main() {
     );
     await provider.refreshCurrentUser();
 
-    final weekStart = _mondayOnOrBefore(DateTime(2026, 8, 5));
+    final weekStart = _mondayOnOrBefore(DateTime.now());
     final visits = <Visit>[
       Visit(
         placeId: 1,
@@ -1078,7 +1109,12 @@ void main() {
 
     await _openStatsTab(tester);
 
-    await tester.tap(find.byKey(const ValueKey<String>('stats-graph-point-5')));
+    final lastPoint = find.byKey(
+      const ValueKey<String>('stats-graph-point-12'),
+    );
+    await tester.drag(find.byType(CustomScrollView), const Offset(0, -120));
+    await tester.pumpAndSettle();
+    await tester.tap(lastPoint);
     await tester.pumpAndSettle();
     expect(find.textContaining('1 Locations Visited'), findsOneWidget);
 
@@ -1154,8 +1190,8 @@ void main() {
       ]);
       await tester.pumpAndSettle();
 
-      expect(find.text('Tiles'), findsOneWidget);
-      expect(find.text('2'), findsWidgets);
+      expect(find.text('Tiles'), findsNothing);
+      expect(find.text('2'), findsNothing);
 
       await _openStatsCategory(tester, 'XP');
 
@@ -1168,14 +1204,14 @@ void main() {
       expect(find.text('Journey route map'), findsNothing);
       expect(find.byType(ActivityMapPreview), findsOneWidget);
       expect(find.text('Glaze'), findsOneWidget);
-      expect(find.text('Comment'), findsOneWidget);
+      expect(find.text('0 comments'), findsOneWidget);
       expect(find.text('Share'), findsOneWidget);
 
       await tester.pageBack();
       await tester.pumpAndSettle();
       await _openYouTab(tester, 'Profile');
 
-      expect(find.text('2'), findsWidgets);
+      expect(find.text('2'), findsNothing);
 
       visitService.emitAllVisits(<Visit>[
         ...visits,

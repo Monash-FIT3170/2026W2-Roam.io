@@ -34,38 +34,43 @@ class JourneysStatsView extends StatelessWidget {
     final body = Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Row(
-          children: [
-            StatsHeroStat(label: 'Journeys', value: '${journeys.length}'),
-            StatsHeroStat(
+        StatsMetricHero(
+          primaryLabel: 'Journeys',
+          primaryValue: '${journeys.length}',
+          secondary: [
+            StatsHeroMetricData(
               label: 'Distance',
               value: '${totalDistanceKm.toStringAsFixed(1)} km',
             ),
-            StatsHeroStat(
+            StatsHeroMetricData(
               label: 'Time',
               value: '${totalHours.toStringAsFixed(1)} hrs',
             ),
           ],
         ),
-        const SizedBox(height: 16),
+        const SizedBox(height: 24),
         StatsChartSection(
           title: 'Journeys by week',
           buckets: buckets,
+          bucketsForRange: (range) =>
+              aggregationService.journeyBucketsForRange(journeys, range),
           emptyMessage: 'No journeys to chart yet',
+          hasData: journeys.isNotEmpty,
+          rangeStorageId: 'stats-journeys-range',
           detailLabelBuilder: (bucket) =>
               bucket.detailLabel(' Journeys Completed'),
         ),
-        const SizedBox(height: 16),
+        const SizedBox(height: 24),
         StatsBreakdownSection(
           title: 'Transport modes',
           items: modeBreakdown,
           emptyMessage: 'No journeys to break down yet',
         ),
-        const SizedBox(height: 16),
+        const SizedBox(height: 24),
         StatsJourneyHighlights(journeys: journeys),
-        const SizedBox(height: 16),
+        const SizedBox(height: 24),
         StatsInsightCard(message: insight, icon: Icons.route_rounded),
-        const SizedBox(height: 16),
+        const SizedBox(height: 24),
         StatsRecentJourneysList(journeys: journeys),
       ],
     );

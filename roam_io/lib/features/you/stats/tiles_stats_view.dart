@@ -52,27 +52,32 @@ class TilesStatsView extends StatelessWidget {
     final body = Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Row(
-          children: [
-            StatsHeroStat(label: 'Tiles unlocked', value: '$tileCount'),
-            StatsHeroStat(
+        StatsMetricHero(
+          primaryLabel: 'Tiles unlocked',
+          primaryValue: '$tileCount',
+          secondary: [
+            StatsHeroMetricData(
               label: 'Area revealed',
               value: aggregationService.formatAreaKm2(
                 revealed.squareMetres,
                 isEstimated: revealed.isEstimated,
               ),
             ),
-            StatsHeroStat(label: 'City mapped', value: coverage),
+            StatsHeroMetricData(label: 'City mapped', value: coverage),
           ],
         ),
-        const SizedBox(height: 16),
+        const SizedBox(height: 24),
         StatsChartSection(
           title: 'Tiles unlocked by week',
           buckets: buckets,
+          bucketsForRange: (range) => aggregationService
+              .tileUnlockBucketsForRange(analytics.tileRecords, range),
           emptyMessage: 'No unlocked tiles to chart yet',
+          hasData: analytics.tileRecords.isNotEmpty,
+          rangeStorageId: 'stats-tiles-range',
           detailLabelBuilder: (bucket) => bucket.detailLabel(' Tiles Unlocked'),
         ),
-        const SizedBox(height: 16),
+        const SizedBox(height: 24),
         StatsSectionCard(
           title: 'Unlock streak',
           child: Text(
@@ -84,9 +89,9 @@ class TilesStatsView extends StatelessWidget {
             ).textTheme.bodyLarge?.copyWith(fontWeight: FontWeight.w700),
           ),
         ),
-        const SizedBox(height: 16),
+        const SizedBox(height: 24),
         StatsInsightCard(message: insight, icon: Icons.grid_view_rounded),
-        const SizedBox(height: 16),
+        const SizedBox(height: 24),
         StatsLoyaltyTilesSection(tiles: loyaltyTiles),
       ],
     );

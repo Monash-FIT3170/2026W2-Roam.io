@@ -6,7 +6,7 @@ import '../models/explorer_rank.dart';
 import '../providers/stats_analytics_provider.dart';
 import '../services/stats_aggregation_service.dart';
 
-/// Compact hero strip shown above Stats category tabs.
+/// Rank and XP context shown above the Statistics category tabs.
 class StatsHeroStrip extends StatelessWidget {
   const StatsHeroStrip({
     super.key,
@@ -29,7 +29,7 @@ class StatsHeroStrip extends StatelessWidget {
     final streakDays = analytics.statsSummary.currentXpStreakDays;
 
     final totalXpForLevel = ProfileModel.totalXpToReachLevel(level);
-    final currentLevelXp = xp - totalXpForLevel;
+    final currentLevelXp = (xp - totalXpForLevel).clamp(0, 1 << 62);
     final nextLevelXp = level >= ProfileModel.maxLevel
         ? currentLevelXp
         : ProfileModel.xpForLevel(level);
@@ -41,41 +41,34 @@ class StatsHeroStrip extends StatelessWidget {
         : '${formatCompactStatNumber(currentLevelXp)} / '
               '${formatCompactStatNumber(nextLevelXp)} XP';
 
-    return Container(
+    return SizedBox(
       width: double.infinity,
-      padding: const EdgeInsets.fromLTRB(6, 14, 16, 14),
-      decoration: BoxDecoration(
-        color: AppSurfaces.card(context),
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: AppSurfaces.border(context)),
-        boxShadow: AppSurfaces.cardShadow(context),
-      ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
           _LevelBadge(level: level, assetPath: rank.assetPath),
-          const SizedBox(width: 8),
+          const SizedBox(width: 12),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               mainAxisSize: MainAxisSize.min,
               children: [
                 Text(
-                  rank.title,
+                  'Level $level · ${rank.title}',
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: theme.textTheme.titleMedium?.copyWith(
                     color: AppSurfaces.textPrimary(context),
-                    fontWeight: FontWeight.w800,
+                    fontWeight: FontWeight.w700,
                     height: 1.1,
                   ),
                 ),
-                const SizedBox(height: 8),
+                const SizedBox(height: 6),
                 _XpProgressBar(
                   progress: progress.clamp(0.0, 1.0),
                   label: xpBarLabel,
                 ),
-                const SizedBox(height: 8),
+                const SizedBox(height: 7),
                 Row(
                   children: [
                     Expanded(
@@ -121,31 +114,16 @@ class _LevelBadge extends StatelessWidget {
     final theme = Theme.of(context);
 
     return SizedBox(
-      width: 72,
-      height: 72,
+      width: 60,
+      height: 60,
       child: Stack(
         alignment: Alignment.center,
         clipBehavior: Clip.none,
         children: [
-          Container(
-            width: 52,
-            height: 52,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.28),
-                  blurRadius: 12,
-                  spreadRadius: 1,
-                  offset: const Offset(0, 5),
-                ),
-              ],
-            ),
-          ),
           Image.asset(
             assetPath,
-            width: 72,
-            height: 72,
+            width: 60,
+            height: 60,
             fit: BoxFit.contain,
             filterQuality: FilterQuality.high,
           ),
@@ -155,13 +133,92 @@ class _LevelBadge extends StatelessWidget {
               color: Colors.black,
               fontWeight: FontWeight.w900,
               height: 1.0,
-              fontSize: level >= 100 ? 18 : 22,
+              fontSize: level >= 100 ? 16 : 20,
             ),
           ),
         ],
       ),
     );
   }
+}
+
+/// One category's dominant metric with two supporting values beneath it.
+class StatsMetricHero extends StatelessWidget {
+  const StatsMetricHero({
+    super.key,
+    required this.primaryLabel,
+    required this.primaryValue,
+    required this.secondary,
+  });
+
+  final String primaryLabel;
+  final String primaryValue;
+  final List<StatsHeroMetricData> secondary;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          primaryLabel,
+          style: theme.textTheme.bodyMedium?.copyWith(
+            color: AppSurfaces.textMuted(context),
+          ),
+        ),
+        const SizedBox(height: 4),
+        FittedBox(
+          alignment: Alignment.centerLeft,
+          fit: BoxFit.scaleDown,
+          child: Text(
+            primaryValue,
+            maxLines: 1,
+            style: theme.textTheme.displaySmall?.copyWith(
+              color: AppSurfaces.textPrimary(context),
+              fontWeight: FontWeight.w700,
+              letterSpacing: -1.2,
+              height: 1,
+            ),
+          ),
+        ),
+        const SizedBox(height: 16),
+        Row(
+          children: [
+            for (var index = 0; index < secondary.length; index++) ...[
+              if (index > 0)
+                Container(
+                  width: 1,
+                  height: 38,
+                  margin: const EdgeInsets.symmetric(horizontal: 18),
+                  color: AppSurfaces.border(context),
+                ),
+              Expanded(
+                child: StatsHeroStat(
+                  label: secondary[index].label,
+                  value: secondary[index].value,
+                  delta: secondary[index].delta,
+                ),
+              ),
+            ],
+          ],
+        ),
+      ],
+    );
+  }
+}
+
+class StatsHeroMetricData {
+  const StatsHeroMetricData({
+    required this.label,
+    required this.value,
+    this.delta,
+  });
+
+  final String label;
+  final String value;
+  final String? delta;
 }
 
 class _XpProgressBar extends StatelessWidget {
@@ -178,29 +235,23 @@ class _XpProgressBar extends StatelessWidget {
         ? const Color(0xFF2A2F38)
         : const Color(0xFFD8D8D8);
 
-    return Container(
-      height: 22,
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(999),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.18),
-            blurRadius: 8,
-            spreadRadius: 0,
-            offset: const Offset(0, 3),
-          ),
-        ],
-      ),
+    return SizedBox(
+      height: 18,
       child: ClipRRect(
         borderRadius: BorderRadius.circular(999),
         child: Stack(
           fit: StackFit.expand,
           children: [
             ColoredBox(color: track),
-            FractionallySizedBox(
-              widthFactor: progress,
-              alignment: Alignment.centerLeft,
-              child: ColoredBox(color: fill),
+            TweenAnimationBuilder<double>(
+              tween: Tween<double>(begin: 0, end: progress),
+              duration: const Duration(milliseconds: 520),
+              curve: Curves.easeOutCubic,
+              builder: (context, value, _) => FractionallySizedBox(
+                widthFactor: value,
+                alignment: Alignment.centerLeft,
+                child: ColoredBox(color: fill),
+              ),
             ),
             Align(
               alignment: Alignment.centerRight,
@@ -242,40 +293,40 @@ class StatsHeroStat extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
 
-    return Expanded(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          label,
+          style: theme.textTheme.labelSmall?.copyWith(
+            color: AppSurfaces.textMuted(context),
+            fontWeight: FontWeight.w500,
+          ),
+        ),
+        const SizedBox(height: 4),
+        Text(
+          value,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: theme.textTheme.titleLarge?.copyWith(
+            color: AppSurfaces.textPrimary(context),
+            fontWeight: FontWeight.w700,
+            height: 1.0,
+          ),
+        ),
+        if (delta != null) ...[
+          const SizedBox(height: 2),
           Text(
-            label,
+            delta!,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
             style: theme.textTheme.labelSmall?.copyWith(
-              color: AppSurfaces.textMuted(context),
+              color: theme.colorScheme.primary,
               fontWeight: FontWeight.w700,
             ),
           ),
-          const SizedBox(height: 4),
-          Text(
-            value,
-            style: theme.textTheme.titleLarge?.copyWith(
-              color: AppSurfaces.textPrimary(context),
-              fontWeight: FontWeight.w900,
-              height: 1.0,
-            ),
-          ),
-          if (delta != null) ...[
-            const SizedBox(height: 2),
-            Text(
-              delta!,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: theme.textTheme.labelSmall?.copyWith(
-                color: theme.colorScheme.primary,
-                fontWeight: FontWeight.w700,
-              ),
-            ),
-          ],
         ],
-      ),
+      ],
     );
   }
 }

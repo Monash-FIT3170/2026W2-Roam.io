@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../../shared/utils/app_date_format.dart';
 import '../../../theme/app_colours.dart';
 import '../../../theme/app_surfaces.dart';
 import '../../profile/domain/xp_event.dart';
@@ -82,7 +83,7 @@ class _XpEventRow extends StatelessWidget {
                 ),
                 const SizedBox(height: 2),
                 Text(
-                  _formatTimestamp(event.earnedAt),
+                  formatAppDateTime(event.earnedAt),
                   style: theme.textTheme.bodySmall?.copyWith(
                     color: AppSurfaces.textMuted(context),
                   ),
@@ -116,13 +117,4 @@ class _XpEventRow extends StatelessWidget {
         return Icons.star_outline_rounded;
     }
   }
-}
-
-String _formatTimestamp(DateTime value) {
-  final local = value.toLocal();
-  String two(int n) => n.toString().padLeft(2, '0');
-  final period = local.hour >= 12 ? 'PM' : 'AM';
-  final hour = local.hour % 12 == 0 ? 12 : local.hour % 12;
-  return '${two(local.day)}/${two(local.month)}/${local.year} '
-      '$hour:${two(local.minute)} $period';
 }

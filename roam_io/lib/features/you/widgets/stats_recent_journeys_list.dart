@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../../shared/utils/app_date_format.dart';
 import '../../../theme/app_surfaces.dart';
 import '../../journeys/domain/journey.dart';
 import '../models/stats_breakdown_item.dart';
@@ -68,7 +69,7 @@ class _JourneyRow extends StatelessWidget {
                 Text(
                   journey.transportMode.displayName,
                   style: theme.textTheme.titleSmall?.copyWith(
-                    fontWeight: FontWeight.w800,
+                    fontWeight: FontWeight.w600,
                     color: AppSurfaces.textPrimary(context),
                   ),
                 ),
@@ -76,7 +77,7 @@ class _JourneyRow extends StatelessWidget {
                 Text(
                   '${distanceKm.toStringAsFixed(1)} km · '
                   '${journey.tilesUnlocked} tiles · '
-                  '${_formatTimestamp(journey.startTime)}',
+                  '${formatAppDate(journey.startTime)}',
                   style: theme.textTheme.bodySmall?.copyWith(
                     color: AppSurfaces.textMuted(context),
                   ),
@@ -88,12 +89,6 @@ class _JourneyRow extends StatelessWidget {
       ),
     );
   }
-}
-
-String _formatTimestamp(DateTime value) {
-  final local = value.toLocal();
-  String two(int n) => n.toString().padLeft(2, '0');
-  return '${two(local.day)}/${two(local.month)}/${local.year}';
 }
 
 /// Highlight cards for standout journey stats.
@@ -146,13 +141,8 @@ class _HighlightTile extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
 
-    return Container(
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: AppSurfaces.innerCard(context),
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: AppSurfaces.border(context)),
-      ),
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -160,7 +150,7 @@ class _HighlightTile extends StatelessWidget {
             label,
             style: theme.textTheme.labelSmall?.copyWith(
               color: AppSurfaces.textMuted(context),
-              fontWeight: FontWeight.w700,
+              fontWeight: FontWeight.w500,
             ),
           ),
           const SizedBox(height: 4),
@@ -168,7 +158,7 @@ class _HighlightTile extends StatelessWidget {
             value,
             style: theme.textTheme.titleMedium?.copyWith(
               color: AppSurfaces.textPrimary(context),
-              fontWeight: FontWeight.w900,
+              fontWeight: FontWeight.w700,
             ),
           ),
         ],

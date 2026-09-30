@@ -54,38 +54,54 @@ class LocationsStatsView extends StatelessWidget {
     final body = Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Row(
-          children: [
-            StatsHeroStat(label: 'Total visits', value: '$totalVisits'),
-            StatsHeroStat(label: 'Top category', value: topCategory),
-            StatsHeroStat(label: 'Visit streak', value: '${visitStreak}d'),
+        StatsMetricHero(
+          primaryLabel: 'Total visits',
+          primaryValue: '$totalVisits',
+          secondary: [
+            StatsHeroMetricData(label: 'Top category', value: topCategory),
+            StatsHeroMetricData(
+              label: 'Visit streak',
+              value: '${visitStreak}d',
+            ),
           ],
         ),
-        const SizedBox(height: 16),
+        const SizedBox(height: 24),
         StatsChartSection(
           title: 'Visits by week',
           buckets: buckets,
+          bucketsForRange: (range) => analytics.visitEvents.isNotEmpty
+              ? aggregationService.visitEventBucketsForRange(
+                  analytics.visitEvents,
+                  range,
+                )
+              : aggregationService.visitSummaryBucketsForRange(
+                  analytics.visits,
+                  range,
+                ),
           emptyMessage: 'No locations to chart yet',
+          hasData:
+              analytics.visitEvents.isNotEmpty || analytics.visits.isNotEmpty,
+          rangeStorageId: 'stats-locations-range',
           detailLabelBuilder: (bucket) =>
               bucket.detailLabel(' Locations Visited'),
         ),
-        const SizedBox(height: 16),
+        const SizedBox(height: 24),
         Text(
-          'Most Visited Location',
+          'Most visited',
           style: Theme.of(
             context,
-          ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800),
+          ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w700),
         ),
         const SizedBox(height: 9),
         MostVisitedLocationBubble(visits: analytics.visits),
-        const SizedBox(height: 16),
+        const SizedBox(height: 24),
         StatsBreakdownSection(
           title: 'Place categories',
           items: categories,
           emptyMessage: 'Visit places to see your category mix',
         ),
         if (furthestKm != null) ...[
-          const SizedBox(height: 16),
+          const SizedBox(height: 24),
           StatsSectionCard(
             title: 'Furthest from home',
             child: Text(
@@ -96,7 +112,7 @@ class LocationsStatsView extends StatelessWidget {
             ),
           ),
         ],
-        const SizedBox(height: 16),
+        const SizedBox(height: 24),
         RecentVisitedLocationsCard(
           visits: recentVisits,
           isLoading: !analytics.recentVisitsReady,
