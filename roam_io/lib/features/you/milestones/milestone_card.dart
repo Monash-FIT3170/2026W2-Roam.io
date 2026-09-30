@@ -71,78 +71,78 @@ class _MilestoneCardState extends State<MilestoneCard>
     final nextClaim = progress.nextClaimableTier;
     final hasClaim = nextClaim != null;
 
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: AppSurfaces.card(context),
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: AppSurfaces.border(context)),
-        boxShadow: AppSurfaces.cardShadow(context),
-      ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.center,
-        children: [
-          ScaleTransition(
-            scale: _scale,
-            child: MilestoneBadgeImage(
-              definition: definition,
-              tier: progress.displayTier,
-              size: 56,
-            ),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: SizedBox(
-              height: _MilestoneCardBody.height,
-              child: hasClaim
-                  ? _ClaimBody(
-                      title: definition.title,
-                      subtitle: definition.subtitle,
-                      xpReward: definition.tierDefinition(nextClaim).xpReward,
-                      claimInFlight: widget.claimInFlight,
-                      onClaim: widget.onClaim,
-                    )
-                  : _ProgressBody(
-                      title: definition.title,
-                      subtitle: definition.subtitle,
-                      barProgress: progress.isMaxed
-                          ? 1.0
-                          : progress.progressToNext,
-                      barLabel: () {
-                        final unit = definition.unit;
-                        final nextTier = progress.nextTier;
-                        if (nextTier == null) {
-                          return formatMilestoneValue(
-                            progress.currentValue,
-                            unit,
-                          );
-                        }
-                        return '${formatMilestoneValue(progress.currentValue, unit)} / '
-                            '${formatMilestoneThreshold(nextTier.threshold, unit)}';
-                      }(),
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 16),
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final compact = constraints.maxWidth < 340;
+          final badgeSize = compact ? 76.0 : 88.0;
+
+          return Column(
+            children: [
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  ScaleTransition(
+                    scale: _scale,
+                    child: MilestoneBadgeImage(
+                      definition: definition,
+                      tier: progress.displayTier,
+                      size: badgeSize,
                     ),
-            ),
-          ),
-        ],
+                  ),
+                  SizedBox(width: compact ? 12 : 16),
+                  Expanded(
+                    child: hasClaim
+                        ? _ClaimBody(
+                            title: definition.title,
+                            subtitle: definition.subtitle,
+                            tier: nextClaim,
+                            xpReward: definition
+                                .tierDefinition(nextClaim)
+                                .xpReward,
+                            claimInFlight: widget.claimInFlight,
+                            onClaim: widget.onClaim,
+                          )
+                        : _ProgressBody(
+                            title: definition.title,
+                            subtitle: definition.subtitle,
+                            tier: progress.displayTier,
+                            isMaxed: progress.isMaxed,
+                            barProgress: progress.isMaxed
+                                ? 1.0
+                                : progress.progressToNext,
+                            barLabel: () {
+                              final unit = definition.unit;
+                              final nextTier = progress.nextTier;
+                              if (nextTier == null) {
+                                return formatMilestoneValue(
+                                  progress.currentValue,
+                                  unit,
+                                );
+                              }
+                              return '${formatMilestoneValue(progress.currentValue, unit)} / '
+                                  '${formatMilestoneThreshold(nextTier.threshold, unit)}';
+                            }(),
+                          ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 16),
+              Divider(height: 1, color: AppSurfaces.border(context)),
+            ],
+          );
+        },
       ),
     );
   }
-}
-
-abstract final class _MilestoneCardBody {
-  /// Shared content column height so claim and progress cards match.
-  /// title(~20) + 4 + subtitle(~16) + 8 + footer(32) = 80
-  static const double height = 80;
-  static const double titleToSubtitle = 4;
-  static const double subtitleToFooter = 8;
-  static const double footerHeight = 32;
 }
 
 class _ClaimBody extends StatelessWidget {
   const _ClaimBody({
     required this.title,
     required this.subtitle,
+    required this.tier,
     required this.xpReward,
     required this.claimInFlight,
     required this.onClaim,
@@ -150,6 +150,7 @@ class _ClaimBody extends StatelessWidget {
 
   final String title;
   final String subtitle;
+  final int tier;
   final int xpReward;
   final bool claimInFlight;
   final Future<void> Function() onClaim;
@@ -161,55 +162,58 @@ class _ClaimBody extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const SizedBox(height: 4),
         Text(
-          title,
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-          style: theme.textTheme.titleMedium?.copyWith(
-            fontWeight: FontWeight.w900,
-            color: AppSurfaces.textPrimary(context),
-            height: 1.15,
+          'Ready to claim · Tier $tier',
+          style: theme.textTheme.labelSmall?.copyWith(
+            color: theme.colorScheme.primary,
+            fontWeight: FontWeight.w700,
           ),
         ),
-        const SizedBox(height: _MilestoneCardBody.titleToSubtitle),
+        const SizedBox(height: 5),
+        Text(
+          title,
+          maxLines: 2,
+          overflow: TextOverflow.ellipsis,
+          style: theme.textTheme.titleLarge?.copyWith(
+            fontWeight: FontWeight.w700,
+            color: AppSurfaces.textPrimary(context),
+            letterSpacing: -0.2,
+          ),
+        ),
+        const SizedBox(height: 5),
         Text(
           subtitle,
-          maxLines: 1,
+          maxLines: 3,
           overflow: TextOverflow.ellipsis,
           style: theme.textTheme.bodySmall?.copyWith(
             color: AppSurfaces.textMuted(context),
-            height: 1.15,
+            height: 1.25,
           ),
         ),
-        const SizedBox(height: _MilestoneCardBody.subtitleToFooter - 4),
-        SizedBox(
-          height: _MilestoneCardBody.footerHeight,
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.center,
-            children: [
-              Expanded(
-                child: Text(
-                  '+$xpReward XP',
-                  style: theme.textTheme.labelLarge?.copyWith(
-                    color: AppSurfaces.textPrimary(context),
-                    fontWeight: FontWeight.w800,
-                    height: 1.0,
-                  ),
+        const SizedBox(height: 14),
+        Row(
+          children: [
+            Expanded(
+              child: Text(
+                '+$xpReward XP',
+                style: theme.textTheme.labelLarge?.copyWith(
+                  color: theme.colorScheme.primary,
+                  fontWeight: FontWeight.w700,
                 ),
               ),
-              FilledButton(
-                onPressed: claimInFlight ? null : () => onClaim(),
-                style: FilledButton.styleFrom(
-                  visualDensity: VisualDensity.compact,
-                  minimumSize: const Size(0, 32),
-                  padding: const EdgeInsets.symmetric(horizontal: 14),
-                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+            ),
+            FilledButton(
+              onPressed: claimInFlight ? null : () => onClaim(),
+              style: FilledButton.styleFrom(
+                minimumSize: const Size(0, 38),
+                padding: const EdgeInsets.symmetric(horizontal: 18),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(10),
                 ),
-                child: const Text('Claim'),
               ),
-            ],
-          ),
+              child: const Text('Claim'),
+            ),
+          ],
         ),
       ],
     );
@@ -220,12 +224,16 @@ class _ProgressBody extends StatelessWidget {
   const _ProgressBody({
     required this.title,
     required this.subtitle,
+    required this.tier,
+    required this.isMaxed,
     required this.barProgress,
     required this.barLabel,
   });
 
   final String title;
   final String subtitle;
+  final int tier;
+  final bool isMaxed;
   final double barProgress;
   final String barLabel;
 
@@ -236,48 +244,60 @@ class _ProgressBody extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const SizedBox(height: 4),
         Text(
-          title,
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-          style: theme.textTheme.titleMedium?.copyWith(
-            fontWeight: FontWeight.w900,
-            color: AppSurfaces.textPrimary(context),
-            height: 1.15,
+          isMaxed ? 'Complete' : 'Tier $tier',
+          style: theme.textTheme.labelSmall?.copyWith(
+            color: isMaxed
+                ? theme.colorScheme.primary
+                : AppSurfaces.textMuted(context),
+            fontWeight: FontWeight.w700,
           ),
         ),
-        const SizedBox(height: _MilestoneCardBody.titleToSubtitle),
+        const SizedBox(height: 5),
+        Text(
+          title,
+          maxLines: 2,
+          overflow: TextOverflow.ellipsis,
+          style: theme.textTheme.titleLarge?.copyWith(
+            fontWeight: FontWeight.w700,
+            color: AppSurfaces.textPrimary(context),
+            letterSpacing: -0.2,
+          ),
+        ),
+        const SizedBox(height: 5),
         Text(
           subtitle,
-          maxLines: 1,
+          maxLines: 3,
           overflow: TextOverflow.ellipsis,
           style: theme.textTheme.bodySmall?.copyWith(
             color: AppSurfaces.textMuted(context),
-            height: 1.15,
+            height: 1.25,
           ),
         ),
-        const SizedBox(height: _MilestoneCardBody.subtitleToFooter - 4),
-        SizedBox(
-          height: _MilestoneCardBody.footerHeight,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              _MilestoneProgressBar(progress: barProgress.clamp(0.0, 1.0)),
-              const SizedBox(height: 4),
-              Text(
+        const SizedBox(height: 14),
+        _MilestoneProgressBar(progress: barProgress.clamp(0.0, 1.0)),
+        const SizedBox(height: 7),
+        Row(
+          children: [
+            Expanded(
+              child: Text(
                 barLabel,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: theme.textTheme.labelMedium?.copyWith(
-                  color: AppSurfaces.textPrimary(context),
-                  fontWeight: FontWeight.w700,
-                  height: 1.0,
+                  color: AppSurfaces.textMuted(context),
+                  fontWeight: FontWeight.w500,
                 ),
               ),
-            ],
-          ),
+            ),
+            Text(
+              '${(barProgress * 100).round()}%',
+              style: theme.textTheme.labelMedium?.copyWith(
+                color: theme.colorScheme.primary,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ],
         ),
       ],
     );
@@ -297,29 +317,23 @@ class _MilestoneProgressBar extends StatelessWidget {
         ? const Color(0xFF2A2F38)
         : const Color(0xFFD8D8D8);
 
-    return Container(
-      height: 11,
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(999),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.18),
-            blurRadius: 8,
-            spreadRadius: 0,
-            offset: const Offset(0, 3),
-          ),
-        ],
-      ),
+    return SizedBox(
+      height: 8,
       child: ClipRRect(
-        borderRadius: BorderRadius.circular(999),
+        borderRadius: BorderRadius.circular(4),
         child: Stack(
           fit: StackFit.expand,
           children: [
             ColoredBox(color: track),
-            FractionallySizedBox(
-              widthFactor: progress,
-              alignment: Alignment.centerLeft,
-              child: ColoredBox(color: fill),
+            TweenAnimationBuilder<double>(
+              tween: Tween<double>(begin: 0, end: progress),
+              duration: const Duration(milliseconds: 460),
+              curve: Curves.easeOutCubic,
+              builder: (context, value, _) => FractionallySizedBox(
+                widthFactor: value,
+                alignment: Alignment.centerLeft,
+                child: ColoredBox(color: fill),
+              ),
             ),
           ],
         ),
