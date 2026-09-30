@@ -26,6 +26,7 @@ class ProfileIdentityHeader extends StatelessWidget {
     this.tileCount,
     this.stats,
     this.action,
+    this.compact = false,
   });
 
   final String displayName;
@@ -36,6 +37,7 @@ class ProfileIdentityHeader extends StatelessWidget {
   final int? tileCount;
   final List<ProfileStatItem>? stats;
   final Widget? action;
+  final bool compact;
 
   @override
   Widget build(BuildContext context) {
@@ -52,10 +54,10 @@ class ProfileIdentityHeader extends StatelessWidget {
             SocialAvatar(
               displayName: displayName,
               photoUrl: photoUrl,
-              radius: 32,
+              radius: compact ? 28 : 32,
               borderWidth: 2,
             ),
-            const SizedBox(width: 12),
+            SizedBox(width: compact ? 10 : 12),
             Expanded(
               child: Column(
                 mainAxisSize: MainAxisSize.min,
@@ -67,8 +69,8 @@ class ProfileIdentityHeader extends StatelessWidget {
                     overflow: TextOverflow.ellipsis,
                     style: theme.textTheme.titleMedium?.copyWith(
                       color: AppSurfaces.textPrimary(context),
-                      fontWeight: FontWeight.w900,
-                      fontSize: 20,
+                      fontWeight: FontWeight.w700,
+                      fontSize: 22,
                       height: 1.0,
                     ),
                   ),
@@ -79,10 +81,25 @@ class ProfileIdentityHeader extends StatelessWidget {
                     overflow: TextOverflow.ellipsis,
                     style: theme.textTheme.labelMedium?.copyWith(
                       color: AppSurfaces.textMuted(context),
-                      fontWeight: FontWeight.w700,
+                      fontWeight: FontWeight.w500,
                       height: 1.0,
                     ),
                   ),
+                  if (compact && stats != null && stats!.isNotEmpty) ...[
+                    const SizedBox(height: 7),
+                    Wrap(
+                      spacing: 14,
+                      runSpacing: 4,
+                      children: [
+                        for (final stat in stats!)
+                          _InlineProfileStat(
+                            label: stat.label,
+                            value: stat.value,
+                            onTap: stat.onTap,
+                          ),
+                      ],
+                    ),
+                  ],
                   if (hasProgress) ...[
                     const SizedBox(height: 4),
                     _CompactPublicXp(level: level!, xp: xp!),
@@ -92,8 +109,9 @@ class ProfileIdentityHeader extends StatelessWidget {
             ),
           ],
         ),
-        if ((stats != null && stats!.isNotEmpty) || tileCount != null) ...[
-          const SizedBox(height: 12),
+        if ((!compact && stats != null && stats!.isNotEmpty) ||
+            tileCount != null) ...[
+          SizedBox(height: compact ? 8 : 12),
           Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -113,8 +131,52 @@ class ProfileIdentityHeader extends StatelessWidget {
             ],
           ),
         ],
-        if (action != null) ...[const SizedBox(height: 12), action!],
+        if (action != null) ...[SizedBox(height: compact ? 8 : 12), action!],
       ],
+    );
+  }
+}
+
+class _InlineProfileStat extends StatelessWidget {
+  const _InlineProfileStat({
+    required this.label,
+    required this.value,
+    this.onTap,
+  });
+
+  final String label;
+  final String value;
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final style = Theme.of(context).textTheme.labelMedium?.copyWith(
+      color: AppSurfaces.textMuted(context),
+      fontWeight: FontWeight.w400,
+    );
+    final text = Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Text(
+          value,
+          style: style?.copyWith(
+            color: AppSurfaces.textPrimary(context),
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+        const SizedBox(width: 4),
+        Text(label, style: style),
+      ],
+    );
+
+    if (onTap == null) return text;
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(6),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 2),
+        child: text,
+      ),
     );
   }
 }
@@ -147,7 +209,7 @@ class _CompactPublicXp extends StatelessWidget {
             'Level $level',
             style: theme.textTheme.labelMedium?.copyWith(
               color: AppSurfaces.textPrimary(context),
-              fontWeight: FontWeight.w900,
+              fontWeight: FontWeight.w700,
               height: 1.0,
             ),
           ),
@@ -170,7 +232,7 @@ class _CompactPublicXp extends StatelessWidget {
                 : '$currentLevelXp / $nextLevelXp XP',
             style: theme.textTheme.labelSmall?.copyWith(
               color: AppSurfaces.textMuted(context),
-              fontWeight: FontWeight.w700,
+              fontWeight: FontWeight.w500,
               height: 1.0,
             ),
           ),
@@ -218,7 +280,7 @@ class _ProfileStat extends StatelessWidget {
             textAlign: TextAlign.center,
             style: theme.textTheme.titleSmall?.copyWith(
               color: AppSurfaces.textPrimary(context),
-              fontWeight: FontWeight.w900,
+              fontWeight: FontWeight.w700,
               height: 1.0,
             ),
           ),

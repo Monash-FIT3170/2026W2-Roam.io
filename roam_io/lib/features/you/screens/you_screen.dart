@@ -15,6 +15,7 @@ import 'package:provider/provider.dart';
 import '../../../services/profile_service.dart';
 import '../../journeys/data/journey_service.dart';
 import '../../../shared/widgets/app_bottom_nav_bar.dart';
+import '../../../shared/widgets/app_page_transition.dart';
 import '../../../theme/app_surfaces.dart';
 import '../../activity_feed/data/activity_feed_service.dart';
 import '../../activity_feed/data/comment_service.dart';
@@ -296,10 +297,10 @@ class _YouTabBar extends StatelessWidget {
                 indicatorWeight: 3,
                 dividerColor: AppSurfaces.border(context),
                 labelStyle: theme.textTheme.titleMedium?.copyWith(
-                  fontWeight: FontWeight.w900,
+                  fontWeight: FontWeight.w700,
                 ),
                 unselectedLabelStyle: theme.textTheme.titleMedium?.copyWith(
-                  fontWeight: FontWeight.w700,
+                  fontWeight: FontWeight.w500,
                 ),
                 tabs: const [
                   Tab(text: 'Profile'),
@@ -317,7 +318,7 @@ class _YouTabBar extends StatelessWidget {
                 onPressed: () {
                   final currentParty = context.read<CurrentPartyProvider>();
                   Navigator.of(context).push(
-                    MaterialPageRoute<void>(
+                    appHorizontalPageRoute<void>(
                       builder: (_) => NotificationsScreen(
                         currentPartyProvider: currentParty,
                       ),
@@ -449,8 +450,21 @@ class _ProfileTab extends StatelessWidget {
           mediaProfileId: currentUserId,
           currentUserId: currentUserId,
           mediaActivities: snapshot.data,
+          compactIdentity: true,
           showDetailedAnalytics: false,
           trailingChildren: [
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 24),
+              child: Text(
+                'Journey feed',
+                style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                  color: AppSurfaces.textPrimary(context),
+                  fontWeight: FontWeight.w700,
+                  letterSpacing: -0.4,
+                ),
+              ),
+            ),
+            const SizedBox(height: 12),
             _OwnedActivitiesList(
               snapshot: snapshot,
               currentUserId: currentUserId,
@@ -459,7 +473,7 @@ class _ProfileTab extends StatelessWidget {
               kudosService: kudosService,
             ),
           ],
-          bottomPadding: bottomClearance + 12,
+          bottomPadding: bottomClearance + 24,
         );
       },
     );
@@ -472,7 +486,7 @@ class _ProfileTab extends StatelessWidget {
     final selectedUserId = currentUserId;
     if (selectedUserId == null) return;
     Navigator.of(context).push(
-      MaterialPageRoute<void>(
+      appHorizontalPageRoute<void>(
         builder: (_) => FollowConnectionsScreen(
           selectedUserId: selectedUserId,
           mode: mode,
@@ -542,7 +556,7 @@ class _OwnedActivitiesList extends StatelessWidget {
             textAlign: TextAlign.center,
             style: Theme.of(context).textTheme.bodyMedium?.copyWith(
               color: AppSurfaces.textMuted(context),
-              fontWeight: FontWeight.w700,
+              fontWeight: FontWeight.w500,
             ),
           ),
         ),
@@ -550,7 +564,7 @@ class _OwnedActivitiesList extends StatelessWidget {
     }
     if (snapshot.connectionState == ConnectionState.waiting &&
         !snapshot.hasData) {
-      return const Center(child: CircularProgressIndicator());
+      return const _JourneyFeedSkeleton();
     }
     final activities = snapshot.data ?? const <ActivityFeedItem>[];
     if (activities.isEmpty) {
@@ -562,47 +576,45 @@ class _OwnedActivitiesList extends StatelessWidget {
             textAlign: TextAlign.center,
             style: Theme.of(context).textTheme.bodyMedium?.copyWith(
               color: AppSurfaces.textMuted(context),
-              fontWeight: FontWeight.w700,
+              fontWeight: FontWeight.w500,
             ),
           ),
         ),
       );
     }
 
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 24),
-      child: Column(
-        children: [
-          for (var index = 0; index < activities.length; index += 1) ...[
-            ActivityFeedCard.fromItem(
-              activities[index],
-              commentService: comments,
-              kudosService: kudosService,
-              currentUserId: currentUserId,
-              showKudos: true,
-              showComments: true,
-              showShare: true,
-              onOverflowTap: () => _openActivity(context, activities[index]),
-              onCommentTap: () =>
-                  _openComments(context, comments, activities[index]),
-              onShareTap: () {
-                JourneyShareSheet.shareFromActivity(
-                  context,
-                  activities[index],
-                  currentUserId: currentUserId,
-                );
-              },
-            ),
-            if (index != activities.length - 1) const SizedBox(height: 14),
-          ],
-        ],
-      ),
+    return Column(
+      children: [
+        Divider(height: 1, color: AppSurfaces.border(context)),
+        for (var index = 0; index < activities.length; index += 1)
+          ActivityFeedCard.fromItem(
+            activities[index],
+            commentService: comments,
+            kudosService: kudosService,
+            currentUserId: currentUserId,
+            showKudos: true,
+            showComments: true,
+            showShare: true,
+            edgeToEdge: true,
+            profilePresentation: true,
+            onOverflowTap: () => _openActivity(context, activities[index]),
+            onCommentTap: () =>
+                _openComments(context, comments, activities[index]),
+            onShareTap: () {
+              JourneyShareSheet.shareFromActivity(
+                context,
+                activities[index],
+                currentUserId: currentUserId,
+              );
+            },
+          ),
+      ],
     );
   }
 
   void _openActivity(BuildContext context, ActivityFeedItem activity) {
     Navigator.of(context).push(
-      MaterialPageRoute<void>(
+      appHorizontalPageRoute<void>(
         builder: (_) => ActivityDetailScreen(
           activity: activity,
           showEngagementActions: true,
@@ -626,7 +638,7 @@ class _OwnedActivitiesList extends StatelessWidget {
       'ownerId=${activity.ownerId}',
     );
     Navigator.of(context).push(
-      MaterialPageRoute<void>(
+      appHorizontalPageRoute<void>(
         builder: (_) => CommentsScreen(
           activityId: activity.id,
           activityOwnerId: activity.ownerId,
@@ -634,6 +646,51 @@ class _OwnedActivitiesList extends StatelessWidget {
           commentLikeService: commentLikeService,
           title: currentUserId == activity.ownerId ? 'Discussion' : 'Comments',
         ),
+      ),
+    );
+  }
+}
+
+class _JourneyFeedSkeleton extends StatelessWidget {
+  const _JourneyFeedSkeleton();
+
+  @override
+  Widget build(BuildContext context) {
+    final fill = AppSurfaces.softCard(context);
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(14, 8, 14, 0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              DecoratedBox(
+                decoration: BoxDecoration(color: fill, shape: BoxShape.circle),
+                child: const SizedBox(width: 40, height: 40),
+              ),
+              const SizedBox(width: 10),
+              Expanded(child: Container(height: 12, color: fill)),
+            ],
+          ),
+          const SizedBox(height: 14),
+          FractionallySizedBox(
+            widthFactor: 0.58,
+            child: Container(height: 16, color: fill),
+          ),
+          const SizedBox(height: 10),
+          FractionallySizedBox(
+            widthFactor: 0.7,
+            child: Container(height: 11, color: fill),
+          ),
+          const SizedBox(height: 12),
+          AspectRatio(
+            aspectRatio: 16 / 9,
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(14),
+              child: ColoredBox(color: fill),
+            ),
+          ),
+        ],
       ),
     );
   }

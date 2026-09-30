@@ -7,6 +7,7 @@
 
 import 'package:flutter/material.dart';
 
+import '../../../shared/utils/app_date_format.dart';
 import '../../map/data/visit.dart';
 import '../../profile/domain/xp_reward_config.dart';
 import '../../../theme/app_colours.dart';
@@ -31,10 +32,7 @@ class RecentVisitedLocationsCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return StatsSectionCard(
-      title: 'Recent Visited Locations',
-      child: _buildBody(context),
-    );
+    return StatsSectionCard(title: 'Recent visits', child: _buildBody(context));
   }
 
   Widget _buildBody(BuildContext context) {
@@ -131,7 +129,7 @@ class _VisitRow extends StatelessWidget {
                 ),
                 const SizedBox(height: 3),
                 Text(
-                  _formatVisitTimestamp(visit.visitedAt),
+                  formatAppDateTime(visit.visitedAt),
                   style: theme.textTheme.bodyMedium?.copyWith(
                     color: AppSurfaces.textMuted(context),
                   ),
@@ -151,14 +149,4 @@ class _VisitRow extends StatelessWidget {
       ),
     );
   }
-}
-
-String _formatVisitTimestamp(DateTime d) {
-  final local = d.toLocal();
-  String two(int n) => n.toString().padLeft(2, '0');
-  final period = local.hour >= 12 ? 'PM' : 'AM';
-  final hour = local.hour % 12 == 0 ? 12 : local.hour % 12;
-
-  return '${two(local.day)}/${two(local.month)}/${local.year} '
-      '$hour:${two(local.minute)} $period';
 }

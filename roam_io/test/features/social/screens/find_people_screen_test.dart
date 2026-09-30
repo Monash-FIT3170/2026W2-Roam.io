@@ -411,7 +411,7 @@ void main() {
     expect(find.text('Nathan Nunes'), findsOneWidget);
     expect(find.text('Tiles'), findsOneWidget);
     expect(find.text('Lakeside Cafe'), findsWidgets);
-    expect(find.text('Recent Visited Locations'), findsOneWidget);
+    expect(find.text('Recent visits'), findsOneWidget);
     expect(
       find.text('Activity is visible after you become friends.'),
       findsNothing,

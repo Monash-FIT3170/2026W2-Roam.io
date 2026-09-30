@@ -12,10 +12,10 @@ import 'package:flutter/material.dart';
 /// Renders the app's five-tab bottom navigation with a raised center map tab.
 class AppBottomNavBar extends StatelessWidget {
   /// Height of the bar content inside the shell nav [SafeArea].
-  static const double barHeight = 88;
+  static const double barHeight = 76;
 
   /// Bottom inset applied by the shell nav [SafeArea] (see [build]).
-  static const double outerBottomMinimum = 8;
+  static const double outerBottomMinimum = 6;
 
   /// Distance from the physical screen bottom to the top of the nav chrome.
   static double clearanceFromScreenBottom(BuildContext context) {
@@ -73,10 +73,10 @@ class AppBottomNavBar extends StatelessWidget {
               right: 0,
               bottom: 0,
               child: Container(
-                height: 64,
+                height: 56,
                 decoration: BoxDecoration(
                   color: backgroundColor,
-                  borderRadius: BorderRadius.circular(28),
+                  borderRadius: BorderRadius.circular(24),
                   boxShadow: [
                     BoxShadow(
                       color: Colors.black.withValues(alpha: 0.18),
@@ -113,7 +113,7 @@ class AppBottomNavBar extends StatelessWidget {
                                     isSelected
                                         ? item.filledIcon
                                         : item.outlinedIcon,
-                                    size: 25,
+                                    size: 24,
                                     color: isSelected
                                         ? selectedColor
                                         : unselectedColor,
@@ -132,7 +132,7 @@ class AppBottomNavBar extends StatelessWidget {
                                 ],
                               ),
                             ),
-                            const SizedBox(height: 5),
+                            const SizedBox(height: 3),
                             AnimatedDefaultTextStyle(
                               duration: const Duration(milliseconds: 180),
                               curve: Curves.easeOutCubic,
@@ -169,8 +169,8 @@ class AppBottomNavBar extends StatelessWidget {
                     AnimatedContainer(
                       duration: const Duration(milliseconds: 240),
                       curve: Curves.easeOutCubic,
-                      width: 54,
-                      height: 54.5,
+                      width: 48,
+                      height: 48,
                       decoration: BoxDecoration(
                         color: selectedColor,
                         shape: BoxShape.circle,
@@ -193,10 +193,10 @@ class AppBottomNavBar extends StatelessWidget {
                             ? Icons.public
                             : Icons.public_outlined,
                         color: Colors.white,
-                        size: 26,
+                        size: 24,
                       ),
                     ),
-                    const SizedBox(height: 4),
+                    const SizedBox(height: 3),
                     Text(
                       'MAP',
                       style: Theme.of(context).textTheme.labelMedium?.copyWith(

@@ -36,7 +36,7 @@ void main() {
 
     expect(find.text('Test Park'), findsOneWidget);
     expect(find.text('+${XpRewardConfig.visitXpReward} XP'), findsOneWidget);
-    expect(find.text('10/05/2026 2:30 PM'), findsOneWidget);
+    expect(find.text('10 May 2026 · 2:30 PM'), findsOneWidget);
   });
 
   testWidgets('shows friendly empty state when no visits', (tester) async {
@@ -120,7 +120,7 @@ void main() {
       expect(cardSize.height, lessThan(480));
       expect(cardSize.height, lessThan(AppBottomNavBar.barHeight + 360));
       expect(cardSize.height, greaterThan(200));
-      expect(find.text('Recent Visited Locations'), findsOneWidget);
+      expect(find.text('Recent visits'), findsOneWidget);
     },
   );
 }
