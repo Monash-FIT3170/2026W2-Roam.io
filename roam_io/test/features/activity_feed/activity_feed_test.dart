@@ -161,6 +161,35 @@ void main() {
     expect(label.textAlign, TextAlign.center);
   });
 
+  testWidgets('profile journey uses one compact metric line', (tester) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: ActivityFeedCard.fromItem(
+            _testActivity(
+              encodedRoute: null,
+              routeBounds: null,
+              metrics: const [
+                ActivityFeedMetric(label: 'Time', value: '7m 7s'),
+                ActivityFeedMetric(label: 'Tiles Explored', value: '2'),
+                ActivityFeedMetric(label: 'XP Gained', value: '+109 XP'),
+              ],
+            ),
+            profilePresentation: true,
+            showKudos: false,
+            showComments: false,
+            showShare: false,
+          ),
+        ),
+      ),
+    );
+
+    expect(find.text('7m 7s'), findsOneWidget);
+    expect(find.text('2 tiles'), findsOneWidget);
+    expect(find.text('+109 XP'), findsOneWidget);
+    expect(find.text('Tiles Explored'), findsNothing);
+  });
+
   testWidgets('activity card uses Journey metrics and comment counts', (
     tester,
   ) async {

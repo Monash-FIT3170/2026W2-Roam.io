@@ -9,9 +9,8 @@
  */
 
 import 'dart:async';
-import 'dart:typed_data';
-
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import '../../../shared/widgets/app_toast.dart';
 import '../../../theme/app_colours.dart';
@@ -73,6 +72,8 @@ class ActivityFeedCard extends StatelessWidget {
     this.shareLabel = 'Share',
     this.edgeToEdge = false,
     this.largeEngagementActions = false,
+    this.profilePresentation = false,
+    this.journeyPresentation = false,
   });
 
   /// Builds a card from a shared [ActivityFeedItem] model.
@@ -96,6 +97,7 @@ class ActivityFeedCard extends StatelessWidget {
     RouteEndpointMarkerIcons? endpointMarkerIcons,
     bool edgeToEdge = false,
     bool largeEngagementActions = false,
+    bool profilePresentation = false,
   }) {
     final route = item.showMapPreview
         ? ActivityRoute.tryCreate(
@@ -137,6 +139,8 @@ class ActivityFeedCard extends StatelessWidget {
       onShareTap: onShareTap,
       edgeToEdge: edgeToEdge,
       largeEngagementActions: largeEngagementActions,
+      profilePresentation: profilePresentation,
+      journeyPresentation: item.kind == ActivityFeedKind.journey,
     );
   }
 
@@ -188,6 +192,13 @@ class ActivityFeedCard extends StatelessWidget {
 
   /// Slightly larger engagement controls for the edge-to-edge Home feed.
   final bool largeEngagementActions;
+
+  /// Tighter identity/metrics chrome with an inset, rounded visual intended
+  /// for the personal Profile journey feed.
+  final bool profilePresentation;
+
+  /// Uses the compact Journey-specific `time · tiles · XP` summary.
+  final bool journeyPresentation;
 
   bool get _hasEngagementActions => showKudos || showComments || showShare;
 
@@ -269,7 +280,7 @@ class ActivityFeedCard extends StatelessWidget {
           Padding(
             padding: EdgeInsets.fromLTRB(
               16,
-              14,
+              profilePresentation ? 10 : 14,
               16,
               hasMedia || _hasEngagementActions ? 0 : 14,
             ),
@@ -282,10 +293,10 @@ class ActivityFeedCard extends StatelessWidget {
                     SocialAvatar(
                       displayName: displayName,
                       photoUrl: photoUrl,
-                      radius: 22,
+                      radius: profilePresentation ? 20 : 22,
                       borderWidth: 1.5,
                     ),
-                    const SizedBox(width: 12),
+                    SizedBox(width: profilePresentation ? 10 : 12),
                     Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
@@ -296,7 +307,7 @@ class ActivityFeedCard extends StatelessWidget {
                             overflow: TextOverflow.ellipsis,
                             style: theme.textTheme.titleSmall?.copyWith(
                               color: AppSurfaces.textPrimary(context),
-                              fontWeight: FontWeight.w900,
+                              fontWeight: FontWeight.w700,
                             ),
                           ),
                           const SizedBox(height: 2),
@@ -307,7 +318,7 @@ class ActivityFeedCard extends StatelessWidget {
                             style: theme.textTheme.bodySmall?.copyWith(
                               color: AppSurfaces.textSubtle(context),
                               fontSize: 12,
-                              fontWeight: FontWeight.w700,
+                              fontWeight: FontWeight.w500,
                             ),
                           ),
                         ],
@@ -328,7 +339,7 @@ class ActivityFeedCard extends StatelessWidget {
                     ),
                   ],
                 ),
-                const SizedBox(height: 20),
+                SizedBox(height: profilePresentation ? 12 : 20),
                 Text(
                   title,
                   maxLines: 2,
@@ -342,25 +353,39 @@ class ActivityFeedCard extends StatelessWidget {
                   ),
                 ),
                 if (metrics.isNotEmpty) ...[
-                  const SizedBox(height: 10),
-                  ActivityMetricsRow(metrics: metrics),
+                  SizedBox(height: profilePresentation ? 8 : 10),
+                  ActivityMetricsRow(
+                    metrics: metrics,
+                    compact: profilePresentation,
+                    journeyStyle: journeyPresentation,
+                  ),
                 ],
               ],
             ),
           ),
           if (hasMedia) ...[
-            const SizedBox(height: 12),
-            ActivityMediaCarousel(
-              media: media,
-              onTap: onMediaTap,
-              routeSlide: routeSlide,
-              routeFirst: true,
-              borderRadius: 0,
+            SizedBox(height: profilePresentation ? 10 : 12),
+            Padding(
+              padding: EdgeInsets.symmetric(
+                horizontal: profilePresentation ? 14 : 0,
+              ),
+              child: ActivityMediaCarousel(
+                media: media,
+                onTap: onMediaTap,
+                routeSlide: routeSlide,
+                routeFirst: true,
+                borderRadius: profilePresentation ? 14 : 0,
+              ),
             ),
           ],
           if (_hasEngagementActions)
             Padding(
-              padding: const EdgeInsets.fromLTRB(16, 12, 12, 8),
+              padding: EdgeInsets.fromLTRB(
+                16,
+                profilePresentation ? 6 : 12,
+                12,
+                profilePresentation ? 4 : 8,
+              ),
               child: Row(
                 children: [
                   if (showKudos)
@@ -402,25 +427,31 @@ class ActivityFeedCard extends StatelessWidget {
 
     final storedMapImageUrl = mapImageUrl;
     if (storedMapImageUrl != null && storedMapImageUrl.isNotEmpty) {
-      return ActivityMapSnapshotImage(
-        key: ValueKey<String>('activity-card-map-image-$activityId'),
-        url: storedMapImageUrl,
+      return _TappableJourneyVisual(
+        onTap: onOverflowTap,
+        child: ActivityMapSnapshotImage(
+          key: ValueKey<String>('activity-card-map-image-$activityId'),
+          url: storedMapImageUrl,
+        ),
       );
     }
 
     if (route == null) return null;
 
-    return ActivityMapPreview(
-      key: ValueKey<String>('activity-card-map-$activityId'),
-      route: route,
-      snapshotProfileId: routeSnapshotProfileId,
-      mapSnapshotService: mapSnapshotService,
-      visitedRegionService: visitedRegionService,
-      transportMode: routeTransportMode,
-      showEndpoints: true,
-      endpointMarkerIcons: endpointMarkerIcons,
-      mapIdentity: activityId,
-      onSnapshotCaptured: _mapImageBackfill,
+    return _TappableJourneyVisual(
+      onTap: onOverflowTap,
+      child: ActivityMapPreview(
+        key: ValueKey<String>('activity-card-map-$activityId'),
+        route: route,
+        snapshotProfileId: routeSnapshotProfileId,
+        mapSnapshotService: mapSnapshotService,
+        visitedRegionService: visitedRegionService,
+        transportMode: routeTransportMode,
+        showEndpoints: true,
+        endpointMarkerIcons: endpointMarkerIcons,
+        mapIdentity: activityId,
+        onSnapshotCaptured: _mapImageBackfill,
+      ),
     );
   }
 
@@ -469,6 +500,7 @@ class ActivityFeedCard extends StatelessWidget {
       );
       return;
     }
+    unawaited(HapticFeedback.selectionClick());
     debugPrint(
       '[ActivityFeedCard] toggleKudos activityId=$id ownerId=$ownerId '
       'userId=$uid',
@@ -493,14 +525,99 @@ class ActivityFeedCard extends StatelessWidget {
 
 /// Shared equal-width, centre-aligned metric columns for cards and detail.
 class ActivityMetricsRow extends StatelessWidget {
-  const ActivityMetricsRow({super.key, required this.metrics, this.valueStyle});
+  const ActivityMetricsRow({
+    super.key,
+    required this.metrics,
+    this.valueStyle,
+    this.compact = false,
+    this.journeyStyle = false,
+  });
 
   final List<ActivityFeedMetric> metrics;
   final TextStyle? valueStyle;
+  final bool compact;
+  final bool journeyStyle;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+
+    if (compact) {
+      if (journeyStyle) {
+        return FittedBox(
+          fit: BoxFit.scaleDown,
+          alignment: Alignment.centerLeft,
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              for (var index = 0; index < metrics.length; index += 1) ...[
+                if (index > 0)
+                  Text(
+                    '  ·  ',
+                    style: theme.textTheme.bodyMedium?.copyWith(
+                      color: AppSurfaces.textSubtle(context),
+                    ),
+                  ),
+                Text(
+                  _compactMetricLabel(metrics[index]),
+                  style: theme.textTheme.bodyMedium?.copyWith(
+                    color: _isXpMetric(metrics[index].label)
+                        ? AppColors.sage
+                        : AppSurfaces.textPrimary(context),
+                    fontWeight: _isXpMetric(metrics[index].label)
+                        ? FontWeight.w700
+                        : FontWeight.w600,
+                  ),
+                ),
+              ],
+            ],
+          ),
+        );
+      }
+
+      return Row(
+        children: [
+          for (var index = 0; index < metrics.length; index += 1) ...[
+            if (index > 0)
+              Container(
+                width: 1,
+                height: 14,
+                color: AppSurfaces.border(context),
+              ),
+            Expanded(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 7),
+                child: FittedBox(
+                  fit: BoxFit.scaleDown,
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        metrics[index].value,
+                        style: theme.textTheme.labelLarge?.copyWith(
+                          color: _isXpMetric(metrics[index].label)
+                              ? AppColors.sage
+                              : AppSurfaces.textPrimary(context),
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                      const SizedBox(width: 3),
+                      Text(
+                        metrics[index].label,
+                        style: theme.textTheme.labelSmall?.copyWith(
+                          color: AppSurfaces.textMuted(context),
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ],
+      );
+    }
 
     return Row(
       children: [
@@ -554,6 +671,40 @@ class ActivityMetricsRow extends StatelessWidget {
 }
 
 bool _isXpMetric(String label) => label.toLowerCase().contains('xp');
+
+String _compactMetricLabel(ActivityFeedMetric metric) {
+  final label = metric.label.toLowerCase();
+  if (label.contains('time') || label.contains('duration')) {
+    return metric.value;
+  }
+  if (label.contains('tile')) {
+    final suffix = metric.value.trim() == '1' ? 'tile' : 'tiles';
+    return '${metric.value} $suffix';
+  }
+  if (_isXpMetric(metric.label)) return metric.value;
+  return '${metric.value} ${metric.label.toLowerCase()}';
+}
+
+class _TappableJourneyVisual extends StatelessWidget {
+  const _TappableJourneyVisual({required this.child, this.onTap});
+
+  final Widget child;
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    if (onTap == null) return child;
+    return Semantics(
+      button: true,
+      label: 'Open journey details',
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: onTap,
+        child: child,
+      ),
+    );
+  }
+}
 
 class _CommentActionButton extends StatelessWidget {
   const _CommentActionButton({
@@ -739,7 +890,7 @@ class _ActionButton extends StatelessWidget {
       onTap: onTap,
       borderRadius: BorderRadius.circular(10),
       child: Padding(
-        padding: EdgeInsets.symmetric(vertical: large ? 11 : 9, horizontal: 2),
+        padding: EdgeInsets.symmetric(vertical: large ? 11 : 7, horizontal: 2),
         child: FittedBox(
           fit: BoxFit.scaleDown,
           child: Row(
@@ -751,10 +902,10 @@ class _ActionButton extends StatelessWidget {
                       icon: icon,
                       color: iconColor,
                       active: active,
-                      size: large ? 23 : 16,
+                      size: large ? 23 : 18,
                     )
-                  : Icon(icon, size: large ? 23 : 21, color: iconColor),
-              SizedBox(width: large ? 7 : 5),
+                  : Icon(icon, size: large ? 23 : 18, color: iconColor),
+              SizedBox(width: large ? 7 : 4),
               Text(
                 label,
                 maxLines: 1,
@@ -763,8 +914,8 @@ class _ActionButton extends StatelessWidget {
                   color: active
                       ? theme.colorScheme.primary
                       : AppSurfaces.textMuted(context),
-                  fontSize: large ? 14 : null,
-                  fontWeight: FontWeight.w600,
+                  fontSize: large ? 14 : 12,
+                  fontWeight: FontWeight.w500,
                 ),
               ),
             ],

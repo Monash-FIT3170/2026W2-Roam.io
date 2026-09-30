@@ -8,6 +8,8 @@
 
 import 'package:flutter/material.dart';
 
+import '../../../shared/utils/app_date_format.dart';
+
 import '../../../theme/app_surfaces.dart';
 import '../../map/widgets/media_viewer.dart';
 import '../data/activity_mutation_service.dart';
@@ -164,7 +166,7 @@ class _GalleryListRow extends StatelessWidget {
         ),
       ),
       subtitle: Text(
-        _formatActivityDateTime(context, entry.activity),
+        _formatActivityDateTime(entry.activity),
         maxLines: 1,
         overflow: TextOverflow.ellipsis,
       ),
@@ -182,20 +184,10 @@ class _GalleryListRow extends StatelessWidget {
     );
   }
 
-  String _formatActivityDateTime(
-    BuildContext context,
-    ActivityFeedItem activity,
-  ) {
+  String _formatActivityDateTime(ActivityFeedItem activity) {
     final createdAt = activity.createdAt;
     if (createdAt == null) return activity.timestampLabel;
-    final local = createdAt.toLocal();
-    final localizations = MaterialLocalizations.of(context);
-    final date = localizations.formatMediumDate(local);
-    final time = localizations.formatTimeOfDay(
-      TimeOfDay.fromDateTime(local),
-      alwaysUse24HourFormat: MediaQuery.alwaysUse24HourFormatOf(context),
-    );
-    return '$date · $time';
+    return formatAppDateTime(createdAt);
   }
 }
 

@@ -9,6 +9,8 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/foundation.dart';
 
+import '../../../shared/utils/app_date_format.dart';
+
 import '../../../services/storage_service.dart';
 import '../../journeys/data/polyline_codec.dart';
 import '../../journeys/domain/journey.dart';
@@ -661,7 +663,7 @@ class ActivityCreationService {
       photoUrl: data['photoUrl'] as String?,
       timestampLabel: createdAt == null
           ? 'Recently'
-          : '${createdAt.toLocal().day}/${createdAt.toLocal().month}/${createdAt.toLocal().year}',
+          : formatAppDateTime(createdAt),
       createdAt: createdAt,
       title: data['title'] as String,
       kind: ActivityFeedKindParsing.fromWireValue(data['kind'] as String),

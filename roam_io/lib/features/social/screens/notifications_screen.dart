@@ -13,6 +13,7 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:provider/provider.dart';
 
 import '../../../shared/widgets/app_toast.dart';
+import '../../../shared/widgets/app_page_transition.dart';
 import '../../../theme/app_colours.dart';
 import '../../../theme/app_surfaces.dart';
 import '../../activity_feed/data/activity_feed_service.dart';
@@ -137,7 +138,12 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
 
     return Scaffold(
       backgroundColor: AppSurfaces.pageBackground(context),
-      appBar: AppBar(title: const Text('Notifications')),
+      appBar: AppBar(
+        title: const Text('Notifications'),
+        elevation: 0,
+        scrolledUnderElevation: 0,
+        backgroundColor: AppSurfaces.pageBackground(context),
+      ),
       body: uid == null
           ? const Center(child: Text('Sign in to view notifications.'))
           : StreamBuilder<List<SocialNotification>>(
@@ -145,15 +151,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
               builder: (context, snapshot) {
                 if (snapshot.connectionState == ConnectionState.waiting &&
                     !snapshot.hasData) {
-                  return Center(
-                    child: Text(
-                      'Loading…',
-                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                        color: AppSurfaces.textMuted(context),
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                  );
+                  return const _NotificationsSkeleton();
                 }
                 final items = snapshot.data ?? const <SocialNotification>[];
                 if (items.isEmpty) {
@@ -168,25 +166,48 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                   );
                 }
 
-                return ListView.separated(
-                  padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
-                  itemCount: items.length,
-                  separatorBuilder: (_, _) => const SizedBox(height: 10),
-                  itemBuilder: (context, index) {
-                    final item = items[index];
-                    return _FollowNotificationRow(
-                      notification: item,
-                      currentUserId: uid,
-                      followService: _followService,
-                      followRequestService: _followRequestService,
-                      friendshipService: _friendshipService,
-                      activityFeedService: _activityFeedService,
-                      commentService: _commentService,
-                      commentLikeService: _commentLikeService,
-                      kudosService: _kudosService,
-                      currentPartyProvider: widget._currentPartyProvider,
-                    );
-                  },
+                final groups = _groupNotifications(items);
+                return ListView(
+                  padding: const EdgeInsets.fromLTRB(20, 4, 20, 24),
+                  children: [
+                    for (final group in groups) ...[
+                      Padding(
+                        padding: const EdgeInsets.only(top: 14, bottom: 4),
+                        child: Text(
+                          group.label,
+                          style: Theme.of(context).textTheme.titleSmall
+                              ?.copyWith(
+                                color: AppSurfaces.textPrimary(context),
+                                fontWeight: FontWeight.w700,
+                              ),
+                        ),
+                      ),
+                      for (
+                        var index = 0;
+                        index < group.items.length;
+                        index++
+                      ) ...[
+                        _FollowNotificationRow(
+                          notification: group.items[index],
+                          currentUserId: uid,
+                          followService: _followService,
+                          followRequestService: _followRequestService,
+                          friendshipService: _friendshipService,
+                          activityFeedService: _activityFeedService,
+                          commentService: _commentService,
+                          commentLikeService: _commentLikeService,
+                          kudosService: _kudosService,
+                          currentPartyProvider: widget._currentPartyProvider,
+                        ),
+                        if (index != group.items.length - 1)
+                          Divider(
+                            height: 1,
+                            indent: 60,
+                            color: AppSurfaces.border(context),
+                          ),
+                      ],
+                    ],
+                  ],
                 );
               },
             ),
@@ -229,40 +250,45 @@ class _FollowNotificationRow extends StatelessWidget {
         final photoUrl = profile?.photoUrl;
         final relative = formatRelativeTimestamp(notification.createdAt);
         final message = switch (notification.type) {
-          SocialNotificationType.follow => ' followed you · $relative',
-          SocialNotificationType.followRequest =>
-            ' requested to follow you · $relative',
+          SocialNotificationType.follow => ' followed you',
+          SocialNotificationType.followRequest => ' requested to follow you',
           SocialNotificationType.followRequestAccepted =>
-            ' accepted your follow request · $relative',
+            ' accepted your follow request',
           SocialNotificationType.activityKudos =>
-            ' gave Glaze to your activity · $relative',
+            ' gave Glaze to your activity',
           SocialNotificationType.activityComment =>
             notification.isActivityReplyOnOwnedActivity
-                ? ' replied to a comment on your activity · $relative'
-                : ' commented on your activity · $relative',
-          SocialNotificationType.commentReply =>
-            ' replied to your comment · $relative',
-          SocialNotificationType.commentLike =>
-            ' liked your comment · $relative',
+                ? ' replied to a comment on your activity'
+                : ' commented on your activity',
+          SocialNotificationType.commentReply => ' replied to your comment',
+          SocialNotificationType.commentLike => ' liked your comment',
           SocialNotificationType.partyTileLost =>
-            ' your team lost a Party Mode tile · $relative',
-          SocialNotificationType.partyInvite =>
-            ' invited you to a party · $relative',
+            ' your team lost a Party Mode tile',
+          SocialNotificationType.partyInvite => ' invited you to a party',
         };
 
-        return Container(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-          decoration: BoxDecoration(
-            color: AppSurfaces.card(context),
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: AppSurfaces.border(context)),
-          ),
+        return Padding(
+          padding: const EdgeInsets.symmetric(vertical: 14),
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
+              SizedBox(
+                width: 8,
+                child: notification.isRead
+                    ? const SizedBox.shrink()
+                    : Container(
+                        width: 6,
+                        height: 6,
+                        decoration: BoxDecoration(
+                          color: Theme.of(context).colorScheme.primary,
+                          shape: BoxShape.circle,
+                        ),
+                      ),
+              ),
+              const SizedBox(width: 4),
               Expanded(
                 child: InkWell(
-                  borderRadius: BorderRadius.circular(12),
+                  borderRadius: BorderRadius.circular(8),
                   onTap: () {
                     if (notification.type ==
                         SocialNotificationType.partyInvite) {
@@ -271,7 +297,7 @@ class _FollowNotificationRow extends StatelessWidget {
                     if (notification.isActivityInteraction &&
                         notification.activityId != null) {
                       Navigator.of(context).push(
-                        MaterialPageRoute<void>(
+                        appHorizontalPageRoute<void>(
                           builder: (_) => _ActivityNotificationDestination(
                             notification: notification,
                             activityFeedService: activityFeedService,
@@ -284,7 +310,7 @@ class _FollowNotificationRow extends StatelessWidget {
                       );
                     } else {
                       Navigator.of(context).push(
-                        MaterialPageRoute<void>(
+                        appHorizontalPageRoute<void>(
                           builder: (_) => OtherUserProfileScreen(
                             selectedUserId: notification.actorId,
                             friendshipService: friendshipService,
@@ -302,31 +328,53 @@ class _FollowNotificationRow extends StatelessWidget {
                         radius: 20,
                         borderWidth: 1.5,
                       ),
-                      const SizedBox(width: 10),
+                      const SizedBox(width: 12),
                       Expanded(
-                        child: Text.rich(
-                          TextSpan(
-                            children: [
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text.rich(
                               TextSpan(
-                                text: name,
-                                style: Theme.of(context).textTheme.bodyMedium
-                                    ?.copyWith(
-                                      fontWeight: FontWeight.w800,
-                                      color: AppSurfaces.textPrimary(context),
-                                    ),
+                                children: [
+                                  TextSpan(
+                                    text: name,
+                                    style: Theme.of(context)
+                                        .textTheme
+                                        .bodyMedium
+                                        ?.copyWith(
+                                          fontWeight: FontWeight.w700,
+                                          color: AppSurfaces.textPrimary(
+                                            context,
+                                          ),
+                                        ),
+                                  ),
+                                  TextSpan(
+                                    text: message,
+                                    style: Theme.of(context)
+                                        .textTheme
+                                        .bodyMedium
+                                        ?.copyWith(
+                                          fontWeight: FontWeight.w400,
+                                          color: AppSurfaces.textPrimary(
+                                            context,
+                                          ),
+                                        ),
+                                  ),
+                                ],
                               ),
-                              TextSpan(
-                                text: message,
-                                style: Theme.of(context).textTheme.bodyMedium
-                                    ?.copyWith(
-                                      fontWeight: FontWeight.w600,
-                                      color: AppSurfaces.textMuted(context),
-                                    ),
-                              ),
-                            ],
-                          ),
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                            const SizedBox(height: 3),
+                            Text(
+                              relative,
+                              style: Theme.of(context).textTheme.bodySmall
+                                  ?.copyWith(
+                                    color: AppSurfaces.textMuted(context),
+                                    fontWeight: FontWeight.w400,
+                                  ),
+                            ),
+                          ],
                         ),
                       ),
                     ],
@@ -472,7 +520,7 @@ class _PartyInviteActionState extends State<_PartyInviteAction> {
       widget.currentPartyProvider?.setParty(joined);
       try {
         await Navigator.of(context).push(
-          MaterialPageRoute<void>(
+          appHorizontalPageRoute<void>(
             builder: (_) => PartyScreen(
               partyService: widget.partyService,
               initialParty: joined,
@@ -500,9 +548,87 @@ class _PartyInviteActionState extends State<_PartyInviteAction> {
 
   @override
   Widget build(BuildContext context) {
-    return TextButton(
+    return FilledButton(
       onPressed: _joining ? null : _join,
-      child: const Text('Join'),
+      style: FilledButton.styleFrom(
+        minimumSize: const Size(0, 32),
+        padding: const EdgeInsets.symmetric(horizontal: 12),
+        visualDensity: VisualDensity.compact,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+      ),
+      child: Text(_joining ? 'Joining…' : 'Join'),
+    );
+  }
+}
+
+class _NotificationGroup {
+  const _NotificationGroup(this.label, this.items);
+
+  final String label;
+  final List<SocialNotification> items;
+}
+
+List<_NotificationGroup> _groupNotifications(
+  List<SocialNotification> notifications,
+) {
+  final now = DateTime.now();
+  final today = DateTime(now.year, now.month, now.day);
+  final yesterday = today.subtract(const Duration(days: 1));
+  final weekStart = today.subtract(Duration(days: today.weekday - 1));
+  final grouped = <String, List<SocialNotification>>{};
+  for (final notification in notifications) {
+    final value = notification.createdAt.toLocal();
+    final day = DateTime(value.year, value.month, value.day);
+    final label = day == today
+        ? 'Today'
+        : day == yesterday
+        ? 'Yesterday'
+        : !day.isBefore(weekStart)
+        ? 'Earlier this week'
+        : 'Earlier';
+    grouped.putIfAbsent(label, () => <SocialNotification>[]).add(notification);
+  }
+  return ['Today', 'Yesterday', 'Earlier this week', 'Earlier']
+      .where((label) => grouped[label]?.isNotEmpty ?? false)
+      .map((label) => _NotificationGroup(label, grouped[label]!))
+      .toList(growable: false);
+}
+
+class _NotificationsSkeleton extends StatelessWidget {
+  const _NotificationsSkeleton();
+
+  @override
+  Widget build(BuildContext context) {
+    final fill = AppSurfaces.softCard(context);
+    return ListView.separated(
+      padding: const EdgeInsets.fromLTRB(20, 24, 20, 24),
+      itemCount: 5,
+      separatorBuilder: (_, _) => const SizedBox(height: 18),
+      itemBuilder: (context, index) => Row(
+        children: [
+          DecoratedBox(
+            decoration: BoxDecoration(color: fill, shape: BoxShape.circle),
+            child: const SizedBox(width: 40, height: 40),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                FractionallySizedBox(
+                  widthFactor: index.isEven ? 0.78 : 0.64,
+                  child: Container(height: 11, color: fill),
+                ),
+                const SizedBox(height: 8),
+                FractionallySizedBox(
+                  widthFactor: 0.28,
+                  child: Container(height: 8, color: fill),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
