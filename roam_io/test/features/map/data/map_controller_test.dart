@@ -9,6 +9,9 @@ import 'package:fake_cloud_firestore/fake_cloud_firestore.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:roam_io/features/map/data/map_controller.dart';
+import 'package:roam_io/features/map/data/region_polygon.dart';
+import 'package:roam_io/features/map/data/region_polygon_cache.dart';
+import 'package:roam_io/features/map/domain/exploration_overlay_style.dart';
 import 'package:roam_io/features/map/fog/fog_decay_difficulty.dart';
 import 'package:roam_io/services/polygon_service.dart';
 
@@ -284,6 +287,63 @@ void main() {
     });
   });
 
+  group('MapController exploration overlay style', () {
+    test(
+      'rebuilds polygons without changing markers and notifies once',
+      () async {
+        final cache = RegionPolygonCache();
+        final controller = MapController(
+          visitService: RecordingVisitService(),
+          visitedRegionService: _FakeVisitedRegionService(
+            regionIds: <String>{'region-1'},
+          ),
+          regionPolygonCache: cache,
+        );
+        await controller.setUserId('user-1');
+
+        cache.cacheRegion(
+          region: _controllerRegion,
+          isVisited: true,
+          isCurrentRegion: false,
+          onRegionTapped: (_, _) {},
+        );
+        const marker = Marker(
+          markerId: MarkerId('location-marker'),
+          position: LatLng(-37.815, 144.965),
+        );
+        controller.markers = <Marker>{marker};
+        var notificationCount = 0;
+        controller.addListener(() => notificationCount++);
+
+        controller.updateExplorationOverlayStyle(ExplorationOverlayStyle.dark);
+
+        expect(notificationCount, 1);
+        expect(
+          controller.polygons.single.fillColor,
+          ExplorationOverlayStyle.dark.exploredRegionFillColor,
+        );
+        expect(controller.markers, <Marker>{marker});
+        expect(
+          controller.exploredBoundaryPolylines().every(
+            (line) =>
+                line.color ==
+                    ExplorationOverlayStyle.dark.exploredBoundaryColor &&
+                line.width ==
+                    ExplorationOverlayStyle.dark.exploredBoundaryWidth,
+          ),
+          isTrue,
+        );
+
+        controller.updateExplorationOverlayStyle(ExplorationOverlayStyle.dark);
+        expect(notificationCount, 1);
+        expect(controller.markers, <Marker>{marker});
+
+        controller.disposeController();
+        controller.dispose();
+      },
+    );
+  });
+
   group('MapController.toggleHeatmap', () {
     test('loads entry counts and enables heatmap when signed in', () async {
       final polygonService = _FakePolygonService(entryCounts: {'region-1': 3});
@@ -313,3 +373,21 @@ void main() {
     });
   });
 }
+
+const RegionPolygon _controllerRegion = RegionPolygon(
+  id: 'region-1',
+  name: 'Region One',
+  areaSquareMetres: 4000000,
+  geometry: <String, dynamic>{
+    'type': 'Polygon',
+    'coordinates': <dynamic>[
+      <dynamic>[
+        <double>[144.0, -37.0],
+        <double>[145.0, -37.0],
+        <double>[145.0, -38.0],
+        <double>[144.0, -38.0],
+        <double>[144.0, -37.0],
+      ],
+    ],
+  },
+);

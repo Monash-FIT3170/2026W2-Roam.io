@@ -44,36 +44,51 @@ void main() {
     expect(_googleMap(tester).style, MapStyles.dark);
   });
 
-  testWidgets('dark map keeps translucent polygons and markers', (
-    tester,
-  ) async {
-    final heatmapPolygon = Polygon(
-      polygonId: const PolygonId('heatmap-region'),
-      points: const <LatLng>[
-        LatLng(-37.81, 144.96),
-        LatLng(-37.81, 144.97),
-        LatLng(-37.82, 144.97),
-      ],
-      fillColor: ExplorationOverlayStyle.dark.heatmapFillColorForIntensity(0.5),
-    );
-    const marker = Marker(
-      markerId: MarkerId('visible-place'),
-      position: LatLng(-37.815, 144.965),
-    );
+  for (final brightness in Brightness.values) {
+    testWidgets(
+      '${brightness.name} map keeps translucent polygons and location markers',
+      (tester) async {
+        final style = ExplorationOverlayStyle.forBrightness(brightness);
+        final heatmapPolygon = Polygon(
+          polygonId: const PolygonId('heatmap-region'),
+          points: const <LatLng>[
+            LatLng(-37.81, 144.96),
+            LatLng(-37.81, 144.97),
+            LatLng(-37.82, 144.97),
+          ],
+          fillColor: style.heatmapFillColorForIntensity(0.5),
+        );
+        const marker = Marker(
+          markerId: MarkerId('visible-place'),
+          position: LatLng(-37.815, 144.965),
+        );
 
-    await _pumpMapRender(
-      tester,
-      theme: ThemeData.dark(),
-      polygons: <Polygon>{heatmapPolygon},
-      markers: <Marker>{marker},
-    );
+        await _pumpMapRender(
+          tester,
+          theme: brightness == Brightness.dark
+              ? ThemeData.dark()
+              : ThemeData.light(),
+          polygons: <Polygon>{heatmapPolygon},
+          markers: <Marker>{marker},
+          myLocationEnabled: true,
+        );
 
-    final map = _googleMap(tester);
-    expect(map.style, MapStyles.dark);
-    expect(map.polygons, contains(heatmapPolygon));
-    expect(map.markers, contains(marker));
-    expect(map.polygons.single.fillColor.a, closeTo(0.55, 0.001));
-  });
+        final map = _googleMap(tester);
+        expect(
+          map.style,
+          brightness == Brightness.dark ? MapStyles.dark : MapStyles.light,
+        );
+        expect(map.polygons, contains(heatmapPolygon));
+        expect(map.markers, contains(marker));
+        expect(map.myLocationEnabled, isTrue);
+        expect(
+          map.polygons.single.fillColor,
+          style.heatmapFillColorForIntensity(0.5),
+        );
+        expect(map.polygons.single.fillColor.a, lessThan(1));
+      },
+    );
+  }
 }
 
 Future<void> _pumpMapRender(
@@ -81,6 +96,7 @@ Future<void> _pumpMapRender(
   required ThemeData theme,
   Set<Polygon> polygons = const <Polygon>{},
   Set<Marker> markers = const <Marker>{},
+  bool myLocationEnabled = false,
 }) async {
   await tester.pumpWidget(
     MaterialApp(
@@ -90,6 +106,7 @@ Future<void> _pumpMapRender(
           initialCenter: const LatLng(-37.8136, 144.9631),
           polygons: polygons,
           markers: markers,
+          myLocationEnabled: myLocationEnabled,
           onMapCreated: (_) async {},
           onCameraIdle: () {},
           onCameraMoveStarted: () {},

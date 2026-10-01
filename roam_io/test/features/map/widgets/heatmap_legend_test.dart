@@ -3,6 +3,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:roam_io/features/map/domain/exploration_overlay_style.dart';
 import 'package:roam_io/features/map/widgets/heatmap_legend.dart';
 import 'package:roam_io/theme/app_theme.dart';
+import 'package:roam_io/theme/app_theme_mode.dart';
 
 void main() {
   testWidgets('uses readable dark text and the dark heatmap colours', (
@@ -43,6 +44,50 @@ void main() {
     _expectSwatches(ExplorationOverlayStyle.light);
     _expectLegendIsLocallyBounded(tester);
   });
+
+  for (final testCase
+      in <({String name, DateTime time, ExplorationOverlayStyle style})>[
+        (
+          name: 'daytime light',
+          time: DateTime(2026, 8, 17, 12),
+          style: ExplorationOverlayStyle.light,
+        ),
+        (
+          name: 'night-time dark',
+          time: DateTime(2026, 8, 17, 22),
+          style: ExplorationOverlayStyle.dark,
+        ),
+      ]) {
+    testWidgets(
+      'uses effective ${testCase.name} styling in Dynamic appearance',
+      (tester) async {
+        await tester.pumpWidget(
+          MaterialApp(
+            theme: AppTheme.lightTheme,
+            darkTheme: AppTheme.darkTheme,
+            themeMode: AppThemeMode.dynamic.resolve(testCase.time),
+            home: Scaffold(
+              body: Builder(
+                builder: (context) => HeatmapLegend(
+                  style: ExplorationOverlayStyle.forBrightness(
+                    Theme.of(context).brightness,
+                  ),
+                ),
+              ),
+            ),
+          ),
+        );
+
+        final legendContext = tester.element(find.byType(HeatmapLegend));
+        final expectedBrightness =
+            identical(testCase.style, ExplorationOverlayStyle.dark)
+            ? Brightness.dark
+            : Brightness.light;
+        expect(Theme.of(legendContext).brightness, expectedBrightness);
+        _expectSwatches(testCase.style);
+      },
+    );
+  }
 }
 
 const List<String> _labels = <String>['Heatmap legend', ..._entryLabels];
@@ -74,9 +119,9 @@ Text _text(WidgetTester tester, String label) {
 
 void _expectSwatches(ExplorationOverlayStyle style) {
   for (final color in <Color>[
-    style.heatmapColdColor,
-    style.heatmapWarmColor,
-    style.heatmapHotColor,
+    style.heatmapColorForIntensity(0),
+    style.heatmapColorForIntensity(0.5),
+    style.heatmapColorForIntensity(1),
   ]) {
     expect(
       find.byWidgetPredicate((widget) {

@@ -114,6 +114,123 @@ void main() {
       expect(fillColor.a, lessThan(1));
     });
 
+    for (final testCase in <({String name, ExplorationOverlayStyle style})>[
+      (name: 'light', style: ExplorationOverlayStyle.light),
+      (name: 'dark', style: ExplorationOverlayStyle.dark),
+    ]) {
+      test('sources every ${testCase.name} polygon value from its style', () {
+        final style = testCase.style;
+        final cache = RegionPolygonCache(style: style);
+
+        void cacheState({
+          required bool isVisited,
+          required bool isCurrentRegion,
+          double? heatmapIntensity,
+        }) {
+          cache.cacheRegion(
+            region: _region(areaSquareMetres: 4000000),
+            isVisited: isVisited,
+            isCurrentRegion: isCurrentRegion,
+            onRegionTapped: (_, _) {},
+            heatmapIntensity: heatmapIntensity,
+          );
+        }
+
+        cacheState(isVisited: false, isCurrentRegion: false);
+        expect(
+          cache.polygons.single.fillColor,
+          style.unexploredRegionFillColor,
+        );
+
+        cacheState(isVisited: true, isCurrentRegion: false);
+        expect(cache.polygons.single.fillColor, style.exploredRegionFillColor);
+
+        cacheState(isVisited: true, isCurrentRegion: true);
+        expect(cache.polygons.single.fillColor, style.currentRegionFillColor);
+
+        cacheState(
+          isVisited: true,
+          isCurrentRegion: false,
+          heatmapIntensity: 0.5,
+        );
+        final polygon = cache.polygons.single;
+        expect(polygon.fillColor, style.heatmapFillColorForIntensity(0.5));
+        expect(polygon.strokeColor, style.regionStrokeColor);
+        expect(polygon.strokeWidth, style.regionStrokeWidth);
+      });
+    }
+
+    test('rebuilds cached fills and boundaries after a style change', () {
+      final cache = RegionPolygonCache();
+      cache.cacheRegion(
+        region: _squareRegion('left', west: 144, east: 145),
+        isVisited: true,
+        isCurrentRegion: false,
+        onRegionTapped: (_, _) {},
+      );
+
+      expect(
+        cache.polygons.single.fillColor,
+        ExplorationOverlayStyle.light.exploredRegionFillColor,
+      );
+      expect(cache.updateStyle(ExplorationOverlayStyle.dark), isTrue);
+
+      cache.refreshStyles(
+        shouldRenderAsVisited: (_) => true,
+        isCurrentRegion: (_) => false,
+        onRegionTapped: (_, _) {},
+      );
+
+      expect(
+        cache.polygons.single.fillColor,
+        ExplorationOverlayStyle.dark.exploredRegionFillColor,
+      );
+      expect(
+        cache
+            .exploredBoundaryPolylines(<String>{'left'})
+            .every(
+              (line) =>
+                  line.color ==
+                      ExplorationOverlayStyle.dark.exploredBoundaryColor &&
+                  line.width ==
+                      ExplorationOverlayStyle.dark.exploredBoundaryWidth,
+            ),
+        isTrue,
+      );
+      expect(cache.updateStyle(ExplorationOverlayStyle.dark), isFalse);
+    });
+
+    test('keeps explicit party overrides during a style refresh', () {
+      final cache = RegionPolygonCache();
+      const overrideFill = Color(0xAA123456);
+      const overrideStroke = Color(0xFF654321);
+      const overrideWidth = 7;
+
+      cache.cacheRegion(
+        region: _region(areaSquareMetres: 4000000),
+        isVisited: true,
+        isCurrentRegion: false,
+        onRegionTapped: (_, _) {},
+        overrideFillColor: overrideFill,
+        overrideStrokeColor: overrideStroke,
+        overrideStrokeWidth: overrideWidth,
+      );
+      cache.updateStyle(ExplorationOverlayStyle.dark);
+      cache.refreshStyles(
+        shouldRenderAsVisited: (_) => true,
+        isCurrentRegion: (_) => false,
+        onRegionTapped: (_, _) {},
+        overrideFillColorForRegion: (_) => overrideFill,
+        overrideStrokeColorForRegion: (_) => overrideStroke,
+        overrideStrokeWidthForRegion: (_) => overrideWidth,
+      );
+
+      final polygon = cache.polygons.single;
+      expect(polygon.fillColor, overrideFill);
+      expect(polygon.strokeColor, overrideStroke);
+      expect(polygon.strokeWidth, overrideWidth);
+    });
+
     test('keeps every edge around an isolated explored region', () {
       final cache = RegionPolygonCache();
       cache.cacheRegion(
