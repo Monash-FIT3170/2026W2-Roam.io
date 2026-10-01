@@ -46,7 +46,7 @@ void main() {
       expect(style.heatmapColdColor, const Color(0xFFFFE066));
       expect(style.heatmapWarmColor, const Color(0xFFFFA23F));
       expect(style.heatmapHotColor, const Color(0xFFFF5A5F));
-      expect(style.heatmapFillOpacity, 0.75);
+      expect(style.heatmapFillOpacity, 0.55);
     });
 
     test('maps and clamps light heatmap intensity using its gradient', () {
@@ -64,7 +64,7 @@ void main() {
       expect(style.heatmapColorForIntensity(-1), const Color(0xFFFFE066));
       expect(style.heatmapColorForIntensity(0.5), const Color(0xFFFFA23F));
       expect(style.heatmapColorForIntensity(2), const Color(0xFFFF5A5F));
-      expect(style.heatmapFillColorForIntensity(0.5).a, closeTo(0.75, 0.001));
+      expect(style.heatmapFillColorForIntensity(0.5).a, closeTo(0.55, 0.001));
     });
   });
 }

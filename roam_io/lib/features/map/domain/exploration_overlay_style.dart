@@ -63,7 +63,7 @@ class ExplorationOverlayStyle {
     heatmapColdColor: _darkHeatmapColdColor,
     heatmapWarmColor: _darkHeatmapWarmColor,
     heatmapHotColor: _darkHeatmapHotColor,
-    heatmapFillOpacity: 0.75,
+    heatmapFillOpacity: 0.55,
   );
 
   static ExplorationOverlayStyle forBrightness(Brightness brightness) {

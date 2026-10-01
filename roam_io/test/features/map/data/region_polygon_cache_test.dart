@@ -93,6 +93,27 @@ void main() {
       },
     );
 
+    test('keeps dark heatmap polygons translucent over the base map', () {
+      final cache = RegionPolygonCache(style: ExplorationOverlayStyle.dark);
+
+      cache.cacheRegion(
+        region: _region(areaSquareMetres: 4000000),
+        isVisited: true,
+        isCurrentRegion: false,
+        onRegionTapped: (_, _) {},
+        heatmapIntensity: 0.5,
+      );
+
+      final fillColor = cache.polygons.single.fillColor;
+
+      expect(
+        fillColor,
+        ExplorationOverlayStyle.dark.heatmapFillColorForIntensity(0.5),
+      );
+      expect(fillColor.a, closeTo(0.55, 0.001));
+      expect(fillColor.a, lessThan(1));
+    });
+
     test('keeps every edge around an isolated explored region', () {
       final cache = RegionPolygonCache();
       cache.cacheRegion(
