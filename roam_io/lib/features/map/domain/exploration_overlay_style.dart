@@ -4,8 +4,9 @@ import '../../../theme/app_colours.dart';
 
 /// Visual values used by explored-region, current-region, and heat-map overlays.
 ///
-/// The light and dark definitions deliberately preserve the current appearance.
-/// Dark-specific tuning belongs in the follow-up visual commit.
+/// The light definition preserves the original appearance. The dark definition
+/// increases contrast against the dark Google Map while retaining the app's
+/// sage visual language.
 @immutable
 class ExplorationOverlayStyle {
   const ExplorationOverlayStyle._({
@@ -31,6 +32,12 @@ class ExplorationOverlayStyle {
   static const Color _heatmapWarmColor = Color(0xFFFFC247);
   static const Color _heatmapHotColor = Color(0xFFE53935);
 
+  static const Color _darkExploredRegionFillColor = Color(0x509EB58D);
+  static const Color _darkCurrentRegionFillColor = Color(0x709EB58D);
+  static const Color _darkHeatmapColdColor = Color(0xFFFFE066);
+  static const Color _darkHeatmapWarmColor = Color(0xFFFFA23F);
+  static const Color _darkHeatmapHotColor = Color(0xFFFF5A5F);
+
   static const ExplorationOverlayStyle light = ExplorationOverlayStyle._(
     exploredRegionFillColor: _exploredRegionFillColor,
     currentRegionFillColor: _currentRegionFillColor,
@@ -46,17 +53,17 @@ class ExplorationOverlayStyle {
   );
 
   static const ExplorationOverlayStyle dark = ExplorationOverlayStyle._(
-    exploredRegionFillColor: _exploredRegionFillColor,
-    currentRegionFillColor: _currentRegionFillColor,
+    exploredRegionFillColor: _darkExploredRegionFillColor,
+    currentRegionFillColor: _darkCurrentRegionFillColor,
     unexploredRegionFillColor: _unexploredRegionFillColor,
     regionStrokeColor: _regionStrokeColor,
     regionStrokeWidth: 0,
     exploredBoundaryColor: AppColors.lightSage,
-    exploredBoundaryWidth: 3,
-    heatmapColdColor: _heatmapColdColor,
-    heatmapWarmColor: _heatmapWarmColor,
-    heatmapHotColor: _heatmapHotColor,
-    heatmapFillOpacity: 0.6,
+    exploredBoundaryWidth: 4,
+    heatmapColdColor: _darkHeatmapColdColor,
+    heatmapWarmColor: _darkHeatmapWarmColor,
+    heatmapHotColor: _darkHeatmapHotColor,
+    heatmapFillOpacity: 0.75,
   );
 
   static ExplorationOverlayStyle forBrightness(Brightness brightness) {
