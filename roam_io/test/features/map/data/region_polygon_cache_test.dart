@@ -11,6 +11,7 @@ import 'dart:ui';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:roam_io/features/map/data/region_polygon.dart';
 import 'package:roam_io/features/map/data/region_polygon_cache.dart';
+import 'package:roam_io/features/map/domain/exploration_overlay_style.dart';
 
 void main() {
   group('RegionPolygonCache', () {
@@ -107,8 +108,8 @@ void main() {
       expect(outlines.every((line) => line.width == 3), isTrue);
     });
 
-    test('uses the requested theme colour for every boundary edge', () {
-      final cache = RegionPolygonCache();
+    test('uses the active overlay style for every boundary edge', () {
+      final cache = RegionPolygonCache(style: ExplorationOverlayStyle.dark);
       cache.cacheRegion(
         region: _squareRegion('left', west: 144, east: 145),
         isVisited: true,
@@ -116,12 +117,17 @@ void main() {
         onRegionTapped: (_, _) {},
       );
 
-      const darkModeSage = Color(0xFF9EB58D);
-      final outlines = cache.exploredBoundaryPolylines(<String>{
-        'left',
-      }, boundaryColor: darkModeSage);
+      final outlines = cache.exploredBoundaryPolylines(<String>{'left'});
 
-      expect(outlines.every((line) => line.color == darkModeSage), isTrue);
+      expect(
+        outlines.every(
+          (line) =>
+              line.color ==
+                  ExplorationOverlayStyle.dark.exploredBoundaryColor &&
+              line.width == ExplorationOverlayStyle.dark.exploredBoundaryWidth,
+        ),
+        isTrue,
+      );
     });
 
     test('removes the shared edge between adjacent explored regions', () {

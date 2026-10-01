@@ -24,6 +24,7 @@ import 'package:geolocator/geolocator.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 
 import '../domain/exploration_mode.dart';
+import '../domain/exploration_overlay_style.dart';
 import '../fog/fog_controller.dart';
 import '../fog/fog_decay_difficulty.dart';
 import '../../party/data/party_tile_ownership_service.dart';
@@ -173,11 +174,18 @@ class MapController extends ChangeNotifier {
   Map<String, int> get visitCountsByRegion =>
       Map<String, int>.unmodifiable(_visitCountsByRegion);
 
-  Set<Polyline> exploredBoundaryPolylines(Color boundaryColor) {
+  Set<Polyline> exploredBoundaryPolylines() {
     return _regionPolygonCache.exploredBoundaryPolylines(<String>{
       ..._visitedRegionIds,
       ?currentRegion?.id,
-    }, boundaryColor: boundaryColor);
+    });
+  }
+
+  void updateExplorationOverlayStyle(ExplorationOverlayStyle style) {
+    if (!_regionPolygonCache.updateStyle(style)) return;
+
+    _refreshCachedPolygonsStyles();
+    notifyListeners();
   }
 
   /// Sets the current exploration mode and notifies listeners.

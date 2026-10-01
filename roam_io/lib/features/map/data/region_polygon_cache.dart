@@ -18,43 +18,27 @@
 import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 
+import '../domain/exploration_overlay_style.dart';
 import 'region_polygon.dart';
 
 /// Keeps loaded [RegionPolygon] objects and rendered Google Maps polygons in sync.
 class RegionPolygonCache {
-  RegionPolygonCache();
+  RegionPolygonCache({
+    ExplorationOverlayStyle style = ExplorationOverlayStyle.light,
+  }) : _style = style;
 
-  static const Color _visitedStrokeColor = Color(0xFFFFFFFF);
-  static const Color _visitedFillColor = Color(0x30FFFFFF);
-  static const int _visitedStrokeWidth = 3;
-
-  static const Color _currentRegionFillColor = Color(0x30FFFFFF);
-
-  // Unvisited regions render nothing anywhere. Fog is no longer a black polygon
-  // per census tile — it is a single cloud layer covering the map minus holes
-  // for explored ground: animated by FogOverlay on the live map, frozen by
-  // StaticFog on Journey previews and the pictures taken of them. Per-tile
-  // black fills produced visible seams and double-blended borders wherever
-  // adjacent SA1 polygons shared an edge, and made a preview's cost grow with
-  // the number of tiles its journey crossed.
-  //
-  // MapController also stops caching unvisited regions altogether, so this
-  // styling is barely reachable there — only for the tile the user is standing
-  // in before its unlock persists, and the current-region branch claims that.
-  static const Color _unvisitedFillColor = Color(0x00000000);
-
-  static const Color _unvisitedStrokeColor = Color(0x00000000);
-  static const int _unvisitedStrokeWidth = 0;
-
-  // Use a yellow->orange->red scale so low counts appear yellow, medium
-  // counts orange, and the most visited tiles are red.
-  static const Color _heatmapColdColor = Color(0xFFFFF176);
-  static const Color _heatmapWarmColor = Color(0xFFFFC247);
-  static const Color _heatmapHotColor = Color(0xFFE53935);
+  ExplorationOverlayStyle _style;
 
   final Map<String, RegionPolygon> _regionsById = <String, RegionPolygon>{};
   final Map<String, Polygon> _polygonsById = <String, Polygon>{};
   final Map<String, String> _polygonIdToRegionId = <String, String>{};
+
+  /// Changes the active style. Callers must then rebuild cached polygons.
+  bool updateStyle(ExplorationOverlayStyle style) {
+    if (_style == style) return false;
+    _style = style;
+    return true;
+  }
 
   /// Saves a region, builds its polygons, and applies the correct visual style.
   RegionPolygonCacheResult cacheRegion({
@@ -84,13 +68,7 @@ class RegionPolygonCache {
     _regionsById[region.id] = effectiveRegion;
 
     final googlePolygons = effectiveRegion.toGooglePolygons(
-      strokeColor:
-          overrideStrokeColor ??
-          _strokeColorForRegion(
-            isVisited: isVisited,
-            isCurrentRegion: isCurrentRegion,
-            heatmapIntensity: heatmapIntensity,
-          ),
+      strokeColor: overrideStrokeColor ?? _style.regionStrokeColor,
       fillColor:
           overrideFillColor ??
           _fillColorForRegion(
@@ -98,12 +76,7 @@ class RegionPolygonCache {
             isCurrentRegion: isCurrentRegion,
             heatmapIntensity: heatmapIntensity,
           ),
-      strokeWidth:
-          overrideStrokeWidth ??
-          _strokeWidthForRegion(
-            isVisited: isVisited,
-            isCurrentRegion: isCurrentRegion,
-          ),
+      strokeWidth: overrideStrokeWidth ?? _style.regionStrokeWidth,
       onTap: onRegionTapped,
     );
 
@@ -187,10 +160,7 @@ class RegionPolygonCache {
   /// rendered without a stroke and this method cancels every edge that occurs
   /// in two explored rings. The remaining edges have explored ground on only
   /// one side and therefore form the external perimeter.
-  Set<Polyline> exploredBoundaryPolylines(
-    Set<String> exploredRegionIds, {
-    Color boundaryColor = _visitedStrokeColor,
-  }) {
+  Set<Polyline> exploredBoundaryPolylines(Set<String> exploredRegionIds) {
     final edgesByKey = <String, List<_BoundaryEdge>>{};
 
     for (final regionId in exploredRegionIds) {
@@ -225,22 +195,11 @@ class RegionPolygonCache {
             externalEdges[index].start,
             externalEdges[index].end,
           ],
-          color: boundaryColor,
-          width: _visitedStrokeWidth,
+          color: _style.exploredBoundaryColor,
+          width: _style.exploredBoundaryWidth,
           zIndex: 1,
         ),
     };
-  }
-
-  Color _strokeColorForRegion({
-    required bool isVisited,
-    required bool isCurrentRegion,
-    double? heatmapIntensity,
-  }) {
-    // The external explored perimeter is rendered by
-    // exploredBoundaryPolylines. A per-polygon stroke would make shared edges
-    // between adjacent explored regions visible.
-    return _unvisitedStrokeColor;
   }
 
   Color _fillColorForRegion({
@@ -249,43 +208,18 @@ class RegionPolygonCache {
     double? heatmapIntensity,
   }) {
     if (isCurrentRegion) {
-      return _currentRegionFillColor;
+      return _style.currentRegionFillColor;
     }
 
     if (!isVisited) {
-      return _unvisitedFillColor;
+      return _style.unexploredRegionFillColor;
     }
 
     if (heatmapIntensity != null) {
-      return _heatmapColor(heatmapIntensity).withValues(alpha: 0.6);
+      return _style.heatmapFillColorForIntensity(heatmapIntensity);
     }
 
-    return _visitedFillColor;
-  }
-
-  int _strokeWidthForRegion({
-    required bool isVisited,
-    required bool isCurrentRegion,
-  }) {
-    return _unvisitedStrokeWidth;
-  }
-
-  Color _heatmapColor(double intensity) {
-    final clampedIntensity = intensity.clamp(0.0, 1.0).toDouble();
-
-    if (clampedIntensity <= 0.5) {
-      return Color.lerp(
-        _heatmapColdColor,
-        _heatmapWarmColor,
-        clampedIntensity * 2,
-      )!;
-    }
-
-    return Color.lerp(
-      _heatmapWarmColor,
-      _heatmapHotColor,
-      (clampedIntensity - 0.5) * 2,
-    )!;
+    return _style.exploredRegionFillColor;
   }
 }
 

@@ -36,8 +36,8 @@ import '../../journeys/widgets/start_journey_sheet.dart';
 import '../../profile/domain/xp_event.dart';
 import '../../../shared/widgets/activity_saved_celebration.dart';
 import '../../../shared/widgets/app_toast.dart';
-import '../../../theme/app_colours.dart';
 import '../../../theme/app_surfaces.dart';
+import '../domain/exploration_overlay_style.dart';
 import '../fog/fog_overlay.dart';
 import '../fog/fog_decay_difficulty.dart';
 import '../widgets/map_render.dart';
@@ -131,6 +131,7 @@ class _MapPageState extends State<MapPage> with WidgetsBindingObserver {
   Set<Marker> _journeyMarkers = {};
   StreamSubscription<List<Journey>>? _journeysSubscription;
   FogDecayDifficulty? _lastFogDecayDifficulty;
+  ExplorationOverlayStyle? _lastExplorationOverlayStyle;
   bool _isOpeningJourneyCompletionFlow = false;
   bool _isSavingReviewedJourneyActivity = false;
 
@@ -186,10 +187,20 @@ class _MapPageState extends State<MapPage> with WidgetsBindingObserver {
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
+
+    final overlayStyle = ExplorationOverlayStyle.forBrightness(
+      Theme.of(context).brightness,
+    );
+    if (_lastExplorationOverlayStyle != overlayStyle) {
+      _lastExplorationOverlayStyle = overlayStyle;
+      _mapController.updateExplorationOverlayStyle(overlayStyle);
+    }
+
     final difficulty = context.watch<AuthProvider>().fogDecayDifficulty;
-    if (_lastFogDecayDifficulty == difficulty) return;
-    _lastFogDecayDifficulty = difficulty;
-    unawaited(_mapController.updateFogDecayDifficulty(difficulty));
+    if (_lastFogDecayDifficulty != difficulty) {
+      _lastFogDecayDifficulty = difficulty;
+      unawaited(_mapController.updateFogDecayDifficulty(difficulty));
+    }
   }
 
   /// Loads saved journeys and displays them on the map.
@@ -861,12 +872,11 @@ class _MapPageState extends State<MapPage> with WidgetsBindingObserver {
   // uses the shell [Scaffold] only — a nested scaffold here duplicates snackbars.
   @override
   Widget build(BuildContext context) {
+    final overlayStyle = ExplorationOverlayStyle.forBrightness(
+      Theme.of(context).brightness,
+    );
     final journeyController = context.watch<JourneyController>();
     final isTracking = journeyController.currentPhase == JourneyPhase.tracking;
-    final exploredBoundaryColor =
-        Theme.of(context).brightness == Brightness.dark
-        ? AppColors.lightSage
-        : AppColors.sage;
     final isLiveJourneyActive = isTracking;
     final isCompleting =
         journeyController.currentPhase == JourneyPhase.completing;
@@ -877,7 +887,7 @@ class _MapPageState extends State<MapPage> with WidgetsBindingObserver {
 
     // Combine active journey polyline with saved journey polylines
     final allPolylines = <Polyline>{
-      ..._mapController.exploredBoundaryPolylines(exploredBoundaryColor),
+      ..._mapController.exploredBoundaryPolylines(),
       ..._savedJourneyPolylines,
       ..._activeJourneyPolyline,
     };
@@ -969,7 +979,7 @@ class _MapPageState extends State<MapPage> with WidgetsBindingObserver {
           Positioned(
             top: MediaQuery.paddingOf(context).top + 16,
             left: 16,
-            child: const _HeatmapLegend(),
+            child: _HeatmapLegend(style: overlayStyle),
           ),
         Positioned(
           top: MediaQuery.paddingOf(context).top + 16,
@@ -998,7 +1008,9 @@ class _MapPageState extends State<MapPage> with WidgetsBindingObserver {
 }
 
 class _HeatmapLegend extends StatelessWidget {
-  const _HeatmapLegend();
+  const _HeatmapLegend({required this.style});
+
+  final ExplorationOverlayStyle style;
 
   @override
   Widget build(BuildContext context) {
@@ -1023,11 +1035,11 @@ class _HeatmapLegend extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 8),
-            const _LegendRow(color: Color(0xFFFFF176), label: '1–2 entries'),
+            _LegendRow(color: style.heatmapColdColor, label: '1–2 entries'),
             const SizedBox(height: 6),
-            const _LegendRow(color: Color(0xFFFFC247), label: '3–4 entries'),
+            _LegendRow(color: style.heatmapWarmColor, label: '3–4 entries'),
             const SizedBox(height: 6),
-            const _LegendRow(color: Color(0xFFE53935), label: '5+ entries'),
+            _LegendRow(color: style.heatmapHotColor, label: '5+ entries'),
           ],
         ),
       ),
