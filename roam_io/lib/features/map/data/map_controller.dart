@@ -138,6 +138,7 @@ class MapController extends ChangeNotifier {
   LatLng? _lastRegionCheckLocation;
   Position? _latestPosition;
   LatLng? _latestUserLatLng;
+  double? _deviceHeading;
   bool _isFollowingUser = true;
   bool _isProgrammaticCameraMove = false;
   final FollowCameraPacer _followCameraPacer = FollowCameraPacer();
@@ -166,6 +167,10 @@ class MapController extends ChangeNotifier {
   String? get userId => _userId;
   bool get isHeatmapEnabled => _isHeatmapEnabled;
   bool get isFollowingUser => _isFollowingUser;
+
+  /// Latest usable travel heading, normalized to a map bearing in [0, 360).
+  /// Remains null until the location source supplies heading information.
+  double? get deviceHeading => _deviceHeading;
   ExplorationMode get currentMode => _currentMode;
   Set<int> get visitedPlaceIds => Set.unmodifiable(_visitedPlaceIds);
   Set<String> get visitedRegionIds => Set.unmodifiable(_visitedRegionIds);
@@ -376,7 +381,9 @@ class MapController extends ChangeNotifier {
     _followCameraPacer.reset();
     final position =
         _latestPosition ?? await _geoLocatorService.getCurrentLocation();
-    _rememberPosition(position);
+    if (_rememberPosition(position)) {
+      notifyListeners();
+    }
     // Deliberately not a follow move: this answers a tap and stays snappy.
     await _moveCameraTo(position);
   }
@@ -402,9 +409,33 @@ class MapController extends ChangeNotifier {
   }
 
   /// Records the newest device fix without resolving a region for it.
-  void _rememberPosition(Position position) {
+  ///
+  /// Returns whether the position supplied a new usable device heading.
+  bool _rememberPosition(Position position) {
     _latestPosition = position;
     _latestUserLatLng = LatLng(position.latitude, position.longitude);
+    return _updateDeviceHeading(position);
+  }
+
+  /// Stores a map-ready travel heading from [position] when one is available.
+  bool _updateDeviceHeading(Position position) {
+    final heading = position.heading;
+    final headingAccuracy = position.headingAccuracy;
+
+    if (!heading.isFinite ||
+        heading < 0 ||
+        !headingAccuracy.isFinite ||
+        headingAccuracy < 0 ||
+        (heading == 0 && headingAccuracy == 0)) {
+      return false;
+    }
+
+    final normalizedHeading = heading % 360;
+    final mapBearing = normalizedHeading == 0 ? 0.0 : normalizedHeading;
+    if (_deviceHeading == mapBearing) return false;
+
+    _deviceHeading = mapBearing;
+    return true;
   }
 
   Future<void> _moveCameraTo(Position position) async {
@@ -579,7 +610,9 @@ class MapController extends ChangeNotifier {
   Future<double?> getDistanceToPlace(PlaceOfInterest place) async {
     try {
       final position = await _geoLocatorService.getCurrentLocation();
-      _rememberPosition(position);
+      if (_rememberPosition(position)) {
+        notifyListeners();
+      }
 
       return Geolocator.distanceBetween(
         position.latitude,
@@ -686,6 +719,7 @@ class MapController extends ChangeNotifier {
       debugPrint('[MapController] Loading initial region...');
 
       final position = await _geoLocatorService.getCurrentLocation();
+      _updateDeviceHeading(position);
       final userCenter = LatLng(position.latitude, position.longitude);
 
       center = userCenter;
@@ -842,12 +876,15 @@ class MapController extends ChangeNotifier {
   }
 
   void _handleLocationUpdate(Position position) {
-    _rememberPosition(position);
+    final headingChanged = _rememberPosition(position);
     // Couples wind speed to travel speed, so the clouds quicken when moving.
     fogController.setUserSpeed(position.speed);
     _queueRegionCheck(LatLng(position.latitude, position.longitude));
     if (_isFollowingUser) {
       unawaited(_followCameraTo(LatLng(position.latitude, position.longitude)));
+    }
+    if (headingChanged) {
+      notifyListeners();
     }
   }
 

@@ -114,6 +114,113 @@ void main() {
     });
   });
 
+  group('MapController device heading', () {
+    test(
+      'starts unavailable and exposes a normalized usable heading',
+      () async {
+        final controller = MapController(
+          geoLocatorService: FakeGeoLocatorService(
+            testPosition(-37.8136, 144.9631, heading: 725, headingAccuracy: 4),
+          ),
+          visitService: RecordingVisitService(),
+          visitedRegionService: FakeVisitedRegionService(),
+        );
+        var listenerCalls = 0;
+        controller.addListener(() => listenerCalls++);
+
+        expect(controller.deviceHeading, isNull);
+
+        await controller.recenterOnUser();
+
+        expect(controller.deviceHeading, 5);
+        expect(listenerCalls, 1);
+
+        controller.disposeController();
+        controller.dispose();
+      },
+    );
+
+    test('ignores unavailable and invalid headings', () async {
+      final invalidHeadings = <({double heading, double accuracy})>[
+        (heading: 0, accuracy: 0),
+        (heading: -1, accuracy: 5),
+        (heading: double.nan, accuracy: 5),
+        (heading: double.infinity, accuracy: 5),
+        (heading: 45, accuracy: -1),
+        (heading: 45, accuracy: double.nan),
+      ];
+
+      for (final value in invalidHeadings) {
+        final controller = MapController(
+          geoLocatorService: FakeGeoLocatorService(
+            testPosition(
+              -37.8136,
+              144.9631,
+              heading: value.heading,
+              headingAccuracy: value.accuracy,
+            ),
+          ),
+          visitService: RecordingVisitService(),
+          visitedRegionService: FakeVisitedRegionService(),
+        );
+        var listenerCalls = 0;
+        controller.addListener(() => listenerCalls++);
+
+        await controller.recenterOnUser();
+
+        expect(controller.deviceHeading, isNull);
+        expect(listenerCalls, 0);
+        expect(controller.isFollowingUser, isTrue);
+
+        controller.disposeController();
+        controller.dispose();
+      }
+    });
+
+    test(
+      'retains the latest usable heading and only notifies on changes',
+      () async {
+        final geoLocatorService = FakeGeoLocatorService(
+          testPosition(-37.8136, 144.9631, heading: 90, headingAccuracy: 3),
+        );
+        final controller = MapController(
+          geoLocatorService: geoLocatorService,
+          visitService: RecordingVisitService(),
+          visitedRegionService: FakeVisitedRegionService(),
+        );
+        var listenerCalls = 0;
+        controller.addListener(() => listenerCalls++);
+
+        await controller.getDistanceToPlace(testPlace());
+        expect(controller.deviceHeading, 90);
+        expect(listenerCalls, 1);
+
+        geoLocatorService.setPosition(
+          testPosition(-37.8136, 144.9631, heading: 90, headingAccuracy: 3),
+        );
+        await controller.getDistanceToPlace(testPlace());
+        expect(listenerCalls, 1);
+
+        geoLocatorService.setPosition(
+          testPosition(-37.8136, 144.9631, heading: -1, headingAccuracy: -1),
+        );
+        await controller.getDistanceToPlace(testPlace());
+        expect(controller.deviceHeading, 90);
+        expect(listenerCalls, 1);
+
+        geoLocatorService.setPosition(
+          testPosition(-37.8136, 144.9631, heading: 120, headingAccuracy: 3),
+        );
+        await controller.getDistanceToPlace(testPlace());
+        expect(controller.deviceHeading, 120);
+        expect(listenerCalls, 2);
+
+        controller.disposeController();
+        controller.dispose();
+      },
+    );
+  });
+
   group('MapController.checkProximity', () {
     test('returns isNear true when within threshold', () async {
       // Same coordinates as [testPlace] so distance is effectively zero.
