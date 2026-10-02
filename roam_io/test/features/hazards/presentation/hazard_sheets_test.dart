@@ -98,17 +98,46 @@ void main() {
         tester.getCenter(heading).dy,
         lessThan(tester.getCenter(recenter).dy),
       );
-      expect(find.byTooltip('Orient map to heading'), findsOneWidget);
+      expect(find.text('Face direction'), findsOneWidget);
+      expect(find.text('Heading on'), findsNothing);
+      expect(find.byIcon(Icons.navigation_rounded), findsOneWidget);
+      expect(find.byTooltip('Enable heading orientation'), findsOneWidget);
+      expect(
+        find.bySemanticsLabel('Enable heading orientation'),
+        findsOneWidget,
+      );
+      final inactiveColor = tester.widget<Material>(heading).color;
+      expect(inactiveColor, isNot(AppColors.sage));
 
-      await tester.tap(heading);
+      await tester.tap(find.text('Face direction'));
       expect(toggles, 1);
 
       await pumpControls(isEnabled: true);
 
+      expect(find.text('Face direction'), findsNothing);
+      expect(find.text('Heading on'), findsOneWidget);
       expect(find.byTooltip('Disable heading orientation'), findsOneWidget);
-      final activeButton = tester.widget<FloatingActionButton>(heading);
-      expect(activeButton.backgroundColor, AppColors.sage);
-      expect(activeButton.foregroundColor, Colors.white);
+      expect(
+        find.bySemanticsLabel('Disable heading orientation'),
+        findsOneWidget,
+      );
+      final activeButton = tester.widget<Material>(heading);
+      expect(activeButton.color, AppColors.sage);
+      expect(activeButton.color, isNot(inactiveColor));
+      final activeIcon = tester.widget<Icon>(
+        find.descendant(
+          of: heading,
+          matching: find.byIcon(Icons.navigation_rounded),
+        ),
+      );
+      expect(activeIcon.color, Colors.white);
+      expect(
+        tester.widget<Text>(find.text('Heading on')).style?.color,
+        Colors.white,
+      );
+
+      await tester.tap(find.text('Heading on'));
+      expect(toggles, 2);
     },
   );
 
@@ -137,7 +166,7 @@ void main() {
                   ActiveJourneyMapOverlay(
                     sideQuestsControl: const SizedBox(
                       key: ValueKey('side_quests_control'),
-                      width: 124,
+                      width: 140,
                       height: 44,
                     ),
                     locationControls: MapLocationControls(
@@ -173,6 +202,9 @@ void main() {
         final heading = find.byKey(
           const ValueKey('heading_orientation_button'),
         );
+        final report = find.byKey(const ValueKey('report_hazard_button'));
+        final recenter = find.byKey(const ValueKey('recenter_map_button'));
+        final sideQuests = find.byKey(const ValueKey('side_quests_control'));
         final card = find.byType(JourneyTrackingCard);
         final heatmap = find.byKey(const ValueKey('heatmap_control_bounds'));
         final navigation = find.byKey(
@@ -180,14 +212,14 @@ void main() {
         );
 
         expect(heading, findsOneWidget);
-        expect(
-          tester.getRect(heading).bottom,
-          lessThan(tester.getRect(card).top),
-        );
-        expect(
-          tester.getRect(heading).overlaps(tester.getRect(heatmap)),
-          isFalse,
-        );
+        final headingRect = tester.getRect(heading);
+        expect(headingRect.left, greaterThanOrEqualTo(16));
+        expect(headingRect.right, lessThanOrEqualTo(screenSize.width - 16));
+        expect(headingRect.overlaps(tester.getRect(report)), isFalse);
+        expect(headingRect.overlaps(tester.getRect(recenter)), isFalse);
+        expect(headingRect.overlaps(tester.getRect(sideQuests)), isFalse);
+        expect(headingRect.bottom, lessThan(tester.getRect(card).top));
+        expect(headingRect.overlaps(tester.getRect(heatmap)), isFalse);
         expect(
           tester.getRect(card).bottom,
           lessThan(tester.getRect(navigation).top),

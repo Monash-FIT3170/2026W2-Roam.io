@@ -1139,9 +1139,18 @@ class ActiveJourneyMapOverlay extends StatelessWidget {
         children: [
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.end,
-              children: [sideQuestsControl, const Spacer(), locationControls],
+            child: SizedBox(
+              width: double.infinity,
+              child: Stack(
+                alignment: Alignment.bottomLeft,
+                children: [
+                  sideQuestsControl,
+                  Align(
+                    alignment: Alignment.bottomRight,
+                    child: locationControls,
+                  ),
+                ],
+              ),
             ),
           ),
           journeyCard,
@@ -1188,6 +1197,7 @@ class MapLocationControls extends StatelessWidget {
   Widget build(BuildContext context) {
     return Column(
       mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.end,
       children: [
         FloatingActionButton.small(
           key: const ValueKey('report_hazard_button'),
@@ -1200,20 +1210,9 @@ class MapLocationControls extends StatelessWidget {
         ),
         const SizedBox(height: 8),
         if (showHeadingOrientation) ...[
-          FloatingActionButton.small(
-            key: const ValueKey('heading_orientation_button'),
-            heroTag: 'heading_orientation',
-            tooltip: isHeadingOrientationEnabled
-                ? 'Disable heading orientation'
-                : 'Orient map to heading',
-            onPressed: onToggleHeadingOrientation,
-            backgroundColor: isHeadingOrientationEnabled
-                ? AppColors.sage
-                : AppSurfaces.card(context),
-            foregroundColor: isHeadingOrientationEnabled
-                ? Colors.white
-                : AppSurfaces.textPrimary(context),
-            child: const Icon(Icons.navigation_rounded),
+          _HeadingOrientationButton(
+            isEnabled: isHeadingOrientationEnabled,
+            onPressed: onToggleHeadingOrientation!,
           ),
           const SizedBox(height: 8),
         ],
@@ -1227,6 +1226,74 @@ class MapLocationControls extends StatelessWidget {
           child: const Icon(Icons.my_location),
         ),
       ],
+    );
+  }
+}
+
+class _HeadingOrientationButton extends StatelessWidget {
+  const _HeadingOrientationButton({
+    required this.isEnabled,
+    required this.onPressed,
+  });
+
+  final bool isEnabled;
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    final label = isEnabled ? 'Heading on' : 'Face direction';
+    final accessibilityLabel = isEnabled
+        ? 'Disable heading orientation'
+        : 'Enable heading orientation';
+    final foregroundColor = isEnabled
+        ? Colors.white
+        : AppSurfaces.textPrimary(context);
+
+    return Tooltip(
+      message: accessibilityLabel,
+      excludeFromSemantics: true,
+      child: Semantics(
+        label: accessibilityLabel,
+        button: true,
+        toggled: isEnabled,
+        excludeSemantics: true,
+        child: Material(
+          key: const ValueKey('heading_orientation_button'),
+          color: isEnabled ? AppColors.sage : AppSurfaces.card(context),
+          elevation: 6,
+          shadowColor: AppSurfaces.shadow(context),
+          borderRadius: BorderRadius.circular(22),
+          clipBehavior: Clip.antiAlias,
+          child: InkWell(
+            onTap: onPressed,
+            borderRadius: BorderRadius.circular(22),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 12),
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(minHeight: 40),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      Icons.navigation_rounded,
+                      size: 18,
+                      color: foregroundColor,
+                    ),
+                    const SizedBox(width: 6),
+                    Text(
+                      label,
+                      style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                        color: foregroundColor,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
     );
   }
 }
