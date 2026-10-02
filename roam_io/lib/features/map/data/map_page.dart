@@ -1068,11 +1068,22 @@ class _MapPageState extends State<MapPage> with WidgetsBindingObserver {
               ),
             ),
           ),
-        if (_mapController.isHeatmapEnabled)
-          Positioned(
-            top: MediaQuery.paddingOf(context).top + 16,
-            left: 16,
-            child: const _HeatmapLegend(),
+        if (isLiveJourneyActive || _mapController.isHeatmapEnabled)
+          MapTopLeftControls(
+            showCompass: isLiveJourneyActive,
+            isCompassEnabled: _mapController.isHeadingOrientationEnabled,
+            onToggleCompass: isLiveJourneyActive
+                ? () {
+                    unawaited(
+                      _mapController.setHeadingOrientationEnabled(
+                        !_mapController.isHeadingOrientationEnabled,
+                      ),
+                    );
+                  }
+                : null,
+            heatmapLegend: _mapController.isHeatmapEnabled
+                ? const _HeatmapLegend()
+                : null,
           ),
         Positioned(
           top: MediaQuery.paddingOf(context).top + 16,
@@ -1090,16 +1101,6 @@ class _MapPageState extends State<MapPage> with WidgetsBindingObserver {
             locationControls: MapLocationControls(
               onReportHazard: _openHazardReport,
               onRecenter: _mapController.recenterOnUser,
-              showHeadingOrientation: true,
-              isHeadingOrientationEnabled:
-                  _mapController.isHeadingOrientationEnabled,
-              onToggleHeadingOrientation: () {
-                unawaited(
-                  _mapController.setHeadingOrientationEnabled(
-                    !_mapController.isHeadingOrientationEnabled,
-                  ),
-                );
-              },
             ),
             journeyCard: JourneyTrackingCard(
               distanceMeters: journeyController.distanceMeters,
@@ -1109,6 +1110,46 @@ class _MapPageState extends State<MapPage> with WidgetsBindingObserver {
             ),
           ),
       ],
+    );
+  }
+}
+
+/// Top-left map controls that share the map's safe-area-aware overlay anchor.
+class MapTopLeftControls extends StatelessWidget {
+  const MapTopLeftControls({
+    super.key,
+    required this.showCompass,
+    required this.isCompassEnabled,
+    required this.onToggleCompass,
+    this.heatmapLegend,
+  }) : assert(
+         !showCompass || onToggleCompass != null,
+         'A Compass callback is required when the control is visible.',
+       );
+
+  final bool showCompass;
+  final bool isCompassEnabled;
+  final VoidCallback? onToggleCompass;
+  final Widget? heatmapLegend;
+
+  @override
+  Widget build(BuildContext context) {
+    return Positioned(
+      top: MediaQuery.paddingOf(context).top + 16,
+      left: 16,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          if (showCompass)
+            _CompassButton(
+              isEnabled: isCompassEnabled,
+              onPressed: onToggleCompass!,
+            ),
+          if (showCompass && heatmapLegend != null) const SizedBox(height: 8),
+          ?heatmapLegend,
+        ],
+      ),
     );
   }
 }
@@ -1179,19 +1220,10 @@ class MapLocationControls extends StatelessWidget {
     super.key,
     required this.onReportHazard,
     required this.onRecenter,
-    this.showHeadingOrientation = false,
-    this.isHeadingOrientationEnabled = false,
-    this.onToggleHeadingOrientation,
-  }) : assert(
-         !showHeadingOrientation || onToggleHeadingOrientation != null,
-         'A heading toggle callback is required when the control is visible.',
-       );
+  });
 
   final VoidCallback onReportHazard;
   final VoidCallback onRecenter;
-  final bool showHeadingOrientation;
-  final bool isHeadingOrientationEnabled;
-  final VoidCallback? onToggleHeadingOrientation;
 
   @override
   Widget build(BuildContext context) {
@@ -1209,13 +1241,6 @@ class MapLocationControls extends StatelessWidget {
           child: const Icon(Icons.add),
         ),
         const SizedBox(height: 8),
-        if (showHeadingOrientation) ...[
-          _HeadingOrientationButton(
-            isEnabled: isHeadingOrientationEnabled,
-            onPressed: onToggleHeadingOrientation!,
-          ),
-          const SizedBox(height: 8),
-        ],
         FloatingActionButton.small(
           key: const ValueKey('recenter_map_button'),
           heroTag: 'recenter_map',
@@ -1230,21 +1255,15 @@ class MapLocationControls extends StatelessWidget {
   }
 }
 
-class _HeadingOrientationButton extends StatelessWidget {
-  const _HeadingOrientationButton({
-    required this.isEnabled,
-    required this.onPressed,
-  });
+class _CompassButton extends StatelessWidget {
+  const _CompassButton({required this.isEnabled, required this.onPressed});
 
   final bool isEnabled;
   final VoidCallback onPressed;
 
   @override
   Widget build(BuildContext context) {
-    final label = isEnabled ? 'Heading on' : 'Face direction';
-    final accessibilityLabel = isEnabled
-        ? 'Disable heading orientation'
-        : 'Enable heading orientation';
+    final accessibilityLabel = isEnabled ? 'Disable Compass' : 'Enable Compass';
     final foregroundColor = isEnabled
         ? Colors.white
         : AppSurfaces.textPrimary(context);
@@ -1265,7 +1284,18 @@ class _HeadingOrientationButton extends StatelessWidget {
           borderRadius: BorderRadius.circular(22),
           clipBehavior: Clip.antiAlias,
           child: InkWell(
-            onTap: onPressed,
+            onTap: () {
+              final enabling = !isEnabled;
+              onPressed();
+              AppToast.show(
+                context,
+                enabling ? 'Compass on' : 'Compass off',
+                icon: enabling ? Icons.explore : Icons.explore_outlined,
+                subtitle: enabling
+                    ? "The map will now rotate to face the direction you're travelling."
+                    : 'The map has returned to north-up.',
+              );
+            },
             borderRadius: BorderRadius.circular(22),
             child: Padding(
               padding: const EdgeInsets.symmetric(horizontal: 12),
@@ -1275,13 +1305,13 @@ class _HeadingOrientationButton extends StatelessWidget {
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     Icon(
-                      Icons.navigation_rounded,
+                      isEnabled ? Icons.explore : Icons.explore_outlined,
                       size: 18,
                       color: foregroundColor,
                     ),
                     const SizedBox(width: 6),
                     Text(
-                      label,
+                      'Compass',
                       style: Theme.of(context).textTheme.labelMedium?.copyWith(
                         color: foregroundColor,
                         fontWeight: FontWeight.w700,
