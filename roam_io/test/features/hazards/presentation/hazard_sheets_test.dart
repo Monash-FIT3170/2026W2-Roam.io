@@ -13,8 +13,11 @@ import 'package:roam_io/features/hazards/presentation/hazard_category_icon.dart'
 import 'package:roam_io/features/hazards/presentation/hazard_details_sheet.dart';
 import 'package:roam_io/features/hazards/presentation/hazard_marker_builder.dart';
 import 'package:roam_io/features/hazards/presentation/hazard_report_sheet.dart';
+import 'package:roam_io/features/journeys/domain/transport_mode.dart';
+import 'package:roam_io/features/journeys/widgets/journey_tracking_card.dart';
 import 'package:roam_io/features/map/data/map_page.dart';
 import 'package:roam_io/features/map/data/place_of_interest.dart';
+import 'package:roam_io/shared/widgets/app_bottom_nav_bar.dart';
 import 'package:roam_io/theme/app_colours.dart';
 
 void main() {
@@ -40,6 +43,10 @@ void main() {
     final report = find.byKey(const ValueKey('report_hazard_button'));
     final recenter = find.byKey(const ValueKey('recenter_map_button'));
     expect(
+      find.byKey(const ValueKey('heading_orientation_button')),
+      findsNothing,
+    );
+    expect(
       tester.getCenter(report).dy,
       lessThan(tester.getCenter(recenter).dy),
     );
@@ -52,6 +59,148 @@ void main() {
     expect(reportButton.backgroundColor, AppColors.sage);
     expect(reportButton.foregroundColor, Colors.white);
   });
+
+  testWidgets(
+    'heading control appears between report and recenter when active',
+    (tester) async {
+      var toggles = 0;
+
+      Future<void> pumpControls({required bool isEnabled}) async {
+        await tester.pumpWidget(
+          MaterialApp(
+            home: Scaffold(
+              body: Align(
+                alignment: Alignment.bottomRight,
+                child: MapLocationControls(
+                  onReportHazard: () {},
+                  onRecenter: () {},
+                  showHeadingOrientation: true,
+                  isHeadingOrientationEnabled: isEnabled,
+                  onToggleHeadingOrientation: () => toggles++,
+                ),
+              ),
+            ),
+          ),
+        );
+      }
+
+      await pumpControls(isEnabled: false);
+
+      final report = find.byKey(const ValueKey('report_hazard_button'));
+      final heading = find.byKey(const ValueKey('heading_orientation_button'));
+      final recenter = find.byKey(const ValueKey('recenter_map_button'));
+      expect(heading, findsOneWidget);
+      expect(
+        tester.getCenter(report).dy,
+        lessThan(tester.getCenter(heading).dy),
+      );
+      expect(
+        tester.getCenter(heading).dy,
+        lessThan(tester.getCenter(recenter).dy),
+      );
+      expect(find.byTooltip('Orient map to heading'), findsOneWidget);
+
+      await tester.tap(heading);
+      expect(toggles, 1);
+
+      await pumpControls(isEnabled: true);
+
+      expect(find.byTooltip('Disable heading orientation'), findsOneWidget);
+      final activeButton = tester.widget<FloatingActionButton>(heading);
+      expect(activeButton.backgroundColor, AppColors.sage);
+      expect(activeButton.foregroundColor, Colors.white);
+    },
+  );
+
+  testWidgets(
+    'active Journey controls stay above the card and bottom navigation',
+    (tester) async {
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+
+      var headingToggles = 0;
+      for (final screenSize in const [Size(390, 844), Size(320, 640)]) {
+        tester.view.physicalSize = screenSize;
+        await tester.pumpWidget(
+          MaterialApp(
+            home: Scaffold(
+              extendBody: true,
+              body: Stack(
+                children: [
+                  const Positioned(
+                    key: ValueKey('heatmap_control_bounds'),
+                    top: 16,
+                    right: 16,
+                    child: SizedBox(width: 48, height: 48),
+                  ),
+                  ActiveJourneyMapOverlay(
+                    sideQuestsControl: const SizedBox(
+                      key: ValueKey('side_quests_control'),
+                      width: 124,
+                      height: 44,
+                    ),
+                    locationControls: MapLocationControls(
+                      onReportHazard: () {},
+                      onRecenter: () {},
+                      showHeadingOrientation: true,
+                      onToggleHeadingOrientation: () => headingToggles++,
+                    ),
+                    journeyCard: JourneyTrackingCard(
+                      distanceMeters: 250,
+                      elapsedTime: '00:04:20',
+                      transportMode: TransportMode.walk,
+                      onEndJourney: () {},
+                    ),
+                  ),
+                  const Positioned(
+                    key: ValueKey('bottom_navigation_bounds'),
+                    left: 0,
+                    right: 0,
+                    bottom: 0,
+                    height:
+                        AppBottomNavBar.barHeight +
+                        AppBottomNavBar.outerBottomMinimum,
+                    child: SizedBox(),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        );
+        await tester.pump();
+
+        final heading = find.byKey(
+          const ValueKey('heading_orientation_button'),
+        );
+        final card = find.byType(JourneyTrackingCard);
+        final heatmap = find.byKey(const ValueKey('heatmap_control_bounds'));
+        final navigation = find.byKey(
+          const ValueKey('bottom_navigation_bounds'),
+        );
+
+        expect(heading, findsOneWidget);
+        expect(
+          tester.getRect(heading).bottom,
+          lessThan(tester.getRect(card).top),
+        );
+        expect(
+          tester.getRect(heading).overlaps(tester.getRect(heatmap)),
+          isFalse,
+        );
+        expect(
+          tester.getRect(card).bottom,
+          lessThan(tester.getRect(navigation).top),
+        );
+        expect(tester.takeException(), isNull);
+
+        await tester.tap(heading);
+        await tester.pump();
+      }
+
+      expect(headingToggles, 2);
+    },
+  );
 
   testWidgets('category sheet shows all categories and returns selection', (
     tester,

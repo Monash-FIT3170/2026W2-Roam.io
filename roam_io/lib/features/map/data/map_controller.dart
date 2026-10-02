@@ -46,6 +46,9 @@ import '../../../services/polygon_service.dart';
 
 enum VisitResult { success, notLoggedIn, alreadyVisited, tooFar, error }
 
+typedef MapCameraAnimator =
+    Future<void> Function(CameraUpdate update, {Duration? duration});
+
 class MapController extends ChangeNotifier {
   static const LatLng fallbackCenter = LatLng(-37.8136, 144.9631);
   static const double defaultZoom = MapViewportPolicy.defaultZoom;
@@ -72,6 +75,7 @@ class MapController extends ChangeNotifier {
     ExplorationStatsService? explorationStatsService,
     PartyTileOwnershipService? partyTileOwnershipService,
     FogDecayDifficulty fogDecayDifficulty = FogDecayDifficulty.quarterly,
+    @visibleForTesting MapCameraAnimator? cameraAnimator,
   }) : _geoLocatorService = geoLocatorService ?? GeoLocatorService(),
        _regionService = regionService ?? RegionService(),
        _visitService = visitService ?? VisitService(),
@@ -84,7 +88,8 @@ class MapController extends ChangeNotifier {
        _polygonService = polygonService,
        _explorationStatsService = explorationStatsService,
        _partyTileOwnershipService = partyTileOwnershipService,
-       _fogDecayDifficulty = fogDecayDifficulty;
+       _fogDecayDifficulty = fogDecayDifficulty,
+       _cameraAnimator = cameraAnimator;
 
   final GeoLocatorService _geoLocatorService;
   final RegionService _regionService;
@@ -95,6 +100,7 @@ class MapController extends ChangeNotifier {
   final ViewportRegionLoader _viewportRegionLoader;
   final PlaceMarkerManager _placeMarkerManager;
   final MapViewportPolicy _viewportPolicy;
+  final MapCameraAnimator? _cameraAnimator;
   PolygonService? _polygonService;
   ExplorationStatsService? _explorationStatsService;
   PartyTileOwnershipService? _partyTileOwnershipService;
@@ -112,6 +118,7 @@ class MapController extends ChangeNotifier {
       _partyTileOwnershipService ??= PartyTileOwnershipService();
 
   GoogleMapController? _googleMapController;
+  CameraPosition? _latestCameraPosition;
   StreamSubscription<Position>? _locationUpdatesSubscription;
   Timer? _fogDecayRefreshTimer;
   StreamSubscription<Map<String, String?>>? _partyTileOwnershipSubscription;
@@ -139,6 +146,7 @@ class MapController extends ChangeNotifier {
   Position? _latestPosition;
   LatLng? _latestUserLatLng;
   double? _deviceHeading;
+  bool _isHeadingOrientationEnabled = false;
   bool _isFollowingUser = true;
   bool _isProgrammaticCameraMove = false;
   final FollowCameraPacer _followCameraPacer = FollowCameraPacer();
@@ -167,6 +175,7 @@ class MapController extends ChangeNotifier {
   String? get userId => _userId;
   bool get isHeatmapEnabled => _isHeatmapEnabled;
   bool get isFollowingUser => _isFollowingUser;
+  bool get isHeadingOrientationEnabled => _isHeadingOrientationEnabled;
 
   /// Latest usable travel heading, normalized to a map bearing in [0, 360).
   /// Remains null until the location source supplies heading information.
@@ -317,6 +326,7 @@ class MapController extends ChangeNotifier {
 
   Future<void> onMapCreated(GoogleMapController controller) async {
     _googleMapController = controller;
+    _latestCameraPosition ??= CameraPosition(target: center, zoom: defaultZoom);
 
     _isProgrammaticCameraMove = true;
     try {
@@ -333,6 +343,7 @@ class MapController extends ChangeNotifier {
 
   void onCameraMove(CameraPosition position) {
     _currentZoom = position.zoom;
+    _latestCameraPosition = position;
 
     // The fog overlay projects geometry itself, so it needs the camera every
     // frame. Deliberately not routed through notifyListeners: MapPage rebuilds
@@ -373,6 +384,22 @@ class MapController extends ChangeNotifier {
     _isProgrammaticCameraMove = false;
     fogController.setCameraMoving(false);
     await loadViewportRegions();
+  }
+
+  /// Enables or disables travel-heading orientation for the followed map.
+  ///
+  /// Enabling without a usable heading leaves the camera unchanged until a
+  /// later location update supplies one. Disabling always requests north-up.
+  Future<void> setHeadingOrientationEnabled(bool enabled) async {
+    if (_isHeadingOrientationEnabled == enabled) return;
+
+    _isHeadingOrientationEnabled = enabled;
+    notifyListeners();
+
+    final bearing = enabled ? _deviceHeading : 0.0;
+    if (bearing == null) return;
+
+    await _animateBearingSafely(bearing);
   }
 
   /// Re-centres the map and resumes following future location updates.
@@ -449,30 +476,90 @@ class MapController extends ChangeNotifier {
   /// standstill, and one given the default length arrives long before the next
   /// fix does. [FollowCameraPacer] decides both. A recentre stays a direct
   /// [_moveCameraToLatLng] — it answers a tap, so it should be snappy.
-  Future<void> _followCameraTo(LatLng location) async {
-    if (_googleMapController == null) return;
+  Future<void> _followCameraTo(
+    LatLng location, {
+    bool forceHeadingUpdate = false,
+  }) async {
+    if (!_canAnimateCamera) return;
 
-    final duration = _followCameraPacer.durationFor(location);
-    if (duration == null) return;
+    var duration = _followCameraPacer.durationFor(location);
+    final shouldForceHeadingUpdate =
+        forceHeadingUpdate &&
+        _isHeadingOrientationEnabled &&
+        _deviceHeading != null;
+    if (duration == null && !shouldForceHeadingUpdate) return;
 
-    await _moveCameraToLatLng(location, duration: duration);
+    duration ??= FollowCameraPacer.minAnimation;
+    await _moveCameraToLatLng(
+      location,
+      duration: duration,
+      suppressErrors: true,
+    );
   }
 
   Future<void> _moveCameraToLatLng(
     LatLng location, {
     Duration? duration,
+    bool suppressErrors = false,
   }) async {
+    final heading = _isHeadingOrientationEnabled ? _deviceHeading : null;
+    final cameraUpdate = heading == null
+        ? CameraUpdate.newLatLng(location)
+        : CameraUpdate.newCameraPosition(
+            _cameraPositionFor(target: location, bearing: heading),
+          );
+
+    await _animateCameraUpdate(
+      cameraUpdate,
+      duration: duration,
+      suppressErrors: suppressErrors,
+    );
+  }
+
+  bool get _canAnimateCamera =>
+      _cameraAnimator != null || _googleMapController != null;
+
+  CameraPosition _cameraPositionFor({LatLng? target, required double bearing}) {
+    final currentCamera = _latestCameraPosition;
+    return CameraPosition(
+      target: target ?? currentCamera?.target ?? _latestUserLatLng ?? center,
+      zoom: currentCamera?.zoom ?? _currentZoom,
+      tilt: currentCamera?.tilt ?? 0,
+      bearing: bearing,
+    );
+  }
+
+  Future<void> _animateBearingSafely(double bearing) async {
+    if (!_canAnimateCamera) return;
+
+    await _animateCameraUpdate(
+      CameraUpdate.newCameraPosition(_cameraPositionFor(bearing: bearing)),
+      suppressErrors: true,
+    );
+  }
+
+  Future<void> _animateCameraUpdate(
+    CameraUpdate cameraUpdate, {
+    Duration? duration,
+    bool suppressErrors = false,
+  }) async {
+    final animator = _cameraAnimator;
     final controller = _googleMapController;
-    if (controller == null) return;
+    if (animator == null && controller == null) return;
 
     _isProgrammaticCameraMove = true;
     try {
-      await controller.animateCamera(
-        CameraUpdate.newLatLng(location),
-        duration: duration,
-      );
-    } catch (_) {
+      if (animator != null) {
+        await animator(cameraUpdate, duration: duration);
+      } else {
+        await controller!.animateCamera(cameraUpdate, duration: duration);
+      }
+    } catch (error) {
       _isProgrammaticCameraMove = false;
+      if (suppressErrors) {
+        debugPrint('[MapController] Camera update failed: $error');
+        return;
+      }
       rethrow;
     }
   }
@@ -610,8 +697,12 @@ class MapController extends ChangeNotifier {
   Future<double?> getDistanceToPlace(PlaceOfInterest place) async {
     try {
       final position = await _geoLocatorService.getCurrentLocation();
-      if (_rememberPosition(position)) {
+      final headingChanged = _rememberPosition(position);
+      if (headingChanged) {
         notifyListeners();
+        if (_isHeadingOrientationEnabled && _isFollowingUser) {
+          await _animateBearingSafely(_deviceHeading!);
+        }
       }
 
       return Geolocator.distanceBetween(
@@ -881,7 +972,12 @@ class MapController extends ChangeNotifier {
     fogController.setUserSpeed(position.speed);
     _queueRegionCheck(LatLng(position.latitude, position.longitude));
     if (_isFollowingUser) {
-      unawaited(_followCameraTo(LatLng(position.latitude, position.longitude)));
+      unawaited(
+        _followCameraTo(
+          LatLng(position.latitude, position.longitude),
+          forceHeadingUpdate: headingChanged,
+        ),
+      );
     }
     if (headingChanged) {
       notifyListeners();

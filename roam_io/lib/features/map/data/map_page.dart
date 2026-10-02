@@ -44,6 +44,7 @@ import '../../journeys/widgets/past_journey_summary_sheet.dart';
 import '../../journeys/widgets/start_journey_sheet.dart';
 import '../../profile/domain/xp_event.dart';
 import '../../../shared/widgets/activity_saved_celebration.dart';
+import '../../../shared/widgets/app_bottom_nav_bar.dart';
 import '../../../shared/widgets/app_toast.dart';
 import '../../../theme/app_colours.dart';
 import '../../../theme/app_surfaces.dart';
@@ -358,6 +359,11 @@ class _MapPageState extends State<MapPage> with WidgetsBindingObserver {
   void _onJourneyStateChanged() {
     if (!mounted) return;
     final journeyController = context.read<JourneyController>();
+
+    if (!journeyController.isTracking &&
+        _mapController.isHeadingOrientationEnabled) {
+      unawaited(_mapController.setHeadingOrientationEnabled(false));
+    }
 
     // Update active journey polyline when route changes
     if (journeyController.routePoints.isNotEmpty) {
@@ -952,6 +958,8 @@ class _MapPageState extends State<MapPage> with WidgetsBindingObserver {
         journeyController.currentPhase == JourneyPhase.reviewing &&
         !_isSavingReviewedJourneyActivity;
     final canStartJourney = journeyController.currentPhase == JourneyPhase.idle;
+    final bottomNavigationClearance =
+        AppBottomNavBar.clearanceFromScreenBottom(context) + 8;
 
     // Combine active journey polyline with saved journey polylines
     final allPolylines = <Polyline>{
@@ -1005,21 +1013,22 @@ class _MapPageState extends State<MapPage> with WidgetsBindingObserver {
           controller: _mapController.fogController,
           isJourneyActive: isLiveJourneyActive,
         ),
-        if (_mapController.myLocationEnabled)
+        if (!isLiveJourneyActive && _mapController.myLocationEnabled)
           Positioned(
             right: 16,
-            bottom: isLiveJourneyActive ? 220 : 120,
+            bottom: bottomNavigationClearance,
             child: MapLocationControls(
               onReportHazard: _openHazardReport,
               onRecenter: _mapController.recenterOnUser,
             ),
           ),
 
-        Positioned(
-          left: 16,
-          bottom: isLiveJourneyActive ? 220 : 120,
-          child: _SideQuestsButton(onPressed: _openSideQuests),
-        ),
+        if (!isLiveJourneyActive)
+          Positioned(
+            left: 16,
+            bottom: bottomNavigationClearance,
+            child: _SideQuestsButton(onPressed: _openSideQuests),
+          ),
         // Start Journey is available only while no Journey is active.
         if (canStartJourney)
           Positioned(
@@ -1073,13 +1082,26 @@ class _MapPageState extends State<MapPage> with WidgetsBindingObserver {
             onPressed: _mapController.toggleHeatmap,
           ),
         ),
-        // Journey tracking card shown during active tracking.
+        // Keep live-Journey actions and the tracking card in one layout so
+        // neither the card nor the shell navigation can cover the controls.
         if (isLiveJourneyActive)
-          Positioned(
-            bottom: 100,
-            left: 0,
-            right: 0,
-            child: JourneyTrackingCard(
+          ActiveJourneyMapOverlay(
+            sideQuestsControl: _SideQuestsButton(onPressed: _openSideQuests),
+            locationControls: MapLocationControls(
+              onReportHazard: _openHazardReport,
+              onRecenter: _mapController.recenterOnUser,
+              showHeadingOrientation: true,
+              isHeadingOrientationEnabled:
+                  _mapController.isHeadingOrientationEnabled,
+              onToggleHeadingOrientation: () {
+                unawaited(
+                  _mapController.setHeadingOrientationEnabled(
+                    !_mapController.isHeadingOrientationEnabled,
+                  ),
+                );
+              },
+            ),
+            journeyCard: JourneyTrackingCard(
               distanceMeters: journeyController.distanceMeters,
               elapsedTime: journeyController.formattedElapsedTime,
               transportMode: journeyController.transportMode,
@@ -1087,6 +1109,44 @@ class _MapPageState extends State<MapPage> with WidgetsBindingObserver {
             ),
           ),
       ],
+    );
+  }
+}
+
+/// Positions active-Journey map actions above both the tracking card and the
+/// shell navigation. Keeping these overlays in one layout avoids fragile,
+/// competing bottom offsets as the card height changes.
+class ActiveJourneyMapOverlay extends StatelessWidget {
+  const ActiveJourneyMapOverlay({
+    super.key,
+    required this.sideQuestsControl,
+    required this.locationControls,
+    required this.journeyCard,
+  });
+
+  final Widget sideQuestsControl;
+  final Widget locationControls;
+  final Widget journeyCard;
+
+  @override
+  Widget build(BuildContext context) {
+    return Positioned(
+      left: 0,
+      right: 0,
+      bottom: AppBottomNavBar.clearanceFromScreenBottom(context) + 8,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [sideQuestsControl, const Spacer(), locationControls],
+            ),
+          ),
+          journeyCard,
+        ],
+      ),
     );
   }
 }
@@ -1104,17 +1164,25 @@ Set<Marker> composeMapMarkers({
   return <Marker>{...placeMarkers, ...journeyMarkers, ...hazardMarkers};
 }
 
-/// Map actions that require the user's location. Keeping them in one column
-/// guarantees the report action remains directly above recentering.
+/// Map actions that require the user's location, kept in a consistent column.
 class MapLocationControls extends StatelessWidget {
   const MapLocationControls({
     super.key,
     required this.onReportHazard,
     required this.onRecenter,
-  });
+    this.showHeadingOrientation = false,
+    this.isHeadingOrientationEnabled = false,
+    this.onToggleHeadingOrientation,
+  }) : assert(
+         !showHeadingOrientation || onToggleHeadingOrientation != null,
+         'A heading toggle callback is required when the control is visible.',
+       );
 
   final VoidCallback onReportHazard;
   final VoidCallback onRecenter;
+  final bool showHeadingOrientation;
+  final bool isHeadingOrientationEnabled;
+  final VoidCallback? onToggleHeadingOrientation;
 
   @override
   Widget build(BuildContext context) {
@@ -1131,6 +1199,24 @@ class MapLocationControls extends StatelessWidget {
           child: const Icon(Icons.add),
         ),
         const SizedBox(height: 8),
+        if (showHeadingOrientation) ...[
+          FloatingActionButton.small(
+            key: const ValueKey('heading_orientation_button'),
+            heroTag: 'heading_orientation',
+            tooltip: isHeadingOrientationEnabled
+                ? 'Disable heading orientation'
+                : 'Orient map to heading',
+            onPressed: onToggleHeadingOrientation,
+            backgroundColor: isHeadingOrientationEnabled
+                ? AppColors.sage
+                : AppSurfaces.card(context),
+            foregroundColor: isHeadingOrientationEnabled
+                ? Colors.white
+                : AppSurfaces.textPrimary(context),
+            child: const Icon(Icons.navigation_rounded),
+          ),
+          const SizedBox(height: 8),
+        ],
         FloatingActionButton.small(
           key: const ValueKey('recenter_map_button'),
           heroTag: 'recenter_map',
