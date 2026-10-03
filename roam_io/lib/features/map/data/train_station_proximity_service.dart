@@ -2,7 +2,7 @@
  * Author: OpenAI Codex
  * Last Modified: 3 October 2026
  * Description:
- *   Detects when the user enters proximity of a Google Places train station
+ *   Detects when the user enters ~100m of a Google Places train station
  *   (via PlacesService) and surfaces a one-shot in-app safety notification.
  */
 
@@ -22,9 +22,9 @@ class TrainStationProximityService {
   TrainStationProximityService({
     PlacesService? placesService,
     TrainStationAlertShow? showNotification,
-    this.proximityRadiusMeters = 10,
-    this.exitRadiusMeters = 25,
-    this.queryRadiusMeters = 30,
+    this.proximityRadiusMeters = 100,
+    this.exitRadiusMeters = 150,
+    this.queryRadiusMeters = 150,
     this.movementThresholdMeters = 5,
   }) : _placesService = placesService ?? PlacesService(),
        _showNotification =

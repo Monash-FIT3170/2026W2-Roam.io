@@ -2,8 +2,8 @@
  * Author: OpenAI Codex
  * Last Modified: 3 October 2026
  * Description:
- *   Unit tests for train-station proximity detection against Places results,
- *   including one-shot alert de-duplication.
+ *   Unit tests for 100m train-station proximity detection against Places
+ *   results, including one-shot alert de-duplication.
  */
 
 import 'package:flutter_test/flutter_test.dart';
@@ -89,7 +89,7 @@ void main() {
     expect(nearest.distanceMeters, 5);
   });
 
-  test('alerts when the user enters the 10m proximity area', () async {
+  test('alerts when the user enters the 100m proximity area', () async {
     placesService.results = [station];
 
     await service.onLocationUpdate(
@@ -101,6 +101,27 @@ void main() {
     expect(shown.single.type, NotificationType.trainStationProximity);
     expect(shown.single.title, 'Near a train station');
     expect(shown.single.body, contains('Flinders Street Station'));
+    expect(placesService.lastRadiusMeters, service.queryRadiusMeters.round());
+  });
+
+  test('alerts when station is within 100m but outside the old 10m radius', () async {
+    placesService.results = [
+      NearbyPlace(
+        placeId: station.placeId,
+        name: station.name,
+        address: station.address,
+        latLng: station.latLng,
+        distanceMeters: 80,
+        types: station.types,
+      ),
+    ];
+
+    await service.onLocationUpdate(
+      latitude: -37.8183,
+      longitude: 144.9671,
+    );
+
+    expect(shown, hasLength(1));
   });
 
   test('does not duplicate alerts while remaining in proximity', () async {
@@ -135,12 +156,12 @@ void main() {
         name: station.name,
         address: station.address,
         latLng: station.latLng,
-        distanceMeters: 40,
+        distanceMeters: 200,
         types: station.types,
       ),
     ];
     await service.onLocationUpdate(
-      latitude: -37.8187,
+      latitude: -37.8200,
       longitude: 144.9671,
     );
 
@@ -160,13 +181,13 @@ void main() {
         name: station.name,
         address: station.address,
         latLng: station.latLng,
-        distanceMeters: 50,
+        distanceMeters: 120,
         types: station.types,
       ),
     ];
 
     await service.onLocationUpdate(
-      latitude: -37.8188,
+      latitude: -37.8195,
       longitude: 144.9671,
     );
 
