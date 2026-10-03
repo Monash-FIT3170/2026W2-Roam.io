@@ -68,7 +68,6 @@ class MapController extends ChangeNotifier {
     MapViewportPolicy? viewportPolicy,
     PolygonService? polygonService,
     ExplorationStatsService? explorationStatsService,
-    PartyTileOwnershipService? partyTileOwnershipService,
     TrainStationProximityService? trainStationProximityService,
     FogDecayDifficulty fogDecayDifficulty = FogDecayDifficulty.quarterly,
   }) : _geoLocatorService = geoLocatorService ?? GeoLocatorService(),
@@ -82,7 +81,6 @@ class MapController extends ChangeNotifier {
        _viewportPolicy = viewportPolicy ?? MapViewportPolicy(),
        _polygonService = polygonService,
        _explorationStatsService = explorationStatsService,
-       _partyTileOwnershipService = partyTileOwnershipService,
        _trainStationProximityService =
            trainStationProximityService ?? TrainStationProximityService(),
        _fogDecayDifficulty = fogDecayDifficulty;
@@ -98,7 +96,6 @@ class MapController extends ChangeNotifier {
   final MapViewportPolicy _viewportPolicy;
   PolygonService? _polygonService;
   ExplorationStatsService? _explorationStatsService;
-  PartyTileOwnershipService? _partyTileOwnershipService;
   final TrainStationProximityService _trainStationProximityService;
   FogDecayDifficulty _fogDecayDifficulty;
 
@@ -248,8 +245,6 @@ class MapController extends ChangeNotifier {
     _fogDecayRefreshTimer = null;
     unawaited(_locationUpdatesSubscription?.cancel());
     _locationUpdatesSubscription = null;
-    unawaited(_partyTileOwnershipSubscription?.cancel());
-    _partyTileOwnershipSubscription = null;
     _trainStationProximityService.reset();
     _googleMapController?.dispose();
     fogController.onFogReturnCompleted = null;

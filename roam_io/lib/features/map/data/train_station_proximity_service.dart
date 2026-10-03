@@ -15,7 +15,8 @@ import '../../../notifications/services/notification_service.dart';
 import '../../../notifications/templates/notification_templates.dart';
 import 'places_service.dart';
 
-typedef TrainStationAlertShow = Future<void> Function(AppNotification notification);
+typedef TrainStationAlertShow =
+    Future<void> Function(AppNotification notification);
 
 /// Watches location updates and alerts once when near a train station.
 class TrainStationProximityService {

@@ -75,28 +75,31 @@ void main() {
     );
   });
 
-  test('findNearbyTrainStations filters transport places to train stations', () async {
-    placesService.results = [
-      station,
-      const NearbyPlace(
-        placeId: 'place-bus',
-        name: 'Bus Stop',
-        address: '',
-        latLng: LatLng(-37.8184, 144.9672),
-        distanceMeters: 8,
-        types: ['bus_stop'],
-      ),
-    ];
+  test(
+    'findNearbyTrainStations filters transport places to train stations',
+    () async {
+      placesService.results = [
+        station,
+        const NearbyPlace(
+          placeId: 'place-bus',
+          name: 'Bus Stop',
+          address: '',
+          latLng: LatLng(-37.8184, 144.9672),
+          distanceMeters: 8,
+          types: ['bus_stop'],
+        ),
+      ];
 
-    final stations = await service.findNearbyTrainStations(
-      latitude: -37.8183,
-      longitude: 144.9671,
-    );
+      final stations = await service.findNearbyTrainStations(
+        latitude: -37.8183,
+        longitude: 144.9671,
+      );
 
-    expect(stations, hasLength(1));
-    expect(stations.single.placeId, 'place-flinders');
-    expect(placesService.lastTransportOnly, isTrue);
-  });
+      expect(stations, hasLength(1));
+      expect(stations.single.placeId, 'place-flinders');
+      expect(placesService.lastTransportOnly, isTrue);
+    },
+  );
 
   test('nearestStation returns distance from Places results', () async {
     placesService.results = [station];
@@ -114,10 +117,7 @@ void main() {
   test('alerts when the user enters the 100m proximity area', () async {
     placesService.results = [station];
 
-    await service.onLocationUpdate(
-      latitude: -37.8183,
-      longitude: 144.9671,
-    );
+    await service.onLocationUpdate(latitude: -37.8183, longitude: 144.9671);
 
     expect(shown, hasLength(1));
     expect(shown.single.type, NotificationType.trainStationProximity);
@@ -126,51 +126,39 @@ void main() {
     expect(placesService.lastRadiusMeters, service.queryRadiusMeters.round());
   });
 
-  test('alerts when station is within 100m but outside the old 10m radius', () async {
-    placesService.results = [
-      NearbyPlace(
-        placeId: station.placeId,
-        name: station.name,
-        address: station.address,
-        latLng: station.latLng,
-        distanceMeters: 80,
-        types: station.types,
-      ),
-    ];
+  test(
+    'alerts when station is within 100m but outside the old 10m radius',
+    () async {
+      placesService.results = [
+        NearbyPlace(
+          placeId: station.placeId,
+          name: station.name,
+          address: station.address,
+          latLng: station.latLng,
+          distanceMeters: 80,
+          types: station.types,
+        ),
+      ];
 
-    await service.onLocationUpdate(
-      latitude: -37.8183,
-      longitude: 144.9671,
-    );
+      await service.onLocationUpdate(latitude: -37.8183, longitude: 144.9671);
 
-    expect(shown, hasLength(1));
-  });
+      expect(shown, hasLength(1));
+    },
+  );
 
   test('does not duplicate alerts while remaining in proximity', () async {
     placesService.results = [station];
 
-    await service.onLocationUpdate(
-      latitude: -37.8183,
-      longitude: 144.9671,
-    );
-    await service.onLocationUpdate(
-      latitude: -37.81831,
-      longitude: 144.9671,
-    );
-    await service.onLocationUpdate(
-      latitude: -37.81829,
-      longitude: 144.9671,
-    );
+    await service.onLocationUpdate(latitude: -37.8183, longitude: 144.9671);
+    await service.onLocationUpdate(latitude: -37.81831, longitude: 144.9671);
+    await service.onLocationUpdate(latitude: -37.81829, longitude: 144.9671);
 
     expect(shown, hasLength(1));
   });
 
   test('can alert again after the user leaves and re-enters', () async {
     placesService.results = [station];
-    await service.onLocationUpdate(
-      latitude: -37.8183,
-      longitude: 144.9671,
-    );
+    await service.onLocationUpdate(latitude: -37.8183, longitude: 144.9671);
 
     placesService.results = [
       NearbyPlace(
@@ -182,16 +170,10 @@ void main() {
         types: station.types,
       ),
     ];
-    await service.onLocationUpdate(
-      latitude: -37.8200,
-      longitude: 144.9671,
-    );
+    await service.onLocationUpdate(latitude: -37.8200, longitude: 144.9671);
 
     placesService.results = [station];
-    await service.onLocationUpdate(
-      latitude: -37.8183,
-      longitude: 144.9671,
-    );
+    await service.onLocationUpdate(latitude: -37.8183, longitude: 144.9671);
 
     expect(shown, hasLength(2));
   });
@@ -208,10 +190,7 @@ void main() {
       ),
     ];
 
-    await service.onLocationUpdate(
-      latitude: -37.8195,
-      longitude: 144.9671,
-    );
+    await service.onLocationUpdate(latitude: -37.8195, longitude: 144.9671);
 
     expect(shown, isEmpty);
   });
