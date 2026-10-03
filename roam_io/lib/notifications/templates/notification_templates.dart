@@ -321,4 +321,21 @@ class NotificationTemplates {
       data: {'notificationId': ?notificationId, 'actorId': ?actorId},
     );
   }
+
+  /// Safety alert when the user is near a recognised train station.
+  static AppNotification trainStationProximity(String stationName) {
+    final now = DateTime.now();
+    return AppNotification(
+      id: 'train-station-${now.microsecondsSinceEpoch}',
+      type: NotificationType.trainStationProximity,
+      title: 'Near a train station',
+      body:
+          'You are near $stationName. Stay aware of platforms, tracks, and '
+          'surrounding traffic.',
+      timestamp: now,
+      showOnDevice: false,
+      displayDuration: const Duration(seconds: 6),
+      data: {'stationName': stationName},
+    );
+  }
 }

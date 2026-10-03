@@ -354,6 +354,7 @@ class AndroidNotificationService {
 
       case NotificationType.activity:
       case NotificationType.fogDecay:
+      case NotificationType.trainStationProximity:
         return _activityChannel;
 
       case NotificationType.kudos:
@@ -385,6 +386,7 @@ class AndroidNotificationService {
 
       case NotificationType.activity:
       case NotificationType.fogDecay:
+      case NotificationType.trainStationProximity:
         return AndroidNotificationCategory.workout;
 
       case NotificationType.error:
@@ -422,6 +424,7 @@ class AndroidNotificationService {
       case NotificationType.follow:
       case NotificationType.followRequestAccepted:
       case NotificationType.fogDecay:
+      case NotificationType.trainStationProximity:
         return null;
     }
   }

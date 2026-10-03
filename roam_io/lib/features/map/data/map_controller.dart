@@ -35,6 +35,7 @@ import 'region_polygon.dart';
 import 'region_polygon_cache.dart';
 import 'region_service.dart';
 import 'tile_unlock_xp_service.dart';
+import 'train_station_proximity_service.dart';
 import 'visit_service.dart';
 import 'visited_region_service.dart';
 import 'viewport_region_loader.dart';
@@ -67,6 +68,7 @@ class MapController extends ChangeNotifier {
     MapViewportPolicy? viewportPolicy,
     PolygonService? polygonService,
     ExplorationStatsService? explorationStatsService,
+    TrainStationProximityService? trainStationProximityService,
     FogDecayDifficulty fogDecayDifficulty = FogDecayDifficulty.quarterly,
   }) : _geoLocatorService = geoLocatorService ?? GeoLocatorService(),
        _regionService = regionService ?? RegionService(),
@@ -79,6 +81,8 @@ class MapController extends ChangeNotifier {
        _viewportPolicy = viewportPolicy ?? MapViewportPolicy(),
        _polygonService = polygonService,
        _explorationStatsService = explorationStatsService,
+       _trainStationProximityService =
+           trainStationProximityService ?? TrainStationProximityService(),
        _fogDecayDifficulty = fogDecayDifficulty;
 
   final GeoLocatorService _geoLocatorService;
@@ -92,6 +96,7 @@ class MapController extends ChangeNotifier {
   final MapViewportPolicy _viewportPolicy;
   PolygonService? _polygonService;
   ExplorationStatsService? _explorationStatsService;
+  final TrainStationProximityService _trainStationProximityService;
   FogDecayDifficulty _fogDecayDifficulty;
 
   PolygonService get _resolvedPolygonService =>
@@ -240,6 +245,7 @@ class MapController extends ChangeNotifier {
     _fogDecayRefreshTimer = null;
     unawaited(_locationUpdatesSubscription?.cancel());
     _locationUpdatesSubscription = null;
+    _trainStationProximityService.reset();
     _googleMapController?.dispose();
     fogController.onFogReturnCompleted = null;
     fogController.dispose();
@@ -330,6 +336,12 @@ class MapController extends ChangeNotifier {
     center = location;
     _latestUserLatLng = location;
     _queueRegionCheck(location);
+    unawaited(
+      _trainStationProximityService.onLocationUpdate(
+        latitude: location.latitude,
+        longitude: location.longitude,
+      ),
+    );
 
     if (_isFollowingUser) {
       unawaited(_followCameraTo(location));
@@ -776,6 +788,12 @@ class MapController extends ChangeNotifier {
     // Couples wind speed to travel speed, so the clouds quicken when moving.
     fogController.setUserSpeed(position.speed);
     _queueRegionCheck(LatLng(position.latitude, position.longitude));
+    unawaited(
+      _trainStationProximityService.onLocationUpdate(
+        latitude: position.latitude,
+        longitude: position.longitude,
+      ),
+    );
     if (_isFollowingUser) {
       unawaited(_followCameraTo(LatLng(position.latitude, position.longitude)));
     }

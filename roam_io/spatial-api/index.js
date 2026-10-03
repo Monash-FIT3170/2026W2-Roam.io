@@ -15,6 +15,7 @@ const {
   fetchPlacesFromGoogle,
   mapToCategory,
   TRANSPORT_TYPES,
+  TRANSPORT_FILTER_TYPES,
 } = require('./placesService');
 
 const app = express();
@@ -237,8 +238,7 @@ app.get('/places/region/:regionId', async (req, res) => {
             lat: point.lat,
             lng: point.lng,
             radiusMeters: searchRadius,
-            includedTypes: TRANSPORT_TYPES,
-            rankPreference: 'DISTANCE',
+            includedTypes: TRANSPORT_FILTER_TYPES,
           }),
         ]);
         const places = [...venues, ...transportStops];
@@ -457,28 +457,29 @@ app.post('/places/nearby', async (req, res) => {
     // Fetch places from Google Places API
     let places = [];
     try {
+      // Places API (New) rejects rankPreference=DISTANCE when includedTypes is
+      // set, so transport queries rely on local haversine sorting instead.
       const requests = transportOnly
         ? [fetchPlacesFromGoogle({
             lat: Number(lat),
             lng: Number(lng),
             radiusMeters: Number(radiusMeters),
             maxResults: 20,
-            includedTypes: TRANSPORT_TYPES,
-            rankPreference: 'DISTANCE',
+            includedTypes: TRANSPORT_FILTER_TYPES,
           })]
         : [fetchPlacesFromGoogle({
           lat: Number(lat),
           lng: Number(lng),
           radiusMeters: Number(radiusMeters),
           maxResults: 20,
+          includedTypes: null,
           rankPreference: 'DISTANCE',
         }), fetchPlacesFromGoogle({
           lat: Number(lat),
           lng: Number(lng),
           radiusMeters: Number(radiusMeters),
           maxResults: 20,
-          includedTypes: TRANSPORT_TYPES,
-          rankPreference: 'DISTANCE',
+          includedTypes: TRANSPORT_FILTER_TYPES,
         })];
       const resultSets = await Promise.all(requests);
       places = Array.from(
@@ -488,24 +489,21 @@ app.post('/places/nearby', async (req, res) => {
       );
     } catch (googleError) {
       console.error('[NearbyPlaces] Google API error:', googleError.message);
-      // Return empty array on Google API failure (graceful degradation)
-      return res.json([]);
     }
 
-    if (!places || places.length === 0) {
-      console.log('[NearbyPlaces] No places found');
-      return res.json([]);
-    }
+    const searchLat = Number(lat);
+    const searchLng = Number(lng);
+    const searchRadius = Number(radiusMeters);
+    const resultLimit = transportOnly ? 20 : 5;
 
-    // Calculate distance for each place and filter to those within radius
-    const placesWithDistance = places
+    let results = places
       .filter((place) => place.location?.latitude && place.location?.longitude)
       .map((place) => {
         const distance = haversineDistance(
-          lat,
-          lng,
+          searchLat,
+          searchLng,
           place.location.latitude,
-          place.location.longitude
+          place.location.longitude,
         );
         return {
           placeId: place.id,
@@ -519,14 +517,63 @@ app.post('/places/nearby', async (req, res) => {
           types: place.types || [],
         };
       })
-      .filter((place) => place.distanceMeters <= radiusMeters);
+      .filter((place) => place.distanceMeters <= searchRadius);
 
-    // Sort by distance ascending, take top 5
-    placesWithDistance.sort((a, b) => a.distanceMeters - b.distanceMeters);
-    const resultLimit = transportOnly ? 20 : 5;
-    const results = placesWithDistance.slice(0, resultLimit);
+    if (results.length === 0) {
+      console.log('[NearbyPlaces] Falling back to cached places in Postgres');
+      const dbResult = await getPool().query(
+        `
+        SELECT
+          p.google_place_id,
+          p.name,
+          COALESCE(p.address, '') AS address,
+          ST_Y(p.location::geometry) AS lat,
+          ST_X(p.location::geometry) AS lng,
+          ST_Distance(
+            p.location::geography,
+            ST_SetSRID(ST_MakePoint($1, $2), 4326)::geography
+          ) AS distance_meters,
+          p.types
+        FROM places p
+        WHERE ST_DWithin(
+          p.location::geography,
+          ST_SetSRID(ST_MakePoint($1, $2), 4326)::geography,
+          $3
+        )
+          AND (
+            $4::boolean = false
+            OR p.types && $5::text[]
+          )
+        ORDER BY distance_meters ASC
+        LIMIT $6
+        `,
+        [
+          searchLng,
+          searchLat,
+          searchRadius,
+          Boolean(transportOnly),
+          TRANSPORT_FILTER_TYPES,
+          resultLimit,
+        ],
+      );
 
-    console.log(`[NearbyPlaces] Found ${places.length} places, ${placesWithDistance.length} within ${radiusMeters}m, returning ${results.length}`);
+      results = dbResult.rows.map((row) => ({
+        placeId: row.google_place_id,
+        name: row.name || 'Unknown',
+        address: row.address || '',
+        location: {
+          lat: Number(row.lat),
+          lng: Number(row.lng),
+        },
+        distanceMeters: Math.round(Number(row.distance_meters)),
+        types: row.types || [],
+      }));
+    }
+
+    results.sort((a, b) => a.distanceMeters - b.distanceMeters);
+    results = results.slice(0, resultLimit);
+
+    console.log(`[NearbyPlaces] Returning ${results.length} places within ${searchRadius}m`);
 
     return res.json(results);
   } catch (error) {
