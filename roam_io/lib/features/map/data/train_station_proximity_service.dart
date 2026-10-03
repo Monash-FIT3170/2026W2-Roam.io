@@ -36,6 +36,14 @@ class TrainStationProximityService {
     'subway_station',
   };
 
+  /// Types that mean this transit place is bus/tram, not a train station.
+  static const Set<String> nonTrainTransitTypes = {
+    'bus_stop',
+    'bus_station',
+    'tram_stop',
+    'light_rail_station',
+  };
+
   final PlacesService _placesService;
   final TrainStationAlertShow _showNotification;
 
@@ -61,8 +69,21 @@ class TrainStationProximityService {
       Set<String>.unmodifiable(_alertedStationIds);
 
   /// Whether [place] is a recognised train / subway station.
+  ///
+  /// Google sometimes labels major stations only as `transit_station` (no
+  /// `train_station` type). Treat those as train stations when the name looks
+  /// like a station and it is not also a bus/tram stop.
   static bool isTrainStation(NearbyPlace place) {
-    return place.types.any(trainStationTypes.contains);
+    final types = place.types.toSet();
+    if (types.any(trainStationTypes.contains)) return true;
+
+    final looksLikeStation = RegExp(
+      r'\b(station|railway|train)\b',
+      caseSensitive: false,
+    ).hasMatch(place.name);
+    if (!looksLikeStation) return false;
+    if (types.any(nonTrainTransitTypes.contains)) return false;
+    return types.contains('transit_station');
   }
 
   /// Distance in metres from [latitude]/[longitude] to [place].
@@ -159,6 +180,13 @@ class TrainStationProximityService {
         latitude: latitude,
         longitude: longitude,
       );
+
+      if (stations.isEmpty) {
+        debugPrint(
+          '[TrainStationProximity] No train stations within '
+          '${queryRadiusMeters.round()}m of ($latitude, $longitude)',
+        );
+      }
 
       final nearbyIds = <String>{};
 

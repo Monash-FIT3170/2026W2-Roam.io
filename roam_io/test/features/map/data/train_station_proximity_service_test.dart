@@ -43,10 +43,32 @@ void main() {
     expect(
       TrainStationProximityService.isTrainStation(
         const NearbyPlace(
+          name: 'Flinders Street Station',
+          address: '',
+          latLng: LatLng(0, 0),
+          types: ['transit_station'],
+        ),
+      ),
+      isTrue,
+    );
+    expect(
+      TrainStationProximityService.isTrainStation(
+        const NearbyPlace(
           name: 'Bus Stop',
           address: '',
           latLng: LatLng(0, 0),
           types: ['bus_stop'],
+        ),
+      ),
+      isFalse,
+    );
+    expect(
+      TrainStationProximityService.isTrainStation(
+        const NearbyPlace(
+          name: 'Swanston St/Flinders St',
+          address: '',
+          latLng: LatLng(0, 0),
+          types: ['tram_stop', 'transit_station'],
         ),
       ),
       isFalse,
