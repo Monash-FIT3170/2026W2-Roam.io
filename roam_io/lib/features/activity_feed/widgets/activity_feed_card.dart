@@ -367,14 +367,18 @@ class ActivityFeedCard extends StatelessWidget {
             SizedBox(height: profilePresentation ? 10 : 12),
             Padding(
               padding: EdgeInsets.symmetric(
-                horizontal: profilePresentation ? 14 : 0,
+                horizontal: profilePresentation
+                    ? 14
+                    : edgeToEdge
+                    ? 12
+                    : 0,
               ),
               child: ActivityMediaCarousel(
                 media: media,
                 onTap: onMediaTap,
                 routeSlide: routeSlide,
                 routeFirst: true,
-                borderRadius: profilePresentation ? 14 : 0,
+                borderRadius: profilePresentation || edgeToEdge ? 14 : 0,
               ),
             ),
           ],

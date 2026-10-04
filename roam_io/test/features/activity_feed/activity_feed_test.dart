@@ -296,6 +296,40 @@ void main() {
     expect(find.byIcon(Icons.videocam_outlined), findsWidgets);
   });
 
+  testWidgets('edge-to-edge feed card insets and crops its media viewport', (
+    tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(400, 1200));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: SingleChildScrollView(
+            child: ActivityFeedCard.fromItem(
+              _testActivity(),
+              edgeToEdge: true,
+              showKudos: false,
+              showComments: false,
+              showShare: false,
+              mapSnapshotService: _FakeJourneyMapSnapshotService(),
+              visitedRegionService: _FakeVisitedRegionService({
+                'user-1': {'tile_visited'},
+              }),
+              endpointMarkerIcons: _testEndpointIcons,
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final carouselFinder = find.byType(ActivityMediaCarousel);
+    final carousel = tester.widget<ActivityMediaCarousel>(carouselFinder);
+    expect(tester.getSize(carouselFinder).width, 376);
+    expect(carousel.borderRadius, 14);
+  });
+
   testWidgets('formatCommentCount uses singular and plural forms', (
     tester,
   ) async {
