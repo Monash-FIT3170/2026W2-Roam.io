@@ -37,6 +37,8 @@ void main() {
 
     expect(find.text('Home'), findsOneWidget);
     expect(find.text('No activities yet'), findsOneWidget);
+    expect(find.text('Roam.io'), findsOneWidget);
+    expect(find.byKey(const ValueKey('home-header-logo')), findsOneWidget);
     expect(find.text('Journeys'), findsNothing);
     expect(find.text('Quests'), findsNothing);
 

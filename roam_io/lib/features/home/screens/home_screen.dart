@@ -222,36 +222,29 @@ class _HomeHeader extends StatelessWidget {
             ),
           ),
           const SizedBox(width: 16),
-          Container(
-            padding: const EdgeInsets.fromLTRB(12, 8, 10, 8),
-            decoration: BoxDecoration(
-              color: AppColors.sage.withValues(alpha: 0.1),
-              borderRadius: BorderRadius.circular(14),
-              border: Border.all(color: AppColors.sage.withValues(alpha: 0.16)),
-            ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(
-                  'Roam.io',
-                  style: theme.textTheme.titleMedium?.copyWith(
-                    color: AppColors.sage,
-                    fontSize: 17,
-                    height: 1,
-                    fontWeight: FontWeight.w800,
-                    letterSpacing: -0.35,
-                  ),
-                ),
-                const SizedBox(width: 8),
-                Image.asset(
-                  'assets/logos/roam_io_logo_transparent.png',
-                  height: 17,
-                  width: 17,
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                'Roam.io',
+                style: theme.textTheme.titleMedium?.copyWith(
                   color: AppColors.sage,
-                  colorBlendMode: BlendMode.srcIn,
+                  fontSize: 17,
+                  height: 1,
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: -0.35,
                 ),
-              ],
-            ),
+              ),
+              const SizedBox(width: 8),
+              Image.asset(
+                'assets/logos/roam_io_logo_transparent.png',
+                key: const ValueKey('home-header-logo'),
+                height: 20,
+                width: 20,
+                color: AppColors.sage,
+                colorBlendMode: BlendMode.srcIn,
+              ),
+            ],
           ),
         ],
       ),
