@@ -71,6 +71,7 @@ dev_dependencies:
 
   # For app icon and launch screen generation
   flutter_launcher_icons:
+  mock_exceptions: ^0.8.2
 
 # For information on the generic Dart part of this file, see the
 # following page: https://dart.dev/tools/pub/pubspec

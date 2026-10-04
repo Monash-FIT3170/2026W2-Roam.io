@@ -225,36 +225,40 @@ class PartyService {
 
   /// Removes [uid] from whichever team it belongs to. Does not rebalance or
   /// otherwise re-validate the remaining members' team assignments.
-  Future<Party> leaveParty({required String partyId, required String uid}) {
-    return _firestore.runTransaction<Party>((transaction) async {
-      final ref = _parties.doc(partyId);
-      final membershipRef = _membership(uid);
-      final membership = await transaction.get(membershipRef);
-      final doc = await transaction.get(ref);
-      final data = doc.data();
-      if (data == null) {
-        throw PartyNotFoundException(partyId);
-      }
-      final party = Party.fromMap(doc.id, data);
+  ///
+  /// This intentionally uses atomic array transforms rather than a Firestore
+  /// transaction. Tile ownership can update the party document frequently;
+  /// reading that document in a transaction made leaving contend with those
+  /// unrelated writes and eventually fail after exhausting transaction
+  /// retries.
+  Future<Party> leaveParty({
+    required String partyId,
+    required String uid,
+  }) async {
+    final ref = _parties.doc(partyId);
+    final membershipRef = _membership(uid);
+    String? membershipPartyId;
+    try {
+      final membership = await membershipRef.get();
+      membershipPartyId = membership.data()?['partyId'] as String?;
+    } on FirebaseException catch (error) {
+      if (error.code != 'permission-denied') rethrow;
+    }
 
-      final updated = Party(
-        id: party.id,
-        joinCode: party.joinCode,
-        name: party.name,
-        teamAMembers: party.teamAMembers.where((m) => m != uid).toList(),
-        teamBMembers: party.teamBMembers.where((m) => m != uid).toList(),
-        tiles: party.tiles,
-      );
-
-      transaction.update(ref, {
-        'teamAMembers': updated.teamAMembers,
-        'teamBMembers': updated.teamBMembers,
-      });
-      if (membership.data()?['partyId'] == partyId) {
-        transaction.delete(membershipRef);
-      }
-      return updated;
+    final batch = _firestore.batch();
+    batch.update(ref, {
+      'teamAMembers': FieldValue.arrayRemove(<String>[uid]),
+      'teamBMembers': FieldValue.arrayRemove(<String>[uid]),
     });
+    if (membershipPartyId == partyId) {
+      batch.delete(membershipRef);
+    }
+    await batch.commit();
+
+    final updated = await ref.get();
+    final data = updated.data();
+    if (data == null) throw PartyNotFoundException(partyId);
+    return Party.fromMap(updated.id, data);
   }
 
   /// Live updates for all parties where [uid] is in either Team A or Team B.

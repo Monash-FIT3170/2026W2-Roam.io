@@ -313,7 +313,11 @@ class _PartyScreenState extends State<PartyScreen> {
         _isJoining = false;
         _joinError = null;
       });
-    } catch (_) {
+    } catch (error, stackTrace) {
+      debugPrint(
+        '[PartyScreen] Could not leave party $targetId: '
+        '$error\n$stackTrace',
+      );
       if (mounted) {
         AppToast.error(context, 'Could not leave party.');
       }

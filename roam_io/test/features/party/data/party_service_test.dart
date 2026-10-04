@@ -1,5 +1,7 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:fake_cloud_firestore/fake_cloud_firestore.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:mock_exceptions/mock_exceptions.dart';
 import 'package:roam_io/features/party/data/party_service.dart';
 import 'package:roam_io/features/party/domain/party.dart';
 
@@ -179,6 +181,63 @@ void main() {
     );
     expect(joined.teamForUser('user-1'), 'B');
     expect((await service.getUserParties('user-1')).single.id, second.id);
+  });
+
+  test('leaving a legacy party works without a membership document', () async {
+    final firestore = FakeFirebaseFirestore();
+    final service = PartyService(firestore: firestore);
+    await firestore.collection('parties').doc('legacy').set({
+      'joinCode': 'LEGACY',
+      'teamAMembers': ['user-1'],
+      'teamBMembers': ['other'],
+      'tiles': <String, dynamic>{},
+    });
+
+    final updated = await service.leaveParty(partyId: 'legacy', uid: 'user-1');
+
+    expect(updated.teamAMembers, isEmpty);
+    expect(updated.teamBMembers, ['other']);
+  });
+
+  test('leaving a legacy party works when membership reads are denied', () async {
+    final firestore = FakeFirebaseFirestore();
+    final service = PartyService(firestore: firestore);
+    await firestore.collection('parties').doc('legacy').set({
+      'joinCode': 'LEGACY',
+      'teamAMembers': ['user-1'],
+      'teamBMembers': ['other'],
+      'tiles': <String, dynamic>{},
+    });
+    whenCalling(Invocation.method(#get, null))
+        .on(firestore.collection('party_memberships').doc('user-1'))
+        .thenThrow(FirebaseException(
+          plugin: 'cloud_firestore',
+          code: 'permission-denied',
+        ));
+
+    final updated = await service.leaveParty(partyId: 'legacy', uid: 'user-1');
+
+    expect(updated.teamAMembers, isEmpty);
+    expect(updated.teamBMembers, ['other']);
+  });
+
+  test('membership network errors do not remove the user from the party', () async {
+    final firestore = FakeFirebaseFirestore();
+    final service = PartyService(firestore: firestore);
+    final party = await service.createParty(uid: 'user-1');
+    final error = FirebaseException(
+      plugin: 'cloud_firestore',
+      code: 'unavailable',
+    );
+    whenCalling(Invocation.method(#get, null))
+        .on(firestore.collection('party_memberships').doc('user-1'))
+        .thenThrow(error);
+
+    await expectLater(
+      service.leaveParty(partyId: party.id, uid: 'user-1'),
+      throwsA(same(error)),
+    );
+    expect((await service.getParty(party.id))?.teamAMembers, ['user-1']);
   });
 
   test(

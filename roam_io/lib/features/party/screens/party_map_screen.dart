@@ -360,7 +360,11 @@ class _PartyMapScreenState extends State<PartyMapScreen> {
       if (!mounted) return;
       AppToast.show(context, 'You left party ${_party.joinCode}');
       Navigator.of(context).pop();
-    } catch (_) {
+    } catch (error, stackTrace) {
+      debugPrint(
+        '[PartyMapScreen] Could not leave party ${_party.id}: '
+        '$error\n$stackTrace',
+      );
       if (mounted) {
         AppToast.error(context, 'Could not leave party. Please try again.');
       }
