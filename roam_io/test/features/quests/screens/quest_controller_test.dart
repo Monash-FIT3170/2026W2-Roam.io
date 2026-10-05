@@ -75,6 +75,38 @@ void main() {
       },
     );
 
+    test('expired quests cannot be started or completed', () async {
+      final db = FakeFirebaseFirestore();
+      await _seedQuest(db, id: 'retired', isActive: false);
+      final controller = _controller(db);
+      final quest = (await QuestService(
+        firestore: db,
+      ).getQuestById('retired'))!;
+      expect(
+        await controller.startQuest(userId: 'user-1', quest: quest),
+        isFalse,
+      );
+      expect(
+        (await db.doc('profiles/user-1/quests/retired').get()).exists,
+        isFalse,
+      );
+      await db.doc('profiles/user-1/quests/retired').set({
+        'questId': 'retired',
+        'status': 'active',
+      });
+      await controller.initialise(userId: 'user-1');
+      expect(
+        await controller.completeQuest(userId: 'user-1', quest: quest),
+        isFalse,
+      );
+      expect(controller.errorMessage, contains('no longer available'));
+      expect(
+        (await db.doc('profiles/user-1/quests/retired').get())
+            .data()!['status'],
+        'active',
+      );
+    });
+
     test('restores completed history after a definition is retired', () async {
       final db = FakeFirebaseFirestore();
       await _seedQuest(db, id: 'retired', isActive: false);

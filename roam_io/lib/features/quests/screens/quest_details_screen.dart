@@ -14,6 +14,7 @@ import 'data/quest.dart';
 import 'quest_controller.dart';
 import 'quest_enums.dart';
 import 'quest_photo_service.dart';
+import 'quest_status_badge.dart';
 
 class QuestDetailsScreen extends StatefulWidget {
   const QuestDetailsScreen({super.key, required this.quest, this.photoService});
@@ -44,7 +45,7 @@ class _QuestDetailsScreenState extends State<QuestDetailsScreen> {
   Widget build(BuildContext context) {
     final controller = context.watch<QuestController>();
 
-    final progress = controller.progressForQuest(quest.id);
+    final status = controller.statusForQuest(quest);
 
     final busy =
         controller.isStartingQuest ||
@@ -71,6 +72,11 @@ class _QuestDetailsScreenState extends State<QuestDetailsScreen> {
           children: [
             _Hero(quest: quest),
             const SizedBox(height: 14),
+            Align(
+              alignment: Alignment.centerLeft,
+              child: QuestStatusBadge(status: status),
+            ),
+            const SizedBox(height: 14),
 
             _Description(text: quest.description),
 
@@ -80,15 +86,30 @@ class _QuestDetailsScreenState extends State<QuestDetailsScreen> {
 
             const SizedBox(height: 18),
 
-            if (progress == null)
+            if (status == QuestStatus.available)
               _StartButton(
                 loading: controller.isStartingQuest,
                 onPressed: _startQuest,
               )
             else ...[
-              _StatusCard(status: progress.status),
-
-              if (progress.status == QuestStatus.active) ...[
+              if (status == QuestStatus.expired)
+                const _SoftNotice(
+                  icon: Icons.event_busy_outlined,
+                  text: 'This quest is no longer available to complete.',
+                ),
+              if (status == QuestStatus.completed) ...[
+                const _SoftNotice(
+                  icon: Icons.check_circle_outline,
+                  text: 'Quest completed. Your XP has been awarded.',
+                ),
+                const SizedBox(height: 12),
+                FilledButton.tonalIcon(
+                  onPressed: busy ? null : () => Navigator.of(context).pop(),
+                  icon: const Icon(Icons.arrow_back_rounded),
+                  label: const Text('Back to Side Quests'),
+                ),
+              ],
+              if (status == QuestStatus.active) ...[
                 const SizedBox(height: 12),
 
                 _VerificationInfo(type: quest.verificationType),
@@ -638,31 +659,6 @@ class _PhotoCard extends StatelessWidget {
           ),
         ],
       ),
-    );
-  }
-}
-
-class _StatusCard extends StatelessWidget {
-  const _StatusCard({required this.status});
-
-  final QuestStatus status;
-
-  @override
-  Widget build(BuildContext context) {
-    final text = switch (status) {
-      QuestStatus.active => 'Quest in progress',
-      QuestStatus.completed => 'Quest completed',
-      QuestStatus.submitted => 'Waiting for verification',
-      QuestStatus.rejected => 'Verification rejected',
-      QuestStatus.expired => 'Quest expired',
-      QuestStatus.available => 'Available',
-    };
-
-    return _SoftNotice(
-      icon: status == QuestStatus.completed
-          ? Icons.check_circle_rounded
-          : Icons.flag_rounded,
-      text: text,
     );
   }
 }

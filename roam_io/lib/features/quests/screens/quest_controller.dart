@@ -154,6 +154,12 @@ class QuestController extends ChangeNotifier {
       return true;
     }
 
+    if (!quest.isAvailableAt(DateTime.now())) {
+      errorMessage = 'This quest is no longer available.';
+      notifyListeners();
+      return false;
+    }
+
     isStartingQuest = true;
     clearMessages(notify: false);
 
@@ -200,6 +206,13 @@ class QuestController extends ChangeNotifier {
       lastVerificationPassed = true;
       notifyListeners();
       return true;
+    }
+
+    if (statusForQuest(quest) == QuestStatus.expired) {
+      errorMessage = 'This quest is no longer available to complete.';
+      lastVerificationPassed = false;
+      notifyListeners();
+      return false;
     }
 
     isCompletingQuest = true;

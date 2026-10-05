@@ -84,36 +84,45 @@ class _QuestsContent extends StatelessWidget {
     final bottomClearance =
         AppBottomNavBar.clearanceFromScreenBottom(context) + 16;
 
+    Future<void> refresh() => controller.loadQuests(
+      userId: context.read<AuthProvider>().currentUser?.uid,
+    );
+
     return Material(
       color: AppSurfaces.pageBackground(context),
       child: SafeArea(
         bottom: false,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const AppPageHeader(title: 'Side Quests'),
-
-            Padding(
-              padding: const EdgeInsets.fromLTRB(20, 0, 20, 16),
-              child: Text(
-                'Discover new experiences, complete challenges and earn XP.',
-                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                  color: AppSurfaces.textMuted(context),
-                  height: 1.35,
+        child: RefreshIndicator(
+          onRefresh: refresh,
+          child: CustomScrollView(
+            key: const PageStorageKey('side-quests'),
+            physics: const AlwaysScrollableScrollPhysics(),
+            slivers: [
+              SliverToBoxAdapter(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const AppPageHeader(title: 'Side Quests'),
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(20, 0, 20, 16),
+                      child: Text(
+                        'Discover new experiences, complete challenges and earn XP.',
+                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                          color: AppSurfaces.textMuted(context),
+                          height: 1.35,
+                        ),
+                      ),
+                    ),
+                    _StatusFilters(controller: controller),
+                    const SizedBox(height: 12),
+                    _CategoryFilters(controller: controller),
+                    const SizedBox(height: 14),
+                  ],
                 ),
               ),
-            ),
-
-            _StatusFilters(controller: controller),
-
-            const SizedBox(height: 18),
-
-            _CategoryFilters(controller: controller),
-
-            const SizedBox(height: 14),
-
-            Expanded(child: _buildBody(context, controller, bottomClearance)),
-          ],
+              _buildBody(context, controller, bottomClearance, refresh),
+            ],
+          ),
         ),
       ),
     );
@@ -123,41 +132,42 @@ class _QuestsContent extends StatelessWidget {
     BuildContext context,
     QuestController controller,
     double bottomClearance,
+    Future<void> Function() refresh,
   ) {
     if (controller.isLoading) {
-      return Center(
-        child: CircularProgressIndicator(
-          color: Theme.of(context).colorScheme.primary,
+      return const SliverFillRemaining(
+        hasScrollBody: false,
+        child: Center(child: CircularProgressIndicator()),
+      );
+    }
+    if (controller.loadErrorMessage != null) {
+      return SliverFillRemaining(
+        hasScrollBody: false,
+        child: _QuestErrorState(
+          message: controller.loadErrorMessage!,
+          onRetry: refresh,
         ),
       );
     }
-
-    if (controller.errorMessage != null) {
-      return _QuestErrorState(message: controller.errorMessage!);
+    final quests = controller.quests;
+    if (quests.isEmpty) {
+      return SliverFillRemaining(
+        hasScrollBody: false,
+        child: _EmptyQuestState(controller: controller, onRefresh: refresh),
+      );
     }
-
-    if (controller.quests.isEmpty) {
-      return const _EmptyQuestState();
-    }
-
-    return RefreshIndicator(
-      onRefresh: () async {
-        final userId = context.read<AuthProvider>().currentUser?.uid;
-
-        await controller.loadQuests(userId: userId);
-      },
-      child: ListView.separated(
-        physics: const AlwaysScrollableScrollPhysics(),
-        padding: EdgeInsets.fromLTRB(20, 2, 20, bottomClearance),
-        itemCount: controller.quests.length,
+    return SliverPadding(
+      padding: EdgeInsets.fromLTRB(20, 2, 20, bottomClearance),
+      sliver: SliverList.separated(
+        itemCount: quests.length,
         separatorBuilder: (_, _) => const SizedBox(height: 14),
         itemBuilder: (context, index) {
-          final quest = controller.quests[index];
-
+          final quest = quests[index];
           return _QuestCard(
             quest: quest,
             status: controller.statusForQuest(quest),
             onTap: () {
+              controller.clearMessages();
               Navigator.of(context).push(
                 MaterialPageRoute<void>(
                   builder: (_) => ChangeNotifierProvider<QuestController>.value(
@@ -418,7 +428,10 @@ class _QuestMetaBadge extends StatelessWidget {
 }
 
 class _EmptyQuestState extends StatelessWidget {
-  const _EmptyQuestState();
+  const _EmptyQuestState({required this.controller, required this.onRefresh});
+
+  final QuestController controller;
+  final VoidCallback onRefresh;
 
   @override
   Widget build(BuildContext context) {
@@ -443,17 +456,42 @@ class _EmptyQuestState extends StatelessWidget {
             ),
             const SizedBox(height: 16),
             Text(
-              'No quests available yet',
+              controller.hasQuests
+                  ? switch (controller.selectedStatus) {
+                      QuestStatusFilter.all => 'No quests in this category',
+                      QuestStatusFilter.available => 'No available quests here',
+                      QuestStatusFilter.active => 'No active quests here',
+                      QuestStatusFilter.completed => 'No completed quests here',
+                    }
+                  : 'No quests available yet',
+              textAlign: TextAlign.center,
               style: Theme.of(
                 context,
               ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800),
             ),
             const SizedBox(height: 5),
             Text(
-              'New adventures will appear here.',
+              controller.hasQuests
+                  ? switch (controller.selectedStatus) {
+                      QuestStatusFilter.active =>
+                        'Start an available quest to track it here.',
+                      QuestStatusFilter.completed =>
+                        'Quests you finish will appear here. Try another category or browse all quests.',
+                      _ => 'Try another category or browse all quests.',
+                    }
+                  : 'New adventures will appear here.',
               textAlign: TextAlign.center,
               style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                 color: AppSurfaces.textMuted(context),
+              ),
+            ),
+            const SizedBox(height: 16),
+            FilledButton.tonal(
+              onPressed: controller.hasQuests
+                  ? controller.resetFilters
+                  : onRefresh,
+              child: Text(
+                controller.hasQuests ? 'Browse all quests' : 'Refresh',
               ),
             ),
           ],
@@ -464,7 +502,9 @@ class _EmptyQuestState extends StatelessWidget {
 }
 
 class _QuestErrorState extends StatelessWidget {
-  const _QuestErrorState({required this.message});
+  const _QuestErrorState({required this.message, required this.onRetry});
+
+  final VoidCallback onRetry;
 
   final String message;
 
@@ -489,6 +529,11 @@ class _QuestErrorState extends StatelessWidget {
                 color: AppSurfaces.textMuted(context),
                 fontWeight: FontWeight.w600,
               ),
+            ),
+            const SizedBox(height: 16),
+            FilledButton.tonal(
+              onPressed: onRetry,
+              child: const Text('Try again'),
             ),
           ],
         ),
