@@ -95,9 +95,11 @@ class ProfileDashboard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          SizedBox(height: compactIdentity ? 12 : 14),
+          SizedBox(height: compactIdentity ? 6 : 14),
           Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 24),
+            padding: EdgeInsets.symmetric(
+              horizontal: compactIdentity ? 16 : 24,
+            ),
             child: ProfileIdentityHeader(
               displayName: displayName,
               username: username,
@@ -111,12 +113,14 @@ class ProfileDashboard extends StatelessWidget {
               action: headerAction,
             ),
           ),
-          SizedBox(height: compactIdentity ? 8 : 18),
+          SizedBox(height: compactIdentity ? 5 : 18),
           if (mediaProfileId != null &&
               mediaProfileId!.isNotEmpty &&
               (mediaActivitiesStream != null || mediaActivities != null)) ...[
             Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 24),
+              padding: EdgeInsets.symmetric(
+                horizontal: compactIdentity ? 16 : 24,
+              ),
               child: ProfileMediaPreviewSection(
                 profileId: mediaProfileId!,
                 currentUserId: currentUserId,
@@ -124,7 +128,6 @@ class ProfileDashboard extends StatelessWidget {
                 activities: mediaActivities,
               ),
             ),
-            const SizedBox(height: 16),
           ],
           if (showDetailedAnalytics) ...[
             Padding(
@@ -162,7 +165,7 @@ class ProfileDashboard extends StatelessWidget {
             ),
           ],
           if (trailingChildren.isNotEmpty) ...[
-            SizedBox(height: compactIdentity ? 16 : 28),
+            SizedBox(height: compactIdentity ? 4 : 28),
             ...trailingChildren,
           ],
         ],
@@ -537,7 +540,7 @@ class RecentVisitedLocationsPanel extends StatelessWidget {
 }
 
 /// Compact profile media preview sourced from visible activity media.
-class ProfileMediaPreviewSection extends StatefulWidget {
+class ProfileMediaPreviewSection extends StatelessWidget {
   const ProfileMediaPreviewSection({
     super.key,
     required this.profileId,
@@ -552,33 +555,12 @@ class ProfileMediaPreviewSection extends StatefulWidget {
   final List<ActivityFeedItem>? activities;
 
   @override
-  State<ProfileMediaPreviewSection> createState() =>
-      _ProfileMediaPreviewSectionState();
-}
-
-class _ProfileMediaPreviewSectionState
-    extends State<ProfileMediaPreviewSection> {
-  late final PageController _pageController;
-
-  @override
-  void initState() {
-    super.initState();
-    _pageController = PageController(viewportFraction: 0.46);
-  }
-
-  @override
-  void dispose() {
-    _pageController.dispose();
-    super.dispose();
-  }
-
-  @override
   Widget build(BuildContext context) {
-    final activityItems = widget.activities;
+    final activityItems = activities;
     if (activityItems != null) {
       return _buildPreview(context, activityItems);
     }
-    final stream = widget.activitiesStream;
+    final stream = activitiesStream;
     if (stream == null) return const SizedBox.shrink();
     return StreamBuilder<List<ActivityFeedItem>>(
       stream: stream,
@@ -603,33 +585,44 @@ class _ProfileMediaPreviewSectionState
             Expanded(
               child: Text(
                 'Media',
-                style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                  fontWeight: FontWeight.w700,
+                style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                  fontWeight: FontWeight.w800,
                   color: AppSurfaces.textPrimary(context),
                 ),
               ),
             ),
             TextButton(
               onPressed: () => _openGallery(context),
+              style: TextButton.styleFrom(
+                visualDensity: VisualDensity.compact,
+                minimumSize: const Size(0, 28),
+                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                padding: const EdgeInsets.symmetric(horizontal: 8),
+              ),
               child: const Text('View all'),
             ),
           ],
         ),
-        const SizedBox(height: 8),
-        SizedBox(
-          height: 132,
-          child: PageView.builder(
-            controller: _pageController,
-            padEnds: false,
-            physics: const PageScrollPhysics(parent: BouncingScrollPhysics()),
-            itemCount: entries.length,
-            itemBuilder: (context, index) => Padding(
-              padding: EdgeInsets.only(
-                right: index == entries.length - 1 ? 0 : 10,
+        const SizedBox(height: 4),
+        LayoutBuilder(
+          builder: (context, _) {
+            const columnCount = 3;
+            final visibleEntries = entries.take(3).toList(growable: false);
+            return GridView.builder(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              // Without an explicit padding a scroll view adopts the inherited
+              // MediaQuery padding, which under the shell's `extendBody` is the
+              // floating nav bar's height — a blank band below the grid.
+              padding: EdgeInsets.zero,
+              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                crossAxisCount: columnCount,
+                mainAxisSpacing: 6,
+                crossAxisSpacing: 6,
               ),
-              child: _ProfileMediaPreviewTile(
-                media: entries[index].media,
-                showViewAllOverlay: false,
+              itemCount: visibleEntries.length,
+              itemBuilder: (context, index) => _ProfileMediaPreviewTile(
+                media: visibleEntries[index].media,
                 onTap: () => MediaViewer.show(
                   context: context,
                   mediaUrls: entries
@@ -638,8 +631,8 @@ class _ProfileMediaPreviewSectionState
                   initialIndex: index,
                 ),
               ),
-            ),
-          ),
+            );
+          },
         ),
       ],
     );
@@ -649,8 +642,8 @@ class _ProfileMediaPreviewSectionState
     Navigator.of(context).push(
       MaterialPageRoute<void>(
         builder: (_) => ActivityMediaGalleryScreen(
-          profileId: widget.profileId,
-          currentUserId: widget.currentUserId,
+          profileId: profileId,
+          currentUserId: currentUserId,
         ),
       ),
     );
@@ -676,14 +669,9 @@ class _ProfileMediaPreviewEntry {
 }
 
 class _ProfileMediaPreviewTile extends StatelessWidget {
-  const _ProfileMediaPreviewTile({
-    required this.media,
-    required this.showViewAllOverlay,
-    required this.onTap,
-  });
+  const _ProfileMediaPreviewTile({required this.media, required this.onTap});
 
   final ActivityMediaItem media;
-  final bool showViewAllOverlay;
   final VoidCallback onTap;
 
   @override
@@ -726,23 +714,6 @@ class _ProfileMediaPreviewTile extends StatelessWidget {
                     Icons.play_circle_fill_rounded,
                     color: Colors.white,
                     size: 28,
-                  ),
-                ),
-              if (showViewAllOverlay)
-                ColoredBox(
-                  color: Colors.black.withValues(alpha: 0.48),
-                  child: const Center(
-                    child: Text(
-                      'View all media',
-                      textAlign: TextAlign.center,
-                      maxLines: 2,
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontWeight: FontWeight.w900,
-                        fontSize: 11,
-                        height: 1.05,
-                      ),
-                    ),
                   ),
                 ),
             ],

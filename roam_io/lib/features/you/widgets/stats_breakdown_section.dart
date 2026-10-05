@@ -103,7 +103,7 @@ class _BreakdownRow extends StatelessWidget {
           child: LinearProgressIndicator(
             minHeight: 8,
             value: fraction,
-            backgroundColor: AppSurfaces.innerCard(context),
+            backgroundColor: AppSurfaces.progressTrack(context),
             color: theme.colorScheme.primary,
           ),
         ),

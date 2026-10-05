@@ -25,7 +25,11 @@ import 'change_username_screen.dart';
 
 /// Screen for viewing and updating the current user's account settings.
 class SettingsScreen extends StatefulWidget {
-  const SettingsScreen({super.key});
+  const SettingsScreen({super.key, this.showPageHeader = true});
+
+  /// The bottom-navigation destination owns its header. Embedded edit routes
+  /// can hide it and provide a standard app bar with a back affordance.
+  final bool showPageHeader;
 
   @override
   State<SettingsScreen> createState() => _SettingsScreenState();
@@ -188,7 +192,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
             return Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const AppPageHeader(title: 'Settings'),
+                if (widget.showPageHeader)
+                  const AppPageHeader(title: 'Settings'),
                 Expanded(
                   child: SingleChildScrollView(
                     padding: const EdgeInsets.fromLTRB(20, 0, 20, 118),

@@ -65,7 +65,7 @@ class LocationsStatsView extends StatelessWidget {
             ),
           ],
         ),
-        const SizedBox(height: 24),
+        const SizedBox(height: kStatsSectionGap),
         StatsChartSection(
           title: 'Visits by week',
           buckets: buckets,
@@ -85,23 +85,19 @@ class LocationsStatsView extends StatelessWidget {
           detailLabelBuilder: (bucket) =>
               bucket.detailLabel(' Locations Visited'),
         ),
-        const SizedBox(height: 24),
-        Text(
-          'Most visited',
-          style: Theme.of(
-            context,
-          ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w700),
+        const SizedBox(height: kStatsSectionGap),
+        StatsSectionCard(
+          title: 'Most visited',
+          child: MostVisitedLocationBubble(visits: analytics.visits),
         ),
-        const SizedBox(height: 9),
-        MostVisitedLocationBubble(visits: analytics.visits),
-        const SizedBox(height: 24),
+        const SizedBox(height: kStatsSectionGap),
         StatsBreakdownSection(
           title: 'Place categories',
           items: categories,
           emptyMessage: 'Visit places to see your category mix',
         ),
         if (furthestKm != null) ...[
-          const SizedBox(height: 24),
+          const SizedBox(height: kStatsSectionGap),
           StatsSectionCard(
             title: 'Furthest from home',
             child: Text(
@@ -112,7 +108,7 @@ class LocationsStatsView extends StatelessWidget {
             ),
           ),
         ],
-        const SizedBox(height: 24),
+        const SizedBox(height: kStatsSectionGap),
         RecentVisitedLocationsCard(
           visits: recentVisits,
           isLoading: !analytics.recentVisitsReady,

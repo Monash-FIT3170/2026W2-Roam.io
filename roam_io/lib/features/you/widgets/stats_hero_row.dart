@@ -189,10 +189,10 @@ class StatsMetricHero extends StatelessWidget {
             for (var index = 0; index < secondary.length; index++) ...[
               if (index > 0)
                 Container(
-                  width: 1,
+                  width: 1.5,
                   height: 38,
                   margin: const EdgeInsets.symmetric(horizontal: 18),
-                  color: AppSurfaces.border(context),
+                  color: AppSurfaces.sectionDivider(context),
                 ),
               Expanded(
                 child: StatsHeroStat(
@@ -231,9 +231,7 @@ class _XpProgressBar extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final fill = const Color.fromARGB(255, 73, 134, 87);
-    final track = AppSurfaces.isDark(context)
-        ? const Color(0xFF2A2F38)
-        : const Color(0xFFD8D8D8);
+    final track = AppSurfaces.progressTrack(context);
 
     return SizedBox(
       height: 18,

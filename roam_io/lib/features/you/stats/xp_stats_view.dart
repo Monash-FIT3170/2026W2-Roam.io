@@ -8,6 +8,7 @@ import '../widgets/stats_chart_section.dart';
 import '../widgets/stats_hero_row.dart';
 import '../widgets/stats_insight_card.dart';
 import '../widgets/stats_recent_xp_list.dart';
+import '../widgets/stats_section_card.dart';
 
 /// XP category on the Statistics page.
 class XpStatsView extends StatelessWidget {
@@ -67,7 +68,7 @@ class XpStatsView extends StatelessWidget {
             ),
           ],
         ),
-        const SizedBox(height: 24),
+        const SizedBox(height: kStatsSectionGap),
         StatsChartSection(
           title: 'XP gained by week',
           buckets: buckets,
@@ -82,16 +83,16 @@ class XpStatsView extends StatelessWidget {
           rangeStorageId: 'stats-xp-range',
           detailLabelBuilder: (bucket) => bucket.detailLabel(' XP'),
         ),
-        const SizedBox(height: 24),
+        const SizedBox(height: kStatsSectionGap),
         StatsBreakdownSection(
           title: 'XP by source',
           items: sourceBreakdown,
           emptyMessage: 'Earn XP from visits, tiles, and journeys',
           valueSuffix: ' XP',
         ),
-        const SizedBox(height: 24),
+        const SizedBox(height: kStatsSectionGap),
         StatsInsightCard(message: insight),
-        const SizedBox(height: 24),
+        const SizedBox(height: kStatsSectionGap),
         StatsRecentXpList(events: analytics.xpEvents),
       ],
     );

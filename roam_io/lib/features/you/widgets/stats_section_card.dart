@@ -1,6 +1,10 @@
 import 'package:flutter/material.dart';
 
+import '../../../theme/app_colours.dart';
 import '../../../theme/app_surfaces.dart';
+
+/// Vertical space between sections on Statistics category pages.
+const double kStatsSectionGap = 32;
 
 /// Lightweight section shell for Statistics page lists and insights.
 class StatsSectionCard extends StatelessWidget {
@@ -23,14 +27,20 @@ class StatsSectionCard extends StatelessWidget {
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Divider(height: 1, color: AppSurfaces.border(context)),
-        const SizedBox(height: 24),
+        Divider(
+          height: 1.5,
+          thickness: 1.5,
+          color: AppSurfaces.sectionDivider(context),
+        ),
+        const SizedBox(height: 20),
         Text(
-          title,
-          style: theme.textTheme.titleLarge?.copyWith(
-            color: AppSurfaces.textPrimary(context),
-            fontWeight: FontWeight.w700,
-            letterSpacing: -0.25,
+          title.toUpperCase(),
+          style: theme.textTheme.labelLarge?.copyWith(
+            color: AppSurfaces.isDark(context)
+                ? AppColors.lightSage
+                : AppColors.sage,
+            fontWeight: FontWeight.w800,
+            letterSpacing: 1.1,
           ),
         ),
         if (subtitle != null) ...[
@@ -42,7 +52,7 @@ class StatsSectionCard extends StatelessWidget {
             ),
           ),
         ],
-        const SizedBox(height: 16),
+        const SizedBox(height: 14),
         child,
       ],
     );

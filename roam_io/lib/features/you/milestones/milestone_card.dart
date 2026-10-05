@@ -304,7 +304,7 @@ class _ProgressBody extends StatelessWidget {
   }
 }
 
-/// Same look as Stats hero XP bar, at half height (11px), without inner label.
+/// Same look as Stats hero XP bar, at a slimmer 10px, without inner label.
 class _MilestoneProgressBar extends StatelessWidget {
   const _MilestoneProgressBar({required this.progress});
 
@@ -313,14 +313,12 @@ class _MilestoneProgressBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final fill = const Color.fromARGB(255, 73, 134, 87);
-    final track = AppSurfaces.isDark(context)
-        ? const Color(0xFF2A2F38)
-        : const Color(0xFFD8D8D8);
+    final track = AppSurfaces.progressTrack(context);
 
     return SizedBox(
-      height: 8,
+      height: 10,
       child: ClipRRect(
-        borderRadius: BorderRadius.circular(4),
+        borderRadius: BorderRadius.circular(999),
         child: Stack(
           fit: StackFit.expand,
           children: [

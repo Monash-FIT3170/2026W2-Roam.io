@@ -105,6 +105,7 @@ void main() {
     );
     await tester.pumpAndSettle();
 
+    expect(find.text('Traveller'), findsOneWidget);
     expect(find.text('Traveller Activity 1'), findsOneWidget);
     expect(find.text('August 3, 2026 at 10:07 AM'), findsOneWidget);
     expect(find.text('47m 51s'), findsOneWidget);
@@ -184,6 +185,9 @@ void main() {
       ),
     );
 
+    expect(find.text('Traveller'), findsNothing);
+    expect(find.text('August 3, 2026 at 10:07 AM'), findsOneWidget);
+    expect(find.text('Traveller Activity 1'), findsOneWidget);
     expect(find.text('7m 7s'), findsOneWidget);
     expect(find.text('2 tiles'), findsOneWidget);
     expect(find.text('+109 XP'), findsOneWidget);

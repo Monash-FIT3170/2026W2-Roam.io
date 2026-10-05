@@ -231,16 +231,16 @@ class _CollectionProgress extends StatelessWidget {
         ),
         const SizedBox(height: 14),
         ClipRRect(
-          borderRadius: BorderRadius.circular(4),
+          borderRadius: BorderRadius.circular(999),
           child: TweenAnimationBuilder<double>(
             tween: Tween<double>(begin: 0, end: progress.clamp(0.0, 1.0)),
             duration: const Duration(milliseconds: 520),
             curve: Curves.easeOutCubic,
             builder: (context, value, _) => LinearProgressIndicator(
               value: value,
-              minHeight: 8,
+              minHeight: 10,
               color: theme.colorScheme.primary,
-              backgroundColor: AppSurfaces.innerCard(context),
+              backgroundColor: AppSurfaces.progressTrack(context),
             ),
           ),
         ),

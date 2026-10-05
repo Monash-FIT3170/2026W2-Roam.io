@@ -1,10 +1,11 @@
 /*
  * Author: Sanjevan Rajasegar
- * Last Updated: 22 August 2026
+ * Last Updated: 4 October 2026 — Amarprit Singh
  * Description:
  *   Reusable activity feed card for persisted Home, You, external profile, and
  *   detail activity surfaces. Engagement is configurable via showKudos /
- *   showComments / showShare and reads live Firestore subcollection counts.
+ *   showComments / showShare and reads live Firestore subcollection counts
+ *   through [ActivityEngagementRow], which other cards reuse directly.
  *   Glaze is the product-facing name for persisted Kudos interactions.
  */
 
@@ -202,48 +203,9 @@ class ActivityFeedCard extends StatelessWidget {
 
   bool get _hasEngagementActions => showKudos || showComments || showShare;
 
-  Stream<int>? get _resolvedCommentCountStream {
-    if (!showComments) {
-      return null;
-    }
-    if (commentCountStream != null) {
-      return commentCountStream;
-    }
-    final id = activityId;
-    final service = commentService;
-    if (id != null && service != null) {
-      return service.watchCommentCount(id);
-    }
-    // Widget tests / layouts without a service: show a stable zero count.
-    return Stream<int>.value(0);
-  }
-
-  Stream<int>? get _resolvedKudosCountStream {
-    if (!showKudos) return null;
-    final id = activityId;
-    final service = kudosService;
-    if (id != null && service != null) {
-      return service.watchKudosCount(id);
-    }
-    return Stream<int>.value(0);
-  }
-
-  Stream<bool>? get _resolvedHasKudosStream {
-    final id = activityId;
-    final uid = currentUserId;
-    final service = kudosService;
-    if (!showKudos || id == null || uid == null || service == null) {
-      return null;
-    }
-    return service.watchHasGivenKudos(activityId: id, userId: uid);
-  }
-
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final countStream = _resolvedCommentCountStream;
-    final kudosCountStream = _resolvedKudosCountStream;
-    final hasKudosStream = _resolvedHasKudosStream;
     final routeSlide = _buildRouteSlide();
 
     final hasMedia = media.isNotEmpty || routeSlide != null;
@@ -253,7 +215,20 @@ class ActivityFeedCard extends StatelessWidget {
     final hairline = AppSurfaces.textPrimary(
       context,
     ).withValues(alpha: AppSurfaces.isDark(context) ? 0.08 : 0.05);
-    final decoration = edgeToEdge
+    final decoration = profilePresentation
+        ? BoxDecoration(
+            color: AppSurfaces.softCard(context),
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: AppSurfaces.border(context)),
+            boxShadow: [
+              BoxShadow(
+                color: AppSurfaces.shadow(context),
+                blurRadius: 8,
+                offset: const Offset(0, 2),
+              ),
+            ],
+          )
+        : edgeToEdge
         ? BoxDecoration(
             color: AppSurfaces.pageBackground(context),
             border: Border(bottom: BorderSide(color: hairline, width: 2.5)),
@@ -279,81 +254,132 @@ class ActivityFeedCard extends StatelessWidget {
         children: [
           Padding(
             padding: EdgeInsets.fromLTRB(
-              16,
+              profilePresentation ? 14 : 16,
               profilePresentation ? 10 : 14,
-              16,
+              profilePresentation ? 10 : 16,
               hasMedia || _hasEngagementActions ? 0 : 14,
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    SocialAvatar(
-                      displayName: displayName,
-                      photoUrl: photoUrl,
-                      radius: profilePresentation ? 20 : 22,
-                      borderWidth: 1.5,
-                    ),
-                    SizedBox(width: profilePresentation ? 10 : 12),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            displayName,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: theme.textTheme.titleSmall?.copyWith(
-                              color: AppSurfaces.textPrimary(context),
-                              fontWeight: FontWeight.w700,
+                if (profilePresentation) ...[
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              title,
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                              style: theme.textTheme.titleMedium?.copyWith(
+                                color: AppSurfaces.textPrimary(context),
+                                fontSize: title.length > 40 ? 15 : 17,
+                                height: 1.15,
+                                fontWeight: FontWeight.w800,
+                                letterSpacing: -0.2,
+                              ),
                             ),
-                          ),
-                          const SizedBox(height: 2),
-                          Text(
-                            timestampLabel,
-                            maxLines: 2,
-                            overflow: TextOverflow.ellipsis,
-                            style: theme.textTheme.bodySmall?.copyWith(
-                              color: AppSurfaces.textSubtle(context),
-                              fontSize: 12,
-                              fontWeight: FontWeight.w500,
+                            const SizedBox(height: 3),
+                            Text(
+                              timestampLabel,
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                              style: theme.textTheme.bodySmall?.copyWith(
+                                color: AppSurfaces.textSubtle(context),
+                                fontSize: 11,
+                                fontWeight: FontWeight.w500,
+                              ),
                             ),
-                          ),
-                        ],
+                          ],
+                        ),
                       ),
-                    ),
-                    IconButton(
-                      visualDensity: VisualDensity.compact,
-                      padding: EdgeInsets.zero,
-                      constraints: const BoxConstraints(
-                        minWidth: 36,
-                        minHeight: 36,
+                      IconButton(
+                        visualDensity: VisualDensity.compact,
+                        padding: EdgeInsets.zero,
+                        constraints: const BoxConstraints(
+                          minWidth: 30,
+                          minHeight: 30,
+                        ),
+                        onPressed: onOverflowTap,
+                        icon: Icon(
+                          Icons.more_horiz_rounded,
+                          color: AppSurfaces.textMuted(context),
+                        ),
                       ),
-                      onPressed: onOverflowTap,
-                      icon: Icon(
-                        Icons.more_horiz_rounded,
-                        color: AppSurfaces.textMuted(context),
-                      ),
-                    ),
-                  ],
-                ),
-                SizedBox(height: profilePresentation ? 12 : 20),
-                Text(
-                  title,
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                  style: theme.textTheme.titleMedium?.copyWith(
-                    color: AppSurfaces.textPrimary(context),
-                    fontSize: title.length > 40 ? 15 : 18,
-                    height: 1.2,
-                    fontWeight: FontWeight.w700,
-                    letterSpacing: -0.2,
+                    ],
                   ),
-                ),
+                ] else ...[
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      SocialAvatar(
+                        displayName: displayName,
+                        photoUrl: photoUrl,
+                        radius: 22,
+                        borderWidth: 1.5,
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              displayName,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: theme.textTheme.titleSmall?.copyWith(
+                                color: AppSurfaces.textPrimary(context),
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                            const SizedBox(height: 2),
+                            Text(
+                              timestampLabel,
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                              style: theme.textTheme.bodySmall?.copyWith(
+                                color: AppSurfaces.textSubtle(context),
+                                fontSize: 12,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      IconButton(
+                        visualDensity: VisualDensity.compact,
+                        padding: EdgeInsets.zero,
+                        constraints: const BoxConstraints(
+                          minWidth: 36,
+                          minHeight: 36,
+                        ),
+                        onPressed: onOverflowTap,
+                        icon: Icon(
+                          Icons.more_horiz_rounded,
+                          color: AppSurfaces.textMuted(context),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 20),
+                  Text(
+                    title,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: theme.textTheme.titleMedium?.copyWith(
+                      color: AppSurfaces.textPrimary(context),
+                      fontSize: title.length > 40 ? 15 : 18,
+                      height: 1.2,
+                      fontWeight: FontWeight.w700,
+                      letterSpacing: -0.2,
+                    ),
+                  ),
+                ],
                 if (metrics.isNotEmpty) ...[
-                  SizedBox(height: profilePresentation ? 8 : 10),
+                  SizedBox(height: profilePresentation ? 6 : 10),
                   ActivityMetricsRow(
                     metrics: metrics,
                     compact: profilePresentation,
@@ -364,7 +390,7 @@ class ActivityFeedCard extends StatelessWidget {
             ),
           ),
           if (hasMedia) ...[
-            SizedBox(height: profilePresentation ? 10 : 12),
+            SizedBox(height: profilePresentation ? 7 : 12),
             Padding(
               padding: EdgeInsets.symmetric(
                 horizontal: profilePresentation
@@ -378,7 +404,11 @@ class ActivityFeedCard extends StatelessWidget {
                 onTap: onMediaTap,
                 routeSlide: routeSlide,
                 routeFirst: true,
-                borderRadius: profilePresentation || edgeToEdge ? 14 : 0,
+                borderRadius: profilePresentation
+                    ? 12
+                    : edgeToEdge
+                    ? 14
+                    : 0,
               ),
             ),
           ],
@@ -390,33 +420,23 @@ class ActivityFeedCard extends StatelessWidget {
                 12,
                 profilePresentation ? 4 : 8,
               ),
-              child: Row(
-                children: [
-                  if (showKudos)
-                    _KudosActionButton(
-                      countStream: kudosCountStream,
-                      hasKudosStream: hasKudosStream,
-                      fallbackLabel: kudosLabel,
-                      activityId: activityId,
-                      onTap: onKudosTap ?? () => _toggleKudos(context),
-                      large: largeEngagementActions,
-                    ),
-                  if (showComments)
-                    _CommentActionButton(
-                      countStream: countStream,
-                      fallbackLabel: commentLabel,
-                      activityId: activityId,
-                      onTap: onCommentTap,
-                      large: largeEngagementActions,
-                    ),
-                  if (showShare)
-                    _ActionButton(
-                      icon: Icons.ios_share,
-                      label: shareLabel,
-                      onTap: onShareTap,
-                      large: largeEngagementActions,
-                    ),
-                ],
+              child: ActivityEngagementRow(
+                activityId: activityId,
+                activityOwnerId: activityOwnerId,
+                currentUserId: currentUserId,
+                commentService: commentService,
+                kudosService: kudosService,
+                commentCountStream: commentCountStream,
+                showKudos: showKudos,
+                showComments: showComments,
+                showShare: showShare,
+                onKudosTap: onKudosTap,
+                onCommentTap: onCommentTap,
+                onShareTap: onShareTap,
+                kudosLabel: kudosLabel,
+                commentLabel: commentLabel,
+                shareLabel: shareLabel,
+                large: largeEngagementActions,
               ),
             ),
         ],
@@ -481,6 +501,118 @@ class ActivityFeedCard extends StatelessWidget {
       ),
     );
   }
+}
+
+/// Glaze / Comment / Share controls with live counts, shared by every
+/// activity card. Owners tapping Glaze see who glazed instead, since they
+/// cannot Glaze their own activity.
+class ActivityEngagementRow extends StatelessWidget {
+  const ActivityEngagementRow({
+    super.key,
+    this.activityId,
+    this.activityOwnerId,
+    this.currentUserId,
+    this.commentService,
+    this.kudosService,
+    this.commentCountStream,
+    this.showKudos = true,
+    this.showComments = true,
+    this.showShare = true,
+    this.onKudosTap,
+    this.onCommentTap,
+    this.onShareTap,
+    this.kudosLabel = 'Glaze',
+    this.commentLabel = 'Comment',
+    this.shareLabel = 'Share',
+    this.large = false,
+  });
+
+  final String? activityId;
+  final String? activityOwnerId;
+  final String? currentUserId;
+  final CommentService? commentService;
+  final KudosService? kudosService;
+
+  /// Injected count stream for tests; production uses [commentService].
+  final Stream<int>? commentCountStream;
+  final bool showKudos;
+  final bool showComments;
+  final bool showShare;
+  final VoidCallback? onKudosTap;
+  final VoidCallback? onCommentTap;
+  final VoidCallback? onShareTap;
+  final String kudosLabel;
+  final String commentLabel;
+  final String shareLabel;
+  final bool large;
+
+  Stream<int>? get _resolvedCommentCountStream {
+    if (!showComments) {
+      return null;
+    }
+    if (commentCountStream != null) {
+      return commentCountStream;
+    }
+    final id = activityId;
+    final service = commentService;
+    if (id != null && service != null) {
+      return service.watchCommentCount(id);
+    }
+    // Widget tests / layouts without a service: show a stable zero count.
+    return Stream<int>.value(0);
+  }
+
+  Stream<int>? get _resolvedKudosCountStream {
+    if (!showKudos) return null;
+    final id = activityId;
+    final service = kudosService;
+    if (id != null && service != null) {
+      return service.watchKudosCount(id);
+    }
+    return Stream<int>.value(0);
+  }
+
+  Stream<bool>? get _resolvedHasKudosStream {
+    final id = activityId;
+    final uid = currentUserId;
+    final service = kudosService;
+    if (!showKudos || id == null || uid == null || service == null) {
+      return null;
+    }
+    return service.watchHasGivenKudos(activityId: id, userId: uid);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        if (showKudos)
+          _KudosActionButton(
+            countStream: _resolvedKudosCountStream,
+            hasKudosStream: _resolvedHasKudosStream,
+            fallbackLabel: kudosLabel,
+            activityId: activityId,
+            onTap: onKudosTap ?? () => _toggleKudos(context),
+            large: large,
+          ),
+        if (showComments)
+          _CommentActionButton(
+            countStream: _resolvedCommentCountStream,
+            fallbackLabel: commentLabel,
+            activityId: activityId,
+            onTap: onCommentTap,
+            large: large,
+          ),
+        if (showShare)
+          _ActionButton(
+            icon: Icons.ios_share,
+            label: shareLabel,
+            onTap: onShareTap,
+            large: large,
+          ),
+      ],
+    );
+  }
 
   Future<void> _toggleKudos(BuildContext context) async {
     final id = activityId;
@@ -497,6 +629,7 @@ class ActivityFeedCard extends StatelessWidget {
     if (uid == ownerId) {
       // Owners inspect the people who reacted; they cannot Glaze themselves.
       // This follows the same full-page drill-in pattern as Discussions.
+      unawaited(HapticFeedback.lightImpact());
       await ActivityGlazersSheet.show(
         context: context,
         activityId: id,

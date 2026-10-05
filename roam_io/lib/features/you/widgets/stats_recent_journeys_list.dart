@@ -111,22 +111,25 @@ class StatsJourneyHighlights extends StatelessWidget {
       (left, right) => left.tilesUnlocked >= right.tilesUnlocked ? left : right,
     );
 
-    return Row(
-      children: [
-        Expanded(
-          child: _HighlightTile(
-            label: 'Longest',
-            value: '${(longest.distanceMeters / 1000).toStringAsFixed(1)} km',
+    return StatsSectionCard(
+      title: 'Highlights',
+      child: Row(
+        children: [
+          Expanded(
+            child: _HighlightTile(
+              label: 'Longest',
+              value: '${(longest.distanceMeters / 1000).toStringAsFixed(1)} km',
+            ),
           ),
-        ),
-        const SizedBox(width: 10),
-        Expanded(
-          child: _HighlightTile(
-            label: 'Most tiles',
-            value: '${mostTiles.tilesUnlocked}',
+          const SizedBox(width: 10),
+          Expanded(
+            child: _HighlightTile(
+              label: 'Most tiles',
+              value: '${mostTiles.tilesUnlocked}',
+            ),
           ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 }

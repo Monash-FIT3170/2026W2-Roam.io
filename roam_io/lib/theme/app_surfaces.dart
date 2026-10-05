@@ -22,17 +22,17 @@ class AppSurfaces {
 
   /// Surface for primary cards, such as Settings and You screen cards.
   static Color card(BuildContext context) {
-    return isDark(context) ? const Color(0xFF171A20) : AppColors.sand;
+    return isDark(context) ? AppColors.darkSurface : AppColors.sand;
   }
 
   /// Surface for nested cards and fields inside a main card.
   static Color innerCard(BuildContext context) {
-    return isDark(context) ? const Color(0xFF242832) : const Color(0xFFF6EBD8);
+    return isDark(context) ? AppColors.darkElevated : const Color(0xFFF6EBD8);
   }
 
   /// Surface for subtle standalone controls, chips, and secondary cards.
   static Color softCard(BuildContext context) {
-    return isDark(context) ? const Color(0xFF20242C) : AppColors.cream;
+    return isDark(context) ? AppColors.darkSoft : AppColors.cream;
   }
 
   /// Border color tuned for the current theme brightness.
@@ -40,6 +40,18 @@ class AppSurfaces {
     final colorScheme = Theme.of(context).colorScheme;
 
     return colorScheme.primary.withValues(alpha: isDark(context) ? 0.24 : 0.12);
+  }
+
+  /// Divider between distinct sections; stronger than [border] so flat
+  /// layouts still read as separate blocks.
+  static Color sectionDivider(BuildContext context) {
+    return AppColors.sage.withValues(alpha: isDark(context) ? 0.45 : 0.32);
+  }
+
+  /// Unfilled part of progress bars, tinted so it stays visible against the
+  /// page and cards in both themes.
+  static Color progressTrack(BuildContext context) {
+    return AppColors.sage.withValues(alpha: isDark(context) ? 0.38 : 0.28);
   }
 
   /// Primary text color for custom-painted surfaces.

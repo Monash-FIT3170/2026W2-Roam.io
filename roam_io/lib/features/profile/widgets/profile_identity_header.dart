@@ -54,25 +54,35 @@ class ProfileIdentityHeader extends StatelessWidget {
             SocialAvatar(
               displayName: displayName,
               photoUrl: photoUrl,
-              radius: compact ? 28 : 32,
-              borderWidth: 2,
+              radius: compact ? 34 : 36,
+              borderWidth: compact ? 1.5 : 2,
             ),
-            SizedBox(width: compact ? 10 : 12),
+            const SizedBox(width: 12),
             Expanded(
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
-                    displayName,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: theme.textTheme.titleMedium?.copyWith(
-                      color: AppSurfaces.textPrimary(context),
-                      fontWeight: FontWeight.w700,
-                      fontSize: 22,
-                      height: 1.0,
-                    ),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          displayName,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: theme.textTheme.titleMedium?.copyWith(
+                            color: AppSurfaces.textPrimary(context),
+                            fontWeight: FontWeight.w700,
+                            fontSize: compact ? 19 : 22,
+                            height: 1.0,
+                          ),
+                        ),
+                      ),
+                      if (compact && action != null) ...[
+                        const SizedBox(width: 8),
+                        action!,
+                      ],
+                    ],
                   ),
                   const SizedBox(height: 2),
                   Text(
@@ -86,10 +96,10 @@ class ProfileIdentityHeader extends StatelessWidget {
                     ),
                   ),
                   if (compact && stats != null && stats!.isNotEmpty) ...[
-                    const SizedBox(height: 7),
+                    const SizedBox(height: 6),
                     Wrap(
                       spacing: 14,
-                      runSpacing: 4,
+                      runSpacing: 2,
                       children: [
                         for (final stat in stats!)
                           _InlineProfileStat(
@@ -131,7 +141,10 @@ class ProfileIdentityHeader extends StatelessWidget {
             ],
           ),
         ],
-        if (action != null) ...[SizedBox(height: compact ? 8 : 12), action!],
+        if (!compact && action != null) ...[
+          const SizedBox(height: 12),
+          action!,
+        ],
       ],
     );
   }

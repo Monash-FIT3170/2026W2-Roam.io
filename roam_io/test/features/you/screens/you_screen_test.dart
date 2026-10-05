@@ -20,10 +20,18 @@ import 'package:roam_io/features/activity_feed/models/activity_comment.dart';
 import 'package:roam_io/features/activity_feed/models/activity_feed_item.dart';
 import 'package:roam_io/features/activity_feed/screens/comments_screen.dart';
 import 'package:roam_io/features/activity_feed/widgets/activity_map_preview.dart';
+import 'package:roam_io/features/activity_feed/widgets/activity_media_carousel.dart';
 import 'package:roam_io/features/you/screens/you_screen.dart';
+import 'package:roam_io/features/you/widgets/profile/journey_card.dart';
+import 'package:roam_io/features/you/widgets/profile/photo_strip.dart';
+import 'package:roam_io/features/you/widgets/profile/weekly_summary.dart';
 import 'package:roam_io/features/auth/data/auth_repository.dart';
 import 'package:roam_io/features/auth/providers/auth_provider.dart';
+import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:roam_io/features/journeys/data/journey_service.dart';
+import 'package:roam_io/features/journeys/domain/journey.dart';
+import 'package:roam_io/features/journeys/domain/journey_location.dart';
+import 'package:roam_io/features/journeys/domain/transport_mode.dart';
 import 'package:roam_io/features/map/data/visit.dart';
 import 'package:roam_io/features/map/data/visit_service.dart';
 import 'package:roam_io/features/map/data/visited_region_service.dart';
@@ -38,6 +46,7 @@ import 'package:roam_io/features/you/milestones/milestone_service.dart';
 import 'package:roam_io/features/social/data/follow_service.dart';
 import 'package:roam_io/features/social/data/friendship_service.dart';
 import 'package:roam_io/features/social/screens/follow_connections_screen.dart';
+import 'package:roam_io/theme/app_theme.dart';
 
 YouScreen _testYouScreen({
   required VisitService visitService,
@@ -47,8 +56,9 @@ YouScreen _testYouScreen({
   ActivityFeedService? activityFeedService,
   FollowService? followService,
   FriendshipService? friendshipService,
+  FakeFirebaseFirestore? firestore,
 }) {
-  final firestore = FakeFirebaseFirestore();
+  firestore ??= FakeFirebaseFirestore();
   return YouScreen(
     visitService: visitService,
     visitedRegionService: visitedRegionService,
@@ -124,6 +134,9 @@ void main() {
     expect(find.text('You'), findsNothing);
     expect(find.text('Summary'), findsNothing);
     expect(find.text('Profile'), findsOneWidget);
+    expect(find.text('Edit Profile'), findsOneWidget);
+    expect(find.text('Journeys'), findsOneWidget);
+    expect(find.text('Journey feed'), findsNothing);
     expect(find.text('Activities'), findsNothing);
     expect(find.text('Stats'), findsNothing);
     expect(find.text('Statistics'), findsOneWidget);
@@ -134,9 +147,18 @@ void main() {
     expect(find.text('Tiles Explored'), findsNothing);
     expect(find.text('Most visited'), findsNothing);
     expect(find.text('Recent visits'), findsNothing);
+    expect(find.text('MOST VISITED'), findsNothing);
+    expect(find.text('RECENT VISITS'), findsNothing);
     expect(find.text('Visit volume by week'), findsNothing);
     expect(find.text('Total Visits'), findsNothing);
     expect(find.text('2,450'), findsNothing);
+
+    await tester.tap(find.text('Edit Profile'));
+    await tester.pumpAndSettle();
+    expect(find.byType(BackButton), findsOneWidget);
+    expect(find.text('Change Display Name'), findsOneWidget);
+    await tester.pageBack();
+    await tester.pumpAndSettle();
 
     await _openStatsTab(tester);
     expect(
@@ -182,7 +204,9 @@ void main() {
     expect(find.text('Following'), findsOneWidget);
     expect(find.text('Followers'), findsOneWidget);
     expect(find.text('Tiles'), findsNothing);
-    expect(find.text('Journeys'), findsNothing);
+    // The profile keeps only the section heading; the old journey total is
+    // still reserved for Statistics.
+    expect(find.text('Journeys'), findsOneWidget);
     expect(find.text('Sidequests'), findsNothing);
     expect(find.text('48'), findsNothing);
 
@@ -224,6 +248,8 @@ void main() {
     expect(find.text('Visits'), findsNothing);
     expect(find.text('Most visited'), findsNothing);
     expect(find.text('Recent visits'), findsNothing);
+    expect(find.text('MOST VISITED'), findsNothing);
+    expect(find.text('RECENT VISITS'), findsNothing);
     expect(find.text('This Week'), findsNothing);
     expect(find.text('3'), findsNothing);
     expect(find.text('156'), findsNothing);
@@ -311,10 +337,10 @@ void main() {
     expect(find.text('Total visits'), findsOneWidget);
     expect(find.text('Top category'), findsOneWidget);
     expect(find.text('Visit streak'), findsOneWidget);
-    expect(find.text('Visits by week'), findsOneWidget);
-    expect(find.text('Most visited'), findsOneWidget);
-    await _scrollStatsTo(tester, find.text('Recent visits'));
-    expect(find.text('Recent visits'), findsOneWidget);
+    expect(find.text('VISITS BY WEEK'), findsOneWidget);
+    expect(find.text('MOST VISITED'), findsOneWidget);
+    await _scrollStatsTo(tester, find.text('RECENT VISITS'));
+    expect(find.text('RECENT VISITS'), findsOneWidget);
     expect(find.byType(CustomPaint), findsWidgets);
 
     provider.dispose();
@@ -353,8 +379,8 @@ void main() {
     await tester.pumpAndSettle();
 
     await _openStatsTab(tester);
-    expect(find.text('Visits by week'), findsOneWidget);
-    expect(find.text('Most visited'), findsOneWidget);
+    expect(find.text('VISITS BY WEEK'), findsOneWidget);
+    expect(find.text('MOST VISITED'), findsOneWidget);
     for (final label in ['4W', '3M', '6M', '1Y', 'All']) {
       expect(find.text(label), findsOneWidget);
     }
@@ -372,17 +398,17 @@ void main() {
       find.byKey(const ValueKey<String>('stats-graph-point-4')),
       findsNothing,
     );
-    await _scrollStatsTo(tester, find.text('Recent visits'));
-    expect(find.text('Recent visits'), findsOneWidget);
+    await _scrollStatsTo(tester, find.text('RECENT VISITS'));
+    expect(find.text('RECENT VISITS'), findsOneWidget);
 
     await _openStatsCategory(tester, 'Tiles');
-    expect(find.text('Tiles unlocked by week'), findsOneWidget);
+    expect(find.text('TILES UNLOCKED BY WEEK'), findsOneWidget);
 
     await _openStatsCategory(tester, 'Journeys');
-    expect(find.text('Journeys by week'), findsOneWidget);
+    expect(find.text('JOURNEYS BY WEEK'), findsOneWidget);
 
     await _openStatsCategory(tester, 'XP');
-    expect(find.text('XP gained by week'), findsOneWidget);
+    expect(find.text('XP GAINED BY WEEK'), findsOneWidget);
 
     provider.dispose();
   });
@@ -477,7 +503,7 @@ void main() {
       expect(find.text('2'), findsNothing);
 
       await _openStatsTab(tester);
-      expect(find.text('Visits by week'), findsOneWidget);
+      expect(find.text('VISITS BY WEEK'), findsOneWidget);
       expect(find.text('2'), findsWidgets);
 
       await visitService.dispose();
@@ -528,13 +554,15 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    expect(find.text('No activities yet'), findsNothing);
+    expect(find.text('No journeys yet'), findsNothing);
     expect(find.text('View Media'), findsNothing);
     expect(find.text("Sanjevan's Test Activity"), findsOneWidget);
     expect(find.text('Other user activity'), findsNothing);
     expect(find.text('10 Aug 2026 · 12:00 AM'), findsOneWidget);
+    expect(find.text('August 2026'), findsOneWidget);
+    expect(find.text('TIME'), findsWidgets);
     expect(find.text('12m 34s'), findsOneWidget);
-    expect(find.text('Locations Visited'), findsOneWidget);
+    expect(find.text('LOCATIONS VISITED'), findsOneWidget);
     expect(find.text('3'), findsOneWidget);
     expect(find.text('+120 XP'), findsOneWidget);
     expect(find.text('Map preview'), findsNothing);
@@ -546,6 +574,10 @@ void main() {
     expect(find.text('Comment'), findsOneWidget);
 
     await tester.tap(find.byIcon(Icons.more_horiz_rounded));
+    await tester.pumpAndSettle();
+    expect(find.text('Edit or rename'), findsOneWidget);
+    expect(find.text('Delete activity'), findsOneWidget);
+    await tester.tap(find.text('View activity'));
     await tester.pumpAndSettle();
     expect(find.text("Sanjevan's Test Activity"), findsOneWidget);
     expect(find.text('Journey route map'), findsNothing);
@@ -575,7 +607,7 @@ void main() {
     provider.dispose();
   });
 
-  testWidgets('restores profile media gallery when owned media exists', (
+  testWidgets('owned media appears in its journey and the photo strip', (
     tester,
   ) async {
     await tester.binding.setSurfaceSize(const Size(400, 1400));
@@ -619,10 +651,19 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    expect(find.text('Media'), findsOneWidget);
-    expect(find.text('View all'), findsOneWidget);
-    expect(find.text('View Media'), findsNothing);
+    // The standalone Media row is gone: photos sit behind the route in their
+    // own journey's carousel, and the header links to the full gallery.
+    expect(find.text('Media'), findsNothing);
+    expect(find.byType(GridView), findsNothing);
+    expect(find.byType(ProfilePhotoStrip), findsOneWidget);
+    expect(find.text('Photos'), findsOneWidget);
     expect(find.text('Media Journey'), findsOneWidget);
+    final carousel = find.byType(ActivityMediaCarousel);
+    expect(carousel, findsOneWidget);
+    final pages = tester.widget<PageView>(
+      find.descendant(of: carousel, matching: find.byType(PageView)),
+    );
+    expect(pages.childrenDelegate.estimatedChildCount, 2);
 
     provider.dispose();
   });
@@ -657,7 +698,7 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    expect(find.text('No activities yet'), findsOneWidget);
+    expect(find.text('No journeys yet'), findsOneWidget);
 
     await _seedYouActivity(
       firestore,
@@ -832,7 +873,7 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    expect(find.text('No activities yet'), findsOneWidget);
+    expect(find.text('No journeys yet'), findsOneWidget);
 
     await comments.dispose();
     provider.dispose();
@@ -1201,6 +1242,8 @@ void main() {
 
       await tester.tap(find.byIcon(Icons.more_horiz_rounded));
       await tester.pumpAndSettle();
+      await tester.tap(find.text('View activity'));
+      await tester.pumpAndSettle();
       expect(find.text('Journey route map'), findsNothing);
       expect(find.byType(ActivityMapPreview), findsOneWidget);
       expect(find.text('Glaze'), findsOneWidget);
@@ -1227,7 +1270,7 @@ void main() {
       await tester.pumpAndSettle();
 
       await _openStatsTab(tester);
-      expect(find.text('Visits by week'), findsOneWidget);
+      expect(find.text('VISITS BY WEEK'), findsOneWidget);
       expect(find.text('Total visits'), findsOneWidget);
       expect(find.text('Top category'), findsOneWidget);
       expect(find.text('Visit streak'), findsOneWidget);
@@ -1323,6 +1366,226 @@ void main() {
     expect(find.widgetWithText(AppBar, 'Followers'), findsOneWidget);
 
     provider.dispose();
+  });
+
+  testWidgets('journey cards lead with distance, short journeys included', (
+    tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(400, 1600));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+
+    final provider = AuthProvider(
+      authRepository: _FakeAuthRepository(_buildProfile(xp: 75)),
+    );
+    await provider.refreshCurrentUser();
+    final firestore = FakeFirebaseFirestore();
+    final weekStart = _mondayOnOrBefore(DateTime.now());
+    await _seedJourneyWithActivity(
+      firestore,
+      id: 'drive',
+      start: weekStart.add(const Duration(minutes: 1)),
+      durationSeconds: 1500,
+      distanceMeters: 12400,
+      tiles: 3,
+      xp: 109,
+      endName: 'Clayton',
+    );
+    await _seedJourneyWithActivity(
+      firestore,
+      id: 'blip',
+      start: weekStart.add(const Duration(minutes: 40)),
+      durationSeconds: 40,
+      distanceMeters: 300,
+    );
+
+    await tester.pumpWidget(
+      ChangeNotifierProvider<AuthProvider>.value(
+        value: provider,
+        child: MaterialApp(
+          home: Scaffold(
+            body: _testYouScreen(
+              visitService: _FakeVisitService(totalVisitCount: 0),
+              visitedRegionService: _FakeVisitedRegionService(<String>{}),
+              activityFeedService: ActivityFeedService(firestore: firestore),
+              firestore: firestore,
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    // Weekly summary card and the feed's first section header.
+    expect(find.text('This week'), findsNWidgets(2));
+    expect(find.text('12.7 km'), findsOneWidget);
+
+    // A 40-second journey gets the same full card as a long one.
+    expect(find.byType(JourneyCard), findsNWidgets(2));
+    expect(find.text('Morning drive to Clayton'), findsOneWidget);
+    expect(find.text('Morning drive'), findsOneWidget);
+    expect(find.text('Morning Journey'), findsNothing);
+    expect(find.text('DISTANCE'), findsWidgets);
+    expect(find.text('12.4 km'), findsOneWidget);
+    expect(find.text('25m 0s'), findsOneWidget);
+    expect(find.text('+109'), findsOneWidget);
+    expect(find.text('300 m'), findsOneWidget);
+    expect(find.text('40s'), findsOneWidget);
+
+    // Badges live in Milestones, not on the Profile page, and with no
+    // photos posted there is no gallery preview either.
+    expect(find.textContaining('to claim'), findsNothing);
+    expect(find.text('Photos'), findsNothing);
+
+    // Every card here is the traveller's own, so none repeats their avatar
+    // or name — the header already shows them, once.
+    expect(find.text('Traveller'), findsOneWidget);
+
+    provider.dispose();
+  });
+
+  testWidgets('profile lays out in dark mode at double text size', (
+    tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(360, 1800));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+
+    final provider = AuthProvider(
+      authRepository: _FakeAuthRepository(_buildProfile(xp: 75)),
+    );
+    await provider.refreshCurrentUser();
+    final firestore = FakeFirebaseFirestore();
+    final weekStart = _mondayOnOrBefore(DateTime.now());
+    await _seedJourneyWithActivity(
+      firestore,
+      id: 'drive',
+      start: weekStart.add(const Duration(minutes: 1)),
+      durationSeconds: 4321,
+      distanceMeters: 123456,
+      tiles: 12,
+      xp: 1234,
+      endName: 'A destination with a very long name indeed',
+    );
+
+    await tester.pumpWidget(
+      ChangeNotifierProvider<AuthProvider>.value(
+        value: provider,
+        child: MaterialApp(
+          theme: AppTheme.darkTheme,
+          builder: (context, child) => MediaQuery(
+            data: MediaQuery.of(
+              context,
+            ).copyWith(textScaler: const TextScaler.linear(2)),
+            child: child!,
+          ),
+          home: Scaffold(
+            body: _testYouScreen(
+              visitService: _FakeVisitService(totalVisitCount: 0),
+              visitedRegionService: _FakeVisitedRegionService(<String>{}),
+              activityFeedService: ActivityFeedService(firestore: firestore),
+              firestore: firestore,
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(tester.takeException(), isNull);
+    expect(find.byType(JourneyCard), findsOneWidget);
+
+    provider.dispose();
+  });
+
+  testWidgets('this week opens Statistics', (tester) async {
+    final provider = AuthProvider(
+      authRepository: _FakeAuthRepository(_buildProfile(xp: 50)),
+    );
+    await provider.refreshCurrentUser();
+
+    await tester.pumpWidget(
+      ChangeNotifierProvider<AuthProvider>.value(
+        value: provider,
+        child: MaterialApp(
+          home: Scaffold(
+            body: _testYouScreen(
+              visitService: _FakeVisitService(totalVisitCount: 0),
+              visitedRegionService: _FakeVisitedRegionService(<String>{}),
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byType(WeeklySummary));
+    await tester.pumpAndSettle();
+    expect(
+      find.byKey(const ValueKey<String>('stats-category-locations')),
+      findsOneWidget,
+    );
+
+    provider.dispose();
+  });
+}
+
+/// Seeds a saved journey and the activity post published from it.
+Future<void> _seedJourneyWithActivity(
+  FakeFirebaseFirestore firestore, {
+  required String id,
+  required DateTime start,
+  required int durationSeconds,
+  required double distanceMeters,
+  int tiles = 0,
+  int xp = 10,
+  String endName = 'Current Location',
+}) async {
+  final end = start.add(Duration(seconds: durationSeconds));
+  final journey = Journey(
+    id: id,
+    userId: 'user-1',
+    startTime: start,
+    endTime: end,
+    startLocation: JourneyLocation.currentLocation(const LatLng(-37.9, 145.1)),
+    endLocation: JourneyLocation(
+      latLng: const LatLng(-37.91, 145.13),
+      displayName: endName,
+    ),
+    transportMode: TransportMode.drive,
+    encodedRoute: _encodedRoute,
+    distanceMeters: distanceMeters,
+    durationSeconds: durationSeconds,
+    title: 'Morning Journey',
+    xpEarned: xp,
+    tilesUnlocked: tiles,
+  );
+  await firestore
+      .collection('profiles')
+      .doc('user-1')
+      .collection('journeys')
+      .doc(id)
+      .set(journey.toMap());
+  await firestore.collection('activities').doc('journey_$id').set({
+    'activityId': 'journey_$id',
+    'ownerId': 'user-1',
+    'profileId': 'user-1',
+    'displayName': 'Traveller',
+    'username': 'traveller',
+    'title': 'Morning Journey',
+    'kind': 'journey',
+    'sourceJourneyId': id,
+    'encodedRoute': _encodedRoute,
+    'routeBounds': _routeBounds,
+    'journeyStartTime': start.toUtc().toIso8601String(),
+    'journeyEndTime': end.toUtc().toIso8601String(),
+    'transportMode': 'drive',
+    'showMapPreview': true,
+    'media': const <Map<String, dynamic>>[],
+    'createdAt': end.toIso8601String(),
+    'metrics': [
+      {'label': 'Time', 'value': '${durationSeconds ~/ 60}m'},
+      {'label': 'Tiles Explored', 'value': '$tiles'},
+      {'label': 'XP Gained', 'value': '+$xp XP'},
+    ],
   });
 }
 

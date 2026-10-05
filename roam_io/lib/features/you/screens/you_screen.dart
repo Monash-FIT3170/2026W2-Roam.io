@@ -1,20 +1,21 @@
 /*
  * Author: Sanjevan Rajasegar
- * Last Updated: 29 August 2026 — Sanjevan Rajasegar
+ * Last Updated: 4 October 2026 — Amarprit Singh
  * Description:
  *   Provides the You destination with Profile, Statistics, and Milestones tabs.
- *   Profile shows identity, social counts, media, dashboard statistics, and
- *   owned activities in one scroll. Statistics owns detailed analytics via
- *   [StatsAnalyticsProvider]. Milestones owns claim progress via
+ *   Profile ([ProfileTab]) shows identity, this week's summary, recent badges
+ *   and the owned journey feed in one scroll. Statistics owns detailed
+ *   analytics via [StatsAnalyticsProvider]. Milestones owns claim progress via
  *   [MilestonesProvider]. A notifications bell opens the social inbox.
  */
+
+import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../../services/profile_service.dart';
 import '../../journeys/data/journey_service.dart';
-import '../../../shared/widgets/app_bottom_nav_bar.dart';
 import '../../../shared/widgets/app_page_transition.dart';
 import '../../../theme/app_surfaces.dart';
 import '../../activity_feed/data/activity_feed_service.dart';
@@ -22,29 +23,22 @@ import '../../activity_feed/data/comment_service.dart';
 import '../../activity_feed/data/comment_like_service.dart';
 import '../../activity_feed/data/kudos_service.dart';
 import '../../activity_feed/models/activity_feed_item.dart';
-import '../../activity_feed/screens/activity_detail_screen.dart';
-import '../../activity_feed/screens/comments_screen.dart';
-import '../../activity_feed/widgets/activity_feed_card.dart';
 import '../../auth/providers/auth_provider.dart';
 import '../../map/data/visit_service.dart';
 import '../../map/data/visited_region_service.dart';
 import '../../party/providers/current_party_provider.dart';
-import '../../profile/domain/profile_model.dart';
-import '../../profile/domain/profile_stats.dart';
 import '../../profile/domain/xp_event.dart';
-import '../../profile/widgets/profile_dashboard.dart';
 import '../../social/data/follow_service.dart';
 import '../../social/data/friendship_service.dart';
 import '../../social/data/social_notification_coordinator.dart';
-import '../../social/screens/follow_connections_screen.dart';
 import '../../social/screens/notifications_screen.dart';
-import '../../journeys/widgets/journey_share_sheet.dart';
 import '../milestones/milestone_service.dart';
 import '../milestones/milestones_provider.dart';
 import '../milestones/milestones_screen.dart';
 import '../providers/stats_analytics_provider.dart';
 import '../services/home_base_service.dart';
 import '../services/stats_summary_service.dart';
+import '../widgets/profile/profile_tab.dart';
 import 'stats_screen.dart';
 
 /// Displays personal profile analytics and the user's own activity area.
@@ -115,7 +109,6 @@ class _YouScreenState extends State<YouScreen>
   late final FollowService _followService;
   late final FriendshipService _friendshipService;
   late final ActivityFeedService? _activityFeedService;
-  ProfileGraphMetric _selectedGraphMetric = ProfileGraphMetric.locationsVisited;
   Stream<List<ActivityFeedItem>>? _ownedActivitiesStream;
   String? _ownedActivitiesStreamUserId;
   ActivityFeedService? _ownedActivitiesStreamService;
@@ -160,11 +153,41 @@ class _YouScreenState extends State<YouScreen>
     super.dispose();
   }
 
-  void _selectGraphMetric(ProfileGraphMetric metric) {
-    if (_selectedGraphMetric == metric) return;
+  /// Reconnects the owned-activities query for pull-to-refresh, completing
+  /// once the new subscription delivers its first result.
+  ///
+  /// The feed is already live, so this mostly reassures; it does recover a
+  /// subscription that died on an error.
+  Future<void> _refreshOwnedActivities() async {
+    final uid = _ownedActivitiesStreamUserId;
+    final service = _ownedActivitiesStreamService;
+    if (uid == null || service == null) return;
+
+    final arrived = Completer<void>();
+    void settle() {
+      if (!arrived.isCompleted) arrived.complete();
+    }
+
     setState(() {
-      _selectedGraphMetric = metric;
+      _ownedActivitiesStream = service
+          .watchActivitiesOwnedBy(uid)
+          .transform(
+            StreamTransformer<
+              List<ActivityFeedItem>,
+              List<ActivityFeedItem>
+            >.fromHandlers(
+              handleData: (items, sink) {
+                settle();
+                sink.add(items);
+              },
+              handleError: (error, stackTrace, sink) {
+                settle();
+                sink.addError(error, stackTrace);
+              },
+            ),
+          );
     });
+    await arrived.future.timeout(const Duration(seconds: 8), onTimeout: () {});
   }
 
   Stream<List<ActivityFeedItem>> _ownedActivitiesForProfileStream(
@@ -172,9 +195,16 @@ class _YouScreenState extends State<YouScreen>
   ) {
     final activityFeedService = _activityFeedService;
     if (currentUserId == null || activityFeedService == null) {
-      _ownedActivitiesStream = Stream<List<ActivityFeedItem>>.value(
-        const <ActivityFeedItem>[],
-      );
+      // Re-listenable like the Firestore query it stands in for: TabBarView
+      // rebuilds the Profile tab each time it is revisited, and that rebuild
+      // subscribes again to whatever stream was cached.
+      _ownedActivitiesStream = Stream<List<ActivityFeedItem>>.multi((
+        controller,
+      ) {
+        controller
+          ..add(const <ActivityFeedItem>[])
+          ..close();
+      });
       _ownedActivitiesStreamUserId = null;
       _ownedActivitiesStreamService = null;
       return _ownedActivitiesStream!;
@@ -237,17 +267,17 @@ class _YouScreenState extends State<YouScreen>
                     child: TabBarView(
                       controller: _tabController,
                       children: [
-                        _ProfileTab(
+                        ProfileTab(
                           profile: profile,
                           currentUserId: uid,
                           followService: _followService,
                           friendshipService: _friendshipService,
                           ownedActivitiesStream: ownedActivitiesStream,
+                          onRefresh: _refreshOwnedActivities,
                           commentService: widget.commentService,
                           commentLikeService: widget.commentLikeService,
                           kudosService: widget.kudosService,
-                          selectedGraphMetric: _selectedGraphMetric,
-                          onGraphMetricSelected: _selectGraphMetric,
+                          onOpenStatistics: () => _tabController.animateTo(1),
                         ),
                         StatsScreen(profile: profile, title: 'Statistics'),
                         const MilestonesScreen(),
@@ -280,7 +310,7 @@ class _YouTabBar extends StatelessWidget {
     }
 
     return Padding(
-      padding: const EdgeInsets.fromLTRB(12, 8, 12, 0),
+      padding: const EdgeInsets.fromLTRB(12, 4, 12, 0),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
@@ -294,18 +324,20 @@ class _YouTabBar extends StatelessWidget {
                 labelColor: theme.colorScheme.primary,
                 unselectedLabelColor: AppSurfaces.textMuted(context),
                 indicatorColor: theme.colorScheme.primary,
-                indicatorWeight: 3,
+                indicatorWeight: 2,
+                indicatorSize: TabBarIndicatorSize.label,
                 dividerColor: AppSurfaces.border(context),
-                labelStyle: theme.textTheme.titleMedium?.copyWith(
-                  fontWeight: FontWeight.w700,
+                labelPadding: const EdgeInsets.symmetric(horizontal: 12),
+                labelStyle: theme.textTheme.labelLarge?.copyWith(
+                  fontWeight: FontWeight.w800,
                 ),
-                unselectedLabelStyle: theme.textTheme.titleMedium?.copyWith(
-                  fontWeight: FontWeight.w500,
+                unselectedLabelStyle: theme.textTheme.labelLarge?.copyWith(
+                  fontWeight: FontWeight.w600,
                 ),
                 tabs: const [
-                  Tab(text: 'Profile'),
-                  Tab(text: 'Statistics'),
-                  Tab(text: 'Milestones'),
+                  Tab(height: 40, text: 'Profile'),
+                  Tab(height: 40, text: 'Statistics'),
+                  Tab(height: 40, text: 'Milestones'),
                 ],
               ),
             ),
@@ -315,6 +347,8 @@ class _YouTabBar extends StatelessWidget {
             children: [
               IconButton(
                 tooltip: 'Notifications',
+                visualDensity: VisualDensity.compact,
+                constraints: const BoxConstraints(minWidth: 40, minHeight: 40),
                 onPressed: () {
                   final currentParty = context.read<CurrentPartyProvider>();
                   Navigator.of(context).push(
@@ -364,140 +398,6 @@ class _YouTabBar extends StatelessWidget {
   }
 }
 
-class _ProfileTab extends StatelessWidget {
-  const _ProfileTab({
-    required this.profile,
-    required this.currentUserId,
-    required this.followService,
-    required this.friendshipService,
-    required this.ownedActivitiesStream,
-    required this.commentService,
-    required this.commentLikeService,
-    required this.kudosService,
-    required this.selectedGraphMetric,
-    required this.onGraphMetricSelected,
-  });
-
-  final ProfileModel? profile;
-  final String? currentUserId;
-  final FollowService followService;
-  final FriendshipService friendshipService;
-  final Stream<List<ActivityFeedItem>> ownedActivitiesStream;
-  final CommentService? commentService;
-  final CommentLikeService? commentLikeService;
-  final KudosService? kudosService;
-  final ProfileGraphMetric selectedGraphMetric;
-  final ValueChanged<ProfileGraphMetric> onGraphMetricSelected;
-
-  @override
-  Widget build(BuildContext context) {
-    final analytics = context.watch<StatsAnalyticsProvider>();
-    final bottomClearance = AppBottomNavBar.clearanceFromScreenBottom(context);
-
-    final displayName = profile?.displayName ?? '-';
-    final username = profile?.username ?? '-';
-
-    return StreamBuilder<List<ActivityFeedItem>>(
-      stream: ownedActivitiesStream,
-      builder: (context, snapshot) {
-        debugPrint(
-          '[YouScreen] activities builder currentUserId=$currentUserId '
-          'query=ownerId==$currentUserId '
-          'connectionState=${snapshot.connectionState} '
-          'hasError=${snapshot.hasError} hasData=${snapshot.hasData} '
-          'renderedCount=${snapshot.data?.length ?? 0} '
-          'titles=${_activityTitles(snapshot.data)}',
-        );
-        if (snapshot.hasError) {
-          debugPrint('[YouScreen] activities failed ${snapshot.error}');
-        }
-
-        return ProfileDashboard(
-          displayName: displayName,
-          username: username,
-          photoUrl: profile?.photoUrl,
-          level: profile?.level,
-          xp: profile?.xp,
-          stats: ProfileStats(
-            following: analytics.followingCount,
-            followers: analytics.followerCount,
-            tiles: analytics.tileCount,
-            xpGained: profile?.xp ?? 0,
-            journeys: analytics.journeys.length,
-            sidequests: 0,
-            onFollowingTap: currentUserId == null
-                ? null
-                : () => _openConnections(
-                    context,
-                    mode: FollowConnectionsMode.following,
-                  ),
-            onFollowersTap: currentUserId == null
-                ? null
-                : () => _openConnections(
-                    context,
-                    mode: FollowConnectionsMode.followers,
-                  ),
-          ),
-          visits: analytics.visits,
-          recentVisits: analytics.recentVisits,
-          tileRecords: analytics.tileRecords,
-          xpEvents: analytics.xpEvents,
-          selectedMetric: selectedGraphMetric,
-          onMetricSelected: onGraphMetricSelected,
-          recentVisitsReady: analytics.recentVisitsReady,
-          recentVisitsError: analytics.recentVisitsError,
-          visitsError: analytics.visitsError,
-          mediaProfileId: currentUserId,
-          currentUserId: currentUserId,
-          mediaActivities: snapshot.data,
-          compactIdentity: true,
-          showDetailedAnalytics: false,
-          trailingChildren: [
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 24),
-              child: Text(
-                'Journey feed',
-                style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                  color: AppSurfaces.textPrimary(context),
-                  fontWeight: FontWeight.w700,
-                  letterSpacing: -0.4,
-                ),
-              ),
-            ),
-            const SizedBox(height: 12),
-            _OwnedActivitiesList(
-              snapshot: snapshot,
-              currentUserId: currentUserId,
-              commentService: commentService,
-              commentLikeService: commentLikeService,
-              kudosService: kudosService,
-            ),
-          ],
-          bottomPadding: bottomClearance + 24,
-        );
-      },
-    );
-  }
-
-  void _openConnections(
-    BuildContext context, {
-    required FollowConnectionsMode mode,
-  }) {
-    final selectedUserId = currentUserId;
-    if (selectedUserId == null) return;
-    Navigator.of(context).push(
-      appHorizontalPageRoute<void>(
-        builder: (_) => FollowConnectionsScreen(
-          selectedUserId: selectedUserId,
-          mode: mode,
-          followService: followService,
-          friendshipService: friendshipService,
-        ),
-      ),
-    );
-  }
-}
-
 class _EmptyFollowService implements FollowService {
   @override
   Stream<int> watchFollowingCount(String uid) {
@@ -526,177 +426,4 @@ class _EmptyFollowService implements FollowService {
 class _EmptyFriendshipService implements FriendshipService {
   @override
   dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
-}
-
-class _OwnedActivitiesList extends StatelessWidget {
-  const _OwnedActivitiesList({
-    required this.snapshot,
-    required this.currentUserId,
-    required this.commentService,
-    required this.commentLikeService,
-    required this.kudosService,
-  });
-
-  final AsyncSnapshot<List<ActivityFeedItem>> snapshot;
-  final String? currentUserId;
-  final CommentService? commentService;
-  final CommentLikeService? commentLikeService;
-  final KudosService? kudosService;
-
-  @override
-  Widget build(BuildContext context) {
-    final comments = commentService;
-
-    if (snapshot.hasError) {
-      return Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 24),
-        child: Center(
-          child: Text(
-            'Could not load activities. Try again.',
-            textAlign: TextAlign.center,
-            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-              color: AppSurfaces.textMuted(context),
-              fontWeight: FontWeight.w500,
-            ),
-          ),
-        ),
-      );
-    }
-    if (snapshot.connectionState == ConnectionState.waiting &&
-        !snapshot.hasData) {
-      return const _JourneyFeedSkeleton();
-    }
-    final activities = snapshot.data ?? const <ActivityFeedItem>[];
-    if (activities.isEmpty) {
-      return Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 24),
-        child: Center(
-          child: Text(
-            'No activities yet',
-            textAlign: TextAlign.center,
-            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-              color: AppSurfaces.textMuted(context),
-              fontWeight: FontWeight.w500,
-            ),
-          ),
-        ),
-      );
-    }
-
-    return Column(
-      children: [
-        Divider(height: 1, color: AppSurfaces.border(context)),
-        for (var index = 0; index < activities.length; index += 1)
-          ActivityFeedCard.fromItem(
-            activities[index],
-            commentService: comments,
-            kudosService: kudosService,
-            currentUserId: currentUserId,
-            showKudos: true,
-            showComments: true,
-            showShare: true,
-            edgeToEdge: true,
-            profilePresentation: true,
-            onOverflowTap: () => _openActivity(context, activities[index]),
-            onCommentTap: () =>
-                _openComments(context, comments, activities[index]),
-            onShareTap: () {
-              JourneyShareSheet.shareFromActivity(
-                context,
-                activities[index],
-                currentUserId: currentUserId,
-              );
-            },
-          ),
-      ],
-    );
-  }
-
-  void _openActivity(BuildContext context, ActivityFeedItem activity) {
-    Navigator.of(context).push(
-      appHorizontalPageRoute<void>(
-        builder: (_) => ActivityDetailScreen(
-          activity: activity,
-          showEngagementActions: true,
-          showShare: true,
-          currentUserId: currentUserId,
-          commentService: commentService,
-          commentLikeService: commentLikeService,
-          kudosService: kudosService,
-        ),
-      ),
-    );
-  }
-
-  void _openComments(
-    BuildContext context,
-    CommentService? comments,
-    ActivityFeedItem activity,
-  ) {
-    debugPrint(
-      '[YouScreen] open comments activityId=${activity.id} '
-      'ownerId=${activity.ownerId}',
-    );
-    Navigator.of(context).push(
-      appHorizontalPageRoute<void>(
-        builder: (_) => CommentsScreen(
-          activityId: activity.id,
-          activityOwnerId: activity.ownerId,
-          commentService: comments,
-          commentLikeService: commentLikeService,
-          title: currentUserId == activity.ownerId ? 'Discussion' : 'Comments',
-        ),
-      ),
-    );
-  }
-}
-
-class _JourneyFeedSkeleton extends StatelessWidget {
-  const _JourneyFeedSkeleton();
-
-  @override
-  Widget build(BuildContext context) {
-    final fill = AppSurfaces.softCard(context);
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(14, 8, 14, 0),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              DecoratedBox(
-                decoration: BoxDecoration(color: fill, shape: BoxShape.circle),
-                child: const SizedBox(width: 40, height: 40),
-              ),
-              const SizedBox(width: 10),
-              Expanded(child: Container(height: 12, color: fill)),
-            ],
-          ),
-          const SizedBox(height: 14),
-          FractionallySizedBox(
-            widthFactor: 0.58,
-            child: Container(height: 16, color: fill),
-          ),
-          const SizedBox(height: 10),
-          FractionallySizedBox(
-            widthFactor: 0.7,
-            child: Container(height: 11, color: fill),
-          ),
-          const SizedBox(height: 12),
-          AspectRatio(
-            aspectRatio: 16 / 9,
-            child: ClipRRect(
-              borderRadius: BorderRadius.circular(14),
-              child: ColoredBox(color: fill),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-String _activityTitles(List<ActivityFeedItem>? activities) {
-  if (activities == null || activities.isEmpty) return '';
-  return activities.map((activity) => activity.title).join('|');
 }

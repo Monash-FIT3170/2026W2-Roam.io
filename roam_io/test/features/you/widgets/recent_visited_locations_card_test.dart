@@ -120,7 +120,7 @@ void main() {
       expect(cardSize.height, lessThan(480));
       expect(cardSize.height, lessThan(AppBottomNavBar.barHeight + 360));
       expect(cardSize.height, greaterThan(200));
-      expect(find.text('Recent visits'), findsOneWidget);
+      expect(find.text('RECENT VISITS'), findsOneWidget);
     },
   );
 }

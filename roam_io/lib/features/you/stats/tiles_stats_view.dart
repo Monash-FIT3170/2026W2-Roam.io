@@ -66,7 +66,7 @@ class TilesStatsView extends StatelessWidget {
             StatsHeroMetricData(label: 'City mapped', value: coverage),
           ],
         ),
-        const SizedBox(height: 24),
+        const SizedBox(height: kStatsSectionGap),
         StatsChartSection(
           title: 'Tiles unlocked by week',
           buckets: buckets,
@@ -77,7 +77,7 @@ class TilesStatsView extends StatelessWidget {
           rangeStorageId: 'stats-tiles-range',
           detailLabelBuilder: (bucket) => bucket.detailLabel(' Tiles Unlocked'),
         ),
-        const SizedBox(height: 24),
+        const SizedBox(height: kStatsSectionGap),
         StatsSectionCard(
           title: 'Unlock streak',
           child: Text(
@@ -89,9 +89,9 @@ class TilesStatsView extends StatelessWidget {
             ).textTheme.bodyLarge?.copyWith(fontWeight: FontWeight.w700),
           ),
         ),
-        const SizedBox(height: 24),
+        const SizedBox(height: kStatsSectionGap),
         StatsInsightCard(message: insight, icon: Icons.grid_view_rounded),
-        const SizedBox(height: 24),
+        const SizedBox(height: kStatsSectionGap),
         StatsLoyaltyTilesSection(tiles: loyaltyTiles),
       ],
     );

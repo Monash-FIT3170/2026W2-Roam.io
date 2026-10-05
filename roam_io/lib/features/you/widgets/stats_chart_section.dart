@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
-import '../../../theme/app_surfaces.dart';
 import '../models/stats_metric_bucket.dart';
+import 'stats_section_card.dart';
 import 'stats_weekly_chart.dart';
 
 /// Spacious weekly trend section on Stats pages.
@@ -27,29 +27,16 @@ class StatsChartSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          title,
-          style: theme.textTheme.titleLarge?.copyWith(
-            color: AppSurfaces.textPrimary(context),
-            fontWeight: FontWeight.w700,
-            letterSpacing: -0.25,
-          ),
-        ),
-        const SizedBox(height: 6),
-        StatsWeeklyChart(
-          buckets: buckets,
-          bucketsForRange: bucketsForRange,
-          emptyMessage: emptyMessage,
-          detailLabelBuilder: detailLabelBuilder,
-          hasData: hasData,
-          rangeStorageId: rangeStorageId,
-        ),
-      ],
+    return StatsSectionCard(
+      title: title,
+      child: StatsWeeklyChart(
+        buckets: buckets,
+        bucketsForRange: bucketsForRange,
+        emptyMessage: emptyMessage,
+        detailLabelBuilder: detailLabelBuilder,
+        hasData: hasData,
+        rangeStorageId: rangeStorageId,
+      ),
     );
   }
 }

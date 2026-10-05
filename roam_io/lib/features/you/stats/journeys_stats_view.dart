@@ -7,6 +7,7 @@ import '../widgets/stats_chart_section.dart';
 import '../widgets/stats_hero_row.dart';
 import '../widgets/stats_insight_card.dart';
 import '../widgets/stats_recent_journeys_list.dart';
+import '../widgets/stats_section_card.dart';
 
 /// Journeys category on the Statistics page.
 class JourneysStatsView extends StatelessWidget {
@@ -48,7 +49,7 @@ class JourneysStatsView extends StatelessWidget {
             ),
           ],
         ),
-        const SizedBox(height: 24),
+        const SizedBox(height: kStatsSectionGap),
         StatsChartSection(
           title: 'Journeys by week',
           buckets: buckets,
@@ -60,17 +61,17 @@ class JourneysStatsView extends StatelessWidget {
           detailLabelBuilder: (bucket) =>
               bucket.detailLabel(' Journeys Completed'),
         ),
-        const SizedBox(height: 24),
+        const SizedBox(height: kStatsSectionGap),
         StatsBreakdownSection(
           title: 'Transport modes',
           items: modeBreakdown,
           emptyMessage: 'No journeys to break down yet',
         ),
-        const SizedBox(height: 24),
+        const SizedBox(height: kStatsSectionGap),
         StatsJourneyHighlights(journeys: journeys),
-        const SizedBox(height: 24),
+        const SizedBox(height: kStatsSectionGap),
         StatsInsightCard(message: insight, icon: Icons.route_rounded),
-        const SizedBox(height: 24),
+        const SizedBox(height: kStatsSectionGap),
         StatsRecentJourneysList(journeys: journeys),
       ],
     );
