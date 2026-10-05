@@ -453,6 +453,8 @@ class MapController extends ChangeNotifier {
   bool _updateVisitLocation(LatLng? location) {
     if (_visitLocation == location) return false;
     _visitLocation = location;
+    _placeMarkerManager.updateUserLocation(location);
+    markers = _placeMarkerManager.markers;
     return true;
   }
 
