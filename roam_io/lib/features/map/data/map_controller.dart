@@ -34,6 +34,7 @@ import 'geolocator_service.dart';
 import 'map_viewport_policy.dart';
 import 'place_marker_manager.dart';
 import 'place_of_interest.dart';
+import '../domain/place_visit_feedback.dart';
 import 'region_polygon.dart';
 import 'region_polygon_cache.dart';
 import 'region_service.dart';
@@ -52,7 +53,8 @@ typedef MapCameraAnimator =
 class MapController extends ChangeNotifier {
   static const LatLng fallbackCenter = LatLng(-37.8136, 144.9631);
   static const double defaultZoom = MapViewportPolicy.defaultZoom;
-  static const double visitProximityThreshold = 100.0;
+  static const double visitProximityThreshold =
+      PlaceVisitFeedback.visitRadiusMetres;
 
   /// Minimum movement, in metres, between two containing-region lookups.
   ///
@@ -145,6 +147,7 @@ class MapController extends ChangeNotifier {
   LatLng? _lastRegionCheckLocation;
   Position? _latestPosition;
   LatLng? _latestUserLatLng;
+  LatLng? _visitLocation;
   double? _deviceHeading;
   bool _isHeadingOrientationEnabled = false;
   bool _isFollowingUser = true;
@@ -428,6 +431,7 @@ class MapController extends ChangeNotifier {
   void followTrackedLocation(LatLng location) {
     center = location;
     _latestUserLatLng = location;
+    if (_updateVisitLocation(location)) notifyListeners();
     _queueRegionCheck(location);
 
     if (_isFollowingUser) {
@@ -437,11 +441,19 @@ class MapController extends ChangeNotifier {
 
   /// Records the newest device fix without resolving a region for it.
   ///
-  /// Returns whether the position supplied a new usable device heading.
+  /// Returns whether the position or usable device heading changed.
   bool _rememberPosition(Position position) {
     _latestPosition = position;
     _latestUserLatLng = LatLng(position.latitude, position.longitude);
-    return _updateDeviceHeading(position);
+    final locationChanged = _updateVisitLocation(_latestUserLatLng);
+    final headingChanged = _updateDeviceHeading(position);
+    return locationChanged || headingChanged;
+  }
+
+  bool _updateVisitLocation(LatLng? location) {
+    if (_visitLocation == location) return false;
+    _visitLocation = location;
+    return true;
   }
 
   /// Stores a map-ready travel heading from [position] when one is available.
@@ -694,13 +706,32 @@ class MapController extends ChangeNotifier {
     return _visitedPlaceIds.contains(placeId);
   }
 
+  /// Uses the latest real location fix, never the map's fallback centre.
+  PlaceVisitFeedback visitFeedbackFor(PlaceOfInterest place) {
+    final location = _visitLocation;
+    return PlaceVisitFeedback(
+      isVisited: isPlaceVisited(place.id),
+      distanceMetres: location == null
+          ? null
+          : Geolocator.distanceBetween(
+              location.latitude,
+              location.longitude,
+              place.location.latitude,
+              place.location.longitude,
+            ),
+    );
+  }
+
   Future<double?> getDistanceToPlace(PlaceOfInterest place) async {
     try {
       final position = await _geoLocatorService.getCurrentLocation();
-      final headingChanged = _rememberPosition(position);
-      if (headingChanged) {
+      final previousHeading = _deviceHeading;
+      if (_rememberPosition(position)) {
         notifyListeners();
-        if (_isHeadingOrientationEnabled && _isFollowingUser) {
+        if (_isHeadingOrientationEnabled &&
+            _isFollowingUser &&
+            _deviceHeading != null &&
+            _deviceHeading != previousHeading) {
           await _animateBearingSafely(_deviceHeading!);
         }
       }
@@ -712,6 +743,7 @@ class MapController extends ChangeNotifier {
         place.location.longitude,
       );
     } catch (error) {
+      if (_updateVisitLocation(null)) notifyListeners();
       debugPrint('[MapController] Error getting distance to place: $error');
       return null;
     }
@@ -726,7 +758,13 @@ class MapController extends ChangeNotifier {
       return (isNear: false, distance: null);
     }
 
-    return (isNear: distance <= visitProximityThreshold, distance: distance);
+    return (
+      isNear: PlaceVisitFeedback(
+        isVisited: false,
+        distanceMetres: distance,
+      ).isInRange,
+      distance: distance,
+    );
   }
 
   /// Returns the user's current GPS position.
@@ -812,6 +850,7 @@ class MapController extends ChangeNotifier {
       final position = await _geoLocatorService.getCurrentLocation();
       _updateDeviceHeading(position);
       final userCenter = LatLng(position.latitude, position.longitude);
+      _updateVisitLocation(userCenter);
 
       center = userCenter;
       myLocationEnabled = true;
@@ -958,16 +997,19 @@ class MapController extends ChangeNotifier {
       _locationUpdatesSubscription = locationUpdates.listen(
         _handleLocationUpdate,
         onError: (Object error) {
+          if (_updateVisitLocation(null)) notifyListeners();
           debugPrint('[MapController] Location updates error: $error');
         },
       );
     } catch (error) {
+      if (_updateVisitLocation(null)) notifyListeners();
       debugPrint('[MapController] Could not start location updates: $error');
     }
   }
 
   void _handleLocationUpdate(Position position) {
-    final headingChanged = _rememberPosition(position);
+    final previousHeading = _deviceHeading;
+    final positionChanged = _rememberPosition(position);
     // Couples wind speed to travel speed, so the clouds quicken when moving.
     fogController.setUserSpeed(position.speed);
     _queueRegionCheck(LatLng(position.latitude, position.longitude));
@@ -975,11 +1017,11 @@ class MapController extends ChangeNotifier {
       unawaited(
         _followCameraTo(
           LatLng(position.latitude, position.longitude),
-          forceHeadingUpdate: headingChanged,
+          forceHeadingUpdate: _deviceHeading != previousHeading,
         ),
       );
     }
-    if (headingChanged) {
+    if (positionChanged) {
       notifyListeners();
     }
   }

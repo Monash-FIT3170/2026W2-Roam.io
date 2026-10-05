@@ -88,6 +88,36 @@ class _FakeVisitedRegionService extends FakeVisitedRegionService {
 }
 
 void main() {
+  test(
+    'visit feedback follows fixes and clears range when location fails',
+    () async {
+      final geo = FakeGeoLocatorService(testPosition(-37.8136, 144.9631));
+      final controller = MapController(
+        geoLocatorService: geo,
+        visitService: RecordingVisitService(),
+        visitedRegionService: FakeVisitedRegionService(),
+      );
+      final place = testPlace();
+      expect(controller.visitFeedbackFor(place).hasLocation, isFalse);
+      await controller.getDistanceToPlace(place);
+      expect(controller.visitFeedbackFor(place).canVisit, isTrue);
+      var updates = 0;
+      controller.addListener(() => updates++);
+      geo.setPosition(testPosition(-37.82, 144.9631));
+      await controller.getDistanceToPlace(place);
+      expect(controller.visitFeedbackFor(place).isInRange, isFalse);
+      expect(updates, 1);
+      geo.setPosition(null);
+      await controller.getDistanceToPlace(place);
+      expect(controller.visitFeedbackFor(place).hasLocation, isFalse);
+      geo.setPosition(testPosition(-37.8136, 144.9631));
+      await controller.getDistanceToPlace(place);
+      expect(controller.visitFeedbackFor(place).canVisit, isTrue);
+      controller.disposeController();
+      controller.dispose();
+    },
+  );
+
   group('MapController location following', () {
     test(
       'user camera movement pauses following and recenter resumes it',
@@ -188,7 +218,9 @@ void main() {
         await controller.recenterOnUser();
 
         expect(controller.deviceHeading, isNull);
-        expect(listenerCalls, 0);
+        // A usable location still updates visit feedback without a heading.
+        expect(controller.visitFeedbackFor(testPlace()).isInRange, isTrue);
+        expect(listenerCalls, 1);
         expect(controller.isFollowingUser, isTrue);
 
         controller.disposeController();
