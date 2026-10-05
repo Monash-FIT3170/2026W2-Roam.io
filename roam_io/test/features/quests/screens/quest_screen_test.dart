@@ -26,6 +26,66 @@ void main() {
   });
 
   group('QuestsScreen', () {
+    testWidgets('status chips filter progress and show category counts', (
+      tester,
+    ) async {
+      final firestore = FakeFirebaseFirestore();
+      for (final entry in {
+        'available': QuestCategory.nature,
+        'active': QuestCategory.nature,
+        'submitted': QuestCategory.nature,
+        'completed': QuestCategory.culture,
+      }.entries) {
+        await _seedQuest(
+          firestore,
+          id: entry.key,
+          title: '${entry.key} quest',
+          category: entry.value,
+        );
+        if (entry.key != 'available') {
+          await firestore.doc('profiles/user/quests/${entry.key}').set({
+            'questId': entry.key,
+            'status': entry.key,
+          });
+        }
+      }
+      final controller = await _controller(firestore: firestore);
+      await tester.pumpWidget(_app(controller));
+      await tester.pumpAndSettle();
+      await controller.loadQuests(userId: 'user');
+      await tester.pumpAndSettle();
+
+      expect(find.text('All (4)'), findsOneWidget);
+      expect(find.text('Available (1)'), findsOneWidget);
+      expect(find.text('Active (2)'), findsOneWidget);
+      expect(find.text('Completed (1)'), findsOneWidget);
+      await tester.tap(find.byKey(const ValueKey('quest-status-active')));
+      await tester.pumpAndSettle();
+      expect(find.text('active quest'), findsOneWidget);
+      expect(find.text('submitted quest'), findsOneWidget);
+      expect(find.text('Awaiting verification'), findsOneWidget);
+      expect(find.text('available quest'), findsNothing);
+      expect(find.text('completed quest'), findsNothing);
+      expect(
+        tester
+            .widget<ChoiceChip>(
+              find.byKey(const ValueKey('quest-status-active')),
+            )
+            .selected,
+        isTrue,
+      );
+
+      await tester.ensureVisible(find.text('Nature'));
+      await tester.tap(find.text('Nature'));
+      await tester.pumpAndSettle();
+      expect(find.text('All (3)'), findsOneWidget);
+      expect(find.text('Completed (0)'), findsOneWidget);
+      await tester.tap(find.byKey(const ValueKey('quest-status-available')));
+      await tester.pumpAndSettle();
+      expect(find.text('available quest'), findsOneWidget);
+      expect(find.text('active quest'), findsNothing);
+    });
+
     testWidgets('renders Side Quests screen', (tester) async {
       final controller = await _controller();
 

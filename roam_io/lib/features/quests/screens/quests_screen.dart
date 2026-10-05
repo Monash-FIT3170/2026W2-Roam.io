@@ -19,6 +19,7 @@ import 'data/quest.dart';
 import 'quest_controller.dart';
 import 'quest_details_screen.dart';
 import 'quest_enums.dart';
+import 'quest_status_badge.dart';
 
 class QuestsScreen extends StatefulWidget {
   const QuestsScreen({super.key, this.controller});
@@ -83,7 +84,7 @@ class _QuestsContent extends StatelessWidget {
     final bottomClearance =
         AppBottomNavBar.clearanceFromScreenBottom(context) + 16;
 
-    return Container(
+    return Material(
       color: AppSurfaces.pageBackground(context),
       child: SafeArea(
         bottom: false,
@@ -103,7 +104,7 @@ class _QuestsContent extends StatelessWidget {
               ),
             ),
 
-            _QuestSummary(controller: controller),
+            _StatusFilters(controller: controller),
 
             const SizedBox(height: 18),
 
@@ -155,8 +156,7 @@ class _QuestsContent extends StatelessWidget {
 
           return _QuestCard(
             quest: quest,
-            isStarted: controller.isQuestStarted(quest.id),
-            isCompleted: controller.isQuestCompleted(quest.id),
+            status: controller.statusForQuest(quest),
             onTap: () {
               Navigator.of(context).push(
                 MaterialPageRoute<void>(
@@ -174,90 +174,27 @@ class _QuestsContent extends StatelessWidget {
   }
 }
 
-class _QuestSummary extends StatelessWidget {
-  const _QuestSummary({required this.controller});
+class _StatusFilters extends StatelessWidget {
+  const _StatusFilters({required this.controller});
 
   final QuestController controller;
 
   @override
   Widget build(BuildContext context) {
-    final activeCount = controller.activeQuests.length;
-    final completedCount = controller.completedQuests.length;
-
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 20),
-      child: Row(
-        children: [
-          Expanded(
-            child: _SummaryCard(
-              icon: Icons.explore_rounded,
-              value: '${controller.quests.length}',
-              label: 'Available',
-            ),
-          ),
-          const SizedBox(width: 10),
-          Expanded(
-            child: _SummaryCard(
-              icon: Icons.flag_rounded,
-              value: '$activeCount',
-              label: 'Active',
-            ),
-          ),
-          const SizedBox(width: 10),
-          Expanded(
-            child: _SummaryCard(
-              icon: Icons.check_circle_rounded,
-              value: '$completedCount',
-              label: 'Completed',
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _SummaryCard extends StatelessWidget {
-  const _SummaryCard({
-    required this.icon,
-    required this.value,
-    required this.label,
-  });
-
-  final IconData icon;
-  final String value;
-  final String label;
-
-  @override
-  Widget build(BuildContext context) {
-    final primary = Theme.of(context).colorScheme.primary;
-
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 12),
-      decoration: BoxDecoration(
-        color: AppSurfaces.softCard(context),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: AppSurfaces.border(context)),
-      ),
-      child: Column(
-        children: [
-          Icon(icon, size: 19, color: primary),
-          const SizedBox(height: 5),
-          Text(
-            value,
-            style: Theme.of(
-              context,
-            ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800),
-          ),
-          const SizedBox(height: 1),
-          Text(
-            label,
-            style: Theme.of(context).textTheme.bodySmall?.copyWith(
-              color: AppSurfaces.textMuted(context),
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-        ],
+      child: Wrap(
+        spacing: 8,
+        runSpacing: 4,
+        children: QuestStatusFilter.values.map((filter) {
+          final count = controller.countForStatus(filter);
+          return ChoiceChip(
+            key: ValueKey('quest-status-${filter.name}'),
+            label: Text('${filter.label} ($count)'),
+            selected: controller.selectedStatus == filter,
+            onSelected: (_) => controller.selectStatus(filter),
+          );
+        }).toList(),
       ),
     );
   }
@@ -270,29 +207,23 @@ class _CategoryFilters extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return SizedBox(
-      height: 38,
-      child: ListView(
-        scrollDirection: Axis.horizontal,
-        padding: const EdgeInsets.symmetric(horizontal: 20),
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      padding: const EdgeInsets.symmetric(horizontal: 20),
+      child: Row(
         children: [
-          _CategoryChip(
-            label: 'All',
+          ChoiceChip(
+            label: const Text('All categories'),
             selected: controller.selectedCategory == null,
-            onTap: () {
-              controller.selectCategory(null);
-            },
+            onSelected: (_) => controller.selectCategory(null),
           ),
-          const SizedBox(width: 8),
           ...QuestCategory.values.map(
             (category) => Padding(
-              padding: const EdgeInsets.only(right: 8),
-              child: _CategoryChip(
-                label: category.displayName,
+              padding: const EdgeInsets.only(left: 8),
+              child: ChoiceChip(
+                label: Text(category.displayName),
                 selected: controller.selectedCategory == category,
-                onTap: () {
-                  controller.selectCategory(category);
-                },
+                onSelected: (_) => controller.selectCategory(category),
               ),
             ),
           ),
@@ -302,61 +233,15 @@ class _CategoryFilters extends StatelessWidget {
   }
 }
 
-class _CategoryChip extends StatelessWidget {
-  const _CategoryChip({
-    required this.label,
-    required this.selected,
-    required this.onTap,
-  });
-
-  final String label;
-  final bool selected;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final primary = Theme.of(context).colorScheme.primary;
-
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        borderRadius: BorderRadius.circular(20),
-        onTap: onTap,
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 160),
-          padding: const EdgeInsets.symmetric(horizontal: 14),
-          alignment: Alignment.center,
-          decoration: BoxDecoration(
-            color: selected ? primary : AppSurfaces.softCard(context),
-            borderRadius: BorderRadius.circular(20),
-            border: Border.all(
-              color: selected ? primary : AppSurfaces.border(context),
-            ),
-          ),
-          child: Text(
-            label,
-            style: Theme.of(context).textTheme.labelMedium?.copyWith(
-              color: selected ? Colors.white : AppSurfaces.textPrimary(context),
-              fontWeight: FontWeight.w700,
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
 class _QuestCard extends StatelessWidget {
   const _QuestCard({
     required this.quest,
-    required this.isStarted,
-    required this.isCompleted,
+    required this.status,
     required this.onTap,
   });
 
   final Quest quest;
-  final bool isStarted;
-  final bool isCompleted;
+  final QuestStatus status;
   final VoidCallback onTap;
 
   @override
@@ -431,7 +316,9 @@ class _QuestCard extends StatelessWidget {
 
                       const SizedBox(height: 10),
 
-                      Row(
+                      Wrap(
+                        spacing: 8,
+                        runSpacing: 6,
                         children: [
                           _QuestMetaBadge(
                             icon: Icons.stars_rounded,
@@ -440,7 +327,6 @@ class _QuestCard extends StatelessWidget {
                           ),
 
                           if (quest.estimatedMinutes != null) ...[
-                            const SizedBox(width: 8),
                             _QuestMetaBadge(
                               icon: Icons.schedule_rounded,
                               label: '${quest.estimatedMinutes} min',
@@ -449,13 +335,17 @@ class _QuestCard extends StatelessWidget {
                           ],
                         ],
                       ),
+                      const SizedBox(height: 10),
+                      QuestStatusBadge(status: status),
                     ],
                   ),
                 ),
 
-                const SizedBox(width: 10),
-
-                _QuestStateIcon(isStarted: isStarted, isCompleted: isCompleted),
+                const SizedBox(width: 8),
+                Icon(
+                  Icons.chevron_right_rounded,
+                  color: AppSurfaces.textSubtle(context),
+                ),
               ],
             ),
           ),
@@ -523,37 +413,6 @@ class _QuestMetaBadge extends StatelessWidget {
           ),
         ),
       ],
-    );
-  }
-}
-
-class _QuestStateIcon extends StatelessWidget {
-  const _QuestStateIcon({required this.isStarted, required this.isCompleted});
-
-  final bool isStarted;
-  final bool isCompleted;
-
-  @override
-  Widget build(BuildContext context) {
-    if (isCompleted) {
-      return const Icon(
-        Icons.check_circle_rounded,
-        color: AppColors.sage,
-        size: 25,
-      );
-    }
-
-    if (isStarted) {
-      return const Icon(
-        Icons.flag_circle_rounded,
-        color: AppColors.clay,
-        size: 25,
-      );
-    }
-
-    return Icon(
-      Icons.chevron_right_rounded,
-      color: AppSurfaces.textSubtle(context),
     );
   }
 }
