@@ -40,6 +40,7 @@ import 'region_polygon_cache.dart';
 import 'region_service.dart';
 import 'tile_unlock_xp_service.dart';
 import 'visit_service.dart';
+import 'visit.dart';
 import 'visited_region_service.dart';
 import 'viewport_region_loader.dart';
 import '../../you/services/exploration_stats_service.dart';
@@ -702,6 +703,12 @@ class MapController extends ChangeNotifier {
     notifyListeners();
 
     onPlaceSelected?.call(place);
+  }
+
+  Future<Visit?> getVisitForPlace(int placeId) async {
+    final userId = _userId;
+    if (userId == null) return null;
+    return _visitService.getVisit(userId: userId, placeId: placeId);
   }
 
   bool isPlaceVisited(int placeId) {
