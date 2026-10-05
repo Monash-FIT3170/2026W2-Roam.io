@@ -6,6 +6,7 @@ import 'package:firebase_core_platform_interface/test.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:roam_io/features/quests/screens/data/quest.dart';
+import 'package:roam_io/features/quests/screens/data/user_quest.dart';
 import 'package:roam_io/features/quests/screens/quest_controller.dart';
 import 'package:roam_io/features/quests/screens/quest_enums.dart';
 import 'package:roam_io/features/quests/screens/quest_service.dart';
@@ -24,6 +25,111 @@ void main() {
   });
 
   group('QuestController', () {
+    test(
+      'status and category filters compose with consistent counts',
+      () async {
+        final db = FakeFirebaseFirestore();
+        for (final status in QuestStatus.values) {
+          await _seedQuest(db, id: status.name, category: QuestCategory.nature);
+          if (status != QuestStatus.available) {
+            await db
+                .collection('profiles')
+                .doc('user-1')
+                .collection('quests')
+                .doc(status.name)
+                .set(
+                  UserQuest(
+                    id: status.name,
+                    userId: 'user-1',
+                    questId: status.name,
+                    status: status,
+                    startedAt: DateTime(2026),
+                  ).toMap(),
+                );
+          }
+        }
+        await _seedQuest(db, id: 'other-category');
+        final controller = _controller(db);
+        addTearDown(controller.dispose);
+        await controller.initialise(userId: 'user-1');
+        controller.selectCategory(QuestCategory.nature);
+        expect(controller.countForStatus(QuestStatusFilter.all), 6);
+        expect(controller.countForStatus(QuestStatusFilter.available), 1);
+        expect(controller.countForStatus(QuestStatusFilter.active), 2);
+        expect(controller.countForStatus(QuestStatusFilter.completed), 1);
+        controller.selectStatus(QuestStatusFilter.active);
+        expect(
+          controller.quests.map((q) => q.id),
+          containsAll(['active', 'submitted']),
+        );
+        expect(controller.quests, hasLength(2));
+        await controller.loadQuests(userId: 'user-1');
+        expect(controller.selectedStatus, QuestStatusFilter.active);
+        expect(controller.selectedCategory, QuestCategory.nature);
+        controller.selectStatus(QuestStatusFilter.completed);
+        expect(controller.quests.single.id, 'completed');
+        controller.selectStatus(QuestStatusFilter.available);
+        expect(controller.quests.single.id, 'available');
+        controller.resetFilters();
+        expect(controller.quests, hasLength(7));
+      },
+    );
+
+    test('restores completed history after a definition is retired', () async {
+      final db = FakeFirebaseFirestore();
+      await _seedQuest(db, id: 'retired', isActive: false);
+      await _seedQuest(db, id: 'expired-active', isActive: false);
+      for (final id in ['retired', 'expired-active', 'deleted']) {
+        await db
+            .collection('profiles')
+            .doc('user-1')
+            .collection('quests')
+            .doc(id)
+            .set(
+              UserQuest(
+                id: id,
+                userId: 'user-1',
+                questId: id,
+                status: id == 'expired-active'
+                    ? QuestStatus.active
+                    : QuestStatus.completed,
+                startedAt: DateTime(2026),
+              ).toMap(),
+            );
+      }
+      final controller = _controller(db);
+      addTearDown(controller.dispose);
+      await controller.initialise(userId: 'user-1');
+      expect(controller.quests, hasLength(2));
+      expect(
+        controller.statusForQuest(
+          controller.quests.firstWhere((q) => q.id == 'expired-active'),
+        ),
+        QuestStatus.expired,
+      );
+      controller.selectStatus(QuestStatusFilter.completed);
+      expect(controller.quests.single.id, 'retired');
+      expect(controller.countForStatus(QuestStatusFilter.completed), 1);
+      await controller.loadQuests();
+      expect(controller.quests, isEmpty);
+      expect(controller.userQuests, isEmpty);
+    });
+
+    test(
+      'progress read failures are not treated as available quests',
+      () async {
+        final controller = QuestController(
+          questService: _FailingProgressService(),
+          verificationService: _FakeQuestVerificationService(),
+        );
+        addTearDown(controller.dispose);
+        await controller.initialise(userId: 'user-1');
+        expect(controller.loadErrorMessage, isNotNull);
+        expect(controller.quests, isEmpty);
+        expect(controller.isLoading, isFalse);
+      },
+    );
+
     test('initialise loads active global quests', () async {
       final firestore = FakeFirebaseFirestore();
 
@@ -473,5 +579,15 @@ class _FakeQuestVerificationService extends QuestVerificationService {
     String photoMimeType = 'image/jpeg',
   }) async {
     return result;
+  }
+}
+
+class _FailingProgressService extends QuestService {
+  @override
+  Future<List<Quest>> getAvailableQuests() async => [];
+
+  @override
+  Future<List<UserQuest>> getUserQuests(String userId) async {
+    throw StateError('Progress unavailable');
   }
 }
