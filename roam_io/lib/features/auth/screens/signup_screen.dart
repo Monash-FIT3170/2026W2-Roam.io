@@ -72,6 +72,7 @@ class _SignupScreenState extends State<SignupScreen> {
       builder: (context, auth, _) {
         return AuthPageScaffold(
           title: 'Start your adventure',
+          centerContent: true,
           subtitle:
               'Create your account to unlock visits, earn progress, and save favourites.',
           footerText: 'Already have an account?',
@@ -95,7 +96,7 @@ class _SignupScreenState extends State<SignupScreen> {
                     return null;
                   },
                 ),
-                const SizedBox(height: 14),
+                const SizedBox(height: 16),
                 _buildInputField(
                   controller: _displayNameController,
                   label: 'Display name',
@@ -106,7 +107,7 @@ class _SignupScreenState extends State<SignupScreen> {
                     return null;
                   },
                 ),
-                const SizedBox(height: 14),
+                const SizedBox(height: 16),
                 _buildInputField(
                   controller: _emailController,
                   label: 'Email',
@@ -121,7 +122,7 @@ class _SignupScreenState extends State<SignupScreen> {
                     return null;
                   },
                 ),
-                const SizedBox(height: 14),
+                const SizedBox(height: 16),
                 _buildInputField(
                   controller: _passwordController,
                   label: 'Password',
@@ -137,8 +138,11 @@ class _SignupScreenState extends State<SignupScreen> {
                   },
                   onFieldSubmitted: (_) => _submit(),
                 ),
-                const SizedBox(height: 22),
+                const SizedBox(height: 24),
                 FilledButton(
+                  style: FilledButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(vertical: 16),
+                  ),
                   onPressed: auth.isBusy ? null : _submit,
                   child: auth.isBusy
                       ? const SizedBox(
@@ -172,6 +176,10 @@ class _SignupScreenState extends State<SignupScreen> {
       obscureText: obscureText,
       decoration: InputDecoration(
         labelText: label,
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: 16,
+          vertical: 18,
+        ),
         labelStyle: TextStyle(color: AppColors.ink.withValues(alpha: 0.7)),
         filled: true,
         fillColor: AppColors.cream.withValues(

@@ -16,6 +16,7 @@ class AuthPageScaffold extends StatelessWidget {
     this.footerText,
     this.footerLabel,
     this.onFooterTap,
+    this.centerContent = false,
   });
 
   final String title;
@@ -24,6 +25,9 @@ class AuthPageScaffold extends StatelessWidget {
   final String? footerText;
   final String? footerLabel;
   final VoidCallback? onFooterTap;
+
+  /// Centers a scrollable, width-constrained form when enabled.
+  final bool centerContent;
 
   @override
   Widget build(BuildContext context) {
@@ -37,11 +41,9 @@ class AuthPageScaffold extends StatelessWidget {
           const Positioned.fill(child: CloudAuthBackground()),
           Positioned.fill(
             child: SafeArea(
-              child: Column(
-                children: [
-                  const Spacer(),
-                  // Main content at the bottom
-                  Container(
+              child: LayoutBuilder(
+                builder: (context, constraints) {
+                  final content = Container(
                     width: double.infinity,
                     padding: const EdgeInsets.fromLTRB(24, 32, 24, 32),
                     child: Column(
@@ -97,8 +99,24 @@ class AuthPageScaffold extends StatelessWidget {
                         ],
                       ],
                     ),
-                  ),
-                ],
+                  );
+                  if (!centerContent) {
+                    return Column(children: [const Spacer(), content]);
+                  }
+                  return SingleChildScrollView(
+                    child: ConstrainedBox(
+                      constraints: BoxConstraints(
+                        minHeight: constraints.maxHeight,
+                      ),
+                      child: Center(
+                        child: ConstrainedBox(
+                          constraints: const BoxConstraints(maxWidth: 480),
+                          child: content,
+                        ),
+                      ),
+                    ),
+                  );
+                },
               ),
             ),
           ),
