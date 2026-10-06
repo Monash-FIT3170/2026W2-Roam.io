@@ -44,4 +44,22 @@ void main() {
     expect(data['fogDecayDifficulty'], 'YEARLY');
     expect(data['updatedAt'], isA<String>());
   });
+
+  test('ProfileService persists Roammate voice preference', () async {
+    final firestore = FakeFirebaseFirestore();
+    await firestore.collection('profiles').doc('user-1').set(<String, dynamic>{
+      'uid': 'user-1',
+    });
+    final service = ProfileService(firestore: firestore);
+
+    await service.updateRoammateVoicePreference(
+      uid: 'user-1',
+      enabled: true,
+    );
+
+    final data = (await firestore.collection('profiles').doc('user-1').get())
+        .data()!;
+    expect(data['roammateVoiceEnabled'], isTrue);
+    expect(data['updatedAt'], isA<String>());
+  });
 }

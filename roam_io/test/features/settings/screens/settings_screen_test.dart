@@ -84,6 +84,28 @@ void main() {
     provider.dispose();
   });
 
+  testWidgets('Roammate Voice toggle persists the preference', (tester) async {
+    final repository = _FakeAuthRepository(
+      _buildProfile(themeMode: AppThemeMode.light),
+    );
+    final provider = AuthProvider(authRepository: repository);
+
+    await _pumpSettingsScreen(tester, provider);
+    repository.clearRecordedActions();
+
+    final voiceSwitch = _switchForRow('Roammate Voice');
+    expect(voiceSwitch, findsOneWidget);
+    expect(tester.widget<Switch>(voiceSwitch).value, isFalse);
+
+    await tester.tap(voiceSwitch);
+    await tester.pumpAndSettle();
+
+    expect(repository.roammateVoiceUpdates, <bool>[true]);
+    expect(provider.roammateVoiceEnabled, isTrue);
+
+    provider.dispose();
+  });
+
   for (final difficulty in FogDecayDifficulty.values) {
     testWidgets('selecting ${difficulty.name} saves the fog decay setting', (
       tester,
@@ -133,6 +155,7 @@ Future<void> _pumpSettingsScreen(
 
   expect(provider.currentProfile, isNotNull);
   expect(find.text('Appearance'), findsOneWidget);
+  expect(_switchForRow('Roammate Voice'), findsOneWidget);
   expect(_switchForRow('Private Account'), findsOneWidget);
 }
 
@@ -149,6 +172,7 @@ Finder _switchForRow(String rowTitle) {
 ProfileModel _buildProfile({
   required AppThemeMode themeMode,
   FogDecayDifficulty fogDecayDifficulty = FogDecayDifficulty.quarterly,
+  bool roammateVoiceEnabled = false,
 }) {
   return ProfileModel(
     uid: 'user-1',
@@ -161,6 +185,7 @@ ProfileModel _buildProfile({
     updatedAt: DateTime(2026, 5, 1, 11),
     themeMode: themeMode,
     fogDecayDifficulty: fogDecayDifficulty,
+    roammateVoiceEnabled: roammateVoiceEnabled,
   );
 }
 
@@ -175,6 +200,7 @@ void _expectUnrelatedProfileFieldsPreserved(
   expect(after.photoUrl, before.photoUrl);
   expect(after.photoHash, before.photoHash);
   expect(after.createdAt, before.createdAt);
+  expect(after.roammateVoiceEnabled, before.roammateVoiceEnabled);
 }
 
 class _FakeAuthRepository implements AuthRepository {
@@ -188,10 +214,12 @@ class _FakeAuthRepository implements AuthRepository {
 
   final List<AppThemeMode> themeModeUpdates = <AppThemeMode>[];
   final List<FogDecayDifficulty> fogDecayUpdates = <FogDecayDifficulty>[];
+  final List<bool> roammateVoiceUpdates = <bool>[];
 
   void clearRecordedActions() {
     themeModeUpdates.clear();
     fogDecayUpdates.clear();
+    roammateVoiceUpdates.clear();
   }
 
   @override
@@ -215,6 +243,11 @@ class _FakeAuthRepository implements AuthRepository {
   @override
   Future<void> updateFogDecayDifficulty(FogDecayDifficulty difficulty) async {
     fogDecayUpdates.add(difficulty);
+  }
+
+  @override
+  Future<void> updateRoammateVoicePreference(bool enabled) async {
+    roammateVoiceUpdates.add(enabled);
   }
 
   @override
