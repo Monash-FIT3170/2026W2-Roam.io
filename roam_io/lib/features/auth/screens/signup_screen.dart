@@ -28,6 +28,14 @@ class _SignupScreenState extends State<SignupScreen> {
   final _passwordController = TextEditingController();
   final _usernameController = TextEditingController();
   final _displayNameController = TextEditingController();
+  String? _registrationError;
+
+  static const _errorTextStyle = TextStyle(
+    color: AppColors.clay,
+    fontSize: 13,
+    height: 1.4,
+    fontWeight: FontWeight.w500,
+  );
 
   @override
   void dispose() {
@@ -42,6 +50,7 @@ class _SignupScreenState extends State<SignupScreen> {
   Future<void> _submit() async {
     if (!_formKey.currentState!.validate()) return;
 
+    setState(() => _registrationError = null);
     final auth = context.read<AuthProvider>();
     await auth.signUp(
       email: _emailController.text.trim(),
@@ -53,7 +62,7 @@ class _SignupScreenState extends State<SignupScreen> {
     if (!mounted) return;
 
     if (auth.errorMessage != null) {
-      AppToast.error(context, auth.errorMessage!);
+      setState(() => _registrationError = auth.errorMessage);
       return;
     }
 
@@ -207,6 +216,43 @@ class _SignupScreenState extends State<SignupScreen> {
                         )
                       : const Text('Sign up'),
                 ),
+                const SizedBox(height: 12),
+                ConstrainedBox(
+                  constraints: const BoxConstraints(minHeight: 72),
+                  child: _registrationError == null
+                      ? const SizedBox.shrink()
+                      : Semantics(
+                          liveRegion: true,
+                          child: Container(
+                            padding: const EdgeInsets.all(12),
+                            decoration: BoxDecoration(
+                              color: Color.alphaBlend(
+                                AppColors.clay.withValues(alpha: 0.08),
+                                AppColors.cream,
+                              ),
+                              borderRadius: BorderRadius.circular(16),
+                              border: Border.all(color: AppColors.clay),
+                            ),
+                            child: Row(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                const Icon(
+                                  Icons.error_outline,
+                                  color: AppColors.clay,
+                                  size: 20,
+                                ),
+                                const SizedBox(width: 8),
+                                Expanded(
+                                  child: Text(
+                                    _registrationError!,
+                                    style: _errorTextStyle,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                ),
               ],
             ),
           ),
@@ -229,6 +275,8 @@ class _SignupScreenState extends State<SignupScreen> {
       borderRadius: BorderRadius.circular(16),
       borderSide: BorderSide(color: AppColors.sage.withValues(alpha: 0.5)),
     );
+    // Reserve two lines at the user's text scale; longer errors can still grow.
+    final errorHeight = MediaQuery.textScalerOf(context).scale(13) * 1.4 * 2;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -272,13 +320,21 @@ class _SignupScreenState extends State<SignupScreen> {
                 borderSide: const BorderSide(color: AppColors.sage, width: 2),
               ),
               errorBorder: border.copyWith(
-                borderSide: const BorderSide(color: AppColors.clay),
+                borderSide: const BorderSide(color: AppColors.clay, width: 1.5),
               ),
               focusedErrorBorder: border.copyWith(
                 borderSide: const BorderSide(color: AppColors.clay, width: 2),
               ),
-              errorStyle: const TextStyle(color: AppColors.clay),
-              errorMaxLines: 3,
+              helper: SizedBox(height: errorHeight),
+              helperStyle: _errorTextStyle,
+              errorStyle: _errorTextStyle,
+            ),
+            errorBuilder: (context, message) => Semantics(
+              liveRegion: true,
+              child: ConstrainedBox(
+                constraints: BoxConstraints(minHeight: errorHeight),
+                child: Text(message, style: _errorTextStyle),
+              ),
             ),
             validator: validator,
             onFieldSubmitted: onFieldSubmitted,
