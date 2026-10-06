@@ -51,6 +51,7 @@ import '../../../theme/app_surfaces.dart';
 import '../fog/fog_overlay.dart';
 import '../fog/fog_decay_difficulty.dart';
 import '../widgets/map_render.dart';
+import '../widgets/place_marker_legend.dart';
 import '../widgets/mode_toggle_chip.dart';
 import 'map_controller.dart';
 import 'place_details_sheet.dart';
@@ -1088,9 +1089,16 @@ class _MapPageState extends State<MapPage> with WidgetsBindingObserver {
         Positioned(
           top: MediaQuery.paddingOf(context).top + 16,
           right: 16,
-          child: _HeatmapToggleButton(
-            isEnabled: _mapController.isHeatmapEnabled,
-            onPressed: _mapController.toggleHeatmap,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              _HeatmapToggleButton(
+                isEnabled: _mapController.isHeatmapEnabled,
+                onPressed: _mapController.toggleHeatmap,
+              ),
+              const SizedBox(height: 8),
+              const PlaceMarkerLegendButton(),
+            ],
           ),
         ),
         // Keep live-Journey actions and the tracking card in one layout so
