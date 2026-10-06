@@ -181,6 +181,22 @@ class AuthRepository {
     );
   }
 
+  /// Persists whether supported Roammate messages may be spoken aloud.
+  Future<void> updateRoammateVoicePreference(bool enabled) async {
+    final user = currentUser;
+    if (user == null) {
+      throw FirebaseAuthException(
+        code: 'user-not-found',
+        message: 'No logged in user found.',
+      );
+    }
+
+    await _profileService.updateRoammateVoicePreference(
+      uid: user.uid,
+      enabled: enabled,
+    );
+  }
+
   /// Legacy wrapper retained for older callers and tests.
   Future<void> updateDarkModePreference(bool enabled) {
     return updateThemeModePreference(

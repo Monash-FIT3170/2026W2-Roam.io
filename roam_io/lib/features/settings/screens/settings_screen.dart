@@ -18,6 +18,7 @@ import '../../../theme/app_theme_mode.dart';
 import '../../auth/providers/auth_provider.dart';
 import '../../auth/screens/change_password_screen.dart';
 import '../../map/fog/fog_decay_difficulty.dart';
+import '../../roammate/services/roammate_voice_service.dart';
 import '../widgets/settings_group.dart';
 import 'change_display_name_screen.dart';
 import 'change_email_screen.dart';
@@ -149,6 +150,24 @@ class _SettingsScreenState extends State<SettingsScreen> {
     }
   }
 
+  /// Enables or disables spoken Roammate messages.
+  Future<void> _toggleRoammateVoice(bool enabled) async {
+    final auth = context.read<AuthProvider>();
+
+    // Stop immediately when the user opts out, without waiting for Firestore.
+    if (!enabled) {
+      await RoammateVoiceService.instance.stop();
+    }
+
+    await auth.updateRoammateVoicePreference(enabled);
+
+    if (!mounted) return;
+
+    if (auth.errorMessage != null) {
+      AppToast.error(context, auth.errorMessage!);
+    }
+  }
+
   /// Persists whether the account requires approval for new followers.
   Future<void> _togglePrivateAccount(bool enabled) async {
     final auth = context.read<AuthProvider>();
@@ -264,6 +283,20 @@ class _SettingsScreenState extends State<SettingsScreen> {
                                     color: AppSurfaces.textSubtle(context),
                                   ),
                                 ],
+                              ),
+                            ),
+                            SettingsRow(
+                              icon: Icons.record_voice_over_outlined,
+                              title: 'Roammate Voice',
+                              showChevron: false,
+                              trailing: Switch(
+                                key: const ValueKey<String>(
+                                  'roammate-voice-switch',
+                                ),
+                                value: auth.roammateVoiceEnabled,
+                                onChanged: auth.isBusy || profile == null
+                                    ? null
+                                    : _toggleRoammateVoice,
                               ),
                             ),
                             SettingsRow(

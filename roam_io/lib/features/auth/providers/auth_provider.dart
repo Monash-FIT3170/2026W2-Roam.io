@@ -61,6 +61,8 @@ class AuthProvider extends ChangeNotifier {
   FogDecayDifficulty get fogDecayDifficulty =>
       _currentProfile?.fogDecayDifficulty ?? FogDecayDifficulty.quarterly;
   bool get darkModeEnabled => _currentProfile?.darkModeEnabled ?? false;
+  bool get roammateVoiceEnabled =>
+      _currentProfile?.roammateVoiceEnabled ?? false;
 
   /// Full XP celebration payload (milestone claim or level-up).
   PendingXpCelebration? get pendingXpCelebration => _pendingXpCelebration;
@@ -242,6 +244,17 @@ class AuthProvider extends ChangeNotifier {
       await _authRepository.updateFogDecayDifficulty(difficulty);
       _currentProfile = _currentProfile?.copyWith(
         fogDecayDifficulty: difficulty,
+        updatedAt: DateTime.now(),
+      );
+    });
+  }
+
+  /// Persists the Roammate voice preference and updates local profile state.
+  Future<void> updateRoammateVoicePreference(bool enabled) async {
+    await _runAuthAction(() async {
+      await _authRepository.updateRoammateVoicePreference(enabled);
+      _currentProfile = _currentProfile?.copyWith(
+        roammateVoiceEnabled: enabled,
         updatedAt: DateTime.now(),
       );
     });
