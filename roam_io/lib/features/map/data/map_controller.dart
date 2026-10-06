@@ -90,8 +90,6 @@ class MapController extends ChangeNotifier {
        _explorationStatsService = explorationStatsService,
        _trainStationProximityService =
            trainStationProximityService ?? TrainStationProximityService(),
-       _fogDecayDifficulty = fogDecayDifficulty;
-       _partyTileOwnershipService = partyTileOwnershipService,
        _fogDecayDifficulty = fogDecayDifficulty,
        _cameraAnimator = cameraAnimator;
 
@@ -259,57 +257,6 @@ class MapController extends ChangeNotifier {
 
     _refreshCachedPolygonsStyles();
     notifyListeners();
-  }
-
-  /// Ownership by tile ID for the currently bound party, or empty if none.
-  Map<String, String?> get partyTileOwnership =>
-      Map<String, String?>.unmodifiable(_partyTileOwnership);
-
-  /// Updates party tile ownership directly and refreshes map polygon styling.
-  void setPartyTileOwnership(Map<String, String?> ownership) {
-    if (mapEquals(_partyTileOwnership, ownership)) return;
-    _partyTileOwnership = Map<String, String?>.from(ownership);
-    _refreshCachedPolygonsStyles();
-    _syncPolygonsForCurrentMode();
-    notifyListeners();
-  }
-
-  /// Watches [partyId]'s tile ownership for the Party Mode overlay. Pass
-  /// `null` to stop watching (e.g. the user left their party).
-  void bindCurrentParty(String? partyId) {
-    if (_currentPartyId == partyId) return;
-    _currentPartyId = partyId;
-    unawaited(_partyTileOwnershipSubscription?.cancel());
-    _partyTileOwnershipSubscription = null;
-    _partyTileOwnership = <String, String?>{};
-
-    if (partyId != null) {
-      _partyTileOwnershipSubscription = _resolvedPartyTileOwnershipService
-          .watchOwnership(partyId)
-          .listen((ownership) {
-            _partyTileOwnership = ownership;
-            _refreshCachedPolygonsStyles();
-            notifyListeners();
-          });
-    }
-
-    _refreshCachedPolygonsStyles();
-    notifyListeners();
-  }
-
-  Color? _partyFillColorForRegion(String regionId) {
-    if (_currentMode != ExplorationMode.party) return null;
-    return partyTileFillColor(_partyTileOwnership[regionId]);
-  }
-
-  Color? _partyStrokeColorForRegion(String regionId) {
-    if (_currentMode != ExplorationMode.party) return null;
-    return partyTileStrokeColor(_partyTileOwnership[regionId]);
-  }
-
-  int? _partyStrokeWidthForRegion(String regionId) {
-    if (_currentMode != ExplorationMode.party) return null;
-    return partyTileStrokeWidth(_partyTileOwnership[regionId]);
   }
 
   @override
