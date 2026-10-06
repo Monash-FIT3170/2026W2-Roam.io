@@ -44,12 +44,14 @@ import '../../journeys/widgets/past_journey_summary_sheet.dart';
 import '../../journeys/widgets/start_journey_sheet.dart';
 import '../../profile/domain/xp_event.dart';
 import '../../../shared/widgets/activity_saved_celebration.dart';
+import '../../../shared/widgets/app_bottom_nav_bar.dart';
 import '../../../shared/widgets/app_toast.dart';
 import '../../../theme/app_colours.dart';
 import '../../../theme/app_surfaces.dart';
 import '../fog/fog_overlay.dart';
 import '../fog/fog_decay_difficulty.dart';
 import '../widgets/map_render.dart';
+import '../widgets/place_marker_legend.dart';
 import '../widgets/mode_toggle_chip.dart';
 import 'map_controller.dart';
 import 'place_details_sheet.dart';
@@ -358,6 +360,11 @@ class _MapPageState extends State<MapPage> with WidgetsBindingObserver {
   void _onJourneyStateChanged() {
     if (!mounted) return;
     final journeyController = context.read<JourneyController>();
+
+    if (!journeyController.isTracking &&
+        _mapController.isHeadingOrientationEnabled) {
+      unawaited(_mapController.setHeadingOrientationEnabled(false));
+    }
 
     // Update active journey polyline when route changes
     if (journeyController.routePoints.isNotEmpty) {
@@ -952,6 +959,8 @@ class _MapPageState extends State<MapPage> with WidgetsBindingObserver {
         journeyController.currentPhase == JourneyPhase.reviewing &&
         !_isSavingReviewedJourneyActivity;
     final canStartJourney = journeyController.currentPhase == JourneyPhase.idle;
+    final bottomNavigationClearance =
+        AppBottomNavBar.clearanceFromScreenBottom(context) + 8;
 
     // Combine active journey polyline with saved journey polylines
     final allPolylines = <Polyline>{
@@ -1005,21 +1014,22 @@ class _MapPageState extends State<MapPage> with WidgetsBindingObserver {
           controller: _mapController.fogController,
           isJourneyActive: isLiveJourneyActive,
         ),
-        if (_mapController.myLocationEnabled)
+        if (!isLiveJourneyActive && _mapController.myLocationEnabled)
           Positioned(
             right: 16,
-            bottom: isLiveJourneyActive ? 220 : 120,
+            bottom: bottomNavigationClearance,
             child: MapLocationControls(
               onReportHazard: _openHazardReport,
               onRecenter: _mapController.recenterOnUser,
             ),
           ),
 
-        Positioned(
-          left: 16,
-          bottom: isLiveJourneyActive ? 220 : 120,
-          child: _SideQuestsButton(onPressed: _openSideQuests),
-        ),
+        if (!isLiveJourneyActive)
+          Positioned(
+            left: 16,
+            bottom: bottomNavigationClearance,
+            child: _SideQuestsButton(onPressed: _openSideQuests),
+          ),
         // Start Journey is available only while no Journey is active.
         if (canStartJourney)
           Positioned(
@@ -1059,27 +1069,48 @@ class _MapPageState extends State<MapPage> with WidgetsBindingObserver {
               ),
             ),
           ),
-        if (_mapController.isHeatmapEnabled)
-          Positioned(
-            top: MediaQuery.paddingOf(context).top + 16,
-            left: 16,
-            child: const _HeatmapLegend(),
+        if (isLiveJourneyActive || _mapController.isHeatmapEnabled)
+          MapTopLeftControls(
+            showCompass: isLiveJourneyActive,
+            isCompassEnabled: _mapController.isHeadingOrientationEnabled,
+            onToggleCompass: isLiveJourneyActive
+                ? () {
+                    unawaited(
+                      _mapController.setHeadingOrientationEnabled(
+                        !_mapController.isHeadingOrientationEnabled,
+                      ),
+                    );
+                  }
+                : null,
+            heatmapLegend: _mapController.isHeatmapEnabled
+                ? const _HeatmapLegend()
+                : null,
           ),
         Positioned(
           top: MediaQuery.paddingOf(context).top + 16,
           right: 16,
-          child: _HeatmapToggleButton(
-            isEnabled: _mapController.isHeatmapEnabled,
-            onPressed: _mapController.toggleHeatmap,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              _HeatmapToggleButton(
+                isEnabled: _mapController.isHeatmapEnabled,
+                onPressed: _mapController.toggleHeatmap,
+              ),
+              const SizedBox(height: 8),
+              const PlaceMarkerLegendButton(),
+            ],
           ),
         ),
-        // Journey tracking card shown during active tracking.
+        // Keep live-Journey actions and the tracking card in one layout so
+        // neither the card nor the shell navigation can cover the controls.
         if (isLiveJourneyActive)
-          Positioned(
-            bottom: 100,
-            left: 0,
-            right: 0,
-            child: JourneyTrackingCard(
+          ActiveJourneyMapOverlay(
+            sideQuestsControl: _SideQuestsButton(onPressed: _openSideQuests),
+            locationControls: MapLocationControls(
+              onReportHazard: _openHazardReport,
+              onRecenter: _mapController.recenterOnUser,
+            ),
+            journeyCard: JourneyTrackingCard(
               distanceMeters: journeyController.distanceMeters,
               elapsedTime: journeyController.formattedElapsedTime,
               transportMode: journeyController.transportMode,
@@ -1087,6 +1118,93 @@ class _MapPageState extends State<MapPage> with WidgetsBindingObserver {
             ),
           ),
       ],
+    );
+  }
+}
+
+/// Top-left map controls that share the map's safe-area-aware overlay anchor.
+class MapTopLeftControls extends StatelessWidget {
+  const MapTopLeftControls({
+    super.key,
+    required this.showCompass,
+    required this.isCompassEnabled,
+    required this.onToggleCompass,
+    this.heatmapLegend,
+  }) : assert(
+         !showCompass || onToggleCompass != null,
+         'A Compass callback is required when the control is visible.',
+       );
+
+  final bool showCompass;
+  final bool isCompassEnabled;
+  final VoidCallback? onToggleCompass;
+  final Widget? heatmapLegend;
+
+  @override
+  Widget build(BuildContext context) {
+    return Positioned(
+      top: MediaQuery.paddingOf(context).top + 16,
+      left: 16,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          if (showCompass)
+            _CompassButton(
+              isEnabled: isCompassEnabled,
+              onPressed: onToggleCompass!,
+            ),
+          if (showCompass && heatmapLegend != null) const SizedBox(height: 8),
+          ?heatmapLegend,
+        ],
+      ),
+    );
+  }
+}
+
+/// Positions active-Journey map actions above both the tracking card and the
+/// shell navigation. Keeping these overlays in one layout avoids fragile,
+/// competing bottom offsets as the card height changes.
+class ActiveJourneyMapOverlay extends StatelessWidget {
+  const ActiveJourneyMapOverlay({
+    super.key,
+    required this.sideQuestsControl,
+    required this.locationControls,
+    required this.journeyCard,
+  });
+
+  final Widget sideQuestsControl;
+  final Widget locationControls;
+  final Widget journeyCard;
+
+  @override
+  Widget build(BuildContext context) {
+    return Positioned(
+      left: 0,
+      right: 0,
+      bottom: AppBottomNavBar.clearanceFromScreenBottom(context) + 8,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: SizedBox(
+              width: double.infinity,
+              child: Stack(
+                alignment: Alignment.bottomLeft,
+                children: [
+                  sideQuestsControl,
+                  Align(
+                    alignment: Alignment.bottomRight,
+                    child: locationControls,
+                  ),
+                ],
+              ),
+            ),
+          ),
+          journeyCard,
+        ],
+      ),
     );
   }
 }
@@ -1104,8 +1222,7 @@ Set<Marker> composeMapMarkers({
   return <Marker>{...placeMarkers, ...journeyMarkers, ...hazardMarkers};
 }
 
-/// Map actions that require the user's location. Keeping them in one column
-/// guarantees the report action remains directly above recentering.
+/// Map actions that require the user's location, kept in a consistent column.
 class MapLocationControls extends StatelessWidget {
   const MapLocationControls({
     super.key,
@@ -1120,6 +1237,7 @@ class MapLocationControls extends StatelessWidget {
   Widget build(BuildContext context) {
     return Column(
       mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.end,
       children: [
         FloatingActionButton.small(
           key: const ValueKey('report_hazard_button'),
@@ -1141,6 +1259,79 @@ class MapLocationControls extends StatelessWidget {
           child: const Icon(Icons.my_location),
         ),
       ],
+    );
+  }
+}
+
+class _CompassButton extends StatelessWidget {
+  const _CompassButton({required this.isEnabled, required this.onPressed});
+
+  final bool isEnabled;
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    final accessibilityLabel = isEnabled ? 'Disable Compass' : 'Enable Compass';
+    final foregroundColor = isEnabled
+        ? Colors.white
+        : AppSurfaces.textPrimary(context);
+
+    return Tooltip(
+      message: accessibilityLabel,
+      excludeFromSemantics: true,
+      child: Semantics(
+        label: accessibilityLabel,
+        button: true,
+        toggled: isEnabled,
+        excludeSemantics: true,
+        child: Material(
+          key: const ValueKey('heading_orientation_button'),
+          color: isEnabled ? AppColors.sage : AppSurfaces.card(context),
+          elevation: 6,
+          shadowColor: AppSurfaces.shadow(context),
+          borderRadius: BorderRadius.circular(22),
+          clipBehavior: Clip.antiAlias,
+          child: InkWell(
+            onTap: () {
+              final enabling = !isEnabled;
+              onPressed();
+              AppToast.show(
+                context,
+                enabling ? 'Compass on' : 'Compass off',
+                icon: enabling ? Icons.explore : Icons.explore_outlined,
+                subtitle: enabling
+                    ? "The map will now rotate to face the direction you're travelling."
+                    : 'The map has returned to north-up.',
+              );
+            },
+            borderRadius: BorderRadius.circular(22),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 12),
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(minHeight: 40),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      isEnabled ? Icons.explore : Icons.explore_outlined,
+                      size: 18,
+                      color: foregroundColor,
+                    ),
+                    const SizedBox(width: 6),
+                    Text(
+                      'Compass',
+                      style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                        color: foregroundColor,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
     );
   }
 }

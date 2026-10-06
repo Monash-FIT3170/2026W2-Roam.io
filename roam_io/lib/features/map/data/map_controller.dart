@@ -31,12 +31,14 @@ import 'geolocator_service.dart';
 import 'map_viewport_policy.dart';
 import 'place_marker_manager.dart';
 import 'place_of_interest.dart';
+import '../domain/place_visit_feedback.dart';
 import 'region_polygon.dart';
 import 'region_polygon_cache.dart';
 import 'region_service.dart';
 import 'tile_unlock_xp_service.dart';
 import 'train_station_proximity_service.dart';
 import 'visit_service.dart';
+import 'visit.dart';
 import 'visited_region_service.dart';
 import 'viewport_region_loader.dart';
 import '../../you/services/exploration_stats_service.dart';
@@ -44,10 +46,14 @@ import '../../../services/polygon_service.dart';
 
 enum VisitResult { success, notLoggedIn, alreadyVisited, tooFar, error }
 
+typedef MapCameraAnimator =
+    Future<void> Function(CameraUpdate update, {Duration? duration});
+
 class MapController extends ChangeNotifier {
   static const LatLng fallbackCenter = LatLng(-37.8136, 144.9631);
   static const double defaultZoom = MapViewportPolicy.defaultZoom;
-  static const double visitProximityThreshold = 100.0;
+  static const double visitProximityThreshold =
+      PlaceVisitFeedback.visitRadiusMetres;
 
   /// Minimum movement, in metres, between two containing-region lookups.
   ///
@@ -70,6 +76,7 @@ class MapController extends ChangeNotifier {
     ExplorationStatsService? explorationStatsService,
     TrainStationProximityService? trainStationProximityService,
     FogDecayDifficulty fogDecayDifficulty = FogDecayDifficulty.quarterly,
+    @visibleForTesting MapCameraAnimator? cameraAnimator,
   }) : _geoLocatorService = geoLocatorService ?? GeoLocatorService(),
        _regionService = regionService ?? RegionService(),
        _visitService = visitService ?? VisitService(),
@@ -84,6 +91,9 @@ class MapController extends ChangeNotifier {
        _trainStationProximityService =
            trainStationProximityService ?? TrainStationProximityService(),
        _fogDecayDifficulty = fogDecayDifficulty;
+       _partyTileOwnershipService = partyTileOwnershipService,
+       _fogDecayDifficulty = fogDecayDifficulty,
+       _cameraAnimator = cameraAnimator;
 
   final GeoLocatorService _geoLocatorService;
   final RegionService _regionService;
@@ -94,6 +104,7 @@ class MapController extends ChangeNotifier {
   final ViewportRegionLoader _viewportRegionLoader;
   final PlaceMarkerManager _placeMarkerManager;
   final MapViewportPolicy _viewportPolicy;
+  final MapCameraAnimator? _cameraAnimator;
   PolygonService? _polygonService;
   ExplorationStatsService? _explorationStatsService;
   final TrainStationProximityService _trainStationProximityService;
@@ -108,6 +119,7 @@ class MapController extends ChangeNotifier {
       );
 
   GoogleMapController? _googleMapController;
+  CameraPosition? _latestCameraPosition;
   StreamSubscription<Position>? _locationUpdatesSubscription;
   Timer? _fogDecayRefreshTimer;
 
@@ -115,6 +127,7 @@ class MapController extends ChangeNotifier {
   final FogController fogController = FogController();
 
   String? _userId;
+  bool _disposed = false;
   Future<void> Function(int amount)? _onVisitXpAwarded;
 
   Set<int> _visitedPlaceIds = {};
@@ -131,6 +144,9 @@ class MapController extends ChangeNotifier {
   LatLng? _lastRegionCheckLocation;
   Position? _latestPosition;
   LatLng? _latestUserLatLng;
+  LatLng? _visitLocation;
+  double? _deviceHeading;
+  bool _isHeadingOrientationEnabled = false;
   bool _isFollowingUser = true;
   bool _isProgrammaticCameraMove = false;
   final FollowCameraPacer _followCameraPacer = FollowCameraPacer();
@@ -159,6 +175,11 @@ class MapController extends ChangeNotifier {
   String? get userId => _userId;
   bool get isHeatmapEnabled => _isHeatmapEnabled;
   bool get isFollowingUser => _isFollowingUser;
+  bool get isHeadingOrientationEnabled => _isHeadingOrientationEnabled;
+
+  /// Latest usable travel heading, normalized to a map bearing in [0, 360).
+  /// Remains null until the location source supplies heading information.
+  double? get deviceHeading => _deviceHeading;
   ExplorationMode get currentMode => _currentMode;
   Set<int> get visitedPlaceIds => Set.unmodifiable(_visitedPlaceIds);
   Set<String> get visitedRegionIds => Set.unmodifiable(_visitedRegionIds);
@@ -240,7 +261,65 @@ class MapController extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// Ownership by tile ID for the currently bound party, or empty if none.
+  Map<String, String?> get partyTileOwnership =>
+      Map<String, String?>.unmodifiable(_partyTileOwnership);
+
+  /// Updates party tile ownership directly and refreshes map polygon styling.
+  void setPartyTileOwnership(Map<String, String?> ownership) {
+    if (mapEquals(_partyTileOwnership, ownership)) return;
+    _partyTileOwnership = Map<String, String?>.from(ownership);
+    _refreshCachedPolygonsStyles();
+    _syncPolygonsForCurrentMode();
+    notifyListeners();
+  }
+
+  /// Watches [partyId]'s tile ownership for the Party Mode overlay. Pass
+  /// `null` to stop watching (e.g. the user left their party).
+  void bindCurrentParty(String? partyId) {
+    if (_currentPartyId == partyId) return;
+    _currentPartyId = partyId;
+    unawaited(_partyTileOwnershipSubscription?.cancel());
+    _partyTileOwnershipSubscription = null;
+    _partyTileOwnership = <String, String?>{};
+
+    if (partyId != null) {
+      _partyTileOwnershipSubscription = _resolvedPartyTileOwnershipService
+          .watchOwnership(partyId)
+          .listen((ownership) {
+            _partyTileOwnership = ownership;
+            _refreshCachedPolygonsStyles();
+            notifyListeners();
+          });
+    }
+
+    _refreshCachedPolygonsStyles();
+    notifyListeners();
+  }
+
+  Color? _partyFillColorForRegion(String regionId) {
+    if (_currentMode != ExplorationMode.party) return null;
+    return partyTileFillColor(_partyTileOwnership[regionId]);
+  }
+
+  Color? _partyStrokeColorForRegion(String regionId) {
+    if (_currentMode != ExplorationMode.party) return null;
+    return partyTileStrokeColor(_partyTileOwnership[regionId]);
+  }
+
+  int? _partyStrokeWidthForRegion(String regionId) {
+    if (_currentMode != ExplorationMode.party) return null;
+    return partyTileStrokeWidth(_partyTileOwnership[regionId]);
+  }
+
+  @override
+  void dispose() {
+    _disposed = true;
+    super.dispose();
+  }
+
   void disposeController() {
+    _disposed = true;
     _fogDecayRefreshTimer?.cancel();
     _fogDecayRefreshTimer = null;
     unawaited(_locationUpdatesSubscription?.cancel());
@@ -253,6 +332,7 @@ class MapController extends ChangeNotifier {
 
   Future<void> onMapCreated(GoogleMapController controller) async {
     _googleMapController = controller;
+    _latestCameraPosition ??= CameraPosition(target: center, zoom: defaultZoom);
 
     _isProgrammaticCameraMove = true;
     try {
@@ -269,6 +349,7 @@ class MapController extends ChangeNotifier {
 
   void onCameraMove(CameraPosition position) {
     _currentZoom = position.zoom;
+    _latestCameraPosition = position;
 
     // The fog overlay projects geometry itself, so it needs the camera every
     // frame. Deliberately not routed through notifyListeners: MapPage rebuilds
@@ -311,13 +392,31 @@ class MapController extends ChangeNotifier {
     await loadViewportRegions();
   }
 
+  /// Enables or disables travel-heading orientation for the followed map.
+  ///
+  /// Enabling without a usable heading leaves the camera unchanged until a
+  /// later location update supplies one. Disabling always requests north-up.
+  Future<void> setHeadingOrientationEnabled(bool enabled) async {
+    if (_isHeadingOrientationEnabled == enabled) return;
+
+    _isHeadingOrientationEnabled = enabled;
+    notifyListeners();
+
+    final bearing = enabled ? _deviceHeading : 0.0;
+    if (bearing == null) return;
+
+    await _animateBearingSafely(bearing);
+  }
+
   /// Re-centres the map and resumes following future location updates.
   Future<void> recenterOnUser() async {
     _isFollowingUser = true;
     _followCameraPacer.reset();
     final position =
         _latestPosition ?? await _geoLocatorService.getCurrentLocation();
-    _rememberPosition(position);
+    if (_rememberPosition(position)) {
+      notifyListeners();
+    }
     // Deliberately not a follow move: this answers a tap and stays snappy.
     await _moveCameraTo(position);
   }
@@ -335,6 +434,7 @@ class MapController extends ChangeNotifier {
   void followTrackedLocation(LatLng location) {
     center = location;
     _latestUserLatLng = location;
+    if (_updateVisitLocation(location)) notifyListeners();
     _queueRegionCheck(location);
     unawaited(
       _trainStationProximityService.onLocationUpdate(
@@ -349,9 +449,43 @@ class MapController extends ChangeNotifier {
   }
 
   /// Records the newest device fix without resolving a region for it.
-  void _rememberPosition(Position position) {
+  ///
+  /// Returns whether the position or usable device heading changed.
+  bool _rememberPosition(Position position) {
     _latestPosition = position;
     _latestUserLatLng = LatLng(position.latitude, position.longitude);
+    final locationChanged = _updateVisitLocation(_latestUserLatLng);
+    final headingChanged = _updateDeviceHeading(position);
+    return locationChanged || headingChanged;
+  }
+
+  bool _updateVisitLocation(LatLng? location) {
+    if (_disposed || _visitLocation == location) return false;
+    _visitLocation = location;
+    _placeMarkerManager.updateUserLocation(location);
+    markers = _placeMarkerManager.markers;
+    return true;
+  }
+
+  /// Stores a map-ready travel heading from [position] when one is available.
+  bool _updateDeviceHeading(Position position) {
+    final heading = position.heading;
+    final headingAccuracy = position.headingAccuracy;
+
+    if (!heading.isFinite ||
+        heading < 0 ||
+        !headingAccuracy.isFinite ||
+        headingAccuracy < 0 ||
+        (heading == 0 && headingAccuracy == 0)) {
+      return false;
+    }
+
+    final normalizedHeading = heading % 360;
+    final mapBearing = normalizedHeading == 0 ? 0.0 : normalizedHeading;
+    if (_deviceHeading == mapBearing) return false;
+
+    _deviceHeading = mapBearing;
+    return true;
   }
 
   Future<void> _moveCameraTo(Position position) async {
@@ -365,30 +499,90 @@ class MapController extends ChangeNotifier {
   /// standstill, and one given the default length arrives long before the next
   /// fix does. [FollowCameraPacer] decides both. A recentre stays a direct
   /// [_moveCameraToLatLng] — it answers a tap, so it should be snappy.
-  Future<void> _followCameraTo(LatLng location) async {
-    if (_googleMapController == null) return;
+  Future<void> _followCameraTo(
+    LatLng location, {
+    bool forceHeadingUpdate = false,
+  }) async {
+    if (!_canAnimateCamera) return;
 
-    final duration = _followCameraPacer.durationFor(location);
-    if (duration == null) return;
+    var duration = _followCameraPacer.durationFor(location);
+    final shouldForceHeadingUpdate =
+        forceHeadingUpdate &&
+        _isHeadingOrientationEnabled &&
+        _deviceHeading != null;
+    if (duration == null && !shouldForceHeadingUpdate) return;
 
-    await _moveCameraToLatLng(location, duration: duration);
+    duration ??= FollowCameraPacer.minAnimation;
+    await _moveCameraToLatLng(
+      location,
+      duration: duration,
+      suppressErrors: true,
+    );
   }
 
   Future<void> _moveCameraToLatLng(
     LatLng location, {
     Duration? duration,
+    bool suppressErrors = false,
   }) async {
+    final heading = _isHeadingOrientationEnabled ? _deviceHeading : null;
+    final cameraUpdate = heading == null
+        ? CameraUpdate.newLatLng(location)
+        : CameraUpdate.newCameraPosition(
+            _cameraPositionFor(target: location, bearing: heading),
+          );
+
+    await _animateCameraUpdate(
+      cameraUpdate,
+      duration: duration,
+      suppressErrors: suppressErrors,
+    );
+  }
+
+  bool get _canAnimateCamera =>
+      _cameraAnimator != null || _googleMapController != null;
+
+  CameraPosition _cameraPositionFor({LatLng? target, required double bearing}) {
+    final currentCamera = _latestCameraPosition;
+    return CameraPosition(
+      target: target ?? currentCamera?.target ?? _latestUserLatLng ?? center,
+      zoom: currentCamera?.zoom ?? _currentZoom,
+      tilt: currentCamera?.tilt ?? 0,
+      bearing: bearing,
+    );
+  }
+
+  Future<void> _animateBearingSafely(double bearing) async {
+    if (!_canAnimateCamera) return;
+
+    await _animateCameraUpdate(
+      CameraUpdate.newCameraPosition(_cameraPositionFor(bearing: bearing)),
+      suppressErrors: true,
+    );
+  }
+
+  Future<void> _animateCameraUpdate(
+    CameraUpdate cameraUpdate, {
+    Duration? duration,
+    bool suppressErrors = false,
+  }) async {
+    final animator = _cameraAnimator;
     final controller = _googleMapController;
-    if (controller == null) return;
+    if (animator == null && controller == null) return;
 
     _isProgrammaticCameraMove = true;
     try {
-      await controller.animateCamera(
-        CameraUpdate.newLatLng(location),
-        duration: duration,
-      );
-    } catch (_) {
+      if (animator != null) {
+        await animator(cameraUpdate, duration: duration);
+      } else {
+        await controller!.animateCamera(cameraUpdate, duration: duration);
+      }
+    } catch (error) {
       _isProgrammaticCameraMove = false;
+      if (suppressErrors) {
+        debugPrint('[MapController] Camera update failed: $error');
+        return;
+      }
       rethrow;
     }
   }
@@ -514,14 +708,46 @@ class MapController extends ChangeNotifier {
     onPlaceSelected?.call(place);
   }
 
+  Future<Visit?> getVisitForPlace(int placeId) async {
+    final userId = _userId;
+    if (userId == null) return null;
+    return _visitService.getVisit(userId: userId, placeId: placeId);
+  }
+
   bool isPlaceVisited(int placeId) {
     return _visitedPlaceIds.contains(placeId);
+  }
+
+  /// Uses the latest real location fix, never the map's fallback centre.
+  PlaceVisitFeedback visitFeedbackFor(PlaceOfInterest place) {
+    final location = _visitLocation;
+    return PlaceVisitFeedback(
+      isVisited: isPlaceVisited(place.id),
+      distanceMetres: location == null
+          ? null
+          : Geolocator.distanceBetween(
+              location.latitude,
+              location.longitude,
+              place.location.latitude,
+              place.location.longitude,
+            ),
+    );
   }
 
   Future<double?> getDistanceToPlace(PlaceOfInterest place) async {
     try {
       final position = await _geoLocatorService.getCurrentLocation();
-      _rememberPosition(position);
+      if (_disposed) return null;
+      final previousHeading = _deviceHeading;
+      if (_rememberPosition(position)) {
+        notifyListeners();
+        if (_isHeadingOrientationEnabled &&
+            _isFollowingUser &&
+            _deviceHeading != null &&
+            _deviceHeading != previousHeading) {
+          await _animateBearingSafely(_deviceHeading!);
+        }
+      }
 
       return Geolocator.distanceBetween(
         position.latitude,
@@ -530,6 +756,7 @@ class MapController extends ChangeNotifier {
         place.location.longitude,
       );
     } catch (error) {
+      if (_updateVisitLocation(null)) notifyListeners();
       debugPrint('[MapController] Error getting distance to place: $error');
       return null;
     }
@@ -544,7 +771,13 @@ class MapController extends ChangeNotifier {
       return (isNear: false, distance: null);
     }
 
-    return (isNear: distance <= visitProximityThreshold, distance: distance);
+    return (
+      isNear: PlaceVisitFeedback(
+        isVisited: false,
+        distanceMetres: distance,
+      ).isInRange,
+      distance: distance,
+    );
   }
 
   /// Returns the user's current GPS position.
@@ -578,8 +811,9 @@ class MapController extends ChangeNotifier {
           ? '${proximity.distance!.round()}m away'
           : 'too far away';
 
-      message =
-          'You need to be within ${visitProximityThreshold.round()}m to visit this place ($distanceText)';
+      message = proximity.distance == null
+          ? 'Could not check your location. Turn on location access and try again.'
+          : 'You need to be within ${visitProximityThreshold.round()}m to visit this place ($distanceText)';
       notifyListeners();
       return VisitResult.tooFar;
     }
@@ -628,7 +862,9 @@ class MapController extends ChangeNotifier {
       debugPrint('[MapController] Loading initial region...');
 
       final position = await _geoLocatorService.getCurrentLocation();
+      _updateDeviceHeading(position);
       final userCenter = LatLng(position.latitude, position.longitude);
+      _updateVisitLocation(userCenter);
 
       center = userCenter;
       myLocationEnabled = true;
@@ -775,16 +1011,19 @@ class MapController extends ChangeNotifier {
       _locationUpdatesSubscription = locationUpdates.listen(
         _handleLocationUpdate,
         onError: (Object error) {
+          if (_updateVisitLocation(null)) notifyListeners();
           debugPrint('[MapController] Location updates error: $error');
         },
       );
     } catch (error) {
+      if (_updateVisitLocation(null)) notifyListeners();
       debugPrint('[MapController] Could not start location updates: $error');
     }
   }
 
   void _handleLocationUpdate(Position position) {
-    _rememberPosition(position);
+    final previousHeading = _deviceHeading;
+    final positionChanged = _rememberPosition(position);
     // Couples wind speed to travel speed, so the clouds quicken when moving.
     fogController.setUserSpeed(position.speed);
     _queueRegionCheck(LatLng(position.latitude, position.longitude));
@@ -795,7 +1034,15 @@ class MapController extends ChangeNotifier {
       ),
     );
     if (_isFollowingUser) {
-      unawaited(_followCameraTo(LatLng(position.latitude, position.longitude)));
+      unawaited(
+        _followCameraTo(
+          LatLng(position.latitude, position.longitude),
+          forceHeadingUpdate: _deviceHeading != previousHeading,
+        ),
+      );
+    }
+    if (positionChanged) {
+      notifyListeners();
     }
   }
 

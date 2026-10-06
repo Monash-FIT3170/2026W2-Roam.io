@@ -51,6 +51,35 @@ extension QuestDifficultyX on QuestDifficulty {
 
 enum QuestStatus { available, active, submitted, completed, rejected, expired }
 
+/// Browsing filters, separate from the persisted quest lifecycle.
+enum QuestStatusFilter {
+  all('All'),
+  available('Available'),
+  active('Active'),
+  completed('Completed');
+
+  const QuestStatusFilter(this.label);
+  final String label;
+
+  bool includes(QuestStatus status) => switch (this) {
+    all => true,
+    available => status == QuestStatus.available,
+    active => status == QuestStatus.active || status == QuestStatus.submitted,
+    completed => status == QuestStatus.completed,
+  };
+}
+
+extension QuestStatusLabel on QuestStatus {
+  String get label => switch (this) {
+    QuestStatus.available => 'Available',
+    QuestStatus.active => 'Active',
+    QuestStatus.submitted => 'Awaiting verification',
+    QuestStatus.completed => 'Completed',
+    QuestStatus.rejected => 'Verification rejected',
+    QuestStatus.expired => 'Expired',
+  };
+}
+
 enum QuestVerificationType {
   gps,
   photo,

@@ -67,7 +67,7 @@ void main() {
         quest: _quest(verificationType: QuestVerificationType.gps),
       );
 
-      expect(find.text('Quest in progress'), findsOneWidget);
+      expect(find.text('Active'), findsOneWidget);
 
       expect(
         find.text('Your current location will be checked.'),
@@ -98,7 +98,7 @@ void main() {
         ),
       );
 
-      expect(find.text('Quest in progress'), findsOneWidget);
+      expect(find.text('Active'), findsOneWidget);
 
       expect(
         find.text('Your proof photo will be checked by AI.'),
@@ -282,8 +282,8 @@ void main() {
 
       await _pumpScreen(tester, controller: controller, quest: _quest());
 
-      expect(find.text('Quest completed'), findsOneWidget);
-      expect(find.byIcon(Icons.check_circle_rounded), findsOneWidget);
+      expect(find.text('Completed'), findsOneWidget);
+      expect(find.text('Back to Side Quests'), findsOneWidget);
 
       expect(find.text('Start Quest'), findsNothing);
       expect(find.text('Verify & Complete'), findsNothing);
@@ -296,8 +296,8 @@ void main() {
 
       await _pumpScreen(tester, controller: controller, quest: _quest());
 
-      expect(find.text('Waiting for verification'), findsOneWidget);
-      expect(find.byIcon(Icons.flag_rounded), findsOneWidget);
+      expect(find.text('Awaiting verification'), findsOneWidget);
+      expect(find.byIcon(Icons.hourglass_top_rounded), findsOneWidget);
     });
 
     testWidgets('rejected quest shows rejected state', (tester) async {
@@ -308,7 +308,7 @@ void main() {
       await _pumpScreen(tester, controller: controller, quest: _quest());
 
       expect(find.text('Verification rejected'), findsOneWidget);
-      expect(find.byIcon(Icons.flag_rounded), findsOneWidget);
+      expect(find.byIcon(Icons.error_outline), findsOneWidget);
     });
 
     testWidgets('expired quest shows expired state', (tester) async {
@@ -318,7 +318,7 @@ void main() {
 
       await _pumpScreen(tester, controller: controller, quest: _quest());
 
-      expect(find.text('Quest expired'), findsOneWidget);
+      expect(find.text('Expired'), findsOneWidget);
     });
 
     testWidgets('available progress shows available state', (tester) async {
@@ -630,6 +630,10 @@ class _FakeQuestController extends ChangeNotifier implements QuestController {
   UserQuest? progressForQuest(String questId) {
     return progress;
   }
+
+  @override
+  QuestStatus statusForQuest(Quest quest) =>
+      progress?.status ?? QuestStatus.available;
 
   @override
   void clearMessages({bool notify = true}) {

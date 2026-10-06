@@ -13,8 +13,11 @@ import 'package:roam_io/features/hazards/presentation/hazard_category_icon.dart'
 import 'package:roam_io/features/hazards/presentation/hazard_details_sheet.dart';
 import 'package:roam_io/features/hazards/presentation/hazard_marker_builder.dart';
 import 'package:roam_io/features/hazards/presentation/hazard_report_sheet.dart';
+import 'package:roam_io/features/journeys/domain/transport_mode.dart';
+import 'package:roam_io/features/journeys/widgets/journey_tracking_card.dart';
 import 'package:roam_io/features/map/data/map_page.dart';
 import 'package:roam_io/features/map/data/place_of_interest.dart';
+import 'package:roam_io/shared/widgets/app_bottom_nav_bar.dart';
 import 'package:roam_io/theme/app_colours.dart';
 
 void main() {
@@ -40,6 +43,10 @@ void main() {
     final report = find.byKey(const ValueKey('report_hazard_button'));
     final recenter = find.byKey(const ValueKey('recenter_map_button'));
     expect(
+      find.byKey(const ValueKey('heading_orientation_button')),
+      findsNothing,
+    );
+    expect(
       tester.getCenter(report).dy,
       lessThan(tester.getCenter(recenter).dy),
     );
@@ -52,6 +59,224 @@ void main() {
     expect(reportButton.backgroundColor, AppColors.sage);
     expect(reportButton.foregroundColor, Colors.white);
   });
+
+  testWidgets(
+    'Compass reflects state, toggles heading, and explains the change',
+    (tester) async {
+      var toggles = 0;
+      var isEnabled = false;
+      late StateSetter setHostState;
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: Stack(
+              children: [
+                StatefulBuilder(
+                  builder: (context, setState) {
+                    setHostState = setState;
+                    return MapTopLeftControls(
+                      showCompass: true,
+                      isCompassEnabled: isEnabled,
+                      onToggleCompass: () {
+                        toggles++;
+                        setHostState(() => isEnabled = !isEnabled);
+                      },
+                    );
+                  },
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+
+      final compass = find.byKey(const ValueKey('heading_orientation_button'));
+      expect(compass, findsOneWidget);
+      expect(find.text('Compass'), findsOneWidget);
+      expect(find.byIcon(Icons.explore_outlined), findsOneWidget);
+      expect(find.byIcon(Icons.explore), findsNothing);
+      expect(find.byTooltip('Enable Compass'), findsOneWidget);
+      expect(find.bySemanticsLabel('Enable Compass'), findsOneWidget);
+      final inactiveColor = tester.widget<Material>(compass).color;
+      expect(inactiveColor, isNot(AppColors.sage));
+
+      await tester.tap(find.text('Compass'));
+      await tester.pump(const Duration(milliseconds: 300));
+      expect(toggles, 1);
+      expect(find.text('Compass on'), findsOneWidget);
+      expect(
+        find.text(
+          "The map will now rotate to face the direction you're travelling.",
+        ),
+        findsOneWidget,
+      );
+
+      expect(find.byIcon(Icons.explore), findsWidgets);
+      expect(find.byTooltip('Disable Compass'), findsOneWidget);
+      expect(find.bySemanticsLabel('Disable Compass'), findsOneWidget);
+      final activeButton = tester.widget<Material>(compass);
+      expect(activeButton.color, AppColors.sage);
+      expect(activeButton.color, isNot(inactiveColor));
+      final activeIcon = tester.widget<Icon>(
+        find.descendant(of: compass, matching: find.byIcon(Icons.explore)),
+      );
+      expect(activeIcon.color, Colors.white);
+      expect(
+        tester.widget<Text>(find.text('Compass')).style?.color,
+        Colors.white,
+      );
+
+      await tester.tap(find.text('Compass'));
+      await tester.pump(const Duration(milliseconds: 300));
+      expect(toggles, 2);
+      expect(find.text('Compass off'), findsOneWidget);
+      expect(find.text('The map has returned to north-up.'), findsOneWidget);
+    },
+  );
+
+  testWidgets('Compass is absent when tracking is inactive', (tester) async {
+    await tester.pumpWidget(
+      const MaterialApp(
+        home: Scaffold(
+          body: Stack(
+            children: [
+              MapTopLeftControls(
+                showCompass: false,
+                isCompassEnabled: false,
+                onToggleCompass: null,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+
+    expect(
+      find.byKey(const ValueKey('heading_orientation_button')),
+      findsNothing,
+    );
+    expect(find.text('Compass'), findsNothing);
+  });
+
+  testWidgets(
+    'active Journey controls stay above the card and bottom navigation',
+    (tester) async {
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+
+      for (final screenSize in const [Size(390, 844), Size(320, 640)]) {
+        tester.view.physicalSize = screenSize;
+        const safeAreaTop = 24.0;
+        await tester.pumpWidget(
+          MaterialApp(
+            home: MediaQuery(
+              data: MediaQueryData(
+                size: screenSize,
+                padding: const EdgeInsets.only(top: safeAreaTop),
+                viewPadding: const EdgeInsets.only(top: safeAreaTop),
+              ),
+              child: Scaffold(
+                extendBody: true,
+                body: Stack(
+                  children: [
+                    const Positioned(
+                      key: ValueKey('heatmap_control_bounds'),
+                      top: safeAreaTop + 16,
+                      right: 16,
+                      child: SizedBox(width: 48, height: 48),
+                    ),
+                    MapTopLeftControls(
+                      showCompass: true,
+                      isCompassEnabled: false,
+                      onToggleCompass: () {},
+                      heatmapLegend: const SizedBox(
+                        key: ValueKey('heatmap_legend_bounds'),
+                        width: 200,
+                        height: 90,
+                      ),
+                    ),
+                    ActiveJourneyMapOverlay(
+                      sideQuestsControl: const SizedBox(
+                        key: ValueKey('side_quests_control'),
+                        width: 140,
+                        height: 44,
+                      ),
+                      locationControls: MapLocationControls(
+                        onReportHazard: () {},
+                        onRecenter: () {},
+                      ),
+                      journeyCard: JourneyTrackingCard(
+                        distanceMeters: 250,
+                        elapsedTime: '00:04:20',
+                        transportMode: TransportMode.walk,
+                        onEndJourney: () {},
+                      ),
+                    ),
+                    const Positioned(
+                      key: ValueKey('bottom_navigation_bounds'),
+                      left: 0,
+                      right: 0,
+                      bottom: 0,
+                      height:
+                          AppBottomNavBar.barHeight +
+                          AppBottomNavBar.outerBottomMinimum,
+                      child: SizedBox(),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        );
+        await tester.pump();
+
+        final heading = find.byKey(
+          const ValueKey('heading_orientation_button'),
+        );
+        final report = find.byKey(const ValueKey('report_hazard_button'));
+        final recenter = find.byKey(const ValueKey('recenter_map_button'));
+        final sideQuests = find.byKey(const ValueKey('side_quests_control'));
+        final card = find.byType(JourneyTrackingCard);
+        final heatmap = find.byKey(const ValueKey('heatmap_control_bounds'));
+        final heatmapLegend = find.byKey(
+          const ValueKey('heatmap_legend_bounds'),
+        );
+        final navigation = find.byKey(
+          const ValueKey('bottom_navigation_bounds'),
+        );
+
+        expect(heading, findsOneWidget);
+        final headingRect = tester.getRect(heading);
+        expect(headingRect.left, 16);
+        expect(headingRect.top, safeAreaTop + 16);
+        expect(headingRect.right, lessThanOrEqualTo(screenSize.width - 16));
+        expect(headingRect.overlaps(tester.getRect(report)), isFalse);
+        expect(headingRect.overlaps(tester.getRect(recenter)), isFalse);
+        expect(headingRect.overlaps(tester.getRect(sideQuests)), isFalse);
+        expect(headingRect.bottom, lessThan(tester.getRect(card).top));
+        expect(headingRect.overlaps(tester.getRect(heatmap)), isFalse);
+        expect(headingRect.overlaps(tester.getRect(heatmapLegend)), isFalse);
+        expect(
+          tester.getRect(heatmapLegend).top,
+          greaterThanOrEqualTo(headingRect.bottom + 8),
+        );
+        expect(
+          find.descendant(
+            of: find.byType(MapLocationControls),
+            matching: find.byKey(const ValueKey('heading_orientation_button')),
+          ),
+          findsNothing,
+        );
+        expect(
+          tester.getRect(card).bottom,
+          lessThan(tester.getRect(navigation).top),
+        );
+        expect(tester.takeException(), isNull);
+      }
+    },
+  );
 
   testWidgets('category sheet shows all categories and returns selection', (
     tester,

@@ -18,15 +18,20 @@ import 'package:roam_io/features/map/fog/fog_decay_difficulty.dart';
 import 'package:roam_io/services/polygon_service.dart';
 
 /// Test [Position] near Melbourne CBD.
-Position testPosition(double lat, double lng) => Position(
+Position testPosition(
+  double lat,
+  double lng, {
+  double heading = 0,
+  double headingAccuracy = 0,
+}) => Position(
   latitude: lat,
   longitude: lng,
   timestamp: DateTime(2026, 1, 1),
   accuracy: 1,
   altitude: 0,
   altitudeAccuracy: 0,
-  heading: 0,
-  headingAccuracy: 0,
+  heading: heading,
+  headingAccuracy: headingAccuracy,
   speed: 0,
   speedAccuracy: 0,
 );
@@ -35,15 +40,20 @@ Position testPosition(double lat, double lng) => Position(
 class FakeGeoLocatorService extends GeoLocatorService {
   FakeGeoLocatorService(this._position, {this.throwOnGet = false});
 
-  final Position? _position;
+  Position? _position;
   final bool throwOnGet;
+
+  void setPosition(Position? position) {
+    _position = position;
+  }
 
   @override
   Future<Position> getCurrentLocation() async {
-    if (throwOnGet || _position == null) {
+    final position = _position;
+    if (throwOnGet || position == null) {
       throw Exception('location unavailable');
     }
-    return _position;
+    return position;
   }
 }
 

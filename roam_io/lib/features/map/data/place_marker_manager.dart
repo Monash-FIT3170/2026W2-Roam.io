@@ -1,8 +1,10 @@
 import 'package:flutter/foundation.dart';
+import 'package:geolocator/geolocator.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 
 import 'place_of_interest.dart';
 import 'places_service.dart';
+import '../domain/place_visit_feedback.dart';
 
 /*
  * Author: Rushil Patel
@@ -22,13 +24,41 @@ class PlaceMarkerManager {
   final Map<String, List<PlaceOfInterest>> _placesByRegionId = {};
   final Set<String> _loadingRegionIds = {};
   Set<int> _visitedPlaceIds = {};
+  Set<int> _inRangePlaceIds = {};
+  LatLng? _userLocation;
   Set<String> _visibleRegionIds = {};
   void Function(PlaceOfInterest place)? _onPlaceTapped;
 
   Set<Marker> markers = {};
 
   void setVisitedPlaceIds(Set<int> visitedPlaceIds) {
-    _visitedPlaceIds = visitedPlaceIds;
+    _visitedPlaceIds = Set.of(visitedPlaceIds);
+  }
+
+  /// Rebuild only when a visible marker crosses the visit radius.
+  void updateUserLocation(LatLng? location) {
+    _userLocation = location;
+    final next = _nearbyPlaceIds();
+    if (!setEquals(next, _inRangePlaceIds)) rebuildMarkers();
+  }
+
+  Set<int> _nearbyPlaceIds() {
+    final location = _userLocation;
+    if (location == null) return {};
+    return {
+      for (final region in _visibleRegionIds)
+        for (final place in _placesByRegionId[region] ?? <PlaceOfInterest>[])
+          if (PlaceVisitFeedback(
+            isVisited: false,
+            distanceMetres: Geolocator.distanceBetween(
+              location.latitude,
+              location.longitude,
+              place.location.latitude,
+              place.location.longitude,
+            ),
+          ).isInRange)
+            place.id,
+    };
   }
 
   void setVisibleRegionIds(Set<String> regionIds) {
@@ -102,6 +132,7 @@ class PlaceMarkerManager {
 
   void rebuildMarkers({void Function(PlaceOfInterest place)? onPlaceTapped}) {
     if (onPlaceTapped != null) _onPlaceTapped = onPlaceTapped;
+    _inRangePlaceIds = _nearbyPlaceIds();
     final rebuiltMarkers = <Marker>{};
 
     for (final regionId in _visibleRegionIds) {
@@ -111,6 +142,7 @@ class PlaceMarkerManager {
         rebuiltMarkers.add(
           place.toMarker(
             visited: _visitedPlaceIds.contains(place.id),
+            inRange: _inRangePlaceIds.contains(place.id),
             onTap: _onPlaceTapped,
           ),
         );
