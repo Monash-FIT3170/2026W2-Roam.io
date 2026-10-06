@@ -44,7 +44,7 @@ class PlaceVisitStatusCard extends StatelessWidget {
               feedback.isVisited
                   ? Icons.check_circle
                   : Icons.radio_button_unchecked,
-              color: scheme.primary,
+              color: scheme.onSurface,
               size: 20,
             ),
             const SizedBox(width: 8),
@@ -111,6 +111,7 @@ class PlaceVisitStatusCard extends StatelessWidget {
               ],
               const SizedBox(height: 8),
               TextButton.icon(
+                style: TextButton.styleFrom(foregroundColor: colour),
                 onPressed: isCheckingLocation ? null : onRefresh,
                 icon: const Icon(Icons.refresh, size: 18),
                 label: Text(

@@ -10,7 +10,7 @@ void main() {
     'map guide opens from its labelled control and explains all states',
     (tester) async {
       await tester.pumpWidget(
-        MaterialApp(home: Scaffold(body: const PlaceMarkerLegendButton())),
+        const MaterialApp(home: Scaffold(body: PlaceMarkerLegendButton())),
       );
       await tester.tap(find.byTooltip('Location marker guide'));
       await tester.pumpAndSettle();
@@ -27,45 +27,51 @@ void main() {
     testWidgets(
       'guide and status cards fit narrow screens with large text (${dark ? 'dark' : 'light'})',
       (tester) async {
-        tester.view.physicalSize = const Size(320, 640);
-        tester.view.devicePixelRatio = 1;
-        addTearDown(tester.view.resetPhysicalSize);
-        addTearDown(tester.view.resetDevicePixelRatio);
-        Widget app(Widget child) => MaterialApp(
-          theme: dark ? AppTheme.darkTheme : AppTheme.lightTheme,
-          home: MediaQuery(
-            data: const MediaQueryData(textScaler: TextScaler.linear(2)),
-            child: Scaffold(body: child),
-          ),
-        );
-        await tester.pumpWidget(app(const PlaceMarkerLegend()));
-        await tester.pumpAndSettle();
-        expect(tester.takeException(), isNull);
-        await tester.scrollUntilVisible(find.text('Visited'), 150);
-        expect(find.text('Visited'), findsOneWidget);
-        for (final distance in [null, 50.0, 100.1]) {
-          for (final visited in [false, true]) {
-            await tester.pumpWidget(
-              app(
-                SingleChildScrollView(
-                  child: PlaceVisitStatusCard(
-                    feedback: PlaceVisitFeedback(
-                      isVisited: visited,
-                      distanceMetres: distance,
+        final semantics = tester.ensureSemantics();
+        try {
+          tester.view.physicalSize = const Size(320, 640);
+          tester.view.devicePixelRatio = 1;
+          addTearDown(tester.view.resetPhysicalSize);
+          addTearDown(tester.view.resetDevicePixelRatio);
+          Widget app(Widget child) => MaterialApp(
+            theme: dark ? AppTheme.darkTheme : AppTheme.lightTheme,
+            home: MediaQuery(
+              data: const MediaQueryData(textScaler: TextScaler.linear(2)),
+              child: Scaffold(body: child),
+            ),
+          );
+          await tester.pumpWidget(app(const PlaceMarkerLegend()));
+          await tester.pumpAndSettle();
+          expect(tester.takeException(), isNull);
+          await tester.scrollUntilVisible(find.text('Visited'), 150);
+          expect(find.text('Visited'), findsOneWidget);
+          for (final distance in [null, 50.0, 100.1]) {
+            for (final visited in [false, true]) {
+              await tester.pumpWidget(
+                app(
+                  SingleChildScrollView(
+                    child: PlaceVisitStatusCard(
+                      feedback: PlaceVisitFeedback(
+                        isVisited: visited,
+                        distanceMetres: distance,
+                      ),
+                      isCheckingLocation: false,
+                      onRefresh: () {},
                     ),
-                    isCheckingLocation: false,
-                    onRefresh: () {},
                   ),
                 ),
-              ),
-            );
-            await tester.pumpAndSettle();
-            expect(tester.takeException(), isNull);
-            expect(
-              find.text(visited ? 'Visited' : 'Not visited'),
-              findsOneWidget,
-            );
+              );
+              await tester.pumpAndSettle();
+              expect(tester.takeException(), isNull);
+              await expectLater(tester, meetsGuideline(textContrastGuideline));
+              expect(
+                find.text(visited ? 'Visited' : 'Not visited'),
+                findsOneWidget,
+              );
+            }
           }
+        } finally {
+          semantics.dispose();
         }
       },
     );

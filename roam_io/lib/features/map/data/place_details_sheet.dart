@@ -98,10 +98,11 @@ class _PlaceDetailsSheetState extends State<PlaceDetailsSheet> {
       _isCheckingLocation = true;
     });
     await widget.mapController.getDistanceToPlace(widget.place);
-    if (mounted)
+    if (mounted) {
       setState(() {
         _isCheckingLocation = false;
       });
+    }
   }
 
   Future<void> _loadVisitData() async {
@@ -175,10 +176,16 @@ class _PlaceDetailsSheetState extends State<PlaceDetailsSheet> {
             );
 
             if (visitResult != VisitResult.success) {
-              throw VisitFormException(
-                widget.mapController.message ??
-                    'Could not save your visit. Please try again.',
-              );
+              throw VisitFormException(switch (visitResult) {
+                VisitResult.tooFar =>
+                  widget.mapController.message ??
+                      'Get within 100m to mark your visit.',
+                VisitResult.notLoggedIn =>
+                  'Please log in to mark places as visited.',
+                VisitResult.alreadyVisited =>
+                  'This place has already been visited.',
+                _ => 'Could not save your visit. Please try again.',
+              });
             }
           },
     );
@@ -210,6 +217,7 @@ class _PlaceDetailsSheetState extends State<PlaceDetailsSheet> {
       existingVisit: _visitData,
     );
 
+    if (!mounted) return;
     if (result == VisitFormResult.success) {
       // Refresh the map controller's visited places
       await widget.mapController.refreshVisitedPlaces();
@@ -457,6 +465,7 @@ class _PlaceDetailsSheetState extends State<PlaceDetailsSheet> {
                     icon: const Icon(Icons.edit),
                     label: const Text('Edit Visit'),
                     style: OutlinedButton.styleFrom(
+                      foregroundColor: theme.colorScheme.onSurface,
                       padding: const EdgeInsets.symmetric(vertical: 14),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(12),

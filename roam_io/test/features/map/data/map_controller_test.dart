@@ -5,7 +5,11 @@
  *   Unit tests for MapController proximity checks and visit marking outcomes.
  */
 
+import 'dart:async';
+
 import 'package:fake_cloud_firestore/fake_cloud_firestore.dart';
+import 'package:geolocator/geolocator.dart';
+import 'package:roam_io/features/map/data/geolocator_service.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:roam_io/features/map/data/map_controller.dart';
@@ -88,6 +92,23 @@ class _FakeVisitedRegionService extends FakeVisitedRegionService {
 }
 
 void main() {
+  test(
+    'location result after controller disposal does not notify listeners',
+    () async {
+      final geo = _PendingGeo();
+      final controller = MapController(
+        geoLocatorService: geo,
+        visitService: RecordingVisitService(),
+        visitedRegionService: FakeVisitedRegionService(),
+      );
+      final result = controller.getDistanceToPlace(testPlace());
+      controller.disposeController();
+      controller.dispose();
+      geo.result.complete(testPosition(-37.8136, 144.9631));
+      expect(await result, isNull);
+    },
+  );
+
   test(
     'visit feedback follows fixes and clears range when location fails',
     () async {
@@ -617,4 +638,10 @@ void main() {
       controller.dispose();
     });
   });
+}
+
+class _PendingGeo extends GeoLocatorService {
+  final result = Completer<Position>();
+  @override
+  Future<Position> getCurrentLocation() => result.future;
 }

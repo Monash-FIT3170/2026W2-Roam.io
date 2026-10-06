@@ -132,6 +132,7 @@ class MapController extends ChangeNotifier {
   final FogController fogController = FogController();
 
   String? _userId;
+  bool _disposed = false;
   Future<void> Function(int amount)? _onVisitXpAwarded;
 
   Set<int> _visitedPlaceIds = {};
@@ -316,7 +317,14 @@ class MapController extends ChangeNotifier {
     return partyTileStrokeWidth(_partyTileOwnership[regionId]);
   }
 
+  @override
+  void dispose() {
+    _disposed = true;
+    super.dispose();
+  }
+
   void disposeController() {
+    _disposed = true;
     _fogDecayRefreshTimer?.cancel();
     _fogDecayRefreshTimer = null;
     unawaited(_locationUpdatesSubscription?.cancel());
@@ -452,7 +460,7 @@ class MapController extends ChangeNotifier {
   }
 
   bool _updateVisitLocation(LatLng? location) {
-    if (_visitLocation == location) return false;
+    if (_disposed || _visitLocation == location) return false;
     _visitLocation = location;
     _placeMarkerManager.updateUserLocation(location);
     markers = _placeMarkerManager.markers;
@@ -734,6 +742,7 @@ class MapController extends ChangeNotifier {
   Future<double?> getDistanceToPlace(PlaceOfInterest place) async {
     try {
       final position = await _geoLocatorService.getCurrentLocation();
+      if (_disposed) return null;
       final previousHeading = _deviceHeading;
       if (_rememberPosition(position)) {
         notifyListeners();
@@ -807,8 +816,9 @@ class MapController extends ChangeNotifier {
           ? '${proximity.distance!.round()}m away'
           : 'too far away';
 
-      message =
-          'You need to be within ${visitProximityThreshold.round()}m to visit this place ($distanceText)';
+      message = proximity.distance == null
+          ? 'Could not check your location. Turn on location access and try again.'
+          : 'You need to be within ${visitProximityThreshold.round()}m to visit this place ($distanceText)';
       notifyListeners();
       return VisitResult.tooFar;
     }
