@@ -29,6 +29,7 @@ class _SignupScreenState extends State<SignupScreen> {
   final _usernameController = TextEditingController();
   final _displayNameController = TextEditingController();
   String? _registrationError;
+  bool _passwordVisible = false;
 
   static const _errorTextStyle = TextStyle(
     color: AppColors.clay,
@@ -297,7 +298,7 @@ class _SignupScreenState extends State<SignupScreen> {
             controller: controller,
             keyboardType: keyboardType,
             textInputAction: textInputAction,
-            obscureText: obscureText,
+            obscureText: obscureText && !_passwordVisible,
             style: const TextStyle(
               color: AppColors.ink,
               fontSize: 16,
@@ -305,6 +306,25 @@ class _SignupScreenState extends State<SignupScreen> {
             ),
             decoration: InputDecoration(
               hintText: hint,
+              suffixIcon: obscureText
+                  ? IconButton(
+                      tooltip: _passwordVisible
+                          ? 'Hide password'
+                          : 'Show password',
+                      color: AppColors.sage,
+                      onPressed: () {
+                        setState(() => _passwordVisible = !_passwordVisible);
+                      },
+                      icon: Icon(
+                        _passwordVisible
+                            ? Icons.visibility_off_outlined
+                            : Icons.visibility_outlined,
+                        semanticLabel: _passwordVisible
+                            ? 'Hide password'
+                            : 'Show password',
+                      ),
+                    )
+                  : null,
               hintStyle: TextStyle(
                 color: AppColors.ink.withValues(alpha: 0.6),
                 fontSize: 16,

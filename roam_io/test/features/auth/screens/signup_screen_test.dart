@@ -14,6 +14,58 @@ import 'package:roam_io/features/auth/providers/auth_provider.dart';
 import 'package:roam_io/features/auth/screens/signup_screen.dart';
 
 void main() {
+  testWidgets('toggles password visibility without changing its value', (
+    tester,
+  ) async {
+    final provider = AuthProvider(authRepository: _SignupAuthRepository());
+    final semantics = tester.ensureSemantics();
+    addTearDown(provider.dispose);
+    await tester.pumpWidget(
+      MaterialApp(
+        home: ChangeNotifierProvider<AuthProvider>.value(
+          value: provider,
+          child: const SignupScreen(),
+        ),
+      ),
+    );
+
+    final passwordField = find.byType(TextFormField).at(3);
+    await tester.enterText(passwordField, 'My password 123!');
+    final controller = tester.widget<TextFormField>(passwordField).controller!;
+    final originalValue = controller.value;
+    final editable = find.descendant(
+      of: passwordField,
+      matching: find.byType(EditableText),
+    );
+    expect(tester.widget<EditableText>(editable).obscureText, isTrue);
+
+    for (final label in ['Show password', 'Hide password']) {
+      final toggle = find.byTooltip(label);
+      await tester.ensureVisible(toggle);
+      await tester.pumpAndSettle();
+      expect(
+        tester.getSemantics(toggle),
+        matchesSemantics(
+          label: label,
+          isButton: true,
+          isEnabled: true,
+          hasEnabledState: true,
+          isFocusable: true,
+          hasTapAction: true,
+          hasFocusAction: true,
+        ),
+      );
+      await tester.tap(toggle);
+      await tester.pumpAndSettle();
+      expect(
+        tester.widget<EditableText>(editable).obscureText,
+        label == 'Hide password',
+      );
+      expect(controller.value, originalValue);
+    }
+    semantics.dispose();
+  });
+
   testWidgets('keeps registration failures visible below the submit button', (
     tester,
   ) async {
