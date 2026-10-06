@@ -43,9 +43,21 @@ class AuthPageScaffold extends StatelessWidget {
             child: SafeArea(
               child: LayoutBuilder(
                 builder: (context, constraints) {
+                  final compact = centerContent && constraints.maxWidth < 600;
+                  final horizontalPadding = compact ? 16.0 : 24.0;
+                  final verticalPadding =
+                      centerContent && constraints.maxHeight < 500
+                      ? 16.0
+                      : compact
+                      ? 24.0
+                      : 32.0;
+                  final sectionSpacing = compact ? 20.0 : 24.0;
                   final content = Container(
                     width: double.infinity,
-                    padding: const EdgeInsets.fromLTRB(24, 32, 24, 32),
+                    padding: EdgeInsets.symmetric(
+                      horizontal: horizontalPadding,
+                      vertical: verticalPadding,
+                    ),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       mainAxisSize: MainAxisSize.min,
@@ -66,12 +78,12 @@ class AuthPageScaffold extends StatelessWidget {
                             height: 1.5,
                           ),
                         ),
-                        const SizedBox(height: 24),
+                        SizedBox(height: sectionSpacing),
                         child,
                         if (footerText != null &&
                             footerLabel != null &&
                             onFooterTap != null) ...[
-                          const SizedBox(height: 24),
+                          SizedBox(height: sectionSpacing),
                           Center(
                             child: Wrap(
                               alignment: WrapAlignment.center,
@@ -80,6 +92,7 @@ class AuthPageScaffold extends StatelessWidget {
                               children: [
                                 Text(
                                   footerText!,
+                                  textAlign: TextAlign.center,
                                   style: textTheme.bodyMedium?.copyWith(
                                     color: AppColors.ink.withValues(alpha: 0.7),
                                   ),
@@ -111,6 +124,8 @@ class AuthPageScaffold extends StatelessWidget {
                     return Column(children: [const Spacer(), content]);
                   }
                   return SingleChildScrollView(
+                    keyboardDismissBehavior:
+                        ScrollViewKeyboardDismissBehavior.onDrag,
                     child: ConstrainedBox(
                       constraints: BoxConstraints(
                         minHeight: constraints.maxHeight,

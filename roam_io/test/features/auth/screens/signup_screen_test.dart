@@ -14,6 +14,80 @@ import 'package:roam_io/features/auth/providers/auth_provider.dart';
 import 'package:roam_io/features/auth/screens/signup_screen.dart';
 
 void main() {
+  for (final scenario in [
+    (
+      name: 'small mobile',
+      size: const Size(320, 568),
+      scale: 1.0,
+      keyboard: 0.0,
+    ),
+    (name: 'mobile', size: const Size(390, 844), scale: 1.0, keyboard: 0.0),
+    (name: 'tablet', size: const Size(768, 1024), scale: 1.0, keyboard: 0.0),
+    (name: 'desktop', size: const Size(1440, 1000), scale: 1.0, keyboard: 0.0),
+    (name: 'landscape', size: const Size(844, 390), scale: 1.0, keyboard: 0.0),
+    (
+      name: 'mobile keyboard',
+      size: const Size(320, 568),
+      scale: 1.0,
+      keyboard: 280.0,
+    ),
+    (
+      name: 'large mobile text',
+      size: const Size(320, 568),
+      scale: 2.0,
+      keyboard: 0.0,
+    ),
+  ]) {
+    testWidgets('registration fits ${scenario.name}', (tester) async {
+      tester.view.devicePixelRatio = 1;
+      tester.view.physicalSize = scenario.size;
+      addTearDown(tester.view.resetDevicePixelRatio);
+      addTearDown(tester.view.resetPhysicalSize);
+      final provider = AuthProvider(authRepository: _SignupAuthRepository());
+      addTearDown(provider.dispose);
+      await tester.pumpWidget(
+        MaterialApp(
+          builder: (context, child) => MediaQuery(
+            data: MediaQuery.of(context).copyWith(
+              textScaler: TextScaler.linear(scenario.scale),
+              viewInsets: EdgeInsets.only(bottom: scenario.keyboard),
+            ),
+            child: child!,
+          ),
+          home: ChangeNotifierProvider<AuthProvider>.value(
+            value: provider,
+            child: const SignupScreen(),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      final formRect = tester.getRect(find.byType(Form));
+      expect(formRect.width, lessThanOrEqualTo(448));
+      expect(formRect.center.dx, closeTo(scenario.size.width / 2, 0.1));
+      expect(formRect.left, greaterThanOrEqualTo(16));
+      expect(formRect.right, lessThanOrEqualTo(scenario.size.width - 16));
+      for (final field in find.byType(TextFormField).evaluate()) {
+        final rect = tester.getRect(find.byWidget(field.widget));
+        expect(rect.left, formRect.left);
+        expect(rect.right, formRect.right);
+      }
+      final submit = find.byType(FilledButton);
+      await tester.ensureVisible(submit);
+      await tester.pumpAndSettle();
+      expect(tester.getRect(submit).width, formRect.width);
+      expect(submit.hitTestable(), findsOneWidget);
+      await tester.tap(submit);
+      await tester.pumpAndSettle();
+      expect(find.text('Username is required.'), findsOneWidget);
+      expect(find.text('Password is required.'), findsOneWidget);
+      final signIn = find.widgetWithText(TextButton, 'Sign in');
+      await tester.ensureVisible(signIn);
+      await tester.pumpAndSettle();
+      expect(signIn.hitTestable(), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    });
+  }
+
   testWidgets('toggles password visibility without changing its value', (
     tester,
   ) async {
