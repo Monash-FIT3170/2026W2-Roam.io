@@ -65,10 +65,7 @@ void main() {
 }
 
 class _FakeSpeechEngine implements RoammateSpeechEngine {
-  _FakeSpeechEngine({
-    this.throwOnSpeak = false,
-    this.throwOnStop = false,
-  });
+  _FakeSpeechEngine({this.throwOnSpeak = false, this.throwOnStop = false});
 
   final bool throwOnSpeak;
   final bool throwOnStop;

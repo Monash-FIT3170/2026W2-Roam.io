@@ -7,10 +7,7 @@
 
 /// A user-facing Roammate message with display and speech-friendly copy.
 class RoammateMessage {
-  const RoammateMessage({
-    required this.text,
-    required this.speech,
-  });
+  const RoammateMessage({required this.text, required this.speech});
 
   /// Text shown inside the application.
   final String text;

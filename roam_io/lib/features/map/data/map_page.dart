@@ -34,6 +34,8 @@ import '../../journeys/widgets/journey_tracking_card.dart';
 import '../../journeys/widgets/past_journey_summary_sheet.dart';
 import '../../journeys/widgets/start_journey_sheet.dart';
 import '../../profile/domain/xp_event.dart';
+import '../../roammate/domain/roammate_message.dart';
+import '../../roammate/services/roammate_voice_service.dart';
 import '../../../shared/widgets/activity_saved_celebration.dart';
 import '../../../shared/widgets/app_toast.dart';
 import '../../../theme/app_colours.dart';
@@ -388,17 +390,23 @@ class _MapPageState extends State<MapPage> with WidgetsBindingObserver {
       areaSquareMetres: region.areaSquareMetres,
     );
 
-    final message = 'Unlocked New Region +$xpAwarded XP';
+    final roammateMessage = RoammateMessage.tileUnlocked(xpAwarded);
     final auth = context.read<AuthProvider>();
+
+    // Speech is deliberately fire-and-forget so audio output never blocks map
+    // updates, journey tracking, or the existing visual unlock feedback.
+    if (auth.roammateVoiceEnabled) {
+      unawaited(RoammateVoiceService.instance.speak(roammateMessage.speech));
+    }
 
     // When XP triggers a level-up, show the unlock toast inside the celebration
     // overlay (below the centered content) instead of as a scaffold snackbar.
     if (auth.pendingXpCelebration != null) {
-      auth.stageUnlockToast(message);
+      auth.stageUnlockToast(roammateMessage.text);
       return;
     }
 
-    AppToast.success(context, message);
+    AppToast.success(context, roammateMessage.text);
   }
 
   @override

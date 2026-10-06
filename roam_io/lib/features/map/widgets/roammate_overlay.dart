@@ -9,10 +9,7 @@ import '../../../theme/app_colours.dart';
 class RoammateOverlay extends StatefulWidget {
   final MapController mapController;
 
-  const RoammateOverlay({
-    super.key,
-    required this.mapController,
-  });
+  const RoammateOverlay({super.key, required this.mapController});
 
   @override
   State<RoammateOverlay> createState() => _RoammateOverlayState();
@@ -79,18 +76,26 @@ class _RoammateOverlayState extends State<RoammateOverlay>
       'Dim lighting in some alleys.',
       'High traffic area, be careful crossing.',
     ];
-    _mockedSafetyIssue = safetyIssues[regionId.hashCode.abs() % safetyIssues.length];
+    _mockedSafetyIssue =
+        safetyIssues[regionId.hashCode.abs() % safetyIssues.length];
 
     // Mock a hazard location near the center of the current tile
     final center = widget.mapController.center;
-    _mockedHazardLocation = LatLng(center.latitude + 0.001, center.longitude + 0.001);
+    _mockedHazardLocation = LatLng(
+      center.latitude + 0.001,
+      center.longitude + 0.001,
+    );
 
     try {
-      final places = await _placesService.getPlacesForRegion(regionId: regionId);
+      final places = await _placesService.getPlacesForRegion(
+        regionId: regionId,
+      );
       if (mounted) {
         setState(() {
           // Filter out public transport (like bus stops) from the locations list
-          _allPlaces = places.where((p) => p.category != PlaceCategory.publicTransport).toList();
+          _allPlaces = places
+              .where((p) => p.category != PlaceCategory.publicTransport)
+              .toList();
         });
       }
     } catch (e) {
@@ -125,9 +130,13 @@ class _RoammateOverlayState extends State<RoammateOverlay>
     return places;
   }
 
-  Widget _buildLocationCard(PlaceOfInterest p, bool isVisited, ThemeData theme) {
+  Widget _buildLocationCard(
+    PlaceOfInterest p,
+    bool isVisited,
+    ThemeData theme,
+  ) {
     final isDark = theme.brightness == Brightness.dark;
-    
+
     // Colors matching AppColors
     final unvisitedBg = isDark ? Colors.white10 : Colors.white;
     final unvisitedText = isDark ? AppColors.cream : AppColors.ink;
@@ -164,7 +173,7 @@ class _RoammateOverlayState extends State<RoammateOverlay>
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
-    
+
     // Clean, flat box appearance using AppColors
     final boxBackgroundColor = isDark ? AppColors.ink : AppColors.cream;
     final titleColor = isDark ? AppColors.cream : AppColors.ink;
@@ -193,7 +202,9 @@ class _RoammateOverlayState extends State<RoammateOverlay>
                 constraints: const BoxConstraints(maxHeight: 440),
                 decoration: BoxDecoration(
                   color: boxBackgroundColor,
-                  borderRadius: BorderRadius.circular(24), // Heavily rounded corners
+                  borderRadius: BorderRadius.circular(
+                    24,
+                  ), // Heavily rounded corners
                   boxShadow: [
                     BoxShadow(
                       color: Colors.black.withOpacity(0.15),
@@ -224,38 +235,49 @@ class _RoammateOverlayState extends State<RoammateOverlay>
                             child: Row(
                               crossAxisAlignment: CrossAxisAlignment.center,
                               children: [
-                                Icon(Icons.warning_amber_rounded, color: Colors.red.shade700, size: 24),
+                                Icon(
+                                  Icons.warning_amber_rounded,
+                                  color: Colors.red.shade700,
+                                  size: 24,
+                                ),
                                 const SizedBox(width: 12),
                                 Expanded(
                                   child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
                                     children: [
                                       Text(
                                         'Hazard Nearby',
-                                        style: theme.textTheme.labelMedium?.copyWith(
-                                          color: Colors.red.shade900,
-                                          fontWeight: FontWeight.bold,
-                                        ),
+                                        style: theme.textTheme.labelMedium
+                                            ?.copyWith(
+                                              color: Colors.red.shade900,
+                                              fontWeight: FontWeight.bold,
+                                            ),
                                       ),
                                       const SizedBox(height: 2),
                                       Text(
                                         _mockedSafetyIssue,
-                                        style: theme.textTheme.bodySmall?.copyWith(
-                                          color: Colors.red.shade800,
-                                        ),
+                                        style: theme.textTheme.bodySmall
+                                            ?.copyWith(
+                                              color: Colors.red.shade800,
+                                            ),
                                       ),
                                     ],
                                   ),
                                 ),
-                                Icon(Icons.chevron_right, color: Colors.red.shade700, size: 20),
+                                Icon(
+                                  Icons.chevron_right,
+                                  color: Colors.red.shade700,
+                                  size: 20,
+                                ),
                               ],
                             ),
                           ),
                         ),
                       ),
-                    
+
                     const SizedBox(height: 20),
-                    
+
                     Padding(
                       padding: const EdgeInsets.only(bottom: 12),
                       child: Text(
@@ -267,19 +289,23 @@ class _RoammateOverlayState extends State<RoammateOverlay>
                         ),
                       ),
                     ),
-                    
+
                     if (_allPlaces.isEmpty)
                       Text(
                         'No locations available.',
-                        style: theme.textTheme.bodyMedium?.copyWith(color: titleColor.withOpacity(0.6)),
+                        style: theme.textTheme.bodyMedium?.copyWith(
+                          color: titleColor.withOpacity(0.6),
+                        ),
                       )
                     else
                       Flexible(
                         child: NotificationListener<ScrollNotification>(
                           onNotification: (notification) {
                             if (notification.metrics.axis == Axis.vertical) {
-                              _canScrollUp.value = notification.metrics.extentBefore > 0;
-                              _canScrollDown.value = notification.metrics.extentAfter > 0;
+                              _canScrollUp.value =
+                                  notification.metrics.extentBefore > 0;
+                              _canScrollDown.value =
+                                  notification.metrics.extentAfter > 0;
                             }
                             return false; // Let the scrollbar handle it too
                           },
@@ -288,12 +314,20 @@ class _RoammateOverlayState extends State<RoammateOverlay>
                               Scrollbar(
                                 thumbVisibility: true,
                                 child: ListView(
-                                  padding: const EdgeInsets.only(right: 8), // Padding for scrollbar
+                                  padding: const EdgeInsets.only(
+                                    right: 8,
+                                  ), // Padding for scrollbar
                                   shrinkWrap: true,
-                                  physics: const AlwaysScrollableScrollPhysics(),
+                                  physics:
+                                      const AlwaysScrollableScrollPhysics(),
                                   children: _sortedPlaces.map((p) {
-                                    final isVisited = widget.mapController.isPlaceVisited(p.id);
-                                    return _buildLocationCard(p, isVisited, theme);
+                                    final isVisited = widget.mapController
+                                        .isPlaceVisited(p.id);
+                                    return _buildLocationCard(
+                                      p,
+                                      isVisited,
+                                      theme,
+                                    );
                                   }).toList(),
                                 ),
                               ),
@@ -308,7 +342,9 @@ class _RoammateOverlayState extends State<RoammateOverlay>
                                     return IgnorePointer(
                                       child: AnimatedOpacity(
                                         opacity: canScrollUp ? 1.0 : 0.0,
-                                        duration: const Duration(milliseconds: 150),
+                                        duration: const Duration(
+                                          milliseconds: 150,
+                                        ),
                                         child: Container(
                                           height: 12,
                                           decoration: BoxDecoration(
@@ -316,7 +352,13 @@ class _RoammateOverlayState extends State<RoammateOverlay>
                                               begin: Alignment.topCenter,
                                               end: Alignment.bottomCenter,
                                               colors: [
-                                                isDark ? Colors.black.withOpacity(0.4) : Colors.black.withOpacity(0.1),
+                                                isDark
+                                                    ? Colors.black.withOpacity(
+                                                        0.4,
+                                                      )
+                                                    : Colors.black.withOpacity(
+                                                        0.1,
+                                                      ),
                                                 Colors.transparent,
                                               ],
                                             ),
@@ -338,7 +380,9 @@ class _RoammateOverlayState extends State<RoammateOverlay>
                                     return IgnorePointer(
                                       child: AnimatedOpacity(
                                         opacity: canScrollDown ? 1.0 : 0.0,
-                                        duration: const Duration(milliseconds: 150),
+                                        duration: const Duration(
+                                          milliseconds: 150,
+                                        ),
                                         child: Container(
                                           height: 12,
                                           decoration: BoxDecoration(
@@ -346,7 +390,13 @@ class _RoammateOverlayState extends State<RoammateOverlay>
                                               begin: Alignment.bottomCenter,
                                               end: Alignment.topCenter,
                                               colors: [
-                                                isDark ? Colors.black.withOpacity(0.4) : Colors.black.withOpacity(0.1),
+                                                isDark
+                                                    ? Colors.black.withOpacity(
+                                                        0.4,
+                                                      )
+                                                    : Colors.black.withOpacity(
+                                                        0.1,
+                                                      ),
                                                 Colors.transparent,
                                               ],
                                             ),
@@ -366,7 +416,7 @@ class _RoammateOverlayState extends State<RoammateOverlay>
               ),
             ),
           ),
-          
+
         // The breathing avatar
         GestureDetector(
           onTap: _toggleDetails,
@@ -385,10 +435,7 @@ class _RoammateOverlayState extends State<RoammateOverlay>
                     spreadRadius: 4,
                   ),
                 ],
-                border: Border.all(
-                  color: Colors.white,
-                  width: 2,
-                ),
+                border: Border.all(color: Colors.white, width: 2),
               ),
               child: const Center(
                 child: Icon(

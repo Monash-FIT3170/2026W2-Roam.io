@@ -52,10 +52,7 @@ void main() {
     });
     final service = ProfileService(firestore: firestore);
 
-    await service.updateRoammateVoicePreference(
-      uid: 'user-1',
-      enabled: true,
-    );
+    await service.updateRoammateVoicePreference(uid: 'user-1', enabled: true);
 
     final data = (await firestore.collection('profiles').doc('user-1').get())
         .data()!;
