@@ -144,15 +144,66 @@ class _SignupScreenState extends State<SignupScreen> {
                 ),
                 const SizedBox(height: 24),
                 FilledButton(
-                  style: FilledButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(vertical: 16),
-                  ),
+                  style:
+                      FilledButton.styleFrom(
+                        minimumSize: const Size(double.infinity, 56),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 24,
+                          vertical: 16,
+                        ),
+                        backgroundColor: AppColors.sage,
+                        foregroundColor: Colors.white,
+                        disabledBackgroundColor: Color.alphaBlend(
+                          AppColors.sage.withValues(alpha: 0.18),
+                          AppColors.cream,
+                        ),
+                        disabledForegroundColor: AppColors.ink.withValues(
+                          alpha: 0.55,
+                        ),
+                        textStyle: Theme.of(context).textTheme.labelLarge
+                            ?.copyWith(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w700,
+                            ),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(16),
+                        ),
+                      ).copyWith(
+                        overlayColor: WidgetStateProperty.resolveWith((states) {
+                          if (states.contains(WidgetState.disabled)) {
+                            return Colors.transparent;
+                          }
+                          if (states.contains(WidgetState.pressed)) {
+                            return AppColors.ink.withValues(alpha: 0.18);
+                          }
+                          if (states.contains(WidgetState.focused)) {
+                            return Colors.white.withValues(alpha: 0.16);
+                          }
+                          if (states.contains(WidgetState.hovered)) {
+                            return AppColors.ink.withValues(alpha: 0.10);
+                          }
+                          return Colors.transparent;
+                        }),
+                        side: WidgetStateProperty.resolveWith((states) {
+                          return BorderSide(
+                            color:
+                                states.contains(WidgetState.focused) &&
+                                    !states.contains(WidgetState.disabled)
+                                ? AppColors.ink
+                                : Colors.transparent,
+                            width: 2,
+                          );
+                        }),
+                      ),
                   onPressed: auth.isBusy ? null : _submit,
                   child: auth.isBusy
                       ? const SizedBox(
                           height: 20,
                           width: 20,
-                          child: CircularProgressIndicator(strokeWidth: 2),
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: AppColors.sage,
+                          ),
                         )
                       : const Text('Sign up'),
                 ),
