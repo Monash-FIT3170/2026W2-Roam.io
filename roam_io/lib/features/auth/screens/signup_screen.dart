@@ -86,7 +86,7 @@ class _SignupScreenState extends State<SignupScreen> {
           subtitle:
               'Create your account to unlock visits, earn progress, and save favourites.',
           footerText: 'Already have an account?',
-          footerLabel: 'Login',
+          footerLabel: 'Sign in',
           onFooterTap: auth.isBusy ? null : () => Navigator.of(context).pop(),
           child: Form(
             key: _formKey,

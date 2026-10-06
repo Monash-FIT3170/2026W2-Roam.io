@@ -75,6 +75,7 @@ class AuthPageScaffold extends StatelessWidget {
                           Center(
                             child: Wrap(
                               alignment: WrapAlignment.center,
+                              crossAxisAlignment: WrapCrossAlignment.center,
                               spacing: 4,
                               children: [
                                 Text(
@@ -83,15 +84,21 @@ class AuthPageScaffold extends StatelessWidget {
                                     color: AppColors.ink.withValues(alpha: 0.7),
                                   ),
                                 ),
-                                GestureDetector(
-                                  onTap: onFooterTap,
-                                  child: Text(
-                                    footerLabel!,
-                                    style: textTheme.bodyMedium?.copyWith(
-                                      color: AppColors.sage,
+                                TextButton(
+                                  onPressed: onFooterTap,
+                                  style: TextButton.styleFrom(
+                                    foregroundColor: AppColors.sage,
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 8,
+                                      vertical: 12,
+                                    ),
+                                    textStyle: textTheme.bodyMedium?.copyWith(
                                       fontWeight: FontWeight.w700,
+                                      decoration: TextDecoration.underline,
+                                      decorationColor: AppColors.sage,
                                     ),
                                   ),
+                                  child: Text(footerLabel!),
                                 ),
                               ],
                             ),
