@@ -86,6 +86,7 @@ class _SignupScreenState extends State<SignupScreen> {
                 _buildInputField(
                   controller: _usernameController,
                   label: 'Username',
+                  hint: 'Choose a username',
                   textInputAction: TextInputAction.next,
                   validator: (value) {
                     final text = value?.trim() ?? '';
@@ -100,6 +101,7 @@ class _SignupScreenState extends State<SignupScreen> {
                 _buildInputField(
                   controller: _displayNameController,
                   label: 'Display name',
+                  hint: 'Enter your display name',
                   textInputAction: TextInputAction.next,
                   validator: (value) {
                     final text = value?.trim() ?? '';
@@ -111,6 +113,7 @@ class _SignupScreenState extends State<SignupScreen> {
                 _buildInputField(
                   controller: _emailController,
                   label: 'Email',
+                  hint: 'you@example.com',
                   keyboardType: TextInputType.emailAddress,
                   textInputAction: TextInputAction.next,
                   validator: (value) {
@@ -126,6 +129,7 @@ class _SignupScreenState extends State<SignupScreen> {
                 _buildInputField(
                   controller: _passwordController,
                   label: 'Password',
+                  hint: 'At least 8 characters',
                   obscureText: true,
                   textInputAction: TextInputAction.done,
                   validator: (value) {
@@ -163,43 +167,73 @@ class _SignupScreenState extends State<SignupScreen> {
   Widget _buildInputField({
     required TextEditingController controller,
     required String label,
+    required String hint,
     TextInputType keyboardType = TextInputType.text,
     TextInputAction textInputAction = TextInputAction.next,
     bool obscureText = false,
     String? Function(String?)? validator,
     void Function(String)? onFieldSubmitted,
   }) {
-    return TextFormField(
-      controller: controller,
-      keyboardType: keyboardType,
-      textInputAction: textInputAction,
-      obscureText: obscureText,
-      decoration: InputDecoration(
-        labelText: label,
-        contentPadding: const EdgeInsets.symmetric(
-          horizontal: 16,
-          vertical: 18,
+    final border = OutlineInputBorder(
+      borderRadius: BorderRadius.circular(16),
+      borderSide: BorderSide(color: AppColors.sage.withValues(alpha: 0.5)),
+    );
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        ExcludeSemantics(
+          child: Text(
+            label,
+            style: Theme.of(context).textTheme.labelLarge?.copyWith(
+              color: AppColors.ink,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
         ),
-        labelStyle: TextStyle(color: AppColors.ink.withValues(alpha: 0.7)),
-        filled: true,
-        fillColor: AppColors.cream.withValues(
-          alpha: 0.9,
-        ), // Solid cream to stand out against clouds
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(16),
-          borderSide: BorderSide(color: AppColors.sage.withValues(alpha: 0.3)),
+        const SizedBox(height: 8),
+        Semantics(
+          label: label,
+          child: TextFormField(
+            controller: controller,
+            keyboardType: keyboardType,
+            textInputAction: textInputAction,
+            obscureText: obscureText,
+            style: const TextStyle(
+              color: AppColors.ink,
+              fontSize: 16,
+              height: 1.5,
+            ),
+            decoration: InputDecoration(
+              hintText: hint,
+              hintStyle: TextStyle(
+                color: AppColors.ink.withValues(alpha: 0.6),
+                fontSize: 16,
+                height: 1.5,
+              ),
+              isDense: true,
+              contentPadding: const EdgeInsets.all(16),
+              filled: true,
+              fillColor: AppColors.cream.withValues(alpha: 0.9),
+              border: border,
+              enabledBorder: border,
+              focusedBorder: border.copyWith(
+                borderSide: const BorderSide(color: AppColors.sage, width: 2),
+              ),
+              errorBorder: border.copyWith(
+                borderSide: const BorderSide(color: AppColors.clay),
+              ),
+              focusedErrorBorder: border.copyWith(
+                borderSide: const BorderSide(color: AppColors.clay, width: 2),
+              ),
+              errorStyle: const TextStyle(color: AppColors.clay),
+              errorMaxLines: 3,
+            ),
+            validator: validator,
+            onFieldSubmitted: onFieldSubmitted,
+          ),
         ),
-        enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(16),
-          borderSide: BorderSide(color: AppColors.sage.withValues(alpha: 0.3)),
-        ),
-        focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(16),
-          borderSide: const BorderSide(color: AppColors.sage, width: 2),
-        ),
-      ),
-      validator: validator,
-      onFieldSubmitted: onFieldSubmitted,
+      ],
     );
   }
 }

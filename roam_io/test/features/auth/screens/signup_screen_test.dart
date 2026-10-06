@@ -31,6 +31,8 @@ void main() {
     await tester.enterText(find.byType(TextFormField).at(1), 'Name');
     await tester.enterText(find.byType(TextFormField).at(2), 'a@b.com');
     await tester.enterText(find.byType(TextFormField).at(3), 'password12');
+    await tester.ensureVisible(find.text('Sign up'));
+    await tester.pumpAndSettle();
     await tester.tap(find.text('Sign up'));
     await tester.pump();
 
@@ -58,6 +60,8 @@ void main() {
     await tester.enterText(find.byType(TextFormField).at(1), 'Name');
     await tester.enterText(find.byType(TextFormField).at(2), 'a@b.com');
     await tester.enterText(find.byType(TextFormField).at(3), 'short');
+    await tester.ensureVisible(find.text('Sign up'));
+    await tester.pumpAndSettle();
     await tester.tap(find.text('Sign up'));
     await tester.pump();
 
