@@ -31,8 +31,13 @@ class _SignupScreenState extends State<SignupScreen> {
   String? _registrationError;
   bool _passwordVisible = false;
 
-  static const _errorTextStyle = TextStyle(
-    color: AppColors.clay,
+  static final _errorColor = Color.alphaBlend(
+    AppColors.ink.withValues(alpha: 0.2),
+    AppColors.clay,
+  );
+
+  static final _errorTextStyle = TextStyle(
+    color: _errorColor,
     fontSize: 13,
     height: 1.4,
     fontWeight: FontWeight.w500,
@@ -187,7 +192,7 @@ class _SignupScreenState extends State<SignupScreen> {
                             return AppColors.ink.withValues(alpha: 0.18);
                           }
                           if (states.contains(WidgetState.focused)) {
-                            return Colors.white.withValues(alpha: 0.16);
+                            return AppColors.ink.withValues(alpha: 0.10);
                           }
                           if (states.contains(WidgetState.hovered)) {
                             return AppColors.ink.withValues(alpha: 0.10);
@@ -207,12 +212,17 @@ class _SignupScreenState extends State<SignupScreen> {
                       ),
                   onPressed: auth.isBusy ? null : _submit,
                   child: auth.isBusy
-                      ? const SizedBox(
-                          height: 20,
-                          width: 20,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2,
-                            color: AppColors.sage,
+                      ? Semantics(
+                          label: 'Sign up',
+                          value: 'Creating account',
+                          liveRegion: true,
+                          child: const SizedBox(
+                            height: 20,
+                            width: 20,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              color: AppColors.sage,
+                            ),
                           ),
                         )
                       : const Text('Sign up'),
@@ -312,6 +322,16 @@ class _SignupScreenState extends State<SignupScreen> {
                           ? 'Hide password'
                           : 'Show password',
                       color: AppColors.sage,
+                      style: ButtonStyle(
+                        side: WidgetStateProperty.resolveWith((states) {
+                          return BorderSide(
+                            color: states.contains(WidgetState.focused)
+                                ? AppColors.ink
+                                : Colors.transparent,
+                            width: 2,
+                          );
+                        }),
+                      ),
                       onPressed: () {
                         setState(() => _passwordVisible = !_passwordVisible);
                       },

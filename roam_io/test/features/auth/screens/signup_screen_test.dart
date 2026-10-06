@@ -7,6 +7,7 @@
 
 import 'package:firebase_auth/firebase_auth.dart' as firebase_auth;
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:provider/provider.dart';
 import 'package:roam_io/features/auth/data/auth_repository.dart';
@@ -14,6 +15,61 @@ import 'package:roam_io/features/auth/providers/auth_provider.dart';
 import 'package:roam_io/features/auth/screens/signup_screen.dart';
 
 void main() {
+  testWidgets('labels fields and follows logical keyboard order', (
+    tester,
+  ) async {
+    final semantics = tester.ensureSemantics();
+    final provider = AuthProvider(authRepository: _SignupAuthRepository());
+    await tester.pumpWidget(
+      MaterialApp(
+        home: ChangeNotifierProvider<AuthProvider>.value(
+          value: provider,
+          child: const SignupScreen(),
+        ),
+      ),
+    );
+    final fields = find.byType(EditableText);
+    for (var i = 0; i < 4; i++) {
+      final label = ['Username', 'Display name', 'Email', 'Password'][i];
+      await tester.ensureVisible(fields.at(i));
+      await tester.pumpAndSettle();
+      expect(tester.getSemantics(fields.at(i)).label, contains(label));
+    }
+    await tester.ensureVisible(fields.first);
+    await tester.tap(fields.first);
+    await tester.pumpAndSettle();
+    for (var i = 1; i < 4; i++) {
+      await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+      await tester.pumpAndSettle();
+      expect(
+        tester.widget<EditableText>(fields.at(i)).focusNode.hasFocus,
+        isTrue,
+      );
+    }
+    for (final control in [
+      find.byTooltip('Show password'),
+      find.byType(FilledButton),
+      find.widgetWithText(TextButton, 'Sign in'),
+    ]) {
+      await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+      await tester.pumpAndSettle();
+      final focusContext = FocusManager.instance.primaryFocus!.context!;
+      expect(
+        focusContext == tester.element(control) ||
+            find
+                .ancestor(
+                  of: find.byElementPredicate((e) => e == focusContext),
+                  matching: control,
+                )
+                .evaluate()
+                .isNotEmpty,
+        isTrue,
+      );
+    }
+    semantics.dispose();
+    provider.dispose();
+  });
+
   for (final scenario in [
     (
       name: 'small mobile',

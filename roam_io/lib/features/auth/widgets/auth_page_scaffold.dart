@@ -33,6 +33,9 @@ class AuthPageScaffold extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final textTheme = theme.textTheme;
+    final linkColor = centerContent
+        ? Color.alphaBlend(AppColors.ink.withValues(alpha: 0.1), AppColors.sage)
+        : AppColors.sage;
 
     return Scaffold(
       backgroundColor: AppColors.cream,
@@ -54,6 +57,12 @@ class AuthPageScaffold extends StatelessWidget {
                   final sectionSpacing = compact ? 20.0 : 24.0;
                   final content = Container(
                     width: double.infinity,
+                    decoration: centerContent
+                        ? BoxDecoration(
+                            color: AppColors.cream,
+                            borderRadius: BorderRadius.circular(16),
+                          )
+                        : null,
                     padding: EdgeInsets.symmetric(
                       horizontal: horizontalPadding,
                       vertical: verticalPadding,
@@ -99,18 +108,37 @@ class AuthPageScaffold extends StatelessWidget {
                                 ),
                                 TextButton(
                                   onPressed: onFooterTap,
-                                  style: TextButton.styleFrom(
-                                    foregroundColor: AppColors.sage,
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 8,
-                                      vertical: 12,
-                                    ),
-                                    textStyle: textTheme.bodyMedium?.copyWith(
-                                      fontWeight: FontWeight.w700,
-                                      decoration: TextDecoration.underline,
-                                      decorationColor: AppColors.sage,
-                                    ),
-                                  ),
+                                  style:
+                                      TextButton.styleFrom(
+                                        foregroundColor: linkColor,
+                                        padding: const EdgeInsets.symmetric(
+                                          horizontal: 8,
+                                          vertical: 12,
+                                        ),
+                                        textStyle: textTheme.bodyMedium
+                                            ?.copyWith(
+                                              fontWeight: FontWeight.w700,
+                                              decoration:
+                                                  TextDecoration.underline,
+                                              decorationColor: linkColor,
+                                            ),
+                                      ).copyWith(
+                                        side: centerContent
+                                            ? WidgetStateProperty.resolveWith((
+                                                states,
+                                              ) {
+                                                return BorderSide(
+                                                  color:
+                                                      states.contains(
+                                                        WidgetState.focused,
+                                                      )
+                                                      ? AppColors.ink
+                                                      : Colors.transparent,
+                                                  width: 2,
+                                                );
+                                              })
+                                            : null,
+                                      ),
                                   child: Text(footerLabel!),
                                 ),
                               ],
