@@ -286,6 +286,20 @@ void main() {
       expect(notification.data['actorId'], 'actor-1');
     });
 
+    test('trainStationProximity creates in-app safety alert', () {
+      final notification = NotificationTemplates.trainStationProximity(
+        'Flinders Street Station',
+      );
+
+      expect(notification.type, NotificationType.trainStationProximity);
+      expect(notification.title, 'Near a train station');
+      expect(notification.body, contains('Flinders Street Station'));
+      expect(notification.showInApp, isTrue);
+      expect(notification.showOnDevice, isFalse);
+      expect(notification.displayDuration, const Duration(seconds: 6));
+      expect(notification.data['stationName'], 'Flinders Street Station');
+    });
+
     test('generated notification IDs are not empty', () {
       final notification = NotificationTemplates.kudos('Alex');
 

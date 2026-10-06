@@ -204,6 +204,7 @@ void main() {
       NotificationType.followRequestAccepted: Icons.people_outline,
       NotificationType.error: Icons.error_outline,
       NotificationType.activity: Icons.directions_walk,
+      NotificationType.trainStationProximity: Icons.train_outlined,
     };
 
     for (final entry in cases.entries) {
