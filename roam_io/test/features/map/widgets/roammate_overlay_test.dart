@@ -16,9 +16,7 @@ import 'package:roam_io/features/map/data/place_of_interest.dart';
 import 'package:roam_io/features/map/data/places_service.dart';
 import 'package:roam_io/features/map/data/region_polygon.dart';
 import 'package:roam_io/features/map/widgets/roammate_overlay.dart';
-import 'package:roam_io/features/profile/domain/profile_model.dart';
 import 'package:roam_io/features/roammate/services/roammate_voice_service.dart';
-
 import '../../../support/map_test_doubles.dart';
 
 class _FakePlacesService extends PlacesService {

@@ -1,3 +1,11 @@
+/*
+ * Author: Sam Sutherland
+ * Last Modified: 06/10/2026
+ * Description:
+ *   Tests the ProfileService's ability to persist user preferences for theme mode, 
+ *   fog decay difficulty, and Roammate voice preference.
+ */
+
 import 'package:fake_cloud_firestore/fake_cloud_firestore.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:roam_io/services/profile_service.dart';
