@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:roam_io/features/onboarding/screens/onboarding_screen.dart';
@@ -6,7 +8,7 @@ import 'package:roam_io/theme/app_theme.dart';
 void main() {
   Future<void> open(
     WidgetTester tester, {
-    VoidCallback? onComplete,
+    FutureOr<void> Function()? onComplete,
     bool dark = false,
     bool reducedMotion = false,
     double textScale = 1,
@@ -26,6 +28,39 @@ void main() {
     );
     await tester.pumpAndSettle();
   }
+
+  testWidgets(
+    'saving prevents duplicate completions and allows retry after failure',
+    (tester) async {
+      var calls = 0;
+      final pending = Completer<void>();
+      await open(
+        tester,
+        onComplete: () {
+          calls++;
+          if (calls == 1) return pending.future;
+        },
+      );
+      await tester.tap(find.text('Skip tour'));
+      await tester.pump();
+      expect(find.text('Saving…'), findsOneWidget);
+      await tester.tap(find.text('Skip tour'));
+      expect(calls, 1);
+      pending.completeError(StateError('Offline'));
+      await tester.pumpAndSettle();
+      expect(
+        find.text('Couldn’t save your progress. Please try again.'),
+        findsOneWidget,
+      );
+      await tester.tap(find.text('Skip tour'));
+      await tester.pumpAndSettle();
+      expect(calls, 2);
+      expect(
+        find.text('Couldn’t save your progress. Please try again.'),
+        findsNothing,
+      );
+    },
+  );
 
   testWidgets('waits for viewport metrics during Android startup', (
     tester,

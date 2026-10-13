@@ -179,6 +179,20 @@ class AuthProvider extends ChangeNotifier {
     });
   }
 
+  /// Persists completion before allowing the first-time introduction to close.
+  /// Errors propagate to the tutorial so the user can retry without losing place.
+  Future<void> completeOnboarding() async {
+    final uid = _currentUser?.uid;
+    final profile = _currentProfile;
+    if (uid == null || profile == null || profile.uid != uid) {
+      throw StateError('Your profile is not ready. Please try again.');
+    }
+    await _authRepository.completeOnboarding();
+    if (_currentUser?.uid != uid) return;
+    _currentProfile = _currentProfile?.copyWith(onboardingCompleted: true);
+    notifyListeners();
+  }
+
   /// Changes the current user's password through the repository.
   Future<void> changePassword({
     required String currentPassword,
@@ -395,6 +409,9 @@ class AuthProvider extends ChangeNotifier {
   }
 
   void _handleAuthState(User? user) {
+    if (_currentUser?.uid != user?.uid) {
+      _currentProfile = null;
+    }
     _currentUser = user;
     _viewState = user == null
         ? AuthViewState.unauthenticated

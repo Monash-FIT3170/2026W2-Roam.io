@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import '../../../theme/app_colours.dart';
@@ -7,7 +9,7 @@ import '../widgets/onboarding_scene.dart';
 class OnboardingScreen extends StatefulWidget {
   const OnboardingScreen({super.key, required this.onComplete});
 
-  final VoidCallback onComplete;
+  final FutureOr<void> Function() onComplete;
 
   @override
   State<OnboardingScreen> createState() => _OnboardingScreenState();
@@ -17,6 +19,8 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   final _controller = PageController();
   int _page = 0;
   bool _completed = false;
+  bool _saving = false;
+  String? _completionError;
 
   static const _chapters = [
     (
@@ -75,10 +79,24 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
     super.dispose();
   }
 
-  void _finish() {
-    if (_completed) return;
-    _completed = true;
-    widget.onComplete();
+  Future<void> _finish() async {
+    if (_completed || _saving) return;
+    setState(() {
+      _saving = true;
+      _completionError = null;
+    });
+    try {
+      await widget.onComplete();
+      _completed = true;
+    } catch (_) {
+      if (mounted) {
+        setState(() {
+          _completionError = 'Couldn’t save your progress. Please try again.';
+        });
+      }
+    } finally {
+      if (mounted) setState(() => _saving = false);
+    }
   }
 
   void _goTo(int page) {
@@ -138,7 +156,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                       ConstrainedBox(
                         constraints: const BoxConstraints(maxWidth: 116),
                         child: TextButton(
-                          onPressed: _finish,
+                          onPressed: _saving || _completed ? null : _finish,
                           style: TextButton.styleFrom(foregroundColor: muted),
                           child: const Text(
                             'Skip tour',
@@ -296,6 +314,16 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                           ),
                         ],
                       ),
+                      if (_completionError != null) ...[
+                        const SizedBox(height: 12),
+                        Semantics(
+                          liveRegion: true,
+                          child: Text(
+                            _completionError!,
+                            style: TextStyle(color: scheme.error),
+                          ),
+                        ),
+                      ],
                       const SizedBox(height: 22),
                       Row(
                         children: [
@@ -315,7 +343,9 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                           ],
                           Expanded(
                             child: FilledButton(
-                              onPressed: last
+                              onPressed: _saving || _completed
+                                  ? null
+                                  : last
                                   ? _finish
                                   : () => _goTo(_page + 1),
                               style: FilledButton.styleFrom(
@@ -332,7 +362,11 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                                 children: [
                                   Flexible(
                                     child: Text(
-                                      last ? 'Let’s roam' : 'Next chapter',
+                                      _saving
+                                          ? 'Saving…'
+                                          : last
+                                          ? 'Let’s roam'
+                                          : 'Next chapter',
                                       style: const TextStyle(
                                         fontWeight: FontWeight.w700,
                                         fontSize: 16,
