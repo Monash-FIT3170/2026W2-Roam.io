@@ -12,11 +12,39 @@ import 'package:roam_io/features/hazards/data/hazard_repository.dart';
 import 'package:roam_io/features/hazards/domain/hazard_category.dart';
 import 'package:roam_io/features/hazards/domain/hazard_report.dart';
 import 'package:roam_io/features/map/data/map_controller.dart';
+import 'package:roam_io/features/map/data/place_of_interest.dart';
+import 'package:roam_io/features/map/data/places_service.dart';
+import 'package:roam_io/features/map/data/region_polygon.dart';
 import 'package:roam_io/features/map/widgets/roammate_overlay.dart';
 import 'package:roam_io/features/profile/domain/profile_model.dart';
 import 'package:roam_io/features/roammate/services/roammate_voice_service.dart';
 
 import '../../../support/map_test_doubles.dart';
+
+class _FakePlacesService extends PlacesService {
+  _FakePlacesService([this._places = const []]);
+  final List<PlaceOfInterest> _places;
+
+  @override
+  Future<List<PlaceOfInterest>> getPlacesForRegion({
+    required String regionId,
+  }) async {
+    return _places;
+  }
+}
+
+RegionPolygon _createRegion({required String id, required String name}) {
+  return RegionPolygon(
+    id: id,
+    name: name,
+    areaSquareMetres: 1000.0,
+    geometry: const {},
+  );
+}
+
+PlaceOfInterest _createPlace({required int id, required String name}) {
+  return testPlace(id: id, name: name);
+}
 
 class _FakeSpeechEngine implements RoammateSpeechEngine {
   final List<String> spokenMessages = [];
@@ -100,6 +128,11 @@ void main() {
     void Function(HazardReport report)? onHazardSelected,
     double proximityRadiusMeters = 500.0,
     AuthProvider? authProvider,
+    PlacesService? placesService,
+    Duration tileDwellDuration = const Duration(milliseconds: 3500),
+    Duration autoCollapseDuration = const Duration(seconds: 5),
+    Duration tileAnnouncementCooldown = const Duration(minutes: 3),
+    double maxSpeedMpsForPopup = 25.0 / 3.6,
   }) {
     Widget child = MaterialApp(
       home: Scaffold(
@@ -108,7 +141,12 @@ void main() {
           hazardController: hazardController,
           onHazardSelected: onHazardSelected,
           voiceService: voiceService,
+          placesService: placesService ?? _FakePlacesService(),
           proximityRadiusMeters: proximityRadiusMeters,
+          tileDwellDuration: tileDwellDuration,
+          autoCollapseDuration: autoCollapseDuration,
+          tileAnnouncementCooldown: tileAnnouncementCooldown,
+          maxSpeedMpsForPopup: maxSpeedMpsForPopup,
         ),
       ),
     );
@@ -299,6 +337,257 @@ void main() {
 
       expect(speechEngine.spokenMessages.length, 1);
       authProvider.dispose();
+    },
+  );
+
+  testWidgets(
+    'auto-expands and displays banner with locations and hazards count after dwell time',
+    (tester) async {
+      final region = _createRegion(id: 'clayton_1', name: 'Monash Clayton');
+      final place1 = _createPlace(id: 1, name: 'Campus Centre');
+      final place2 = _createPlace(id: 2, name: 'Matheson Library');
+      final fakePlaces = _FakePlacesService([place1, place2]);
+
+      final hazard = _createHazard(
+        id: 'hazard_1',
+        category: HazardCategory.roadworks,
+        latitude: -37.8136,
+        longitude: 144.9631,
+      );
+      hazardController.updateReports([hazard]);
+
+      mapController.currentRegion = region;
+
+      await tester.pumpWidget(
+        buildTestWidget(
+          placesService: fakePlaces,
+          tileDwellDuration: const Duration(milliseconds: 300),
+        ),
+      );
+      await tester.pump(const Duration(milliseconds: 100));
+
+      // Initially within dwell time: card is NOT yet open
+      expect(find.textContaining('Entered Monash Clayton'), findsNothing);
+
+      // Advance beyond dwell time (300ms)
+      await tester.pump(const Duration(milliseconds: 300));
+      // Advance scale animation
+      await tester.pump(const Duration(milliseconds: 400));
+
+      // Banner is visible with correct location and hazard counts
+      expect(
+        find.text('Entered Monash Clayton • 2 locations, 1 hazard'),
+        findsOneWidget,
+      );
+      // Detail content is visible
+      expect(find.text('Locations in this tile'), findsOneWidget);
+      expect(find.text('Campus Centre'), findsOneWidget);
+      expect(find.text('Matheson Library'), findsOneWidget);
+      expect(find.text('Roadworks'), findsOneWidget);
+    },
+  );
+
+  testWidgets(
+    'suppresses tile entry notification when travelling fast (> 25 km/h)',
+    (tester) async {
+      final region = _createRegion(id: 'cbd_1', name: 'Melbourne CBD');
+      mapController.currentRegion = region;
+      // Set speed to 30 km/h (≈ 8.33 m/s > 6.94 m/s threshold)
+      mapController.setPositionForTesting(
+        testPosition(-37.8136, 144.9631, speed: 30.0 / 3.6),
+      );
+
+      await tester.pumpWidget(
+        buildTestWidget(tileDwellDuration: const Duration(milliseconds: 300)),
+      );
+      await tester.pump(const Duration(milliseconds: 100));
+
+      // Advance beyond dwell time
+      await tester.pump(const Duration(milliseconds: 500));
+      await tester.pump(const Duration(milliseconds: 400));
+
+      // Banner and details should NOT be shown
+      expect(find.textContaining('Entered Melbourne CBD'), findsNothing);
+      expect(find.text('Locations in this tile'), findsNothing);
+    },
+  );
+
+  testWidgets(
+    'enforces cooldown so re-entering the same tile within 3 minutes does not re-trigger',
+    (tester) async {
+      final regionA = _createRegion(id: 'tile_a', name: 'Tile Alpha');
+      final regionB = _createRegion(id: 'tile_b', name: 'Tile Beta');
+
+      mapController.currentRegion = regionA;
+
+      await tester.pumpWidget(
+        buildTestWidget(
+          tileDwellDuration: const Duration(milliseconds: 200),
+          tileAnnouncementCooldown: const Duration(minutes: 3),
+        ),
+      );
+      await tester.pump(const Duration(milliseconds: 100));
+
+      // Dwell in Tile Alpha
+      await tester.pump(const Duration(milliseconds: 200));
+      await tester.pump(const Duration(milliseconds: 400));
+
+      // Tile Alpha banner shown
+      expect(find.textContaining('Entered Tile Alpha'), findsOneWidget);
+
+      // Close details
+      await tester.tap(find.byIcon(Icons.close_rounded));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 400));
+      expect(find.textContaining('Entered Tile Alpha'), findsNothing);
+
+      // Move to Tile Beta
+      mapController.currentRegion = regionB;
+      mapController.notifyListeners();
+      await tester.pump(const Duration(milliseconds: 50));
+
+      // Dwell in Tile Beta
+      await tester.pump(const Duration(milliseconds: 200));
+      await tester.pump(const Duration(milliseconds: 400));
+      expect(find.textContaining('Entered Tile Beta'), findsOneWidget);
+
+      // Close details
+      await tester.tap(find.byIcon(Icons.close_rounded));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 400));
+      expect(find.textContaining('Entered Tile Beta'), findsNothing);
+
+      // Move BACK to Tile Alpha within cooldown
+      mapController.currentRegion = regionA;
+      mapController.notifyListeners();
+      await tester.pump(const Duration(milliseconds: 50));
+
+      // Dwell in Tile Alpha again
+      await tester.pump(const Duration(milliseconds: 300));
+      await tester.pump(const Duration(milliseconds: 400));
+
+      // Should NOT pop up again because cooldown is 3 minutes
+      expect(find.textContaining('Entered Tile Alpha'), findsNothing);
+    },
+  );
+
+  testWidgets('auto-collapses after autoCollapseDuration if untouched', (
+    tester,
+  ) async {
+    final region = _createRegion(
+      id: 'tile_collapse',
+      name: 'Auto Collapse Tile',
+    );
+    mapController.currentRegion = region;
+
+    await tester.pumpWidget(
+      buildTestWidget(
+        tileDwellDuration: const Duration(milliseconds: 200),
+        autoCollapseDuration: const Duration(seconds: 2),
+      ),
+    );
+    await tester.pump(const Duration(milliseconds: 100));
+
+    // Dwell and open
+    await tester.pump(const Duration(milliseconds: 200));
+    await tester.pump(const Duration(milliseconds: 400));
+
+    expect(find.textContaining('Entered Auto Collapse Tile'), findsOneWidget);
+
+    // Advance 2s auto-collapse timer
+    await tester.pump(const Duration(seconds: 2));
+    await tester.pump(const Duration(milliseconds: 400));
+
+    // Card should be auto-collapsed now
+    expect(find.textContaining('Entered Auto Collapse Tile'), findsNothing);
+    expect(find.text('Locations in this tile'), findsNothing);
+  });
+
+  testWidgets(
+    'cancels auto-collapse when user touches or interacts with the card',
+    (tester) async {
+      final region = _createRegion(id: 'tile_touch', name: 'Interactive Tile');
+      mapController.currentRegion = region;
+
+      await tester.pumpWidget(
+        buildTestWidget(
+          tileDwellDuration: const Duration(milliseconds: 200),
+          autoCollapseDuration: const Duration(seconds: 2),
+        ),
+      );
+      await tester.pump(const Duration(milliseconds: 100));
+
+      // Dwell and open
+      await tester.pump(const Duration(milliseconds: 200));
+      await tester.pump(const Duration(milliseconds: 400));
+
+      expect(find.textContaining('Entered Interactive Tile'), findsOneWidget);
+
+      // User touches/taps on the card
+      await tester.tap(find.text('Locations in this tile'));
+      await tester.pump();
+
+      // Advance beyond the 2s auto-collapse timer
+      await tester.pump(const Duration(seconds: 2));
+      await tester.pump(const Duration(milliseconds: 400));
+
+      // Card should STILL be open because user interaction cancelled auto-collapse!
+      expect(find.textContaining('Entered Interactive Tile'), findsOneWidget);
+      expect(find.text('Locations in this tile'), findsOneWidget);
+    },
+  );
+
+  testWidgets(
+    'tapping the banner close button (✕) dismisses the banner and collapses card immediately',
+    (tester) async {
+      final region = _createRegion(id: 'tile_close', name: 'Closable Tile');
+      mapController.currentRegion = region;
+
+      await tester.pumpWidget(
+        buildTestWidget(tileDwellDuration: const Duration(milliseconds: 200)),
+      );
+      await tester.pump(const Duration(milliseconds: 100));
+
+      // Dwell and open
+      await tester.pump(const Duration(milliseconds: 200));
+      await tester.pump(const Duration(milliseconds: 400));
+
+      expect(find.textContaining('Entered Closable Tile'), findsOneWidget);
+
+      // Tap (✕) button
+      await tester.tap(find.byIcon(Icons.close_rounded));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 400));
+
+      expect(find.textContaining('Entered Closable Tile'), findsNothing);
+      expect(find.text('Locations in this tile'), findsNothing);
+    },
+  );
+
+  testWidgets(
+    'cancels dwell timer if user leaves tile before dwell duration finishes',
+    (tester) async {
+      final region = _createRegion(id: 'tile_quick', name: 'Quick Step Tile');
+      mapController.currentRegion = region;
+
+      await tester.pumpWidget(
+        buildTestWidget(tileDwellDuration: const Duration(milliseconds: 500)),
+      );
+      await tester.pump(const Duration(milliseconds: 100));
+
+      // Only 200ms into dwell (not yet 500ms), user exits tile
+      await tester.pump(const Duration(milliseconds: 200));
+      mapController.currentRegion = null;
+      mapController.notifyListeners();
+      await tester.pump(const Duration(milliseconds: 50));
+
+      // Now advance remaining 400ms
+      await tester.pump(const Duration(milliseconds: 400));
+      await tester.pump(const Duration(milliseconds: 400));
+
+      // Never popped up
+      expect(find.textContaining('Entered Quick Step Tile'), findsNothing);
+      expect(find.text('Locations in this tile'), findsNothing);
     },
   );
 }

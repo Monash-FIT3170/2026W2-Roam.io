@@ -12,13 +12,26 @@ import '../../roammate/services/roammate_voice_service.dart';
 import '../data/map_controller.dart';
 import '../data/place_of_interest.dart';
 import '../data/places_service.dart';
+import '../data/region_polygon.dart';
+
+class _TileBannerData {
+  final String regionId;
+  final String regionName;
+
+  const _TileBannerData({required this.regionId, required this.regionName});
+}
 
 class RoammateOverlay extends StatefulWidget {
   final MapController mapController;
   final HazardController? hazardController;
   final void Function(HazardReport report)? onHazardSelected;
   final RoammateVoiceService? voiceService;
+  final PlacesService? placesService;
   final double proximityRadiusMeters;
+  final Duration tileDwellDuration;
+  final Duration autoCollapseDuration;
+  final Duration tileAnnouncementCooldown;
+  final double maxSpeedMpsForPopup;
 
   const RoammateOverlay({
     super.key,
@@ -26,7 +39,12 @@ class RoammateOverlay extends StatefulWidget {
     this.hazardController,
     this.onHazardSelected,
     this.voiceService,
+    this.placesService,
     this.proximityRadiusMeters = 500.0,
+    this.tileDwellDuration = const Duration(milliseconds: 3500),
+    this.autoCollapseDuration = const Duration(seconds: 5),
+    this.tileAnnouncementCooldown = const Duration(minutes: 3),
+    this.maxSpeedMpsForPopup = 25.0 / 3.6,
   });
 
   @override
@@ -39,13 +57,21 @@ class _RoammateOverlayState extends State<RoammateOverlay>
   late Animation<double> _scaleAnimation;
 
   String? _lastRegionId;
+  String? _currentRegionId;
+  bool _hasAnnouncedCurrentTileVisit = false;
+  Timer? _tileEntryDwellTimer;
+  Timer? _autoCollapseTimer;
+  final Map<String, DateTime> _tileLastAnnouncedAt = {};
+  _TileBannerData? _tileBannerData;
+
   bool _showDetails = false;
   bool _isHazardsExpanded = false;
 
   List<PlaceOfInterest> _allPlaces = [];
   final Set<String> _spokenHazardIds = {};
 
-  final PlacesService _placesService = PlacesService();
+  late final PlacesService _placesService =
+      widget.placesService ?? PlacesService();
 
   // ValueNotifiers for dynamic scroll shadows
   final ValueNotifier<bool> _canScrollUp = ValueNotifier(false);
@@ -87,10 +113,107 @@ class _RoammateOverlayState extends State<RoammateOverlay>
   void dispose() {
     widget.mapController.removeListener(_onMapControllerChanged);
     widget.hazardController?.removeListener(_onHazardControllerChanged);
+    _cancelDwellTimer();
+    _cancelAutoCollapseTimer();
     _breathingController.dispose();
     _canScrollUp.dispose();
     _canScrollDown.dispose();
     super.dispose();
+  }
+
+  void _cancelDwellTimer() {
+    _tileEntryDwellTimer?.cancel();
+    _tileEntryDwellTimer = null;
+  }
+
+  void _startAutoCollapseTimer() {
+    _cancelAutoCollapseTimer();
+    _autoCollapseTimer = Timer(widget.autoCollapseDuration, () {
+      if (!mounted) return;
+      setState(() {
+        _showDetails = false;
+        _tileBannerData = null;
+      });
+    });
+  }
+
+  void _cancelAutoCollapseTimer() {
+    _autoCollapseTimer?.cancel();
+    _autoCollapseTimer = null;
+  }
+
+  void _checkTileEntryNotification(RegionPolygon? currentRegion) {
+    if (currentRegion == null) {
+      _currentRegionId = null;
+      _hasAnnouncedCurrentTileVisit = false;
+      _cancelDwellTimer();
+      return;
+    }
+
+    // Entering a new tile
+    if (currentRegion.id != _currentRegionId) {
+      _currentRegionId = currentRegion.id;
+      _hasAnnouncedCurrentTileVisit = false;
+      _cancelDwellTimer();
+    }
+
+    // If already announced for this current visit, do nothing
+    if (_hasAnnouncedCurrentTileVisit) {
+      return;
+    }
+
+    // Check cooldown for this tile
+    final lastAnnounced = _tileLastAnnouncedAt[currentRegion.id];
+    if (lastAnnounced != null &&
+        DateTime.now().difference(lastAnnounced) <
+            widget.tileAnnouncementCooldown) {
+      return;
+    }
+
+    // Check travel speed
+    final speed = widget.mapController.userSpeedMps;
+    if (speed > widget.maxSpeedMpsForPopup) {
+      _cancelDwellTimer();
+      return;
+    }
+
+    // If dwell timer is already active for this region, let it run
+    if (_tileEntryDwellTimer != null) {
+      return;
+    }
+
+    // Start dwell timer
+    _tileEntryDwellTimer = Timer(widget.tileDwellDuration, () {
+      _tileEntryDwellTimer = null;
+      if (!mounted) return;
+
+      // Verify user is still in the same region
+      final activeRegion = widget.mapController.currentRegion;
+      if (activeRegion == null || activeRegion.id != currentRegion.id) {
+        return;
+      }
+
+      // Verify speed is still within limits
+      if (widget.mapController.userSpeedMps > widget.maxSpeedMpsForPopup) {
+        return;
+      }
+
+      _hasAnnouncedCurrentTileVisit = true;
+      _tileLastAnnouncedAt[currentRegion.id] = DateTime.now();
+
+      final wasAlreadyOpen = _showDetails;
+      setState(() {
+        _tileBannerData = _TileBannerData(
+          regionId: currentRegion.id,
+          regionName: currentRegion.name,
+        );
+        _showDetails = true;
+      });
+
+      if (!wasAlreadyOpen) {
+        _startAutoCollapseTimer();
+      }
+    });
   }
 
   void _onMapControllerChanged() {
@@ -98,7 +221,10 @@ class _RoammateOverlayState extends State<RoammateOverlay>
     if (currentRegion != null && currentRegion.id != _lastRegionId) {
       _lastRegionId = currentRegion.id;
       _fetchRegionData(currentRegion.id, currentRegion.name);
+    } else if (currentRegion == null && _lastRegionId != null) {
+      _lastRegionId = null;
     }
+    _checkTileEntryNotification(currentRegion);
     _checkAndAnnounceHazards();
     if (mounted) {
       setState(() {});
@@ -198,16 +324,22 @@ class _RoammateOverlayState extends State<RoammateOverlay>
   }
 
   void _toggleDetails() {
+    _cancelAutoCollapseTimer();
     setState(() {
       _showDetails = !_showDetails;
+      if (!_showDetails) {
+        _tileBannerData = null;
+      }
     });
   }
 
   void _handleHazardTapped(HazardReport report) {
+    _cancelAutoCollapseTimer();
     widget.mapController.animateToLocation(report.location);
     widget.onHazardSelected?.call(report);
     setState(() {
       _showDetails = false;
+      _tileBannerData = null;
     });
   }
 
@@ -289,167 +421,173 @@ class _RoammateOverlayState extends State<RoammateOverlay>
                   child: child,
                 );
               },
-              child: Container(
-                width: 280,
-                constraints: const BoxConstraints(maxHeight: 440),
-                decoration: BoxDecoration(
-                  color: boxBackgroundColor,
-                  borderRadius: BorderRadius.circular(
-                    24,
-                  ), // Heavily rounded corners
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withOpacity(0.15),
-                      blurRadius: 20,
-                      offset: const Offset(0, 8),
-                    ),
-                  ],
-                ),
-                padding: const EdgeInsets.all(16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    // Active community hazards section
-                    if (_nearbyHazards.isNotEmpty) ...[
-                      _buildHazardSection(theme: theme, isDark: isDark),
-                      const SizedBox(height: 16),
-                    ],
-
-                    Padding(
-                      padding: const EdgeInsets.only(bottom: 12),
-                      child: Text(
-                        'Locations in this tile',
-                        style: theme.textTheme.titleMedium?.copyWith(
-                          fontWeight: FontWeight.w800,
-                          color: titleColor,
-                          letterSpacing: -0.5,
-                        ),
+              child: Listener(
+                onPointerDown: (_) => _cancelAutoCollapseTimer(),
+                behavior: HitTestBehavior.translucent,
+                child: Container(
+                  width: 280,
+                  constraints: const BoxConstraints(maxHeight: 440),
+                  decoration: BoxDecoration(
+                    color: boxBackgroundColor,
+                    borderRadius: BorderRadius.circular(
+                      24,
+                    ), // Heavily rounded corners
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.15),
+                        blurRadius: 20,
+                        offset: const Offset(0, 8),
                       ),
-                    ),
+                    ],
+                  ),
+                  padding: const EdgeInsets.all(16),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      // Top Tile Entry Banner if active
+                      if (_tileBannerData != null) ...[
+                        _buildTileEntryBanner(theme: theme, isDark: isDark),
+                        const SizedBox(height: 12),
+                      ],
 
-                    if (_allPlaces.isEmpty)
-                      Text(
-                        'No locations available.',
-                        style: theme.textTheme.bodyMedium?.copyWith(
-                          color: titleColor.withOpacity(0.6),
-                        ),
-                      )
-                    else
-                      Flexible(
-                        child: NotificationListener<ScrollNotification>(
-                          onNotification: (notification) {
-                            if (notification.metrics.axis == Axis.vertical) {
-                              _canScrollUp.value =
-                                  notification.metrics.extentBefore > 0;
-                              _canScrollDown.value =
-                                  notification.metrics.extentAfter > 0;
-                            }
-                            return false; // Let the scrollbar handle it too
-                          },
-                          child: Stack(
-                            children: [
-                              Scrollbar(
-                                thumbVisibility: true,
-                                child: ListView(
-                                  padding: const EdgeInsets.only(
-                                    right: 8,
-                                  ), // Padding for scrollbar
-                                  shrinkWrap: true,
-                                  physics:
-                                      const AlwaysScrollableScrollPhysics(),
-                                  children: _sortedPlaces.map((p) {
-                                    final isVisited = widget.mapController
-                                        .isPlaceVisited(p.id);
-                                    return _buildLocationCard(
-                                      p,
-                                      isVisited,
-                                      theme,
-                                    );
-                                  }).toList(),
-                                ),
-                              ),
-                              // Top Scroll Shadow
-                              Positioned(
-                                top: 0,
-                                left: 0,
-                                right: 0,
-                                child: ValueListenableBuilder<bool>(
-                                  valueListenable: _canScrollUp,
-                                  builder: (context, canScrollUp, child) {
-                                    return IgnorePointer(
-                                      child: AnimatedOpacity(
-                                        opacity: canScrollUp ? 1.0 : 0.0,
-                                        duration: const Duration(
-                                          milliseconds: 150,
-                                        ),
-                                        child: Container(
-                                          height: 12,
-                                          decoration: BoxDecoration(
-                                            gradient: LinearGradient(
-                                              begin: Alignment.topCenter,
-                                              end: Alignment.bottomCenter,
-                                              colors: [
-                                                isDark
-                                                    ? Colors.black.withOpacity(
-                                                        0.4,
-                                                      )
-                                                    : Colors.black.withOpacity(
-                                                        0.1,
-                                                      ),
-                                                Colors.transparent,
-                                              ],
-                                            ),
-                                          ),
-                                        ),
-                                      ),
-                                    );
-                                  },
-                                ),
-                              ),
-                              // Bottom Scroll Shadow
-                              Positioned(
-                                bottom: 0,
-                                left: 0,
-                                right: 0,
-                                child: ValueListenableBuilder<bool>(
-                                  valueListenable: _canScrollDown,
-                                  builder: (context, canScrollDown, child) {
-                                    return IgnorePointer(
-                                      child: AnimatedOpacity(
-                                        opacity: canScrollDown ? 1.0 : 0.0,
-                                        duration: const Duration(
-                                          milliseconds: 150,
-                                        ),
-                                        child: Container(
-                                          height: 12,
-                                          decoration: BoxDecoration(
-                                            gradient: LinearGradient(
-                                              begin: Alignment.bottomCenter,
-                                              end: Alignment.topCenter,
-                                              colors: [
-                                                isDark
-                                                    ? Colors.black.withOpacity(
-                                                        0.4,
-                                                      )
-                                                    : Colors.black.withOpacity(
-                                                        0.1,
-                                                      ),
-                                                Colors.transparent,
-                                              ],
-                                            ),
-                                          ),
-                                        ),
-                                      ),
-                                    );
-                                  },
-                                ),
-                              ),
-                            ],
+                      // Active community hazards section
+                      if (_nearbyHazards.isNotEmpty) ...[
+                        _buildHazardSection(theme: theme, isDark: isDark),
+                        const SizedBox(height: 16),
+                      ],
+
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: 12),
+                        child: Text(
+                          'Locations in this tile',
+                          style: theme.textTheme.titleMedium?.copyWith(
+                            fontWeight: FontWeight.w800,
+                            color: titleColor,
+                            letterSpacing: -0.5,
                           ),
                         ),
                       ),
-                  ],
+
+                      if (_allPlaces.isEmpty)
+                        Text(
+                          'No locations available.',
+                          style: theme.textTheme.bodyMedium?.copyWith(
+                            color: titleColor.withOpacity(0.6),
+                          ),
+                        )
+                      else
+                        Flexible(
+                          child: NotificationListener<ScrollNotification>(
+                            onNotification: (notification) {
+                              if (notification.metrics.axis == Axis.vertical) {
+                                _canScrollUp.value =
+                                    notification.metrics.extentBefore > 0;
+                                _canScrollDown.value =
+                                    notification.metrics.extentAfter > 0;
+                              }
+                              return false; // Let the scrollbar handle it too
+                            },
+                            child: Stack(
+                              children: [
+                                Scrollbar(
+                                  thumbVisibility: true,
+                                  child: ListView(
+                                    padding: const EdgeInsets.only(
+                                      right: 8,
+                                    ), // Padding for scrollbar
+                                    shrinkWrap: true,
+                                    physics:
+                                        const AlwaysScrollableScrollPhysics(),
+                                    children: _sortedPlaces.map((p) {
+                                      final isVisited = widget.mapController
+                                          .isPlaceVisited(p.id);
+                                      return _buildLocationCard(
+                                        p,
+                                        isVisited,
+                                        theme,
+                                      );
+                                    }).toList(),
+                                  ),
+                                ),
+                                // Top Scroll Shadow
+                                Positioned(
+                                  top: 0,
+                                  left: 0,
+                                  right: 0,
+                                  child: ValueListenableBuilder<bool>(
+                                    valueListenable: _canScrollUp,
+                                    builder: (context, canScrollUp, child) {
+                                      return IgnorePointer(
+                                        child: AnimatedOpacity(
+                                          opacity: canScrollUp ? 1.0 : 0.0,
+                                          duration: const Duration(
+                                            milliseconds: 150,
+                                          ),
+                                          child: Container(
+                                            height: 12,
+                                            decoration: BoxDecoration(
+                                              gradient: LinearGradient(
+                                                begin: Alignment.topCenter,
+                                                end: Alignment.bottomCenter,
+                                                colors: [
+                                                  isDark
+                                                      ? Colors.black
+                                                            .withOpacity(0.4)
+                                                      : Colors.black
+                                                            .withOpacity(0.1),
+                                                  Colors.transparent,
+                                                ],
+                                              ),
+                                            ),
+                                          ),
+                                        ),
+                                      );
+                                    },
+                                  ),
+                                ),
+                                // Bottom Scroll Shadow
+                                Positioned(
+                                  bottom: 0,
+                                  left: 0,
+                                  right: 0,
+                                  child: ValueListenableBuilder<bool>(
+                                    valueListenable: _canScrollDown,
+                                    builder: (context, canScrollDown, child) {
+                                      return IgnorePointer(
+                                        child: AnimatedOpacity(
+                                          opacity: canScrollDown ? 1.0 : 0.0,
+                                          duration: const Duration(
+                                            milliseconds: 150,
+                                          ),
+                                          child: Container(
+                                            height: 12,
+                                            decoration: BoxDecoration(
+                                              gradient: LinearGradient(
+                                                begin: Alignment.bottomCenter,
+                                                end: Alignment.topCenter,
+                                                colors: [
+                                                  isDark
+                                                      ? Colors.black
+                                                            .withOpacity(0.4)
+                                                      : Colors.black
+                                                            .withOpacity(0.1),
+                                                  Colors.transparent,
+                                                ],
+                                              ),
+                                            ),
+                                          ),
+                                        ),
+                                      );
+                                    },
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                    ],
+                  ),
                 ),
               ),
             ),
@@ -486,6 +624,78 @@ class _RoammateOverlayState extends State<RoammateOverlay>
           ),
         ),
       ],
+    );
+  }
+
+  Widget _buildTileEntryBanner({
+    required ThemeData theme,
+    required bool isDark,
+  }) {
+    final banner = _tileBannerData;
+    if (banner == null) return const SizedBox.shrink();
+
+    final locationsCount = _allPlaces.length;
+    final hazardsCount = _nearbyHazards.length;
+    final locText =
+        '$locationsCount ${locationsCount == 1 ? 'location' : 'locations'}';
+    final hazText = '$hazardsCount ${hazardsCount == 1 ? 'hazard' : 'hazards'}';
+    final bannerText = 'Entered ${banner.regionName} • $locText, $hazText';
+
+    final bannerBg = isDark
+        ? AppColors.lightSage.withValues(alpha: 0.18)
+        : AppColors.sage.withValues(alpha: 0.12);
+    final bannerBorder = isDark
+        ? AppColors.lightSage.withValues(alpha: 0.35)
+        : AppColors.sage.withValues(alpha: 0.35);
+    final iconColor = isDark ? AppColors.lightSage : AppColors.sage;
+    final textColor = isDark ? AppColors.cream : AppColors.ink;
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      decoration: BoxDecoration(
+        color: bannerBg,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: bannerBorder, width: 1),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          Icon(Icons.explore_rounded, color: iconColor, size: 20),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              bannerText,
+              style: theme.textTheme.labelMedium?.copyWith(
+                color: textColor,
+                fontWeight: FontWeight.w600,
+                letterSpacing: -0.2,
+              ),
+            ),
+          ),
+          const SizedBox(width: 4),
+          Material(
+            color: Colors.transparent,
+            child: InkWell(
+              onTap: () {
+                _cancelAutoCollapseTimer();
+                setState(() {
+                  _tileBannerData = null;
+                  _showDetails = false;
+                });
+              },
+              borderRadius: BorderRadius.circular(12),
+              child: Padding(
+                padding: const EdgeInsets.all(4.0),
+                child: Icon(
+                  Icons.close_rounded,
+                  size: 18,
+                  color: textColor.withValues(alpha: 0.6),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 

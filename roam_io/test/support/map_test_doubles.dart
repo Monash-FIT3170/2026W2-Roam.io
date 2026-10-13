@@ -23,6 +23,8 @@ Position testPosition(
   double lng, {
   double heading = 0,
   double headingAccuracy = 0,
+  double speed = 0,
+  double speedAccuracy = 0,
 }) => Position(
   latitude: lat,
   longitude: lng,
@@ -32,8 +34,8 @@ Position testPosition(
   altitudeAccuracy: 0,
   heading: heading,
   headingAccuracy: headingAccuracy,
-  speed: 0,
-  speedAccuracy: 0,
+  speed: speed,
+  speedAccuracy: speedAccuracy,
 );
 
 /// Overrides [GeoLocatorService.getCurrentLocation] for deterministic tests.

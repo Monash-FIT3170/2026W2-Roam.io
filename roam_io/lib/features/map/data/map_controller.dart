@@ -182,6 +182,18 @@ class MapController extends ChangeNotifier {
   /// Latest user position reported by GPS location updates.
   LatLng? get latestUserLatLng => _latestUserLatLng;
 
+  /// Latest raw GPS position received from geolocation updates.
+  Position? get latestPosition => _latestPosition;
+
+  /// Latest user travel speed in meters per second (m/s), or 0.0 if stationary/unknown.
+  double get userSpeedMps => _latestPosition?.speed ?? 0.0;
+
+  @visibleForTesting
+  void setPositionForTesting(Position position) {
+    _rememberPosition(position);
+    notifyListeners();
+  }
+
   ExplorationMode get currentMode => _currentMode;
 
   Set<int> get visitedPlaceIds => Set.unmodifiable(_visitedPlaceIds);
