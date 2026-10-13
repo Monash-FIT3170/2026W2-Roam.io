@@ -6,7 +6,7 @@ import '../../social/domain/social_privacy_settings.dart';
 
 /*
  * Author: Sanjevan Rajasegar
- * Last Updated: 8 August 2026
+ * Last Updated: 06/10/2026
  * Description:
  *   Represents a user profile and maps profile data to and from Firestore,
  *   including appearance preferences and nested social privacy settings.
