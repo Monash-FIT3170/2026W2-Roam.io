@@ -25,4 +25,22 @@ void main() {
     expect(message.text, 'Hazard Nearby: Pothole (120 m away)');
     expect(message.speech, 'Caution: Pothole reported 120 meters away.');
   });
+
+  test('journeyRecommendation provides matching text and speech output', () {
+    final message = RoammateMessage.journeyRecommendation(
+      placeName: 'Matheson Library',
+      rating: 4.8,
+      distanceMeters: 180,
+      regionName: 'Monash Clayton',
+    );
+
+    expect(
+      message.text,
+      'Roammate suggests: Matheson Library ★ 4.8 • 180m away',
+    );
+    expect(
+      message.speech,
+      'Roammate recommends Matheson Library in Monash Clayton, rated 4.8, 180 meters away.',
+    );
+  });
 }

@@ -1039,7 +1039,9 @@ class _MapPageState extends State<MapPage> with WidgetsBindingObserver {
           child: RoammateOverlay(
             mapController: _mapController,
             hazardController: _hazardController,
+            journeyController: journeyController,
             onHazardSelected: _showHazardDetails,
+            onPlaceSelected: _showPlaceDetails,
           ),
         ),
 

@@ -34,4 +34,30 @@ class RoammateMessage {
           'Caution: $hazardCategoryLabel reported $distanceMeters meters away.',
     );
   }
+
+  /// Message produced when recommending a contextual location during a journey.
+  factory RoammateMessage.journeyRecommendation({
+    required String placeName,
+    double? rating,
+    int? distanceMeters,
+    String? regionName,
+  }) {
+    final ratingPart = rating != null ? ' ★ $rating' : '';
+    final distancePart = distanceMeters != null
+        ? ' • ${distanceMeters}m away'
+        : '';
+    final text = 'Roammate suggests: $placeName$ratingPart$distancePart';
+
+    final ratingSpeech = rating != null ? ', rated $rating' : '';
+    final regionSpeech = regionName != null && regionName.isNotEmpty
+        ? ' in $regionName'
+        : '';
+    final distanceSpeech = distanceMeters != null
+        ? ', $distanceMeters meters away'
+        : '';
+    final speech =
+        'Roammate recommends $placeName$regionSpeech$ratingSpeech$distanceSpeech.';
+
+    return RoammateMessage(text: text, speech: speech);
+  }
 }

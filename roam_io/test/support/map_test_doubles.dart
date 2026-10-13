@@ -155,14 +155,17 @@ PlaceOfInterest testPlace({
   String? name,
   LatLng location = const LatLng(-37.8136, 144.9631),
   String regionId = 'region-1',
+  double? rating,
+  PlaceCategory category = PlaceCategory.other,
 }) {
   return PlaceOfInterest(
     id: id,
     googlePlaceId: 'gp-$id',
     name: name ?? 'Test Place $id',
-    category: PlaceCategory.other,
+    category: category,
     types: const <String>[],
     location: location,
     regionId: regionId,
+    rating: rating,
   );
 }
