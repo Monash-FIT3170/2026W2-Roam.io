@@ -11,6 +11,7 @@ import 'package:roam_io/features/hazards/data/hazard_controller.dart';
 import 'package:roam_io/features/hazards/data/hazard_repository.dart';
 import 'package:roam_io/features/hazards/domain/hazard_category.dart';
 import 'package:roam_io/features/hazards/domain/hazard_report.dart';
+import 'package:roam_io/features/journeys/data/journey_controller.dart';
 import 'package:roam_io/features/map/data/map_controller.dart';
 import 'package:roam_io/features/map/data/place_of_interest.dart';
 import 'package:roam_io/features/map/data/places_service.dart';
@@ -20,13 +21,20 @@ import 'package:roam_io/features/roammate/services/roammate_voice_service.dart';
 import '../../../support/map_test_doubles.dart';
 
 class _FakePlacesService extends PlacesService {
-  _FakePlacesService([this._places = const []]);
+  _FakePlacesService([
+    this._places = const [],
+    this._placesByRegion = const {},
+  ]);
   final List<PlaceOfInterest> _places;
+  final Map<String, List<PlaceOfInterest>> _placesByRegion;
 
   @override
   Future<List<PlaceOfInterest>> getPlacesForRegion({
     required String regionId,
   }) async {
+    if (_placesByRegion.containsKey(regionId)) {
+      return _placesByRegion[regionId]!;
+    }
     return _places;
   }
 }
@@ -54,6 +62,47 @@ class _FakeSpeechEngine implements RoammateSpeechEngine {
 
   @override
   Future<void> stop() async {}
+}
+
+class _TestJourneyController extends ChangeNotifier
+    implements JourneyController {
+  bool _isTracking = false;
+  double _distanceMeters = 0.0;
+  final List<String> _unlockedTileIds = [];
+
+  @override
+  bool get isTracking => _isTracking;
+
+  @override
+  double get distanceMeters => _distanceMeters;
+
+  @override
+  List<String> get unlockedTileIds => List.unmodifiable(_unlockedTileIds);
+
+  @override
+  Future<void> startTracking() async {
+    _isTracking = true;
+    notifyListeners();
+  }
+
+  @override
+  Future<void> stopTracking() async {
+    _isTracking = false;
+    notifyListeners();
+  }
+
+  void unlockTile(String tileId) {
+    _unlockedTileIds.add(tileId);
+    notifyListeners();
+  }
+
+  void updateDistance(double meters) {
+    _distanceMeters = meters;
+    notifyListeners();
+  }
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
 }
 
 class _TestHazardController extends HazardController {
@@ -98,6 +147,7 @@ void main() {
 
   late MapController mapController;
   late _TestHazardController hazardController;
+  late _TestJourneyController journeyController;
   late _FakeSpeechEngine speechEngine;
   late RoammateVoiceService voiceService;
 
@@ -112,6 +162,7 @@ void main() {
     // Set user position near Melbourne CBD
     mapController.center = const LatLng(-37.8136, 144.9631);
     hazardController = _TestHazardController();
+    journeyController = _TestJourneyController();
     speechEngine = _FakeSpeechEngine();
     voiceService = RoammateVoiceService(speechEngine: speechEngine);
   });
@@ -120,15 +171,19 @@ void main() {
     mapController.disposeController();
     mapController.dispose();
     hazardController.dispose();
+    journeyController.dispose();
   });
 
   Widget buildTestWidget({
     void Function(HazardReport report)? onHazardSelected,
+    void Function(PlaceOfInterest place)? onPlaceSelected,
+    JourneyController? journeyController,
     double proximityRadiusMeters = 500.0,
     AuthProvider? authProvider,
     PlacesService? placesService,
     Duration tileDwellDuration = const Duration(milliseconds: 3500),
     Duration autoCollapseDuration = const Duration(seconds: 5),
+    Duration recommendationAutoCollapseDuration = const Duration(seconds: 8),
     Duration tileAnnouncementCooldown = const Duration(minutes: 3),
     double maxSpeedMpsForPopup = 25.0 / 3.6,
   }) {
@@ -137,12 +192,16 @@ void main() {
         body: RoammateOverlay(
           mapController: mapController,
           hazardController: hazardController,
+          journeyController: journeyController,
           onHazardSelected: onHazardSelected,
+          onPlaceSelected: onPlaceSelected,
           voiceService: voiceService,
           placesService: placesService ?? _FakePlacesService(),
           proximityRadiusMeters: proximityRadiusMeters,
           tileDwellDuration: tileDwellDuration,
           autoCollapseDuration: autoCollapseDuration,
+          recommendationAutoCollapseDuration:
+              recommendationAutoCollapseDuration,
           tileAnnouncementCooldown: tileAnnouncementCooldown,
           maxSpeedMpsForPopup: maxSpeedMpsForPopup,
         ),
@@ -588,6 +647,284 @@ void main() {
       expect(find.text('Locations in this tile'), findsNothing);
     },
   );
+
+  testWidgets(
+    'first tile unlock during active journey triggers recommendation for highest-rated unvisited place and speaks via voice',
+    (tester) async {
+      final authProvider = _TestAuthProvider(voiceEnabled: true);
+      final places = [
+        testPlace(
+          id: 101,
+          name: 'Corner Cafe',
+          rating: 4.1,
+          location: const LatLng(-37.8130, 144.9630),
+        ),
+        testPlace(
+          id: 102,
+          name: 'State Library',
+          rating: 4.9,
+          location: const LatLng(-37.8120, 144.9620),
+        ),
+        testPlace(
+          id: 103,
+          name: 'Bus Stop 12',
+          category: PlaceCategory.publicTransport,
+          rating: 5.0,
+          location: const LatLng(-37.8110, 144.9610),
+        ),
+      ];
+      final placesService = _FakePlacesService([], {'tile_1': places});
+      mapController.currentRegion = _createRegion(
+        id: 'tile_1',
+        name: 'Carlton',
+      );
+
+      await tester.pumpWidget(
+        buildTestWidget(
+          journeyController: journeyController,
+          authProvider: authProvider,
+          placesService: placesService,
+        ),
+      );
+      await tester.pump(const Duration(milliseconds: 100));
+
+      // Journey is not tracking yet -> unlocking tile does not trigger recommendation
+      journeyController.unlockTile('tile_1');
+      await tester.pump(const Duration(milliseconds: 100));
+      expect(find.textContaining('Roammate suggests:'), findsNothing);
+
+      // Start tracking
+      journeyController.startTracking();
+      // Allow async fetch & build
+      await tester.pump(const Duration(milliseconds: 100));
+      await tester.pump(const Duration(milliseconds: 400));
+
+      // Recommendation should be visible for State Library (highest unvisited rating 4.9, public transport excluded)
+      expect(
+        find.textContaining('Roammate suggests: State Library ★ 4.9'),
+        findsOneWidget,
+      );
+      expect(find.byIcon(Icons.auto_awesome_rounded), findsOneWidget);
+
+      // Verify voice announcement was triggered
+      expect(speechEngine.spokenMessages.length, 1);
+      expect(speechEngine.spokenMessages.first, contains('State Library'));
+      expect(speechEngine.spokenMessages.first, contains('rated 4.9'));
+      expect(speechEngine.spokenMessages.first, contains('Carlton'));
+    },
+  );
+
+  testWidgets(
+    'tapping recommendation banner navigates to location and triggers onPlaceSelected without stopping journey tracking',
+    (tester) async {
+      final library = testPlace(
+        id: 201,
+        name: 'Matheson Library',
+        rating: 4.8,
+        location: const LatLng(-37.9100, 145.1300),
+      );
+      final placesService = _FakePlacesService([], {
+        'tile_uni': [library],
+      });
+
+      PlaceOfInterest? selectedPlace;
+      await tester.pumpWidget(
+        buildTestWidget(
+          journeyController: journeyController,
+          placesService: placesService,
+          onPlaceSelected: (p) => selectedPlace = p,
+        ),
+      );
+      await tester.pump(const Duration(milliseconds: 100));
+
+      journeyController.startTracking();
+      journeyController.unlockTile('tile_uni');
+      await tester.pump(const Duration(milliseconds: 100));
+      await tester.pump(const Duration(milliseconds: 400));
+
+      expect(find.textContaining('Matheson Library'), findsOneWidget);
+
+      // Tap recommendation banner
+      await tester.tap(find.textContaining('Matheson Library'));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 400));
+
+      // Callback invoked with selected place
+      expect(selectedPlace?.id, 201);
+      expect(selectedPlace?.name, 'Matheson Library');
+
+      // Banner is dismissed
+      expect(find.textContaining('Roammate suggests:'), findsNothing);
+
+      // Journey is STILL tracking!
+      expect(journeyController.isTracking, isTrue);
+    },
+  );
+
+  testWidgets(
+    'subsequent 1 km distance milestone triggers next unvisited recommendation',
+    (tester) async {
+      final placeA = testPlace(
+        id: 301,
+        name: 'First Stop Coffee',
+        rating: 4.9,
+        location: const LatLng(-37.8130, 144.9630),
+      );
+      final placeB = testPlace(
+        id: 302,
+        name: 'Second Stop Park',
+        rating: 4.7,
+        location: const LatLng(-37.8140, 144.9640),
+      );
+      final placesService = _FakePlacesService([], {
+        'tile_1': [placeA, placeB],
+      });
+
+      await tester.pumpWidget(
+        buildTestWidget(
+          journeyController: journeyController,
+          placesService: placesService,
+        ),
+      );
+      await tester.pump(const Duration(milliseconds: 100));
+
+      // First unlock triggers placeA
+      journeyController.startTracking();
+      journeyController.unlockTile('tile_1');
+      await tester.pump(const Duration(milliseconds: 100));
+      await tester.pump(const Duration(milliseconds: 400));
+
+      expect(find.textContaining('First Stop Coffee'), findsOneWidget);
+
+      // Dismiss first banner via (✕) close button
+      await tester.tap(find.byIcon(Icons.close_rounded));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 400));
+      expect(find.textContaining('First Stop Coffee'), findsNothing);
+
+      // Progress distance by 500m (not yet 1000m milestone)
+      journeyController.updateDistance(500.0);
+      await tester.pump(const Duration(milliseconds: 100));
+      expect(find.textContaining('Roammate suggests:'), findsNothing);
+
+      // Reach 1,000m milestone!
+      journeyController.updateDistance(1005.0);
+      await tester.pump(const Duration(milliseconds: 100));
+      await tester.pump(const Duration(milliseconds: 400));
+
+      // Second recommendation should pop up with placeB
+      expect(find.textContaining('Second Stop Park'), findsOneWidget);
+    },
+  );
+
+  testWidgets(
+    'does not trigger recommendation if all places in unlocked tiles are already visited',
+    (tester) async {
+      final visitedPlace = testPlace(
+        id: 401,
+        name: 'Already Seen Monument',
+        rating: 5.0,
+      );
+      final placesService = _FakePlacesService([], {
+        'tile_done': [visitedPlace],
+      });
+
+      await mapController.setUserId('test-user');
+      await mapController.markPlaceAsVisited(visitedPlace);
+
+      await tester.pumpWidget(
+        buildTestWidget(
+          journeyController: journeyController,
+          placesService: placesService,
+        ),
+      );
+      await tester.pump(const Duration(milliseconds: 100));
+
+      journeyController.startTracking();
+      journeyController.unlockTile('tile_done');
+      await tester.pump(const Duration(milliseconds: 100));
+      await tester.pump(const Duration(milliseconds: 400));
+
+      // No recommendation banner shown (no generic spam)
+      expect(find.textContaining('Roammate suggests:'), findsNothing);
+    },
+  );
+
+  testWidgets(
+    'auto-collapses recommendation banner after recommendationAutoCollapseDuration unless user interacts',
+    (tester) async {
+      final place = testPlace(id: 501, name: 'Quiet Garden', rating: 4.5);
+      final placesService = _FakePlacesService([], {
+        'tile_garden': [place],
+      });
+
+      await tester.pumpWidget(
+        buildTestWidget(
+          journeyController: journeyController,
+          placesService: placesService,
+          recommendationAutoCollapseDuration: const Duration(seconds: 2),
+        ),
+      );
+      await tester.pump(const Duration(milliseconds: 100));
+
+      journeyController.startTracking();
+      journeyController.unlockTile('tile_garden');
+      await tester.pump(const Duration(milliseconds: 100));
+      await tester.pump(const Duration(milliseconds: 400));
+
+      expect(find.textContaining('Quiet Garden'), findsOneWidget);
+
+      // User touches the card to cancel auto-collapse
+      await tester.tap(find.text('Locations in this tile'));
+      await tester.pump();
+
+      // Advance past 2s
+      await tester.pump(const Duration(seconds: 2));
+      await tester.pump(const Duration(milliseconds: 400));
+
+      // Card is still open because user interaction cancelled auto-collapse!
+      expect(find.textContaining('Quiet Garden'), findsOneWidget);
+
+      // Now close with ✕ button
+      await tester.tap(find.byIcon(Icons.close_rounded));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 400));
+
+      expect(find.textContaining('Quiet Garden'), findsNothing);
+    },
+  );
+
+  testWidgets('auto-collapses recommendation banner if left untouched', (
+    tester,
+  ) async {
+    final place = testPlace(id: 601, name: 'Fleeting View', rating: 4.6);
+    final placesService = _FakePlacesService([], {
+      'tile_view': [place],
+    });
+
+    await tester.pumpWidget(
+      buildTestWidget(
+        journeyController: journeyController,
+        placesService: placesService,
+        recommendationAutoCollapseDuration: const Duration(seconds: 2),
+      ),
+    );
+    await tester.pump(const Duration(milliseconds: 100));
+
+    journeyController.startTracking();
+    journeyController.unlockTile('tile_view');
+    await tester.pump(const Duration(milliseconds: 100));
+    await tester.pump(const Duration(milliseconds: 400));
+
+    expect(find.textContaining('Fleeting View'), findsOneWidget);
+
+    // Advance past 2s untouched
+    await tester.pump(const Duration(seconds: 2));
+    await tester.pump(const Duration(milliseconds: 400));
+
+    // Card collapsed automatically
+    expect(find.textContaining('Fleeting View'), findsNothing);
+  });
 }
 
 class _DummyAuthRepository implements AuthRepository {

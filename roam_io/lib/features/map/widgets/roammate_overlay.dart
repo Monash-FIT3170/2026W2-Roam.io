@@ -12,6 +12,7 @@ import '../../roammate/services/roammate_voice_service.dart';
 import '../data/map_controller.dart';
 import '../data/place_of_interest.dart';
 import '../data/places_service.dart';
+import '../../journeys/data/journey_controller.dart';
 import '../data/region_polygon.dart';
 
 class _TileBannerData {
@@ -21,15 +22,30 @@ class _TileBannerData {
   const _TileBannerData({required this.regionId, required this.regionName});
 }
 
+class _RecommendationData {
+  final PlaceOfInterest place;
+  final int distanceMeters;
+  final String regionName;
+
+  const _RecommendationData({
+    required this.place,
+    required this.distanceMeters,
+    required this.regionName,
+  });
+}
+
 class RoammateOverlay extends StatefulWidget {
   final MapController mapController;
   final HazardController? hazardController;
+  final JourneyController? journeyController;
   final void Function(HazardReport report)? onHazardSelected;
+  final void Function(PlaceOfInterest place)? onPlaceSelected;
   final RoammateVoiceService? voiceService;
   final PlacesService? placesService;
   final double proximityRadiusMeters;
   final Duration tileDwellDuration;
   final Duration autoCollapseDuration;
+  final Duration recommendationAutoCollapseDuration;
   final Duration tileAnnouncementCooldown;
   final double maxSpeedMpsForPopup;
 
@@ -37,12 +53,15 @@ class RoammateOverlay extends StatefulWidget {
     super.key,
     required this.mapController,
     this.hazardController,
+    this.journeyController,
     this.onHazardSelected,
+    this.onPlaceSelected,
     this.voiceService,
     this.placesService,
     this.proximityRadiusMeters = 500.0,
     this.tileDwellDuration = const Duration(milliseconds: 3500),
     this.autoCollapseDuration = const Duration(seconds: 5),
+    this.recommendationAutoCollapseDuration = const Duration(seconds: 8),
     this.tileAnnouncementCooldown = const Duration(minutes: 3),
     this.maxSpeedMpsForPopup = 25.0 / 3.6,
   });
@@ -63,6 +82,12 @@ class _RoammateOverlayState extends State<RoammateOverlay>
   Timer? _autoCollapseTimer;
   final Map<String, DateTime> _tileLastAnnouncedAt = {};
   _TileBannerData? _tileBannerData;
+
+  bool _firstTileUnlockTriggered = false;
+  double _lastMilestoneDistanceMeters = 0.0;
+  final Set<int> _recommendedPlaceIds = {};
+  final Map<String, List<PlaceOfInterest>> _cachedPlacesByTile = {};
+  _RecommendationData? _recommendationData;
 
   bool _showDetails = false;
   bool _isHazardsExpanded = false;
@@ -92,7 +117,9 @@ class _RoammateOverlayState extends State<RoammateOverlay>
 
     widget.mapController.addListener(_onMapControllerChanged);
     widget.hazardController?.addListener(_onHazardControllerChanged);
+    widget.journeyController?.addListener(_onJourneyControllerChanged);
     _onMapControllerChanged();
+    _checkJourneyRecommendations();
   }
 
   @override
@@ -107,18 +134,28 @@ class _RoammateOverlayState extends State<RoammateOverlay>
       widget.hazardController?.addListener(_onHazardControllerChanged);
       _checkAndAnnounceHazards();
     }
+    if (oldWidget.journeyController != widget.journeyController) {
+      oldWidget.journeyController?.removeListener(_onJourneyControllerChanged);
+      widget.journeyController?.addListener(_onJourneyControllerChanged);
+      _checkJourneyRecommendations();
+    }
   }
 
   @override
   void dispose() {
     widget.mapController.removeListener(_onMapControllerChanged);
     widget.hazardController?.removeListener(_onHazardControllerChanged);
+    widget.journeyController?.removeListener(_onJourneyControllerChanged);
     _cancelDwellTimer();
     _cancelAutoCollapseTimer();
     _breathingController.dispose();
     _canScrollUp.dispose();
     _canScrollDown.dispose();
     super.dispose();
+  }
+
+  void _onJourneyControllerChanged() {
+    _checkJourneyRecommendations();
   }
 
   void _cancelDwellTimer() {
@@ -133,6 +170,18 @@ class _RoammateOverlayState extends State<RoammateOverlay>
       setState(() {
         _showDetails = false;
         _tileBannerData = null;
+        _recommendationData = null;
+      });
+    });
+  }
+
+  void _startRecommendationAutoCollapseTimer() {
+    _cancelAutoCollapseTimer();
+    _autoCollapseTimer = Timer(widget.recommendationAutoCollapseDuration, () {
+      if (!mounted) return;
+      setState(() {
+        _showDetails = false;
+        _recommendationData = null;
       });
     });
   }
@@ -316,7 +365,9 @@ class _RoammateOverlayState extends State<RoammateOverlay>
           _allPlaces = places
               .where((p) => p.category != PlaceCategory.publicTransport)
               .toList();
+          _cachedPlacesByTile[regionId] = _allPlaces;
         });
+        _checkJourneyRecommendations();
       }
     } catch (e) {
       // ignore
@@ -329,6 +380,7 @@ class _RoammateOverlayState extends State<RoammateOverlay>
       _showDetails = !_showDetails;
       if (!_showDetails) {
         _tileBannerData = null;
+        _recommendationData = null;
       }
     });
   }
@@ -340,6 +392,7 @@ class _RoammateOverlayState extends State<RoammateOverlay>
     setState(() {
       _showDetails = false;
       _tileBannerData = null;
+      _recommendationData = null;
     });
   }
 
@@ -434,7 +487,7 @@ class _RoammateOverlayState extends State<RoammateOverlay>
                     ), // Heavily rounded corners
                     boxShadow: [
                       BoxShadow(
-                        color: Colors.black.withOpacity(0.15),
+                        color: Colors.black.withValues(alpha: 0.15),
                         blurRadius: 20,
                         offset: const Offset(0, 8),
                       ),
@@ -445,8 +498,14 @@ class _RoammateOverlayState extends State<RoammateOverlay>
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      // Top Tile Entry Banner if active
-                      if (_tileBannerData != null) ...[
+                      // Active contextual recommendation banner
+                      if (_recommendationData != null) ...[
+                        _buildRecommendationBanner(
+                          theme: theme,
+                          isDark: isDark,
+                        ),
+                        const SizedBox(height: 12),
+                      ] else if (_tileBannerData != null) ...[
                         _buildTileEntryBanner(theme: theme, isDark: isDark),
                         const SizedBox(height: 12),
                       ],
@@ -473,7 +532,7 @@ class _RoammateOverlayState extends State<RoammateOverlay>
                         Text(
                           'No locations available.',
                           style: theme.textTheme.bodyMedium?.copyWith(
-                            color: titleColor.withOpacity(0.6),
+                            color: titleColor.withValues(alpha: 0.6),
                           ),
                         )
                       else
@@ -532,10 +591,12 @@ class _RoammateOverlayState extends State<RoammateOverlay>
                                                 end: Alignment.bottomCenter,
                                                 colors: [
                                                   isDark
-                                                      ? Colors.black
-                                                            .withOpacity(0.4)
-                                                      : Colors.black
-                                                            .withOpacity(0.1),
+                                                      ? Colors.black.withValues(
+                                                          alpha: 0.4,
+                                                        )
+                                                      : Colors.black.withValues(
+                                                          alpha: 0.1,
+                                                        ),
                                                   Colors.transparent,
                                                 ],
                                               ),
@@ -568,10 +629,12 @@ class _RoammateOverlayState extends State<RoammateOverlay>
                                                 end: Alignment.topCenter,
                                                 colors: [
                                                   isDark
-                                                      ? Colors.black
-                                                            .withOpacity(0.4)
-                                                      : Colors.black
-                                                            .withOpacity(0.1),
+                                                      ? Colors.black.withValues(
+                                                          alpha: 0.4,
+                                                        )
+                                                      : Colors.black.withValues(
+                                                          alpha: 0.1,
+                                                        ),
                                                   Colors.transparent,
                                                 ],
                                               ),
@@ -606,7 +669,7 @@ class _RoammateOverlayState extends State<RoammateOverlay>
                 color: theme.colorScheme.primary,
                 boxShadow: [
                   BoxShadow(
-                    color: theme.colorScheme.primary.withOpacity(0.4),
+                    color: theme.colorScheme.primary.withValues(alpha: 0.4),
                     blurRadius: 12,
                     spreadRadius: 4,
                   ),
@@ -625,6 +688,248 @@ class _RoammateOverlayState extends State<RoammateOverlay>
         ),
       ],
     );
+  }
+
+  Widget _buildRecommendationBanner({
+    required ThemeData theme,
+    required bool isDark,
+  }) {
+    final rec = _recommendationData;
+    if (rec == null) return const SizedBox.shrink();
+
+    final ratingText = rec.place.rating != null ? ' ★ ${rec.place.rating}' : '';
+    final distanceText = ' • ${rec.distanceMeters}m away';
+    final bannerText =
+        'Roammate suggests: ${rec.place.name}$ratingText$distanceText';
+
+    final bannerBg = isDark
+        ? AppColors.lightSage.withValues(alpha: 0.22)
+        : AppColors.sage.withValues(alpha: 0.15);
+    final bannerBorder = isDark
+        ? AppColors.lightSage.withValues(alpha: 0.5)
+        : AppColors.sage;
+    final iconColor = isDark ? AppColors.lightSage : AppColors.sage;
+    final textColor = isDark ? AppColors.cream : AppColors.ink;
+
+    return Container(
+      decoration: BoxDecoration(
+        color: bannerBg,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: bannerBorder, width: 1.5),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          Expanded(
+            child: Material(
+              color: Colors.transparent,
+              child: InkWell(
+                onTap: () {
+                  _cancelAutoCollapseTimer();
+                  widget.mapController.animateToLocation(rec.place.location);
+                  widget.onPlaceSelected?.call(rec.place);
+                  setState(() {
+                    _showDetails = false;
+                    _recommendationData = null;
+                  });
+                },
+                borderRadius: const BorderRadius.horizontal(
+                  left: Radius.circular(14),
+                ),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 10,
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(
+                        Icons.auto_awesome_rounded,
+                        color: iconColor,
+                        size: 20,
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          bannerText,
+                          style: theme.textTheme.labelMedium?.copyWith(
+                            color: textColor,
+                            fontWeight: FontWeight.bold,
+                            letterSpacing: -0.2,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 4),
+                      Icon(
+                        Icons.chevron_right_rounded,
+                        color: iconColor,
+                        size: 20,
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.only(right: 6.0),
+            child: Material(
+              color: Colors.transparent,
+              child: InkWell(
+                onTap: () {
+                  _cancelAutoCollapseTimer();
+                  setState(() {
+                    _recommendationData = null;
+                    _showDetails = false;
+                  });
+                },
+                borderRadius: BorderRadius.circular(12),
+                child: Padding(
+                  padding: const EdgeInsets.all(6.0),
+                  child: Icon(
+                    Icons.close_rounded,
+                    size: 18,
+                    color: textColor.withValues(alpha: 0.6),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  PlaceOfInterest? _selectBestRecommendation(List<PlaceOfInterest> places) {
+    final candidates = places.where((p) {
+      if (widget.mapController.isPlaceVisited(p.id)) return false;
+      if (p.category == PlaceCategory.publicTransport) return false;
+      if (_recommendedPlaceIds.contains(p.id)) return false;
+      return true;
+    }).toList();
+
+    if (candidates.isEmpty) return null;
+
+    final userLoc = _currentLocation;
+
+    candidates.sort((a, b) {
+      // 1. Rating descending
+      final aRating = a.rating ?? -1.0;
+      final bRating = b.rating ?? -1.0;
+      if (aRating != bRating) {
+        return bRating.compareTo(aRating);
+      }
+      // 2. Proximity to user (closest first)
+      final aDist = _haversineDistance(userLoc, a.location);
+      final bDist = _haversineDistance(userLoc, b.location);
+      return aDist.compareTo(bDist);
+    });
+
+    return candidates.first;
+  }
+
+  Future<List<PlaceOfInterest>> _getPlacesForTile(String tileId) async {
+    if (widget.mapController.currentRegion?.id == tileId &&
+        _allPlaces.isNotEmpty) {
+      return _allPlaces;
+    }
+    if (_cachedPlacesByTile.containsKey(tileId)) {
+      return _cachedPlacesByTile[tileId]!;
+    }
+    try {
+      final places = await _placesService.getPlacesForRegion(regionId: tileId);
+      final filtered = places
+          .where((p) => p.category != PlaceCategory.publicTransport)
+          .toList();
+      _cachedPlacesByTile[tileId] = filtered;
+      return filtered;
+    } catch (_) {
+      return const [];
+    }
+  }
+
+  Future<void> _checkJourneyRecommendations() async {
+    final journey = widget.journeyController;
+    if (journey == null) return;
+
+    if (!journey.isTracking) {
+      _firstTileUnlockTriggered = false;
+      _lastMilestoneDistanceMeters = 0.0;
+      _recommendedPlaceIds.clear();
+      return;
+    }
+
+    if (_recommendationData != null) return;
+
+    // Trigger 1: First tile unlock of the journey
+    if (!_firstTileUnlockTriggered && journey.unlockedTileIds.isNotEmpty) {
+      final tileId = journey.unlockedTileIds.last;
+      final regionName = widget.mapController.currentRegion?.id == tileId
+          ? widget.mapController.currentRegion?.name ?? 'your journey'
+          : 'your journey';
+
+      final places = await _getPlacesForTile(tileId);
+      final best = _selectBestRecommendation(places);
+      if (best != null) {
+        _firstTileUnlockTriggered = true;
+        _triggerRecommendation(best, regionName: regionName);
+        return;
+      }
+    }
+
+    // Trigger 2: 1 km (1,000 m) distance milestones
+    final distance = journey.distanceMeters;
+    final currentMilestone = (distance / 1000.0).floor() * 1000.0;
+    if (currentMilestone >= 1000.0 &&
+        currentMilestone > _lastMilestoneDistanceMeters) {
+      _lastMilestoneDistanceMeters = currentMilestone;
+
+      for (final tileId in journey.unlockedTileIds) {
+        final places = await _getPlacesForTile(tileId);
+        final best = _selectBestRecommendation(places);
+        if (best != null) {
+          _triggerRecommendation(best, regionName: 'your journey');
+          return;
+        }
+      }
+    }
+  }
+
+  void _triggerRecommendation(
+    PlaceOfInterest place, {
+    required String regionName,
+  }) {
+    _recommendedPlaceIds.add(place.id);
+    final dist = _haversineDistance(_currentLocation, place.location).round();
+
+    setState(() {
+      _recommendationData = _RecommendationData(
+        place: place,
+        distanceMeters: dist,
+        regionName: regionName,
+      );
+      _showDetails = true;
+    });
+
+    _startRecommendationAutoCollapseTimer();
+
+    final voiceService = widget.voiceService ?? RoammateVoiceService.instance;
+    bool voiceEnabled = false;
+    try {
+      voiceEnabled = context.read<AuthProvider>().roammateVoiceEnabled;
+    } catch (_) {
+      voiceEnabled = false;
+    }
+
+    if (voiceEnabled) {
+      final message = RoammateMessage.journeyRecommendation(
+        placeName: place.name,
+        rating: place.rating,
+        distanceMeters: dist,
+        regionName: regionName,
+      );
+      unawaited(voiceService.speak(message.speech));
+    }
   }
 
   Widget _buildTileEntryBanner({

@@ -81,6 +81,7 @@ class JourneyController extends ChangeNotifier {
   List<LatLng> get routePoints => List.unmodifiable(_routePoints);
   double get distanceMeters => _distanceMeters;
   int get tilesUnlocked => _tilesUnlocked;
+  List<String> get unlockedTileIds => List.unmodifiable(_unlockedTileIds);
   int get tileXpEarned => _tileXpEarned;
   int get journeyXpEarned =>
       ((_distanceMeters / 100).round() * _transportMode.xpMultiplier).round();
