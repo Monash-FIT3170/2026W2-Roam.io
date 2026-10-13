@@ -1,15 +1,33 @@
 import 'dart:async';
+import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
-import '../data/map_controller.dart';
-import '../data/places_service.dart';
-import '../data/place_of_interest.dart';
+import 'package:provider/provider.dart';
 import '../../../theme/app_colours.dart';
+import '../../auth/providers/auth_provider.dart';
+import '../../hazards/data/hazard_controller.dart';
+import '../../hazards/domain/hazard_report.dart';
+import '../../roammate/domain/roammate_message.dart';
+import '../../roammate/services/roammate_voice_service.dart';
+import '../data/map_controller.dart';
+import '../data/place_of_interest.dart';
+import '../data/places_service.dart';
 
 class RoammateOverlay extends StatefulWidget {
   final MapController mapController;
+  final HazardController? hazardController;
+  final void Function(HazardReport report)? onHazardSelected;
+  final RoammateVoiceService? voiceService;
+  final double proximityRadiusMeters;
 
-  const RoammateOverlay({super.key, required this.mapController});
+  const RoammateOverlay({
+    super.key,
+    required this.mapController,
+    this.hazardController,
+    this.onHazardSelected,
+    this.voiceService,
+    this.proximityRadiusMeters = 500.0,
+  });
 
   @override
   State<RoammateOverlay> createState() => _RoammateOverlayState();
@@ -22,10 +40,10 @@ class _RoammateOverlayState extends State<RoammateOverlay>
 
   String? _lastRegionId;
   bool _showDetails = false;
+  bool _isHazardsExpanded = false;
 
   List<PlaceOfInterest> _allPlaces = [];
-  String _mockedSafetyIssue = '';
-  LatLng? _mockedHazardLocation;
+  final Set<String> _spokenHazardIds = {};
 
   final PlacesService _placesService = PlacesService();
 
@@ -47,12 +65,28 @@ class _RoammateOverlayState extends State<RoammateOverlay>
     );
 
     widget.mapController.addListener(_onMapControllerChanged);
+    widget.hazardController?.addListener(_onHazardControllerChanged);
     _onMapControllerChanged();
+  }
+
+  @override
+  void didUpdateWidget(RoammateOverlay oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.mapController != widget.mapController) {
+      oldWidget.mapController.removeListener(_onMapControllerChanged);
+      widget.mapController.addListener(_onMapControllerChanged);
+    }
+    if (oldWidget.hazardController != widget.hazardController) {
+      oldWidget.hazardController?.removeListener(_onHazardControllerChanged);
+      widget.hazardController?.addListener(_onHazardControllerChanged);
+      _checkAndAnnounceHazards();
+    }
   }
 
   @override
   void dispose() {
     widget.mapController.removeListener(_onMapControllerChanged);
+    widget.hazardController?.removeListener(_onHazardControllerChanged);
     _breathingController.dispose();
     _canScrollUp.dispose();
     _canScrollDown.dispose();
@@ -65,27 +99,87 @@ class _RoammateOverlayState extends State<RoammateOverlay>
       _lastRegionId = currentRegion.id;
       _fetchRegionData(currentRegion.id, currentRegion.name);
     }
+    _checkAndAnnounceHazards();
+    if (mounted) {
+      setState(() {});
+    }
+  }
+
+  void _onHazardControllerChanged() {
+    _checkAndAnnounceHazards();
+    if (mounted) {
+      setState(() {});
+    }
+  }
+
+  LatLng get _currentLocation =>
+      widget.mapController.latestUserLatLng ?? widget.mapController.center;
+
+  static double _haversineDistance(LatLng p1, LatLng p2) {
+    const double earthRadius = 6371000;
+    final double lat1Rad = p1.latitude * math.pi / 180;
+    final double lat2Rad = p2.latitude * math.pi / 180;
+    final double dLat = (p2.latitude - p1.latitude) * math.pi / 180;
+    final double dLng = (p2.longitude - p1.longitude) * math.pi / 180;
+
+    final double a =
+        math.sin(dLat / 2) * math.sin(dLat / 2) +
+        math.cos(lat1Rad) *
+            math.cos(lat2Rad) *
+            math.sin(dLng / 2) *
+            math.sin(dLng / 2);
+
+    final double c = 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a));
+    return earthRadius * c;
+  }
+
+  List<({HazardReport report, double distance})> get _nearbyHazards {
+    final hazardController = widget.hazardController;
+    if (hazardController == null) return const [];
+
+    final userLocation = _currentLocation;
+    final nearby = <({HazardReport report, double distance})>[];
+
+    for (final report in hazardController.activeReports) {
+      final distance = _haversineDistance(userLocation, report.location);
+      if (distance <= widget.proximityRadiusMeters) {
+        nearby.add((report: report, distance: distance));
+      }
+    }
+
+    nearby.sort((a, b) => a.distance.compareTo(b.distance));
+    return nearby;
+  }
+
+  void _checkAndAnnounceHazards() {
+    final nearby = _nearbyHazards;
+    if (nearby.isEmpty) return;
+
+    final voiceService = widget.voiceService ?? RoammateVoiceService.instance;
+    bool voiceEnabled = false;
+    try {
+      voiceEnabled = context.read<AuthProvider>().roammateVoiceEnabled;
+    } catch (_) {
+      voiceEnabled = false;
+    }
+
+    if (!voiceEnabled) return;
+
+    for (final item in nearby) {
+      if (!_spokenHazardIds.contains(item.report.id)) {
+        _spokenHazardIds.add(item.report.id);
+        final distanceRounded = item.distance.round();
+        final message = RoammateMessage.hazardNearby(
+          hazardCategoryLabel: item.report.category.displayLabel,
+          distanceMeters: distanceRounded,
+        );
+        unawaited(voiceService.speak(message.speech));
+        break;
+      }
+    }
   }
 
   Future<void> _fetchRegionData(String regionId, String regionName) async {
-    // Generate mocked safety issue based on region name length to make it deterministic but varied
-    final safetyIssues = [
-      'Slippery paths due to recent rain.',
-      'Uneven pavement reported ahead.',
-      'Construction work nearby, watch for detours.',
-      'Dim lighting in some alleys.',
-      'High traffic area, be careful crossing.',
-    ];
-    _mockedSafetyIssue =
-        safetyIssues[regionId.hashCode.abs() % safetyIssues.length];
-
-    // Mock a hazard location near the center of the current tile
-    final center = widget.mapController.center;
-    _mockedHazardLocation = LatLng(
-      center.latitude + 0.001,
-      center.longitude + 0.001,
-    );
-
     try {
       final places = await _placesService.getPlacesForRegion(
         regionId: regionId,
@@ -109,14 +203,12 @@ class _RoammateOverlayState extends State<RoammateOverlay>
     });
   }
 
-  void _onHazardTapped() {
-    if (_mockedHazardLocation != null) {
-      widget.mapController.animateToLocation(_mockedHazardLocation!);
-      // Optionally hide details to let them see the map
-      setState(() {
-        _showDetails = false;
-      });
-    }
+  void _handleHazardTapped(HazardReport report) {
+    widget.mapController.animateToLocation(report.location);
+    widget.onHazardSelected?.call(report);
+    setState(() {
+      _showDetails = false;
+    });
   }
 
   List<PlaceOfInterest> get _sortedPlaces {
@@ -218,65 +310,11 @@ class _RoammateOverlayState extends State<RoammateOverlay>
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    // Tappable Inline Hazard Banner
-                    if (_mockedSafetyIssue.isNotEmpty)
-                      Material(
-                        color: Colors.transparent,
-                        child: InkWell(
-                          onTap: _onHazardTapped,
-                          borderRadius: BorderRadius.circular(12),
-                          child: Container(
-                            padding: const EdgeInsets.all(12),
-                            decoration: BoxDecoration(
-                              color: Colors.red.shade50,
-                              borderRadius: BorderRadius.circular(12),
-                              border: Border.all(color: Colors.red.shade200),
-                            ),
-                            child: Row(
-                              crossAxisAlignment: CrossAxisAlignment.center,
-                              children: [
-                                Icon(
-                                  Icons.warning_amber_rounded,
-                                  color: Colors.red.shade700,
-                                  size: 24,
-                                ),
-                                const SizedBox(width: 12),
-                                Expanded(
-                                  child: Column(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
-                                    children: [
-                                      Text(
-                                        'Hazard Nearby',
-                                        style: theme.textTheme.labelMedium
-                                            ?.copyWith(
-                                              color: Colors.red.shade900,
-                                              fontWeight: FontWeight.bold,
-                                            ),
-                                      ),
-                                      const SizedBox(height: 2),
-                                      Text(
-                                        _mockedSafetyIssue,
-                                        style: theme.textTheme.bodySmall
-                                            ?.copyWith(
-                                              color: Colors.red.shade800,
-                                            ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                                Icon(
-                                  Icons.chevron_right,
-                                  color: Colors.red.shade700,
-                                  size: 20,
-                                ),
-                              ],
-                            ),
-                          ),
-                        ),
-                      ),
-
-                    const SizedBox(height: 20),
+                    // Active community hazards section
+                    if (_nearbyHazards.isNotEmpty) ...[
+                      _buildHazardSection(theme: theme, isDark: isDark),
+                      const SizedBox(height: 16),
+                    ],
 
                     Padding(
                       padding: const EdgeInsets.only(bottom: 12),
@@ -448,6 +486,212 @@ class _RoammateOverlayState extends State<RoammateOverlay>
           ),
         ),
       ],
+    );
+  }
+
+  Widget _buildHazardSection({required ThemeData theme, required bool isDark}) {
+    final nearby = _nearbyHazards;
+    if (nearby.isEmpty) return const SizedBox.shrink();
+
+    final hazardBg = isDark ? const Color(0x33EF4444) : const Color(0xFFFEF2F2);
+    final hazardBorder = isDark
+        ? const Color(0x66EF4444)
+        : const Color(0xFFFECACA);
+    final hazardTitleColor = isDark
+        ? const Color(0xFFFCA5A5)
+        : const Color(0xFF7F1D1D);
+    final hazardSubtitleColor = isDark
+        ? const Color(0xFFF87171)
+        : const Color(0xFF991B1B);
+    final hazardIconColor = isDark
+        ? const Color(0xFFF87171)
+        : const Color(0xFFDC2626);
+
+    if (nearby.length == 1) {
+      return _buildHazardItemCard(
+        item: nearby.first,
+        theme: theme,
+        isDark: isDark,
+        hazardBg: hazardBg,
+        hazardBorder: hazardBorder,
+        hazardTitleColor: hazardTitleColor,
+        hazardSubtitleColor: hazardSubtitleColor,
+        hazardIconColor: hazardIconColor,
+      );
+    }
+
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Material(
+          color: Colors.transparent,
+          child: InkWell(
+            onTap: () {
+              setState(() {
+                _isHazardsExpanded = !_isHazardsExpanded;
+              });
+            },
+            borderRadius: BorderRadius.circular(12),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+              decoration: BoxDecoration(
+                color: hazardBg,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: hazardBorder),
+              ),
+              child: Row(
+                children: [
+                  Icon(
+                    Icons.warning_amber_rounded,
+                    color: hazardIconColor,
+                    size: 22,
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          '${nearby.length} Hazards Nearby',
+                          style: theme.textTheme.labelMedium?.copyWith(
+                            color: hazardTitleColor,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        Text(
+                          'Closest ${nearby.first.distance.round()}m away',
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            color: hazardSubtitleColor,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  Icon(
+                    _isHazardsExpanded
+                        ? Icons.keyboard_arrow_up_rounded
+                        : Icons.keyboard_arrow_down_rounded,
+                    color: hazardIconColor,
+                    size: 22,
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+        if (_isHazardsExpanded)
+          Padding(
+            padding: const EdgeInsets.only(top: 8),
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxHeight: 160),
+              child: ListView.separated(
+                shrinkWrap: true,
+                padding: EdgeInsets.zero,
+                itemCount: nearby.length,
+                separatorBuilder: (context, index) => const SizedBox(height: 6),
+                itemBuilder: (context, index) {
+                  final item = nearby[index];
+                  return _buildHazardItemCard(
+                    item: item,
+                    theme: theme,
+                    isDark: isDark,
+                    hazardBg: hazardBg,
+                    hazardBorder: hazardBorder,
+                    hazardTitleColor: hazardTitleColor,
+                    hazardSubtitleColor: hazardSubtitleColor,
+                    hazardIconColor: hazardIconColor,
+                  );
+                },
+              ),
+            ),
+          ),
+      ],
+    );
+  }
+
+  Widget _buildHazardItemCard({
+    required ({HazardReport report, double distance}) item,
+    required ThemeData theme,
+    required bool isDark,
+    required Color hazardBg,
+    required Color hazardBorder,
+    required Color hazardTitleColor,
+    required Color hazardSubtitleColor,
+    required Color hazardIconColor,
+  }) {
+    final report = item.report;
+    final distanceMeters = item.distance.round();
+    final description = report.description?.trim();
+
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: () => _handleHazardTapped(report),
+        borderRadius: BorderRadius.circular(12),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+          decoration: BoxDecoration(
+            color: hazardBg,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: hazardBorder),
+          ),
+          child: Row(
+            children: [
+              Icon(report.category.icon, color: hazardIconColor, size: 22),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Row(
+                      children: [
+                        Flexible(
+                          child: Text(
+                            report.category.displayLabel,
+                            style: theme.textTheme.labelMedium?.copyWith(
+                              color: hazardTitleColor,
+                              fontWeight: FontWeight.bold,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                        const SizedBox(width: 6),
+                        Text(
+                          '${distanceMeters}m away',
+                          style: theme.textTheme.labelSmall?.copyWith(
+                            color: hazardSubtitleColor,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ],
+                    ),
+                    if (description != null && description.isNotEmpty) ...[
+                      const SizedBox(height: 2),
+                      Text(
+                        description,
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: hazardSubtitleColor,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+              const SizedBox(width: 6),
+              Icon(
+                Icons.chevron_right_rounded,
+                color: hazardIconColor,
+                size: 18,
+              ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 }

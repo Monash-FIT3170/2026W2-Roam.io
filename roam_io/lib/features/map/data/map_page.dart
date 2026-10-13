@@ -1036,7 +1036,11 @@ class _MapPageState extends State<MapPage> with WidgetsBindingObserver {
         Positioned(
           right: 16,
           bottom: isLiveJourneyActive ? 420 : 180,
-          child: RoammateOverlay(mapController: _mapController),
+          child: RoammateOverlay(
+            mapController: _mapController,
+            hazardController: _hazardController,
+            onHazardSelected: _showHazardDetails,
+          ),
         ),
 
         Positioned(

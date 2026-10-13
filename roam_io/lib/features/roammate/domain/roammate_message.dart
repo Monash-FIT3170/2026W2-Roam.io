@@ -22,4 +22,16 @@ class RoammateMessage {
       speech: 'New region unlocked. You earned $xpAwarded XP.',
     );
   }
+
+  /// Message produced when a hazard is detected nearby.
+  factory RoammateMessage.hazardNearby({
+    required String hazardCategoryLabel,
+    required int distanceMeters,
+  }) {
+    return RoammateMessage(
+      text: 'Hazard Nearby: $hazardCategoryLabel ($distanceMeters m away)',
+      speech:
+          'Caution: $hazardCategoryLabel reported $distanceMeters meters away.',
+    );
+  }
 }

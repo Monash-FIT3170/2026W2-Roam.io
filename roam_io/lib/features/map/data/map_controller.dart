@@ -178,7 +178,12 @@ class MapController extends ChangeNotifier {
   /// Latest usable travel heading, normalized to a map bearing in [0, 360).
   /// Remains null until the location source supplies heading information.
   double? get deviceHeading => _deviceHeading;
+
+  /// Latest user position reported by GPS location updates.
+  LatLng? get latestUserLatLng => _latestUserLatLng;
+
   ExplorationMode get currentMode => _currentMode;
+
   Set<int> get visitedPlaceIds => Set.unmodifiable(_visitedPlaceIds);
   Set<String> get visitedRegionIds => Set.unmodifiable(_visitedRegionIds);
   Set<String> get fogClearedRegionIds => Set.unmodifiable(_fogClearedRegionIds);

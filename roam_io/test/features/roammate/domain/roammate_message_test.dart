@@ -15,4 +15,14 @@ void main() {
     expect(message.text, 'Unlocked New Region +75 XP');
     expect(message.speech, 'New region unlocked. You earned 75 XP.');
   });
+
+  test('hazardNearby provides matching text and speech output', () {
+    final message = RoammateMessage.hazardNearby(
+      hazardCategoryLabel: 'Pothole',
+      distanceMeters: 120,
+    );
+
+    expect(message.text, 'Hazard Nearby: Pothole (120 m away)');
+    expect(message.speech, 'Caution: Pothole reported 120 meters away.');
+  });
 }
