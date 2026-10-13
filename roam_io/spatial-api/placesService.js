@@ -32,6 +32,17 @@ const TRANSPORT_TYPES = [
   'transit_station',
 ];
 
+// Table A types only — Places Nearby Search rejects some Table B types
+// (e.g. transit_station) when used in includedTypes.
+const TRANSPORT_FILTER_TYPES = [
+  'bus_stop',
+  'bus_station',
+  'train_station',
+  'tram_stop',
+  'light_rail_station',
+  'subway_station',
+];
+
 /**
  * Fetch places from Google Places API for a given location.
  * Uses the new Places API (v1) with field masks to minimize cost.
@@ -40,6 +51,9 @@ const TRANSPORT_TYPES = [
  * @param {number} lngArg - Longitude of the center point.
  * @param {number} radiusMetresArg - Search radius in metres (default: 2000).
  * @returns {Promise<Array>} Array of place objects from Google
+ *
+ * Pass `includedTypes: null` to omit type filters. Google rejects requests that
+ * combine rankPreference=DISTANCE with includedTypes.
  */
 async function fetchPlacesFromGoogle(latOrOptions, lngArg, radiusMetresArg = 2000) {
   if (!GOOGLE_PLACES_API_KEY) {
@@ -60,9 +74,16 @@ async function fetchPlacesFromGoogle(latOrOptions, lngArg, radiusMetresArg = 200
     rankPreference,
   } = options;
   const searchRadius = radiusMeters ?? radiusMetres;
+  const typeFilters =
+    includedTypes === null || includedTypes === undefined
+      ? null
+      : includedTypes;
+  const effectiveRankPreference =
+    rankPreference === 'DISTANCE' && typeFilters && typeFilters.length > 0
+      ? undefined
+      : rankPreference;
 
   const requestBody = {
-    includedTypes,
     maxResultCount: Math.min(20, maxResults),
     locationRestriction: {
       circle: {
@@ -74,30 +95,40 @@ async function fetchPlacesFromGoogle(latOrOptions, lngArg, radiusMetresArg = 200
       },
     },
   };
-  if (rankPreference) {
-    requestBody.rankPreference = rankPreference;
+  if (typeFilters && typeFilters.length > 0) {
+    requestBody.includedTypes = typeFilters;
+  }
+  if (effectiveRankPreference) {
+    requestBody.rankPreference = effectiveRankPreference;
   }
 
   console.log(`[PlacesAPI] Requesting places at (${lat}, ${lng}) with radius ${searchRadius}m`);
   console.log('[PlacesAPI] Request body:', JSON.stringify(requestBody, null, 2));
 
-  const response = await axios.post(NEARBY_SEARCH_URL, requestBody, {
-    headers: {
-      'Content-Type': 'application/json',
-      'X-Goog-Api-Key': GOOGLE_PLACES_API_KEY,
-      // Request only essential fields (cheaper/free tier)
-      'X-Goog-FieldMask': [
-        'places.id',
-        'places.displayName',
-        'places.types',
-        'places.location',
-        'places.rating',
-        'places.userRatingCount',
-        'places.formattedAddress',
-        'places.photos',
-      ].join(','),
-    },
-  });
+  let response;
+  try {
+    response = await axios.post(NEARBY_SEARCH_URL, requestBody, {
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Goog-Api-Key': GOOGLE_PLACES_API_KEY,
+        // Request only essential fields (cheaper/free tier)
+        'X-Goog-FieldMask': [
+          'places.id',
+          'places.displayName',
+          'places.types',
+          'places.location',
+          'places.rating',
+          'places.userRatingCount',
+          'places.formattedAddress',
+          'places.photos',
+        ].join(','),
+      },
+    });
+  } catch (error) {
+    const details = error.response?.data || error.message;
+    console.error('[PlacesAPI] Request failed:', JSON.stringify(details));
+    throw error;
+  }
 
   const places = response.data.places || [];
   console.log(`[PlacesAPI] Response status: ${response.status}`);
@@ -158,4 +189,5 @@ module.exports = {
   mapToCategory,
   INCLUDED_TYPES,
   TRANSPORT_TYPES,
+  TRANSPORT_FILTER_TYPES,
 };

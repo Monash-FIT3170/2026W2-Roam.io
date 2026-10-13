@@ -217,6 +217,7 @@ class _NotificationIcon extends StatelessWidget {
       NotificationType.error => Icons.error_outline,
       NotificationType.activity => Icons.directions_walk,
       NotificationType.fogDecay => Icons.cloud_outlined,
+      NotificationType.trainStationProximity => Icons.train_outlined,
     };
   }
 }
