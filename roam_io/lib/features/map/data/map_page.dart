@@ -1,6 +1,6 @@
 /*
  * Author: Sanjevan Rajasegar
- * Last Updated: 21 August 2026
+ * Last Updated: 06/10/2026
  * Description:
  *   Hosts the map screen and wires widget lifecycle to the map controller. This
  *   file keeps UI thin while controller setup, visit XP wiring, heatmap
@@ -43,6 +43,8 @@ import '../../journeys/widgets/journey_tracking_card.dart';
 import '../../journeys/widgets/past_journey_summary_sheet.dart';
 import '../../journeys/widgets/start_journey_sheet.dart';
 import '../../profile/domain/xp_event.dart';
+import '../../roammate/domain/roammate_message.dart';
+import '../../roammate/services/roammate_voice_service.dart';
 import '../../../shared/widgets/activity_saved_celebration.dart';
 import '../../../shared/widgets/app_bottom_nav_bar.dart';
 import '../../../shared/widgets/app_toast.dart';
@@ -53,6 +55,7 @@ import '../fog/fog_decay_difficulty.dart';
 import '../widgets/map_render.dart';
 import '../widgets/place_marker_legend.dart';
 import '../widgets/mode_toggle_chip.dart';
+import '../widgets/roammate_overlay.dart';
 import 'map_controller.dart';
 import 'place_details_sheet.dart';
 import 'place_of_interest.dart';
@@ -464,17 +467,23 @@ class _MapPageState extends State<MapPage> with WidgetsBindingObserver {
       areaSquareMetres: region.areaSquareMetres,
     );
 
-    final message = 'Unlocked New Region +$xpAwarded XP';
+    final roammateMessage = RoammateMessage.tileUnlocked(xpAwarded);
     final auth = context.read<AuthProvider>();
+
+    // Speech is deliberately fire-and-forget so audio output never blocks map
+    // updates, journey tracking, or the existing visual unlock feedback.
+    if (auth.roammateVoiceEnabled) {
+      unawaited(RoammateVoiceService.instance.speak(roammateMessage.speech));
+    }
 
     // When XP triggers a level-up, show the unlock toast inside the celebration
     // overlay (below the centered content) instead of as a scaffold snackbar.
     if (auth.pendingXpCelebration != null) {
-      auth.stageUnlockToast(message);
+      auth.stageUnlockToast(roammateMessage.text);
       return;
     }
 
-    AppToast.success(context, message);
+    AppToast.success(context, roammateMessage.text);
   }
 
   @override
@@ -1024,12 +1033,23 @@ class _MapPageState extends State<MapPage> with WidgetsBindingObserver {
             ),
           ),
 
-        if (!isLiveJourneyActive)
-          Positioned(
-            left: 16,
-            bottom: bottomNavigationClearance,
-            child: _SideQuestsButton(onPressed: _openSideQuests),
+        Positioned(
+          right: 16,
+          bottom: isLiveJourneyActive ? 420 : 180,
+          child: RoammateOverlay(
+            mapController: _mapController,
+            hazardController: _hazardController,
+            journeyController: journeyController,
+            onHazardSelected: _showHazardDetails,
+            onPlaceSelected: _showPlaceDetails,
           ),
+        ),
+
+        Positioned(
+          left: 16,
+          bottom: isLiveJourneyActive ? 220 : 120,
+          child: _SideQuestsButton(onPressed: _openSideQuests),
+        ),
         // Start Journey is available only while no Journey is active.
         if (canStartJourney)
           Positioned(

@@ -1,6 +1,6 @@
 /*
  * Author: Sanjevan Rajasegar
- * Last Updated: 7 August 2026
+ * Last Updated: 06/10/2026
  * Description:
  *   Provides Firestore profile document operations for account details,
  *   preferences, profile photo metadata, public search projection, and
@@ -104,6 +104,17 @@ class ProfileService {
   }) {
     return _profiles.doc(uid).update(<String, dynamic>{
       'fogDecayDifficulty': difficulty.storageValue,
+      'updatedAt': DateTime.now().toIso8601String(),
+    });
+  }
+
+  /// Updates whether supported Roammate messages may be spoken aloud.
+  Future<void> updateRoammateVoicePreference({
+    required String uid,
+    required bool enabled,
+  }) {
+    return _profiles.doc(uid).update(<String, dynamic>{
+      'roammateVoiceEnabled': enabled,
       'updatedAt': DateTime.now().toIso8601String(),
     });
   }

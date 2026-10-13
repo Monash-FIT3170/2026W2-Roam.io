@@ -178,7 +178,24 @@ class MapController extends ChangeNotifier {
   /// Latest usable travel heading, normalized to a map bearing in [0, 360).
   /// Remains null until the location source supplies heading information.
   double? get deviceHeading => _deviceHeading;
+
+  /// Latest user position reported by GPS location updates.
+  LatLng? get latestUserLatLng => _latestUserLatLng;
+
+  /// Latest raw GPS position received from geolocation updates.
+  Position? get latestPosition => _latestPosition;
+
+  /// Latest user travel speed in meters per second (m/s), or 0.0 if stationary/unknown.
+  double get userSpeedMps => _latestPosition?.speed ?? 0.0;
+
+  @visibleForTesting
+  void setPositionForTesting(Position position) {
+    _rememberPosition(position);
+    notifyListeners();
+  }
+
   ExplorationMode get currentMode => _currentMode;
+
   Set<int> get visitedPlaceIds => Set.unmodifiable(_visitedPlaceIds);
   Set<String> get visitedRegionIds => Set.unmodifiable(_visitedRegionIds);
   Set<String> get fogClearedRegionIds => Set.unmodifiable(_fogClearedRegionIds);
@@ -366,6 +383,13 @@ class MapController extends ChangeNotifier {
     }
     // Deliberately not a follow move: this answers a tap and stays snappy.
     await _moveCameraTo(position);
+  }
+
+  /// Animates the camera to a specific location on the map.
+  Future<void> animateToLocation(LatLng location) async {
+    _isFollowingUser = false;
+    _followCameraPacer.reset();
+    await _moveCameraToLatLng(location);
   }
 
   /// Keeps the map in sync with a location produced by journey tracking.
