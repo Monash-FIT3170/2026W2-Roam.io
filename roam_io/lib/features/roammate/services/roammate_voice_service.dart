@@ -57,8 +57,7 @@ class FlutterTtsRoammateSpeechEngine implements RoammateSpeechEngine {
 /// preference. The preference is stored with the user's profile.
 class RoammateVoiceService {
   RoammateVoiceService({RoammateSpeechEngine? speechEngine})
-    : _speechEngine =
-          speechEngine ?? FlutterTtsRoammateSpeechEngine();
+    : _speechEngine = speechEngine ?? FlutterTtsRoammateSpeechEngine();
 
   static final RoammateVoiceService instance = RoammateVoiceService();
 

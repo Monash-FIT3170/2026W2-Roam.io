@@ -108,6 +108,17 @@ class ProfileService {
     });
   }
 
+  /// Updates whether supported Roammate messages may be spoken aloud.
+  Future<void> updateRoammateVoicePreference({
+    required String uid,
+    required bool enabled,
+  }) {
+    return _profiles.doc(uid).update(<String, dynamic>{
+      'roammateVoiceEnabled': enabled,
+      'updatedAt': DateTime.now().toIso8601String(),
+    });
+  }
+
   /// Legacy wrapper retained for callers that still expose a boolean switch.
   Future<void> updateDarkModePreference({
     required String uid,
