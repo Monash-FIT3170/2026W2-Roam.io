@@ -41,6 +41,7 @@ import '../data/social_privacy_service.dart';
 import '../domain/follow_relationship_state.dart';
 import '../domain/public_profile.dart';
 import '../widgets/follow_relationship_button.dart';
+import '../widgets/social_card.dart';
 import '../widgets/social_message.dart';
 import 'follow_connections_screen.dart';
 
@@ -424,11 +425,7 @@ class _PrivateProfileSummary extends StatelessWidget {
             Container(
               width: double.infinity,
               padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-              decoration: BoxDecoration(
-                color: AppSurfaces.card(context),
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: AppSurfaces.border(context)),
-              ),
+              decoration: SocialCard.decoration(context),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [

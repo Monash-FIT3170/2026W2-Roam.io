@@ -24,6 +24,7 @@ import '../data/follow_service.dart';
 import '../data/friendship_service.dart';
 import '../domain/public_profile.dart';
 import '../widgets/follow_relationship_button.dart';
+import '../widgets/social_card.dart';
 import '../widgets/social_avatar.dart';
 import '../widgets/social_message.dart';
 import 'other_user_profile_screen.dart';
@@ -304,11 +305,7 @@ class _PersonResultRow extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: AppSurfaces.card(context),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: AppSurfaces.border(context)),
-      ),
+      decoration: SocialCard.decoration(context),
       child: Row(
         children: [
           Expanded(

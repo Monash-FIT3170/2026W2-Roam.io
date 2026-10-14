@@ -22,6 +22,7 @@ import '../data/friendship_service.dart';
 import '../domain/public_profile.dart';
 import '../widgets/follow_relationship_button.dart';
 import '../widgets/private_follow_confirm.dart';
+import '../widgets/social_card.dart';
 import '../widgets/social_avatar.dart';
 import '../widgets/social_message.dart';
 import 'other_user_profile_screen.dart';
@@ -158,11 +159,7 @@ class _ConnectionRow extends StatelessWidget {
 
         return Container(
           padding: const EdgeInsets.all(14),
-          decoration: BoxDecoration(
-            color: AppSurfaces.card(context),
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: AppSurfaces.border(context)),
-          ),
+          decoration: SocialCard.decoration(context),
           child: Row(
             children: [
               Expanded(

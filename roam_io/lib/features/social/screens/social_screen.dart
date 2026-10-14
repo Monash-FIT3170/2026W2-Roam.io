@@ -20,6 +20,7 @@ import '../../party/screens/party_screen.dart';
 import '../data/follow_service.dart';
 import '../data/friendship_service.dart';
 import '../domain/public_profile.dart';
+import '../widgets/social_card.dart';
 import 'find_people_screen.dart';
 import 'leaderboard_screen.dart';
 
@@ -137,12 +138,13 @@ class _SocialDestinationCard extends StatelessWidget {
 
     return InkWell(
       onTap: onTap,
-      borderRadius: BorderRadius.circular(16),
+      borderRadius: SocialCard.borderRadius,
       child: Container(
         padding: const EdgeInsets.all(20),
         decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: SocialCard.borderRadius,
           color: color,
+          boxShadow: AppSurfaces.cardShadow(context),
         ),
         child: Row(
           children: [

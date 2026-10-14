@@ -6,6 +6,7 @@ import '../../../theme/app_surfaces.dart';
 import '../data/leaderboard_service.dart';
 import '../domain/leaderboard_entry.dart';
 import '../widgets/social_avatar.dart';
+import '../widgets/social_card.dart';
 import '../widgets/social_message.dart';
 
 class LeaderboardScreen extends StatefulWidget {
@@ -75,11 +76,7 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
                   width: double.infinity,
                   margin: const EdgeInsets.fromLTRB(20, 8, 20, 16),
                   padding: const EdgeInsets.all(24),
-                  decoration: BoxDecoration(
-                    color: AppSurfaces.card(context),
-                    borderRadius: BorderRadius.circular(16),
-                    border: Border.all(color: AppSurfaces.border(context)),
-                  ),
+                  decoration: SocialCard.decoration(context),
                   child: Column(
                     children: [
                       Stack(
@@ -132,48 +129,52 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
                 // Remaining Users List
                 Expanded(
                   child: ListView.separated(
+                    padding: const EdgeInsets.fromLTRB(20, 0, 20, 24),
                     itemCount: entries.length,
                     separatorBuilder: (context, index) =>
-                        const Divider(height: 1),
+                        const SizedBox(height: 10),
                     itemBuilder: (context, index) {
                       final entry = entries[index];
-                      return ListTile(
-                        leading: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            SizedBox(
-                              width: 30,
-                              child: Text(
-                                '${index + 1}',
-                                textAlign: TextAlign.center,
-                                style: textTheme.titleMedium?.copyWith(
-                                  fontWeight: FontWeight.w800,
-                                  color: index == 0
-                                      ? AppColors.clay
-                                      : AppSurfaces.textPrimary(context),
+                      return DecoratedBox(
+                        decoration: SocialCard.decoration(context),
+                        child: ListTile(
+                          leading: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              SizedBox(
+                                width: 30,
+                                child: Text(
+                                  '${index + 1}',
+                                  textAlign: TextAlign.center,
+                                  style: textTheme.titleMedium?.copyWith(
+                                    fontWeight: FontWeight.w800,
+                                    color: index == 0
+                                        ? AppColors.clay
+                                        : AppSurfaces.textPrimary(context),
+                                  ),
                                 ),
                               ),
-                            ),
-                            const SizedBox(width: 8),
-                            SocialAvatar(
-                              displayName: entry.displayName,
-                              photoUrl: entry.photoUrl,
-                              radius: 20,
-                            ),
-                          ],
-                        ),
-                        title: Text(
-                          entry.displayName,
-                          style: textTheme.titleMedium?.copyWith(
-                            color: AppSurfaces.textPrimary(context),
-                            fontWeight: FontWeight.w800,
+                              const SizedBox(width: 8),
+                              SocialAvatar(
+                                displayName: entry.displayName,
+                                photoUrl: entry.photoUrl,
+                                radius: 20,
+                              ),
+                            ],
                           ),
-                        ),
-                        trailing: Text(
-                          _formatMetric(entry),
-                          style: textTheme.bodyMedium?.copyWith(
-                            fontWeight: FontWeight.w700,
-                            color: AppSurfaces.textMuted(context),
+                          title: Text(
+                            entry.displayName,
+                            style: textTheme.titleMedium?.copyWith(
+                              color: AppSurfaces.textPrimary(context),
+                              fontWeight: FontWeight.w800,
+                            ),
+                          ),
+                          trailing: Text(
+                            _formatMetric(entry),
+                            style: textTheme.bodyMedium?.copyWith(
+                              fontWeight: FontWeight.w700,
+                              color: AppSurfaces.textMuted(context),
+                            ),
                           ),
                         ),
                       );
