@@ -1,6 +1,7 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
+import '../../../theme/app_colours.dart';
 import '../../../theme/app_surfaces.dart';
 import '../data/leaderboard_service.dart';
 import '../domain/leaderboard_entry.dart';
@@ -83,7 +84,7 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
                             bottom: -12,
                             child: Icon(
                               Icons.workspace_premium,
-                              color: Colors.amber,
+                              color: AppColors.clay,
                               size: 36,
                             ),
                           ),
@@ -97,11 +98,11 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
                           fontWeight: FontWeight.bold,
                         ),
                       ),
-                      const Text(
+                      Text(
                         '#1 Leader',
                         style: TextStyle(
                           fontSize: 14,
-                          color: Colors.grey,
+                          color: AppSurfaces.textMuted(context),
                           fontWeight: FontWeight.w600,
                         ),
                       ),
@@ -140,8 +141,8 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
                                   fontWeight: FontWeight.bold,
                                   fontSize: 16,
                                   color: index == 0
-                                      ? Colors.amber
-                                      : Colors.black87,
+                                      ? AppColors.clay
+                                      : AppSurfaces.textPrimary(context),
                                 ),
                               ),
                             ),
@@ -159,10 +160,10 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
                         ),
                         trailing: Text(
                           _formatMetric(entry),
-                          style: const TextStyle(
+                          style: TextStyle(
                             fontSize: 14,
                             fontWeight: FontWeight.w500,
-                            color: Colors.black54,
+                            color: AppSurfaces.textMuted(context),
                           ),
                         ),
                       );
