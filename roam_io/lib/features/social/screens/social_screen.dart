@@ -74,46 +74,48 @@ class SocialScreen extends StatelessWidget {
               ),
             ),
             Expanded(
-              child: ListView(
-                padding: const EdgeInsets.fromLTRB(
-                  SocialLayout.gutter,
-                  8,
-                  SocialLayout.gutter,
-                  118,
-                ),
-                children: [
-                  _SocialDestinationCard(
-                    title: 'Leaderboards',
-                    subtitle: 'Compete with your social group!',
-                    icon: Icons.leaderboard_rounded,
-                    color: AppColors.sage,
-                    onTap: () => Navigator.of(context).push(
-                      MaterialPageRoute<void>(
-                        builder: (_) => const LeaderboardScreen(),
+              child: SocialContentWidth(
+                child: ListView(
+                  padding: const EdgeInsets.fromLTRB(
+                    SocialLayout.gutter,
+                    8,
+                    SocialLayout.gutter,
+                    118,
+                  ),
+                  children: [
+                    _SocialDestinationCard(
+                      title: 'Leaderboards',
+                      subtitle: 'Compete with your social group!',
+                      icon: Icons.leaderboard_rounded,
+                      color: AppColors.sage,
+                      onTap: () => Navigator.of(context).push(
+                        MaterialPageRoute<void>(
+                          builder: (_) => const LeaderboardScreen(),
+                        ),
                       ),
                     ),
-                  ),
-                  const SizedBox(height: SocialLayout.rowGap),
-                  _SocialDestinationCard(
-                    title: 'Party Mode',
-                    subtitle: 'Team up and claim map tiles together.',
-                    icon: Icons.groups_rounded,
-                    color: AppColors.clay,
-                    onTap: () {
-                      final currentParty = context
-                          .read<CurrentPartyProvider?>();
-                      Navigator.of(context).push(
-                        MaterialPageRoute<void>(
-                          builder: (_) => PartyScreen(
-                            partyService: _partyService ?? PartyService(),
-                            initialParty: currentParty?.currentParty,
-                            onPartyChanged: currentParty?.setParty,
+                    const SizedBox(height: SocialLayout.rowGap),
+                    _SocialDestinationCard(
+                      title: 'Party Mode',
+                      subtitle: 'Team up and claim map tiles together.',
+                      icon: Icons.groups_rounded,
+                      color: AppColors.clay,
+                      onTap: () {
+                        final currentParty = context
+                            .read<CurrentPartyProvider?>();
+                        Navigator.of(context).push(
+                          MaterialPageRoute<void>(
+                            builder: (_) => PartyScreen(
+                              partyService: _partyService ?? PartyService(),
+                              initialParty: currentParty?.currentParty,
+                              onPartyChanged: currentParty?.setParty,
+                            ),
                           ),
-                        ),
-                      );
-                    },
-                  ),
-                ],
+                        );
+                      },
+                    ),
+                  ],
+                ),
               ),
             ),
           ],

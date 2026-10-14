@@ -191,71 +191,77 @@ class _FindPeopleScreenState extends State<FindPeopleScreen> {
         backgroundColor: AppSurfaces.pageBackground(context),
       ),
       body: SafeArea(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Padding(
-              padding: const EdgeInsets.fromLTRB(
-                SocialLayout.gutter,
-                12,
-                SocialLayout.gutter,
-                16,
-              ),
-              child: TextField(
-                controller: _controller,
-                focusNode: _focusNode,
-                textInputAction: TextInputAction.search,
-                onChanged: _handleQueryChanged,
-                decoration: InputDecoration(
-                  hintText: 'Search by name or username...',
-                  hintStyle: TextStyle(color: AppSurfaces.textSubtle(context)),
-                  prefixIcon: Icon(
-                    Icons.search,
-                    color: AppSurfaces.textMuted(context),
-                  ),
-                  suffixIcon: _controller.text.isEmpty
-                      ? null
-                      : IconButton(
-                          tooltip: 'Clear search',
-                          icon: Icon(
-                            Icons.close_rounded,
-                            color: AppSurfaces.textMuted(context),
+        child: SocialContentWidth(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Padding(
+                padding: const EdgeInsets.fromLTRB(
+                  SocialLayout.gutter,
+                  12,
+                  SocialLayout.gutter,
+                  16,
+                ),
+                child: TextField(
+                  controller: _controller,
+                  focusNode: _focusNode,
+                  textInputAction: TextInputAction.search,
+                  onChanged: _handleQueryChanged,
+                  decoration: InputDecoration(
+                    hintText: 'Search by name or username...',
+                    hintStyle: TextStyle(
+                      color: AppSurfaces.textSubtle(context),
+                    ),
+                    prefixIcon: Icon(
+                      Icons.search,
+                      color: AppSurfaces.textMuted(context),
+                    ),
+                    suffixIcon: _controller.text.isEmpty
+                        ? null
+                        : IconButton(
+                            tooltip: 'Clear search',
+                            icon: Icon(
+                              Icons.close_rounded,
+                              color: AppSurfaces.textMuted(context),
+                            ),
+                            onPressed: () {
+                              _controller.clear();
+                              _handleQueryChanged('');
+                            },
                           ),
-                          onPressed: () {
-                            _controller.clear();
-                            _handleQueryChanged('');
-                          },
-                        ),
-                  filled: true,
-                  fillColor: AppSurfaces.softCard(context),
-                  contentPadding: const EdgeInsets.symmetric(vertical: 14),
-                  enabledBorder: OutlineInputBorder(
-                    borderRadius: SocialCard.borderRadius,
-                    borderSide: BorderSide(color: AppSurfaces.border(context)),
-                  ),
-                  focusedBorder: OutlineInputBorder(
-                    borderRadius: SocialCard.borderRadius,
-                    borderSide: BorderSide(
-                      color: Theme.of(context).colorScheme.primary,
-                      width: 1.5,
+                    filled: true,
+                    fillColor: AppSurfaces.softCard(context),
+                    contentPadding: const EdgeInsets.symmetric(vertical: 14),
+                    enabledBorder: OutlineInputBorder(
+                      borderRadius: SocialCard.borderRadius,
+                      borderSide: BorderSide(
+                        color: AppSurfaces.border(context),
+                      ),
+                    ),
+                    focusedBorder: OutlineInputBorder(
+                      borderRadius: SocialCard.borderRadius,
+                      borderSide: BorderSide(
+                        color: Theme.of(context).colorScheme.primary,
+                        width: 1.5,
+                      ),
                     ),
                   ),
                 ),
               ),
-            ),
-            Expanded(
-              child: _SearchResults(
-                currentUserId: currentUserId,
-                query: _query,
-                isSearching: _isSearching,
-                hasCompletedSearch: _hasCompletedSearch,
-                searchFailed: _searchFailed,
-                results: _results,
-                friendshipService: _friendshipService,
-                followService: _followService,
+              Expanded(
+                child: _SearchResults(
+                  currentUserId: currentUserId,
+                  query: _query,
+                  isSearching: _isSearching,
+                  hasCompletedSearch: _hasCompletedSearch,
+                  searchFailed: _searchFailed,
+                  results: _results,
+                  friendshipService: _friendshipService,
+                  followService: _followService,
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );

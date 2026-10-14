@@ -162,53 +162,55 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                 }
 
                 final groups = _groupNotifications(items);
-                return ListView(
-                  padding: const EdgeInsets.fromLTRB(
-                    SocialLayout.gutter,
-                    4,
-                    SocialLayout.gutter,
-                    24,
-                  ),
-                  children: [
-                    for (final group in groups) ...[
-                      Padding(
-                        padding: const EdgeInsets.only(top: 18, bottom: 6),
-                        child: Text(
-                          group.label,
-                          style: Theme.of(context).textTheme.titleSmall
-                              ?.copyWith(
-                                color: AppSurfaces.textPrimary(context),
-                                fontWeight: FontWeight.w700,
-                              ),
-                        ),
-                      ),
-                      for (
-                        var index = 0;
-                        index < group.items.length;
-                        index++
-                      ) ...[
-                        _FollowNotificationRow(
-                          notification: group.items[index],
-                          currentUserId: uid,
-                          followService: _followService,
-                          followRequestService: _followRequestService,
-                          friendshipService: _friendshipService,
-                          activityFeedService: _activityFeedService,
-                          commentService: _commentService,
-                          commentLikeService: _commentLikeService,
-                          kudosService: _kudosService,
-                          currentPartyProvider: widget._currentPartyProvider,
-                        ),
-                        if (index != group.items.length - 1)
-                          Divider(
-                            height: 1,
-                            // Aligns with the message text: dot + gap + avatar + gap.
-                            indent: 64,
-                            color: AppSurfaces.border(context),
+                return SocialContentWidth(
+                  child: ListView(
+                    padding: const EdgeInsets.fromLTRB(
+                      SocialLayout.gutter,
+                      4,
+                      SocialLayout.gutter,
+                      24,
+                    ),
+                    children: [
+                      for (final group in groups) ...[
+                        Padding(
+                          padding: const EdgeInsets.only(top: 18, bottom: 6),
+                          child: Text(
+                            group.label,
+                            style: Theme.of(context).textTheme.titleSmall
+                                ?.copyWith(
+                                  color: AppSurfaces.textPrimary(context),
+                                  fontWeight: FontWeight.w700,
+                                ),
                           ),
+                        ),
+                        for (
+                          var index = 0;
+                          index < group.items.length;
+                          index++
+                        ) ...[
+                          _FollowNotificationRow(
+                            notification: group.items[index],
+                            currentUserId: uid,
+                            followService: _followService,
+                            followRequestService: _followRequestService,
+                            friendshipService: _friendshipService,
+                            activityFeedService: _activityFeedService,
+                            commentService: _commentService,
+                            commentLikeService: _commentLikeService,
+                            kudosService: _kudosService,
+                            currentPartyProvider: widget._currentPartyProvider,
+                          ),
+                          if (index != group.items.length - 1)
+                            Divider(
+                              height: 1,
+                              // Aligns with the message text: dot + gap + avatar + gap.
+                              indent: 64,
+                              color: AppSurfaces.border(context),
+                            ),
+                        ],
                       ],
                     ],
-                  ],
+                  ),
                 );
               },
             ),

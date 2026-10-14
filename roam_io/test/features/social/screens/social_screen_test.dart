@@ -19,6 +19,7 @@ import 'package:roam_io/features/social/data/follow_service.dart';
 import 'package:roam_io/features/social/data/friendship_service.dart';
 import 'package:roam_io/features/social/screens/find_people_screen.dart';
 import 'package:roam_io/features/social/screens/social_screen.dart';
+import 'package:roam_io/features/social/widgets/social_layout.dart';
 
 import '../../../support/fake_firebase_user.dart';
 
@@ -100,6 +101,29 @@ void main() {
     final searchCenter = tester.getCenter(find.byTooltip('Find people'));
 
     expect((titleCenter.dy - searchCenter.dy).abs(), lessThan(18));
+  });
+
+  testWidgets('destination cards cap their width on wide screens', (
+    tester,
+  ) async {
+    addTearDown(tester.view.reset);
+    tester.view.devicePixelRatio = 1;
+
+    tester.view.physicalSize = const Size(1200, 900);
+    await tester.pumpWidget(
+      const MaterialApp(home: Scaffold(body: SocialScreen())),
+    );
+    final wideCard = tester.getSize(
+      find.ancestor(of: find.text('Leaderboards'), matching: find.byType(Ink)),
+    );
+    expect(wideCard.width, lessThanOrEqualTo(SocialLayout.maxContentWidth));
+
+    tester.view.physicalSize = const Size(390, 844);
+    await tester.pumpAndSettle();
+    final phoneCard = tester.getSize(
+      find.ancestor(of: find.text('Leaderboards'), matching: find.byType(Ink)),
+    );
+    expect(phoneCard.width, 390 - SocialLayout.gutter * 2);
   });
 
   testWidgets('search icon uses standard foreground colour not primary green', (

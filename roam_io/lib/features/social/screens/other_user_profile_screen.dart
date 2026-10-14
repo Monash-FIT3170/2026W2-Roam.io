@@ -202,44 +202,46 @@ class _OtherUserProfileScreenState extends State<OtherUserProfileScreen>
                         ? widget.selectedUserId
                         : null,
                   );
-                  return Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      _ExternalProfileTabBar(controller: _tabController),
-                      Expanded(
-                        child: TabBarView(
-                          controller: _tabController,
-                          children: [
-                            access.canViewProfileActivity
-                                ? _ExternalProfileDashboard(
-                                    profile: profile,
-                                    currentUserId: currentUserId,
-                                    followService: _followService,
-                                    friendshipService: _friendshipService,
-                                    activityFeedService: _activityFeedService,
-                                    selectedMetric: _selectedGraphMetric,
-                                    onMetricSelected: _selectGraphMetric,
-                                  )
-                                : _PrivateProfileSummary(
-                                    profile: profile,
-                                    currentUserId: currentUserId,
-                                    followService: _followService,
-                                    friendshipService: _friendshipService,
-                                  ),
-                            access.canViewProfileActivity
-                                ? _ExternalActivitiesTab(
-                                    selectedUserId: widget.selectedUserId,
-                                    currentUserId: currentUserId,
-                                    activityFeedService: _activityFeedService,
-                                    commentService: _commentService,
-                                    commentLikeService: _commentLikeService,
-                                    kudosService: _kudosService,
-                                  )
-                                : const _PrivateActivitiesTab(),
-                          ],
+                  return SocialContentWidth(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        _ExternalProfileTabBar(controller: _tabController),
+                        Expanded(
+                          child: TabBarView(
+                            controller: _tabController,
+                            children: [
+                              access.canViewProfileActivity
+                                  ? _ExternalProfileDashboard(
+                                      profile: profile,
+                                      currentUserId: currentUserId,
+                                      followService: _followService,
+                                      friendshipService: _friendshipService,
+                                      activityFeedService: _activityFeedService,
+                                      selectedMetric: _selectedGraphMetric,
+                                      onMetricSelected: _selectGraphMetric,
+                                    )
+                                  : _PrivateProfileSummary(
+                                      profile: profile,
+                                      currentUserId: currentUserId,
+                                      followService: _followService,
+                                      friendshipService: _friendshipService,
+                                    ),
+                              access.canViewProfileActivity
+                                  ? _ExternalActivitiesTab(
+                                      selectedUserId: widget.selectedUserId,
+                                      currentUserId: currentUserId,
+                                      activityFeedService: _activityFeedService,
+                                      commentService: _commentService,
+                                      commentLikeService: _commentLikeService,
+                                      kudosService: _kudosService,
+                                    )
+                                  : const _PrivateActivitiesTab(),
+                            ],
+                          ),
                         ),
-                      ),
-                    ],
+                      ],
+                    ),
                   );
                 },
               );

@@ -63,141 +63,138 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
           final entries = snapshot.data ?? [];
           _sortEntries(entries);
 
-          return Column(
-            children: [
-              if (entries.isEmpty)
-                const Expanded(
-                  child: SocialMessage(
-                    'No activity found in the last 30 days.',
-                  ),
-                )
-              else ...[
-                // Top Leader Highlights
-                Container(
-                  width: double.infinity,
-                  margin: const EdgeInsets.fromLTRB(
-                    SocialLayout.gutter,
-                    8,
-                    SocialLayout.gutter,
-                    16,
-                  ),
-                  padding: const EdgeInsets.all(24),
-                  decoration: SocialCard.decoration(context),
-                  child: Column(
-                    children: [
-                      Stack(
-                        alignment: Alignment.bottomCenter,
-                        clipBehavior: Clip.none,
-                        children: [
-                          SocialAvatar(
-                            displayName: entries.first.displayName,
-                            photoUrl: entries.first.photoUrl,
-                            radius: 48,
-                            borderWidth: 3,
-                            borderColor: AppColors.clay,
-                          ),
-                          const Positioned(
-                            bottom: -12,
-                            child: Icon(
-                              Icons.workspace_premium,
-                              color: AppColors.clay,
-                              size: 36,
+          if (entries.isEmpty) {
+            return const SocialMessage(
+              'No activity found in the last 30 days.',
+            );
+          }
+
+          // One scroll view so the highlight never squeezes the list on short
+          // (e.g. landscape) screens.
+          return SocialContentWidth(
+            child: ListView.separated(
+              padding: const EdgeInsets.fromLTRB(
+                SocialLayout.gutter,
+                8,
+                SocialLayout.gutter,
+                24,
+              ),
+              itemCount: entries.length + 1,
+              separatorBuilder: (context, index) =>
+                  SizedBox(height: index == 0 ? 16 : SocialLayout.rowGap),
+              itemBuilder: (context, index) {
+                if (index == 0) {
+                  // Top Leader Highlights
+                  return Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(24),
+                    decoration: SocialCard.decoration(context),
+                    child: Column(
+                      children: [
+                        Stack(
+                          alignment: Alignment.bottomCenter,
+                          clipBehavior: Clip.none,
+                          children: [
+                            SocialAvatar(
+                              displayName: entries.first.displayName,
+                              photoUrl: entries.first.photoUrl,
+                              radius: 48,
+                              borderWidth: 3,
+                              borderColor: AppColors.clay,
                             ),
+                            const Positioned(
+                              bottom: -12,
+                              child: Icon(
+                                Icons.workspace_premium,
+                                color: AppColors.clay,
+                                size: 36,
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 24),
+                        Text(
+                          _formatMetric(entries.first),
+                          style: textTheme.headlineLarge?.copyWith(
+                            fontSize: 32,
+                            color: AppSurfaces.textPrimary(context),
                           ),
-                        ],
-                      ),
-                      const SizedBox(height: 24),
-                      Text(
-                        _formatMetric(entries.first),
-                        style: textTheme.headlineLarge?.copyWith(
-                          fontSize: 32,
-                          color: AppSurfaces.textPrimary(context),
                         ),
-                      ),
-                      Text(
-                        '#1 Leader',
-                        style: textTheme.labelMedium?.copyWith(
-                          fontSize: 14,
-                          color: AppSurfaces.textMuted(context),
+                        Text(
+                          '#1 Leader',
+                          style: textTheme.labelMedium?.copyWith(
+                            fontSize: 14,
+                            color: AppSurfaces.textMuted(context),
+                          ),
                         ),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        entries.first.displayName,
-                        textAlign: TextAlign.center,
-                        style: textTheme.titleLarge?.copyWith(
-                          color: AppSurfaces.textPrimary(context),
-                          fontWeight: FontWeight.w800,
+                        const SizedBox(height: 4),
+                        Text(
+                          entries.first.displayName,
+                          textAlign: TextAlign.center,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: textTheme.titleLarge?.copyWith(
+                            color: AppSurfaces.textPrimary(context),
+                            fontWeight: FontWeight.w800,
+                          ),
                         ),
-                      ),
-                    ],
-                  ),
-                ),
+                      ],
+                    ),
+                  );
+                }
 
                 // Remaining Users List
-                Expanded(
-                  child: ListView.separated(
-                    padding: const EdgeInsets.fromLTRB(
-                      SocialLayout.gutter,
-                      0,
-                      SocialLayout.gutter,
-                      24,
-                    ),
-                    itemCount: entries.length,
-                    separatorBuilder: (context, index) =>
-                        const SizedBox(height: SocialLayout.rowGap),
-                    itemBuilder: (context, index) {
-                      final entry = entries[index];
-                      return DecoratedBox(
-                        decoration: SocialCard.decoration(context),
-                        child: ListTile(
-                          leading: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              SizedBox(
-                                width: 30,
-                                child: Text(
-                                  '${index + 1}',
-                                  textAlign: TextAlign.center,
-                                  style: textTheme.titleMedium?.copyWith(
-                                    fontWeight: FontWeight.w800,
-                                    color: index == 0
-                                        ? AppColors.clay
-                                        : AppSurfaces.textPrimary(context),
-                                  ),
-                                ),
-                              ),
-                              const SizedBox(width: 8),
-                              SocialAvatar(
-                                displayName: entry.displayName,
-                                photoUrl: entry.photoUrl,
-                                radius: 20,
-                                borderWidth: 1.5,
-                                borderColor: index == 0 ? AppColors.clay : null,
-                              ),
-                            ],
-                          ),
-                          title: Text(
-                            entry.displayName,
+                final rank = index - 1;
+                final entry = entries[rank];
+                return DecoratedBox(
+                  decoration: SocialCard.decoration(context),
+                  child: ListTile(
+                    leading: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        SizedBox(
+                          width: 30,
+                          child: Text(
+                            '${rank + 1}',
+                            textAlign: TextAlign.center,
                             style: textTheme.titleMedium?.copyWith(
-                              color: AppSurfaces.textPrimary(context),
                               fontWeight: FontWeight.w800,
-                            ),
-                          ),
-                          trailing: Text(
-                            _formatMetric(entry),
-                            style: textTheme.bodyMedium?.copyWith(
-                              fontWeight: FontWeight.w700,
-                              color: AppSurfaces.textMuted(context),
+                              color: rank == 0
+                                  ? AppColors.clay
+                                  : AppSurfaces.textPrimary(context),
                             ),
                           ),
                         ),
-                      );
-                    },
+                        const SizedBox(width: 8),
+                        SocialAvatar(
+                          displayName: entry.displayName,
+                          photoUrl: entry.photoUrl,
+                          radius: 20,
+                          borderWidth: 1.5,
+                          borderColor: rank == 0 ? AppColors.clay : null,
+                        ),
+                      ],
+                    ),
+                    title: Text(
+                      entry.displayName,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: textTheme.titleMedium?.copyWith(
+                        color: AppSurfaces.textPrimary(context),
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                    trailing: Text(
+                      _formatMetric(entry),
+                      style: textTheme.bodyMedium?.copyWith(
+                        fontWeight: FontWeight.w700,
+                        color: AppSurfaces.textMuted(context),
+                      ),
+                    ),
                   ),
-                ),
-              ],
-            ],
+                );
+              },
+            ),
           );
         },
       ),

@@ -112,26 +112,28 @@ class _FollowConnectionsScreenState extends State<FollowConnectionsScreen> {
               authUid != null &&
               authUid == widget.selectedUserId;
 
-          return ListView.separated(
-            padding: const EdgeInsets.fromLTRB(
-              SocialLayout.gutter,
-              12,
-              SocialLayout.gutter,
-              24,
+          return SocialContentWidth(
+            child: ListView.separated(
+              padding: const EdgeInsets.fromLTRB(
+                SocialLayout.gutter,
+                12,
+                SocialLayout.gutter,
+                24,
+              ),
+              itemCount: ids.length,
+              separatorBuilder: (_, _) =>
+                  const SizedBox(height: SocialLayout.rowGap),
+              itemBuilder: (context, index) {
+                final listedUserId = ids[index];
+                return _ConnectionRow(
+                  listedUserId: listedUserId,
+                  authUid: authUid,
+                  showRemoveFollower: isOwnFollowers,
+                  followService: _followService,
+                  friendshipService: _friendshipService,
+                );
+              },
             ),
-            itemCount: ids.length,
-            separatorBuilder: (_, _) =>
-                const SizedBox(height: SocialLayout.rowGap),
-            itemBuilder: (context, index) {
-              final listedUserId = ids[index];
-              return _ConnectionRow(
-                listedUserId: listedUserId,
-                authUid: authUid,
-                showRemoveFollower: isOwnFollowers,
-                followService: _followService,
-                friendshipService: _friendshipService,
-              );
-            },
           );
         },
       ),
