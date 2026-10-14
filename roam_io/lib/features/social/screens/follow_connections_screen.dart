@@ -80,7 +80,12 @@ class _FollowConnectionsScreenState extends State<FollowConnectionsScreen> {
 
     return Scaffold(
       backgroundColor: AppSurfaces.pageBackground(context),
-      appBar: AppBar(title: Text(_title)),
+      appBar: AppBar(
+        title: Text(_title),
+        elevation: 0,
+        scrolledUnderElevation: 0,
+        backgroundColor: AppSurfaces.pageBackground(context),
+      ),
       body: StreamBuilder<List<String>>(
         stream: _idsStream,
         builder: (context, snapshot) {

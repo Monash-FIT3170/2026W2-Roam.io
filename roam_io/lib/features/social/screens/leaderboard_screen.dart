@@ -39,8 +39,9 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
       backgroundColor: AppSurfaces.pageBackground(context),
       appBar: AppBar(
         title: const Text('Leaderboards'),
-        backgroundColor: Colors.transparent,
         elevation: 0,
+        scrolledUnderElevation: 0,
+        backgroundColor: AppSurfaces.pageBackground(context),
       ),
       body: FutureBuilder<List<LeaderboardEntry>>(
         future: _futureEntries,
@@ -68,7 +69,14 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
               else ...[
                 // Top Leader Highlights
                 Container(
+                  width: double.infinity,
+                  margin: const EdgeInsets.fromLTRB(20, 8, 20, 16),
                   padding: const EdgeInsets.all(24),
+                  decoration: BoxDecoration(
+                    color: AppSurfaces.card(context),
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(color: AppSurfaces.border(context)),
+                  ),
                   child: Column(
                     children: [
                       Stack(
@@ -117,8 +125,6 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
                     ],
                   ),
                 ),
-
-                const Divider(),
 
                 // Remaining Users List
                 Expanded(

@@ -154,7 +154,12 @@ class _OtherUserProfileScreenState extends State<OtherUserProfileScreen>
       value: _analytics,
       child: Scaffold(
         backgroundColor: AppSurfaces.pageBackground(context),
-        appBar: AppBar(title: const Text('Profile')),
+        appBar: AppBar(
+          title: const Text('Profile'),
+          elevation: 0,
+          scrolledUnderElevation: 0,
+          backgroundColor: AppSurfaces.pageBackground(context),
+        ),
         body: SafeArea(
           bottom: false,
           child: StreamBuilder<PublicProfile?>(

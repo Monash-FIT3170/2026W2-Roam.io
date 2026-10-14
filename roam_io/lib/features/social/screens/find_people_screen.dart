@@ -181,7 +181,12 @@ class _FindPeopleScreenState extends State<FindPeopleScreen> {
 
     return Scaffold(
       backgroundColor: AppSurfaces.pageBackground(context),
-      appBar: AppBar(title: const Text('Find People')),
+      appBar: AppBar(
+        title: const Text('Find People'),
+        elevation: 0,
+        scrolledUnderElevation: 0,
+        backgroundColor: AppSurfaces.pageBackground(context),
+      ),
       body: SafeArea(
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
