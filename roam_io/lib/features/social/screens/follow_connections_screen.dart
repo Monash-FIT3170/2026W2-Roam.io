@@ -24,6 +24,7 @@ import '../widgets/follow_relationship_button.dart';
 import '../widgets/social_button_styles.dart';
 import '../widgets/private_follow_confirm.dart';
 import '../widgets/social_card.dart';
+import '../widgets/social_layout.dart';
 import '../widgets/social_avatar.dart';
 import '../widgets/social_message.dart';
 import 'other_user_profile_screen.dart';
@@ -112,9 +113,15 @@ class _FollowConnectionsScreenState extends State<FollowConnectionsScreen> {
               authUid == widget.selectedUserId;
 
           return ListView.separated(
-            padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
+            padding: const EdgeInsets.fromLTRB(
+              SocialLayout.gutter,
+              12,
+              SocialLayout.gutter,
+              24,
+            ),
             itemCount: ids.length,
-            separatorBuilder: (_, _) => const SizedBox(height: 10),
+            separatorBuilder: (_, _) =>
+                const SizedBox(height: SocialLayout.rowGap),
             itemBuilder: (context, index) {
               final listedUserId = ids[index];
               return _ConnectionRow(
@@ -159,7 +166,7 @@ class _ConnectionRow extends StatelessWidget {
         final showAction = authUid != null && authUid != listedUserId;
 
         return Container(
-          padding: const EdgeInsets.all(14),
+          padding: const EdgeInsets.all(SocialLayout.cardPadding),
           decoration: SocialCard.decoration(context),
           child: Row(
             children: [

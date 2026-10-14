@@ -21,6 +21,7 @@ import '../data/follow_service.dart';
 import '../data/friendship_service.dart';
 import '../domain/public_profile.dart';
 import '../widgets/social_card.dart';
+import '../widgets/social_layout.dart';
 import 'find_people_screen.dart';
 import 'leaderboard_screen.dart';
 
@@ -74,7 +75,12 @@ class SocialScreen extends StatelessWidget {
             ),
             Expanded(
               child: ListView(
-                padding: const EdgeInsets.fromLTRB(24, 16, 24, 118),
+                padding: const EdgeInsets.fromLTRB(
+                  SocialLayout.gutter,
+                  8,
+                  SocialLayout.gutter,
+                  118,
+                ),
                 children: [
                   _SocialDestinationCard(
                     title: 'Leaderboards',
@@ -87,7 +93,7 @@ class SocialScreen extends StatelessWidget {
                       ),
                     ),
                   ),
-                  const SizedBox(height: 16),
+                  const SizedBox(height: SocialLayout.rowGap),
                   _SocialDestinationCard(
                     title: 'Party Mode',
                     subtitle: 'Team up and claim map tiles together.',

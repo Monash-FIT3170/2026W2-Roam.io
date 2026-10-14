@@ -42,6 +42,7 @@ import '../domain/follow_relationship_state.dart';
 import '../domain/public_profile.dart';
 import '../widgets/follow_relationship_button.dart';
 import '../widgets/social_card.dart';
+import '../widgets/social_layout.dart';
 import '../widgets/social_message.dart';
 import 'follow_connections_screen.dart';
 
@@ -276,7 +277,12 @@ class _ExternalProfileTabBar extends StatelessWidget {
     final theme = Theme.of(context);
 
     return Padding(
-      padding: const EdgeInsets.fromLTRB(24, 12, 24, 0),
+      padding: const EdgeInsets.fromLTRB(
+        SocialLayout.gutter,
+        12,
+        SocialLayout.gutter,
+        0,
+      ),
       child: Align(
         alignment: Alignment.centerLeft,
         child: TabBar(
@@ -411,7 +417,12 @@ class _PrivateProfileSummary extends StatelessWidget {
     return SingleChildScrollView(
       padding: EdgeInsets.only(bottom: bottomPadding),
       child: Padding(
-        padding: const EdgeInsets.fromLTRB(24, 14, 24, 0),
+        padding: const EdgeInsets.fromLTRB(
+          SocialLayout.gutter,
+          14,
+          SocialLayout.gutter,
+          0,
+        ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -424,7 +435,7 @@ class _PrivateProfileSummary extends StatelessWidget {
             const SizedBox(height: 18),
             Container(
               width: double.infinity,
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+              padding: const EdgeInsets.all(16),
               decoration: SocialCard.decoration(context),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -590,9 +601,15 @@ class _ExternalActivitiesTab extends StatelessWidget {
         }
 
         return ListView.separated(
-          padding: EdgeInsets.fromLTRB(20, 20, 20, bottomPadding),
+          padding: EdgeInsets.fromLTRB(
+            SocialLayout.gutter,
+            20,
+            SocialLayout.gutter,
+            bottomPadding,
+          ),
           itemCount: activities.length,
-          separatorBuilder: (context, index) => const SizedBox(height: 14),
+          separatorBuilder: (context, index) =>
+              const SizedBox(height: SocialLayout.rowGap),
           itemBuilder: (context, index) {
             final activity = activities[index];
             return ActivityFeedCard.fromItem(

@@ -41,6 +41,7 @@ import '../widgets/follow_relationship_button.dart';
 import '../widgets/private_follow_confirm.dart';
 import '../widgets/social_avatar.dart';
 import '../widgets/social_button_styles.dart';
+import '../widgets/social_layout.dart';
 import '../widgets/social_message.dart';
 import 'other_user_profile_screen.dart';
 
@@ -162,11 +163,16 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
 
                 final groups = _groupNotifications(items);
                 return ListView(
-                  padding: const EdgeInsets.fromLTRB(20, 4, 20, 24),
+                  padding: const EdgeInsets.fromLTRB(
+                    SocialLayout.gutter,
+                    4,
+                    SocialLayout.gutter,
+                    24,
+                  ),
                   children: [
                     for (final group in groups) ...[
                       Padding(
-                        padding: const EdgeInsets.only(top: 14, bottom: 4),
+                        padding: const EdgeInsets.only(top: 18, bottom: 6),
                         child: Text(
                           group.label,
                           style: Theme.of(context).textTheme.titleSmall
@@ -196,7 +202,8 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                         if (index != group.items.length - 1)
                           Divider(
                             height: 1,
-                            indent: 60,
+                            // Aligns with the message text: dot + gap + avatar + gap.
+                            indent: 64,
                             color: AppSurfaces.border(context),
                           ),
                       ],
@@ -262,7 +269,7 @@ class _FollowNotificationRow extends StatelessWidget {
         };
 
         return Padding(
-          padding: const EdgeInsets.symmetric(vertical: 14),
+          padding: const EdgeInsets.symmetric(vertical: SocialLayout.rowGap),
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
@@ -590,7 +597,12 @@ class _NotificationsSkeleton extends StatelessWidget {
   Widget build(BuildContext context) {
     final fill = AppSurfaces.softCard(context);
     return ListView.separated(
-      padding: const EdgeInsets.fromLTRB(20, 24, 20, 24),
+      padding: const EdgeInsets.fromLTRB(
+        SocialLayout.gutter,
+        24,
+        SocialLayout.gutter,
+        24,
+      ),
       itemCount: 5,
       separatorBuilder: (_, _) => const SizedBox(height: 18),
       itemBuilder: (context, index) => Row(

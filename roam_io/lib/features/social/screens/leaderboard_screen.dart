@@ -7,6 +7,7 @@ import '../data/leaderboard_service.dart';
 import '../domain/leaderboard_entry.dart';
 import '../widgets/social_avatar.dart';
 import '../widgets/social_card.dart';
+import '../widgets/social_layout.dart';
 import '../widgets/social_message.dart';
 
 class LeaderboardScreen extends StatefulWidget {
@@ -74,7 +75,12 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
                 // Top Leader Highlights
                 Container(
                   width: double.infinity,
-                  margin: const EdgeInsets.fromLTRB(20, 8, 20, 16),
+                  margin: const EdgeInsets.fromLTRB(
+                    SocialLayout.gutter,
+                    8,
+                    SocialLayout.gutter,
+                    16,
+                  ),
                   padding: const EdgeInsets.all(24),
                   decoration: SocialCard.decoration(context),
                   child: Column(
@@ -129,10 +135,15 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
                 // Remaining Users List
                 Expanded(
                   child: ListView.separated(
-                    padding: const EdgeInsets.fromLTRB(20, 0, 20, 24),
+                    padding: const EdgeInsets.fromLTRB(
+                      SocialLayout.gutter,
+                      0,
+                      SocialLayout.gutter,
+                      24,
+                    ),
                     itemCount: entries.length,
                     separatorBuilder: (context, index) =>
-                        const SizedBox(height: 10),
+                        const SizedBox(height: SocialLayout.rowGap),
                     itemBuilder: (context, index) {
                       final entry = entries[index];
                       return DecoratedBox(

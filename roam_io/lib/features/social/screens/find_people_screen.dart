@@ -25,6 +25,7 @@ import '../data/friendship_service.dart';
 import '../domain/public_profile.dart';
 import '../widgets/follow_relationship_button.dart';
 import '../widgets/social_card.dart';
+import '../widgets/social_layout.dart';
 import '../widgets/social_avatar.dart';
 import '../widgets/social_message.dart';
 import 'other_user_profile_screen.dart';
@@ -194,7 +195,12 @@ class _FindPeopleScreenState extends State<FindPeopleScreen> {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             Padding(
-              padding: const EdgeInsets.fromLTRB(20, 12, 20, 16),
+              padding: const EdgeInsets.fromLTRB(
+                SocialLayout.gutter,
+                12,
+                SocialLayout.gutter,
+                16,
+              ),
               child: TextField(
                 controller: _controller,
                 focusNode: _focusNode,
@@ -273,9 +279,14 @@ class _SearchResults extends StatelessWidget {
     }
 
     return ListView.separated(
-      padding: const EdgeInsets.fromLTRB(20, 4, 20, 120),
+      padding: const EdgeInsets.fromLTRB(
+        SocialLayout.gutter,
+        4,
+        SocialLayout.gutter,
+        120,
+      ),
       itemCount: results.length,
-      separatorBuilder: (_, _) => const SizedBox(height: 10),
+      separatorBuilder: (_, _) => const SizedBox(height: SocialLayout.rowGap),
       itemBuilder: (context, index) {
         return _PersonResultRow(
           profile: results[index],
@@ -304,7 +315,7 @@ class _PersonResultRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.all(14),
+      padding: const EdgeInsets.all(SocialLayout.cardPadding),
       decoration: SocialCard.decoration(context),
       child: Row(
         children: [
