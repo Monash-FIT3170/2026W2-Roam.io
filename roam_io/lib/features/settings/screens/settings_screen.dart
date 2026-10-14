@@ -18,6 +18,7 @@ import '../../../theme/app_theme_mode.dart';
 import '../../auth/providers/auth_provider.dart';
 import '../../auth/screens/change_password_screen.dart';
 import '../../map/fog/fog_decay_difficulty.dart';
+import '../../onboarding/screens/onboarding_screen.dart';
 import '../../roammate/services/roammate_voice_service.dart';
 import '../widgets/settings_group.dart';
 import 'change_display_name_screen.dart';
@@ -343,6 +344,26 @@ class _SettingsScreenState extends State<SettingsScreen> {
                                 onChanged: auth.isBusy || profile == null
                                     ? null
                                     : _togglePrivateAccount,
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 22),
+                        SettingsGroup(
+                          title: 'Help',
+                          children: [
+                            SettingsRow(
+                              icon: Icons.auto_stories_outlined,
+                              title: 'View tutorial',
+                              showDivider: false,
+                              onTap: () => Navigator.of(context).push<void>(
+                                MaterialPageRoute(
+                                  builder: (tutorialContext) =>
+                                      OnboardingScreen(
+                                        onComplete: () =>
+                                            Navigator.of(tutorialContext).pop(),
+                                      ),
+                                ),
                               ),
                             ),
                           ],

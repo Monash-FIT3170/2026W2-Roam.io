@@ -62,6 +62,14 @@ class ProfileService {
     await _trySyncPublicProfile(profile, reason: 'createProfile');
   }
 
+  /// Marks the introduction as finished (including an explicit skip).
+  Future<void> completeOnboarding(String uid) {
+    return _profiles.doc(uid).update(<String, dynamic>{
+      'onboardingCompleted': true,
+      'updatedAt': DateTime.now().toIso8601String(),
+    });
+  }
+
   /// Updates editable profile fields and refreshes `updatedAt`.
   Future<void> updateProfile({
     required String uid,

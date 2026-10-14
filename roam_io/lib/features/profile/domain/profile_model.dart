@@ -68,6 +68,7 @@ class ProfileModel {
     AppThemeMode themeMode = AppThemeMode.light,
     this.fogDecayDifficulty = FogDecayDifficulty.quarterly,
     this.roammateVoiceEnabled = false,
+    this.onboardingCompleted = true,
     bool? darkModeEnabled,
     this.privacy = const SocialPrivacySettings(),
     this.xp = 0,
@@ -87,6 +88,9 @@ class ProfileModel {
   final AppThemeMode themeMode;
   final FogDecayDifficulty fogDecayDifficulty;
   final bool roammateVoiceEnabled;
+
+  /// Missing on older accounts, which can replay the tutorial from Settings.
+  final bool onboardingCompleted;
   final SocialPrivacySettings privacy;
   final int xp;
   final int level;
@@ -108,6 +112,7 @@ class ProfileModel {
     AppThemeMode? themeMode,
     FogDecayDifficulty? fogDecayDifficulty,
     bool? roammateVoiceEnabled,
+    bool? onboardingCompleted,
     bool? darkModeEnabled,
     SocialPrivacySettings? privacy,
     int? xp,
@@ -127,6 +132,7 @@ class ProfileModel {
           : (darkModeEnabled ? AppThemeMode.dark : AppThemeMode.light),
       fogDecayDifficulty: fogDecayDifficulty ?? this.fogDecayDifficulty,
       roammateVoiceEnabled: roammateVoiceEnabled ?? this.roammateVoiceEnabled,
+      onboardingCompleted: onboardingCompleted ?? this.onboardingCompleted,
       privacy: privacy ?? this.privacy,
       xp: xp ?? this.xp,
       level: level ?? this.level,
@@ -145,6 +151,7 @@ class ProfileModel {
       'themeMode': themeMode.storageValue,
       'fogDecayDifficulty': fogDecayDifficulty.storageValue,
       'roammateVoiceEnabled': roammateVoiceEnabled,
+      'onboardingCompleted': onboardingCompleted,
       // Retained for compatibility with clients that predate Dynamic mode.
       'darkModeEnabled': darkModeEnabled,
       'privacy': privacy.toMap(),
@@ -185,6 +192,7 @@ class ProfileModel {
         map['fogDecayDifficulty'],
       ),
       roammateVoiceEnabled: map['roammateVoiceEnabled'] == true,
+      onboardingCompleted: map['onboardingCompleted'] != false,
       privacy: SocialPrivacySettings.fromMap(map['privacy']),
       xp: (map['xp'] as num?)?.toInt() ?? 0,
       level:
