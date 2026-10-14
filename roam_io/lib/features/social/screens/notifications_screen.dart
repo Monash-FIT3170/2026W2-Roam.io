@@ -40,6 +40,7 @@ import '../utils/relative_time.dart';
 import '../widgets/follow_relationship_button.dart';
 import '../widgets/private_follow_confirm.dart';
 import '../widgets/social_avatar.dart';
+import '../widgets/social_button_styles.dart';
 import '../widgets/social_message.dart';
 import 'other_user_profile_screen.dart';
 
@@ -543,12 +544,7 @@ class _PartyInviteActionState extends State<_PartyInviteAction> {
   Widget build(BuildContext context) {
     return FilledButton(
       onPressed: _joining ? null : _join,
-      style: FilledButton.styleFrom(
-        minimumSize: const Size(0, 32),
-        padding: const EdgeInsets.symmetric(horizontal: 12),
-        visualDensity: VisualDensity.compact,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-      ),
+      style: SocialButtonStyles.primary(compact: true),
       child: Text(_joining ? 'Joining…' : 'Join'),
     );
   }
@@ -756,30 +752,17 @@ class _FollowRequestActionsState extends State<_FollowRequestActions> {
           children: [
             OutlinedButton(
               onPressed: _busy ? null : () => _decline(request),
-              style: OutlinedButton.styleFrom(
-                shape: const StadiumBorder(),
-                visualDensity: VisualDensity.compact,
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 10,
-                  vertical: 8,
-                ),
-                foregroundColor: AppSurfaces.textPrimary(context),
+              style: SocialButtonStyles.secondary(
+                context,
+                compact: true,
                 backgroundColor: AppColors.cream,
-                side: BorderSide(color: AppSurfaces.border(context)),
               ),
               child: const Text('Decline'),
             ),
             const SizedBox(width: 6),
             FilledButton(
               onPressed: _busy ? null : () => _accept(request),
-              style: FilledButton.styleFrom(
-                shape: const StadiumBorder(),
-                visualDensity: VisualDensity.compact,
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 10,
-                  vertical: 8,
-                ),
-              ),
+              style: SocialButtonStyles.primary(compact: true),
               child: const Text('Accept'),
             ),
           ],

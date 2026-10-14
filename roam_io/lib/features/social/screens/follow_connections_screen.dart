@@ -21,6 +21,7 @@ import '../data/follow_service.dart';
 import '../data/friendship_service.dart';
 import '../domain/public_profile.dart';
 import '../widgets/follow_relationship_button.dart';
+import '../widgets/social_button_styles.dart';
 import '../widgets/private_follow_confirm.dart';
 import '../widgets/social_card.dart';
 import '../widgets/social_avatar.dart';
@@ -294,13 +295,10 @@ class _RemoveFollowerButtonState extends State<_RemoveFollowerButton> {
   Widget build(BuildContext context) {
     return OutlinedButton(
       onPressed: _busy ? null : _remove,
-      style: OutlinedButton.styleFrom(
-        shape: const StadiumBorder(),
-        visualDensity: VisualDensity.compact,
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-        foregroundColor: AppSurfaces.textPrimary(context),
+      style: SocialButtonStyles.secondary(
+        context,
+        compact: true,
         backgroundColor: AppColors.cream,
-        side: BorderSide(color: AppSurfaces.border(context)),
       ),
       child: const Text('Remove'),
     );
