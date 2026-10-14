@@ -189,6 +189,7 @@ class _ConnectionRow extends StatelessWidget {
                       SocialAvatar(
                         displayName: displayName,
                         photoUrl: photoUrl,
+                        borderWidth: 1.5,
                       ),
                       const SizedBox(width: 12),
                       Expanded(

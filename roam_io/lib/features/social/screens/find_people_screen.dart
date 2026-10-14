@@ -338,6 +338,7 @@ class _PersonResultRow extends StatelessWidget {
                   SocialAvatar(
                     displayName: profile.displayName,
                     photoUrl: profile.photoUrl,
+                    borderWidth: 1.5,
                   ),
                   const SizedBox(width: 12),
                   Expanded(

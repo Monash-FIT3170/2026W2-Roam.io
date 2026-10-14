@@ -449,22 +449,40 @@ class _PrivateProfileSummary extends StatelessWidget {
               width: double.infinity,
               padding: const EdgeInsets.all(16),
               decoration: SocialCard.decoration(context),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+              child: Row(
                 children: [
-                  Text(
-                    'Private account',
-                    style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                      color: AppSurfaces.textPrimary(context),
-                      fontWeight: FontWeight.w900,
+                  Container(
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      color: AppSurfaces.softCard(context),
+                      shape: BoxShape.circle,
+                    ),
+                    child: Icon(
+                      Icons.lock_outline_rounded,
+                      size: 20,
+                      color: AppSurfaces.textMuted(context),
                     ),
                   ),
-                  const SizedBox(height: 4),
-                  Text(
-                    'Follow this account to see their activity',
-                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                      color: AppSurfaces.textMuted(context),
-                      fontWeight: FontWeight.w700,
+                  const SizedBox(width: 14),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Private account',
+                          style: Theme.of(context).textTheme.titleMedium
+                              ?.copyWith(
+                                color: AppSurfaces.textPrimary(context),
+                                fontWeight: FontWeight.w800,
+                              ),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          'Follow this account to see their activity',
+                          style: Theme.of(context).textTheme.bodyMedium
+                              ?.copyWith(color: AppSurfaces.textMuted(context)),
+                        ),
+                      ],
                     ),
                   ),
                 ],

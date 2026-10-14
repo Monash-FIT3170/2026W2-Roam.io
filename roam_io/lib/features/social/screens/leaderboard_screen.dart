@@ -93,6 +93,8 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
                             displayName: entries.first.displayName,
                             photoUrl: entries.first.photoUrl,
                             radius: 48,
+                            borderWidth: 3,
+                            borderColor: AppColors.clay,
                           ),
                           const Positioned(
                             bottom: -12,
@@ -170,6 +172,8 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
                                 displayName: entry.displayName,
                                 photoUrl: entry.photoUrl,
                                 radius: 20,
+                                borderWidth: 1.5,
+                                borderColor: index == 0 ? AppColors.clay : null,
                               ),
                             ],
                           ),

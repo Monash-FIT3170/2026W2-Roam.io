@@ -24,12 +24,16 @@ class SocialAvatar extends StatefulWidget {
     required this.photoUrl,
     this.radius = 24,
     this.borderWidth = 0,
+    this.borderColor,
   });
 
   final String displayName;
   final String? photoUrl;
   final double radius;
   final double borderWidth;
+
+  /// Ring colour when [borderWidth] > 0; defaults to the primary colour.
+  final Color? borderColor;
 
   static SocialAvatarStorageUrlResolver? debugStorageUrlResolverForTests;
   static final Map<String, Future<String?>> _resolvedUrlCache = {};
@@ -274,7 +278,7 @@ class _SocialAvatarState extends State<SocialAvatar> {
         shape: BoxShape.circle,
         border: widget.borderWidth > 0
             ? Border.all(
-                color: theme.colorScheme.primary,
+                color: widget.borderColor ?? theme.colorScheme.primary,
                 width: widget.borderWidth,
               )
             : null,
