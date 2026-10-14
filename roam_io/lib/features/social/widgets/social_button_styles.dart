@@ -32,6 +32,8 @@ class SocialButtonStyles {
       padding: compact ? compactPadding : null,
       backgroundColor: AppColors.sage,
       foregroundColor: Colors.white,
+      disabledBackgroundColor: AppColors.sage.withValues(alpha: 0.45),
+      disabledForegroundColor: Colors.white.withValues(alpha: 0.85),
       textStyle: _labelStyle,
     );
   }
@@ -42,12 +44,16 @@ class SocialButtonStyles {
     bool compact = false,
     Color? backgroundColor,
   }) {
+    final fill = backgroundColor ?? AppColors.sand;
+
     return OutlinedButton.styleFrom(
       shape: const StadiumBorder(),
       visualDensity: compact ? VisualDensity.compact : VisualDensity.standard,
       padding: compact ? compactPadding : null,
       foregroundColor: AppSurfaces.textPrimary(context),
-      backgroundColor: backgroundColor ?? AppColors.sand,
+      backgroundColor: fill,
+      disabledBackgroundColor: fill.withValues(alpha: 0.6),
+      disabledForegroundColor: AppSurfaces.textSubtle(context),
       side: BorderSide(color: AppSurfaces.border(context)),
       textStyle: _labelStyle,
     );

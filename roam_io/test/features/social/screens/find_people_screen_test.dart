@@ -76,6 +76,36 @@ void main() {
     expect(find.text('@jacob_delapaz'), findsOneWidget);
   });
 
+  testWidgets('clear search button empties the query and results', (
+    tester,
+  ) async {
+    final firestore = FakeFirebaseFirestore();
+    final service = FriendshipService(firestore: firestore);
+    await service.upsertPublicProfile(
+      uid: 'jacob',
+      username: 'jacob_delapaz',
+      displayName: 'Jacob de la Paz',
+    );
+
+    await _pumpFindPeople(tester, service);
+    expect(find.byTooltip('Clear search'), findsNothing);
+
+    await tester.enterText(find.byType(TextField), 'jac');
+    await tester.pump(const Duration(milliseconds: 350));
+    await tester.pumpAndSettle();
+    expect(find.text('Jacob de la Paz'), findsOneWidget);
+
+    await tester.tap(find.byTooltip('Clear search'));
+    await tester.pumpAndSettle();
+
+    expect(
+      tester.widget<TextField>(find.byType(TextField)).controller?.text,
+      '',
+    );
+    expect(find.text('Jacob de la Paz'), findsNothing);
+    expect(find.byTooltip('Clear search'), findsNothing);
+  });
+
   testWidgets('search renders result rows and follows reactively', (
     tester,
   ) async {

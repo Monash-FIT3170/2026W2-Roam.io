@@ -165,86 +165,89 @@ class _ConnectionRow extends StatelessWidget {
         final photoUrl = profile?.photoUrl;
         final showAction = authUid != null && authUid != listedUserId;
 
-        return Container(
-          padding: const EdgeInsets.all(SocialLayout.cardPadding),
-          decoration: SocialCard.decoration(context),
-          child: Row(
-            children: [
-              Expanded(
-                child: InkWell(
-                  borderRadius: BorderRadius.circular(12),
-                  onTap: () {
-                    Navigator.of(context).push(
-                      MaterialPageRoute<void>(
-                        builder: (_) => OtherUserProfileScreen(
-                          selectedUserId: listedUserId,
-                          friendshipService: friendshipService,
-                          followService: followService,
+        return Material(
+          type: MaterialType.transparency,
+          child: Ink(
+            padding: const EdgeInsets.all(SocialLayout.cardPadding),
+            decoration: SocialCard.decoration(context),
+            child: Row(
+              children: [
+                Expanded(
+                  child: InkWell(
+                    borderRadius: BorderRadius.circular(12),
+                    onTap: () {
+                      Navigator.of(context).push(
+                        MaterialPageRoute<void>(
+                          builder: (_) => OtherUserProfileScreen(
+                            selectedUserId: listedUserId,
+                            friendshipService: friendshipService,
+                            followService: followService,
+                          ),
                         ),
-                      ),
-                    );
-                  },
-                  child: Row(
-                    children: [
-                      SocialAvatar(
-                        displayName: displayName,
-                        photoUrl: photoUrl,
-                        borderWidth: 1.5,
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              displayName,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: Theme.of(context).textTheme.titleMedium
-                                  ?.copyWith(
-                                    color: AppSurfaces.textPrimary(context),
-                                    fontWeight: FontWeight.w800,
-                                  ),
-                            ),
-                            const SizedBox(height: 2),
-                            Text(
-                              '@$username',
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: Theme.of(context).textTheme.bodyMedium
-                                  ?.copyWith(
-                                    color: AppSurfaces.textMuted(context),
-                                  ),
-                            ),
-                          ],
+                      );
+                    },
+                    child: Row(
+                      children: [
+                        SocialAvatar(
+                          displayName: displayName,
+                          photoUrl: photoUrl,
+                          borderWidth: 1.5,
                         ),
-                      ),
-                    ],
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                displayName,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: Theme.of(context).textTheme.titleMedium
+                                    ?.copyWith(
+                                      color: AppSurfaces.textPrimary(context),
+                                      fontWeight: FontWeight.w800,
+                                    ),
+                              ),
+                              const SizedBox(height: 2),
+                              Text(
+                                '@$username',
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: Theme.of(context).textTheme.bodyMedium
+                                    ?.copyWith(
+                                      color: AppSurfaces.textMuted(context),
+                                    ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
                 ),
-              ),
-              if (showAction) ...[
-                const SizedBox(width: 10),
-                if (showRemoveFollower) ...[
-                  _RemoveFollowerButton(
-                    followerId: listedUserId,
-                    followeeId: authUid!,
+                if (showAction) ...[
+                  const SizedBox(width: 10),
+                  if (showRemoveFollower) ...[
+                    _RemoveFollowerButton(
+                      followerId: listedUserId,
+                      followeeId: authUid!,
+                      followService: followService,
+                      username: username,
+                      isPrivateAccount: profile?.isPrivateAccount ?? false,
+                    ),
+                    const SizedBox(width: 8),
+                  ],
+                  FollowRelationshipButton(
+                    followerId: authUid!,
+                    followeeId: listedUserId,
                     followService: followService,
-                    username: username,
-                    isPrivateAccount: profile?.isPrivateAccount ?? false,
+                    followeeProfile: profile,
+                    compact: true,
+                    activeBackgroundColor: AppColors.cream,
                   ),
-                  const SizedBox(width: 8),
                 ],
-                FollowRelationshipButton(
-                  followerId: authUid!,
-                  followeeId: listedUserId,
-                  followService: followService,
-                  followeeProfile: profile,
-                  compact: true,
-                  activeBackgroundColor: AppColors.cream,
-                ),
               ],
-            ],
+            ),
           ),
         );
       },

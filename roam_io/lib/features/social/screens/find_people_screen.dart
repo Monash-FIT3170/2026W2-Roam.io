@@ -206,9 +206,40 @@ class _FindPeopleScreenState extends State<FindPeopleScreen> {
                 focusNode: _focusNode,
                 textInputAction: TextInputAction.search,
                 onChanged: _handleQueryChanged,
-                decoration: const InputDecoration(
+                decoration: InputDecoration(
                   hintText: 'Search by name or username...',
-                  prefixIcon: Icon(Icons.search),
+                  hintStyle: TextStyle(color: AppSurfaces.textSubtle(context)),
+                  prefixIcon: Icon(
+                    Icons.search,
+                    color: AppSurfaces.textMuted(context),
+                  ),
+                  suffixIcon: _controller.text.isEmpty
+                      ? null
+                      : IconButton(
+                          tooltip: 'Clear search',
+                          icon: Icon(
+                            Icons.close_rounded,
+                            color: AppSurfaces.textMuted(context),
+                          ),
+                          onPressed: () {
+                            _controller.clear();
+                            _handleQueryChanged('');
+                          },
+                        ),
+                  filled: true,
+                  fillColor: AppSurfaces.softCard(context),
+                  contentPadding: const EdgeInsets.symmetric(vertical: 14),
+                  enabledBorder: OutlineInputBorder(
+                    borderRadius: SocialCard.borderRadius,
+                    borderSide: BorderSide(color: AppSurfaces.border(context)),
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: SocialCard.borderRadius,
+                    borderSide: BorderSide(
+                      color: Theme.of(context).colorScheme.primary,
+                      width: 1.5,
+                    ),
+                  ),
                 ),
               ),
             ),
@@ -314,71 +345,76 @@ class _PersonResultRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(SocialLayout.cardPadding),
-      decoration: SocialCard.decoration(context),
-      child: Row(
-        children: [
-          Expanded(
-            child: InkWell(
-              borderRadius: BorderRadius.circular(12),
-              onTap: () {
-                Navigator.of(context).push(
-                  MaterialPageRoute<void>(
-                    builder: (_) => OtherUserProfileScreen(
-                      selectedUserId: profile.uid,
-                      friendshipService: friendshipService,
-                      followService: followService,
+    return Material(
+      type: MaterialType.transparency,
+      child: Ink(
+        padding: const EdgeInsets.all(SocialLayout.cardPadding),
+        decoration: SocialCard.decoration(context),
+        child: Row(
+          children: [
+            Expanded(
+              child: InkWell(
+                borderRadius: BorderRadius.circular(12),
+                onTap: () {
+                  Navigator.of(context).push(
+                    MaterialPageRoute<void>(
+                      builder: (_) => OtherUserProfileScreen(
+                        selectedUserId: profile.uid,
+                        friendshipService: friendshipService,
+                        followService: followService,
+                      ),
                     ),
-                  ),
-                );
-              },
-              child: Row(
-                children: [
-                  SocialAvatar(
-                    displayName: profile.displayName,
-                    photoUrl: profile.photoUrl,
-                    borderWidth: 1.5,
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          profile.displayName,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: Theme.of(context).textTheme.titleMedium
-                              ?.copyWith(
-                                color: AppSurfaces.textPrimary(context),
-                                fontWeight: FontWeight.w800,
-                              ),
-                        ),
-                        const SizedBox(height: 2),
-                        Text(
-                          '@${profile.username}',
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: Theme.of(context).textTheme.bodyMedium
-                              ?.copyWith(color: AppSurfaces.textMuted(context)),
-                        ),
-                      ],
+                  );
+                },
+                child: Row(
+                  children: [
+                    SocialAvatar(
+                      displayName: profile.displayName,
+                      photoUrl: profile.photoUrl,
+                      borderWidth: 1.5,
                     ),
-                  ),
-                ],
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            profile.displayName,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: Theme.of(context).textTheme.titleMedium
+                                ?.copyWith(
+                                  color: AppSurfaces.textPrimary(context),
+                                  fontWeight: FontWeight.w800,
+                                ),
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            '@${profile.username}',
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: Theme.of(context).textTheme.bodyMedium
+                                ?.copyWith(
+                                  color: AppSurfaces.textMuted(context),
+                                ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ),
-          ),
-          const SizedBox(width: 10),
-          FollowRelationshipButton(
-            followerId: currentUserId,
-            followeeId: profile.uid,
-            followService: followService,
-            followeeProfile: profile,
-            compact: true,
-          ),
-        ],
+            const SizedBox(width: 10),
+            FollowRelationshipButton(
+              followerId: currentUserId,
+              followeeId: profile.uid,
+              followService: followService,
+              followeeProfile: profile,
+              compact: true,
+            ),
+          ],
+        ),
       ),
     );
   }
