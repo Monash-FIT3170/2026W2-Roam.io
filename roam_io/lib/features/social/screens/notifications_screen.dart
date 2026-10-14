@@ -279,12 +279,17 @@ class _FollowNotificationRow extends StatelessWidget {
                 width: 8,
                 child: notification.isRead
                     ? const SizedBox.shrink()
-                    : Container(
-                        width: 6,
-                        height: 6,
-                        decoration: BoxDecoration(
-                          color: Theme.of(context).colorScheme.primary,
-                          shape: BoxShape.circle,
+                    : Semantics(
+                        label: 'Unread',
+                        child: Container(
+                          width: 6,
+                          height: 6,
+                          decoration: BoxDecoration(
+                            color: AppSurfaces.isDark(context)
+                                ? AppColors.lightSage
+                                : AppColors.sage,
+                            shape: BoxShape.circle,
+                          ),
                         ),
                       ),
               ),

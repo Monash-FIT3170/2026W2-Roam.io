@@ -108,6 +108,7 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
                                 Icons.workspace_premium,
                                 color: AppColors.clay,
                                 size: 36,
+                                semanticLabel: 'Top leader',
                               ),
                             ),
                           ],
@@ -146,49 +147,52 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
                 // Remaining Users List
                 final rank = index - 1;
                 final entry = entries[rank];
-                return DecoratedBox(
-                  decoration: SocialCard.decoration(context),
-                  child: ListTile(
-                    leading: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        SizedBox(
-                          width: 30,
-                          child: Text(
-                            '${rank + 1}',
-                            textAlign: TextAlign.center,
-                            style: textTheme.titleMedium?.copyWith(
-                              fontWeight: FontWeight.w800,
-                              color: rank == 0
-                                  ? AppColors.clay
-                                  : AppSurfaces.textPrimary(context),
+                return MergeSemantics(
+                  child: DecoratedBox(
+                    decoration: SocialCard.decoration(context),
+                    child: ListTile(
+                      leading: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          SizedBox(
+                            width: 30,
+                            child: Text(
+                              '${rank + 1}',
+                              semanticsLabel: 'Rank ${rank + 1}',
+                              textAlign: TextAlign.center,
+                              style: textTheme.titleMedium?.copyWith(
+                                fontWeight: FontWeight.w800,
+                                color: rank == 0
+                                    ? AppColors.clay
+                                    : AppSurfaces.textPrimary(context),
+                              ),
                             ),
                           ),
-                        ),
-                        const SizedBox(width: 8),
-                        SocialAvatar(
-                          displayName: entry.displayName,
-                          photoUrl: entry.photoUrl,
-                          radius: 20,
-                          borderWidth: 1.5,
-                          borderColor: rank == 0 ? AppColors.clay : null,
-                        ),
-                      ],
-                    ),
-                    title: Text(
-                      entry.displayName,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: textTheme.titleMedium?.copyWith(
-                        color: AppSurfaces.textPrimary(context),
-                        fontWeight: FontWeight.w800,
+                          const SizedBox(width: 8),
+                          SocialAvatar(
+                            displayName: entry.displayName,
+                            photoUrl: entry.photoUrl,
+                            radius: 20,
+                            borderWidth: 1.5,
+                            borderColor: rank == 0 ? AppColors.clay : null,
+                          ),
+                        ],
                       ),
-                    ),
-                    trailing: Text(
-                      _formatMetric(entry),
-                      style: textTheme.bodyMedium?.copyWith(
-                        fontWeight: FontWeight.w700,
-                        color: AppSurfaces.textMuted(context),
+                      title: Text(
+                        entry.displayName,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: textTheme.titleMedium?.copyWith(
+                          color: AppSurfaces.textPrimary(context),
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                      trailing: Text(
+                        _formatMetric(entry),
+                        style: textTheme.bodyMedium?.copyWith(
+                          fontWeight: FontWeight.w700,
+                          color: AppSurfaces.textMuted(context),
+                        ),
                       ),
                     ),
                   ),

@@ -39,12 +39,18 @@ class SocialButtonStyles {
   }
 
   /// Outlined pill for secondary or "already done" states.
+  ///
+  /// [backgroundColor] overrides the light-mode fill only.
   static ButtonStyle secondary(
     BuildContext context, {
     bool compact = false,
     Color? backgroundColor,
   }) {
-    final fill = backgroundColor ?? AppColors.sand;
+    // Light fills (sand / cream) would put light dark-mode text on a light
+    // pill, so dark mode always uses the elevated dark surface.
+    final fill = AppSurfaces.isDark(context)
+        ? AppColors.darkElevated
+        : backgroundColor ?? AppColors.sand;
 
     return OutlinedButton.styleFrom(
       shape: const StadiumBorder(),

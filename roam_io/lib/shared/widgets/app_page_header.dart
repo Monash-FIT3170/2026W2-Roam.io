@@ -7,7 +7,7 @@
  */
 
 import 'package:flutter/material.dart';
-import '../../theme/app_colours.dart';
+import '../../theme/app_surfaces.dart';
 
 /// Displays consistent screen heading text with an optional trailing widget.
 class AppPageHeader extends StatelessWidget {
@@ -52,7 +52,7 @@ class AppPageHeader extends StatelessWidget {
               subtitle!,
               style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                 fontSize: 14,
-                color: AppColors.ink.withValues(alpha: 0.6),
+                color: AppSurfaces.textMuted(context),
               ),
             ),
           ],
