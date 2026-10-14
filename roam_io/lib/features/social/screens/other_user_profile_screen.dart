@@ -17,6 +17,7 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:provider/provider.dart';
 
 import '../../../services/profile_service.dart';
+import '../../../theme/app_colours.dart';
 import '../../../theme/app_surfaces.dart';
 import '../../activity_feed/data/activity_feed_service.dart';
 import '../../activity_feed/data/comment_like_service.dart';
@@ -275,6 +276,10 @@ class _ExternalProfileTabBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    // Matches the bottom navigation bar's selected colour in each theme.
+    final selectedColor = AppSurfaces.isDark(context)
+        ? AppColors.lightSage
+        : AppColors.sage;
 
     return Padding(
       padding: const EdgeInsets.fromLTRB(
@@ -289,16 +294,23 @@ class _ExternalProfileTabBar extends StatelessWidget {
           controller: controller,
           isScrollable: true,
           tabAlignment: TabAlignment.start,
-          labelColor: theme.colorScheme.primary,
+          labelColor: selectedColor,
           unselectedLabelColor: AppSurfaces.textMuted(context),
-          indicatorColor: theme.colorScheme.primary,
-          indicatorWeight: 3,
+          indicator: UnderlineTabIndicator(
+            borderSide: BorderSide(color: selectedColor, width: 3),
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(3)),
+          ),
+          indicatorSize: TabBarIndicatorSize.label,
           dividerColor: AppSurfaces.border(context),
+          overlayColor: WidgetStatePropertyAll(
+            selectedColor.withValues(alpha: 0.08),
+          ),
+          splashBorderRadius: BorderRadius.circular(8),
           labelStyle: theme.textTheme.titleMedium?.copyWith(
-            fontWeight: FontWeight.w900,
+            fontWeight: FontWeight.w800,
           ),
           unselectedLabelStyle: theme.textTheme.titleMedium?.copyWith(
-            fontWeight: FontWeight.w700,
+            fontWeight: FontWeight.w600,
           ),
           tabs: const [
             Tab(text: 'Profile'),

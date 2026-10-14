@@ -85,7 +85,7 @@ class SocialScreen extends StatelessWidget {
                   _SocialDestinationCard(
                     title: 'Leaderboards',
                     subtitle: 'Compete with your social group!',
-                    icon: Icons.leaderboard,
+                    icon: Icons.leaderboard_rounded,
                     color: AppColors.sage,
                     onTap: () => Navigator.of(context).push(
                       MaterialPageRoute<void>(
@@ -184,7 +184,7 @@ class _SocialDestinationCard extends StatelessWidget {
                 ],
               ),
             ),
-            const Icon(Icons.chevron_right, color: Colors.white),
+            const Icon(Icons.chevron_right_rounded, color: Colors.white),
           ],
         ),
       ),
