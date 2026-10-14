@@ -4,7 +4,8 @@
  * Description:
  *   Shared Follow / Requested / Following control driven by derived Firestore
  *   relationship state. Follow is sage; Following and Requested default to
- *   sand with per-surface overrides.
+ *   sand with per-surface overrides in light mode and use the elevated dark
+ *   surface in dark mode (see SocialButtonStyles).
  *   Unfollowing a private account confirms via shared dialog. Public targets
  *   follow immediately; private targets create cancellable requests.
  */
@@ -50,10 +51,10 @@ class FollowRelationshipButton extends StatefulWidget {
   final bool expandWidth;
   final PublicProfile? followeeProfile;
 
-  /// Background for Following / Requested states.
+  /// Light-mode background for Following / Requested states.
   ///
   /// Profile and search surfaces default to sand; dense list rows can override
-  /// to cream.
+  /// to cream. Dark mode always uses the elevated dark surface.
   final Color? activeBackgroundColor;
 
   @override

@@ -1,3 +1,11 @@
+/*
+ * Author: n8nunes
+ * Last Updated: 15 October 2026
+ * Description:
+ *   Social leaderboard ranking the signed-in user's group by XP earned over
+ *   the last 30 days, with a highlighted top leader card.
+ */
+
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
@@ -10,6 +18,7 @@ import '../widgets/social_card.dart';
 import '../widgets/social_layout.dart';
 import '../widgets/social_message.dart';
 
+/// XP leaderboard opened from the Social tab.
 class LeaderboardScreen extends StatefulWidget {
   const LeaderboardScreen({super.key});
 
@@ -55,8 +64,9 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
             return const Center(child: CircularProgressIndicator());
           }
           if (snapshot.hasError) {
-            return SocialMessage(
-              'Error loading leaderboards: ${snapshot.error}',
+            debugPrint('[LeaderboardScreen] load failed: ${snapshot.error}');
+            return const SocialMessage(
+              'Could not load leaderboards right now.',
             );
           }
 

@@ -24,9 +24,9 @@ import '../data/follow_service.dart';
 import '../data/friendship_service.dart';
 import '../domain/public_profile.dart';
 import '../widgets/follow_relationship_button.dart';
+import '../widgets/social_avatar.dart';
 import '../widgets/social_card.dart';
 import '../widgets/social_layout.dart';
-import '../widgets/social_avatar.dart';
 import '../widgets/social_message.dart';
 import 'other_user_profile_screen.dart';
 
