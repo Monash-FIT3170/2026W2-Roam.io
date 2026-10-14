@@ -40,6 +40,7 @@ import '../utils/relative_time.dart';
 import '../widgets/follow_relationship_button.dart';
 import '../widgets/private_follow_confirm.dart';
 import '../widgets/social_avatar.dart';
+import '../widgets/social_message.dart';
 import 'other_user_profile_screen.dart';
 
 /// Dedicated Notifications screen opened from the You bell.
@@ -145,7 +146,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
         backgroundColor: AppSurfaces.pageBackground(context),
       ),
       body: uid == null
-          ? const Center(child: Text('Sign in to view notifications.'))
+          ? const SocialMessage('Sign in to view notifications.')
           : StreamBuilder<List<SocialNotification>>(
               stream: _notificationService.watchRecent(uid),
               builder: (context, snapshot) {
@@ -155,15 +156,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                 }
                 final items = snapshot.data ?? const <SocialNotification>[];
                 if (items.isEmpty) {
-                  return Center(
-                    child: Text(
-                      'No notifications yet',
-                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                        color: AppSurfaces.textMuted(context),
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                  );
+                  return const SocialMessage('No notifications yet');
                 }
 
                 final groups = _groupNotifications(items);

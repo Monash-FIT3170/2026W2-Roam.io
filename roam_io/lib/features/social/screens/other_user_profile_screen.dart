@@ -41,6 +41,7 @@ import '../data/social_privacy_service.dart';
 import '../domain/follow_relationship_state.dart';
 import '../domain/public_profile.dart';
 import '../widgets/follow_relationship_button.dart';
+import '../widgets/social_message.dart';
 import 'follow_connections_screen.dart';
 
 /// Read-only social profile for a selected user.
@@ -173,18 +174,7 @@ class _OtherUserProfileScreenState extends State<OtherUserProfileScreen>
 
               final profile = profileSnapshot.data;
               if (profile == null) {
-                return Center(
-                  child: Padding(
-                    padding: const EdgeInsets.all(24),
-                    child: Text(
-                      'This profile is unavailable.',
-                      textAlign: TextAlign.center,
-                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                        color: AppSurfaces.textMuted(context),
-                      ),
-                    ),
-                  ),
-                );
+                return const SocialMessage('This profile is unavailable.');
               }
 
               return StreamBuilder<SocialAccessPermissions>(
@@ -550,19 +540,7 @@ class _PrivateActivitiesTab extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(24),
-        child: Text(
-          'Follow this account to see their activity',
-          textAlign: TextAlign.center,
-          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-            color: AppSurfaces.textMuted(context),
-            fontWeight: FontWeight.w700,
-          ),
-        ),
-      ),
-    );
+    return const SocialMessage('Follow this account to see their activity');
   }
 }
 
@@ -611,19 +589,7 @@ class _ExternalActivitiesTab extends StatelessWidget {
         }
         final activities = snapshot.data ?? const <ActivityFeedItem>[];
         if (activities.isEmpty) {
-          return Center(
-            child: Padding(
-              padding: const EdgeInsets.all(24),
-              child: Text(
-                'No activities yet',
-                textAlign: TextAlign.center,
-                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                  color: AppSurfaces.textMuted(context),
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-            ),
-          );
+          return const SocialMessage('No activities yet');
         }
 
         return ListView.separated(

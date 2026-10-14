@@ -25,6 +25,7 @@ import '../data/friendship_service.dart';
 import '../domain/public_profile.dart';
 import '../widgets/follow_relationship_button.dart';
 import '../widgets/social_avatar.dart';
+import '../widgets/social_message.dart';
 import 'other_user_profile_screen.dart';
 
 /// Dedicated user-search screen for finding registered users.
@@ -247,7 +248,7 @@ class _SearchResults extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (currentUserId == null) {
-      return const Center(child: Text('Sign in to find people.'));
+      return const SocialMessage('Sign in to find people.');
     }
 
     if (query.isEmpty) {
@@ -255,16 +256,7 @@ class _SearchResults extends StatelessWidget {
     }
 
     if (searchFailed) {
-      return Center(
-        child: Text(
-          'Could not search people right now.',
-          textAlign: TextAlign.center,
-          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-            color: AppSurfaces.textMuted(context),
-            fontWeight: FontWeight.w700,
-          ),
-        ),
-      );
+      return const SocialMessage('Could not search people right now.');
     }
 
     if (isSearching) {
@@ -272,7 +264,7 @@ class _SearchResults extends StatelessWidget {
     }
 
     if (hasCompletedSearch && results.isEmpty) {
-      return const Center(child: Text('No people found.'));
+      return const SocialMessage('No people found.');
     }
 
     if (results.isEmpty) {

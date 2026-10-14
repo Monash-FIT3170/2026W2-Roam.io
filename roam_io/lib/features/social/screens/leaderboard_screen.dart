@@ -6,6 +6,7 @@ import '../../../theme/app_surfaces.dart';
 import '../data/leaderboard_service.dart';
 import '../domain/leaderboard_entry.dart';
 import '../widgets/social_avatar.dart';
+import '../widgets/social_message.dart';
 
 class LeaderboardScreen extends StatefulWidget {
   const LeaderboardScreen({super.key});
@@ -35,6 +36,8 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final textTheme = Theme.of(context).textTheme;
+
     return Scaffold(
       backgroundColor: AppSurfaces.pageBackground(context),
       appBar: AppBar(
@@ -50,8 +53,8 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
             return const Center(child: CircularProgressIndicator());
           }
           if (snapshot.hasError) {
-            return Center(
-              child: Text('Error loading leaderboards: ${snapshot.error}'),
+            return SocialMessage(
+              'Error loading leaderboards: ${snapshot.error}',
             );
           }
 
@@ -62,8 +65,8 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
             children: [
               if (entries.isEmpty)
                 const Expanded(
-                  child: Center(
-                    child: Text('No activity found in the last 30 days.'),
+                  child: SocialMessage(
+                    'No activity found in the last 30 days.',
                   ),
                 )
               else ...[
@@ -101,25 +104,25 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
                       const SizedBox(height: 24),
                       Text(
                         _formatMetric(entries.first),
-                        style: const TextStyle(
+                        style: textTheme.headlineLarge?.copyWith(
                           fontSize: 32,
-                          fontWeight: FontWeight.bold,
+                          color: AppSurfaces.textPrimary(context),
                         ),
                       ),
                       Text(
                         '#1 Leader',
-                        style: TextStyle(
+                        style: textTheme.labelMedium?.copyWith(
                           fontSize: 14,
                           color: AppSurfaces.textMuted(context),
-                          fontWeight: FontWeight.w600,
                         ),
                       ),
                       const SizedBox(height: 4),
                       Text(
                         entries.first.displayName,
-                        style: const TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
+                        textAlign: TextAlign.center,
+                        style: textTheme.titleLarge?.copyWith(
+                          color: AppSurfaces.textPrimary(context),
+                          fontWeight: FontWeight.w800,
                         ),
                       ),
                     ],
@@ -143,9 +146,8 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
                               child: Text(
                                 '${index + 1}',
                                 textAlign: TextAlign.center,
-                                style: TextStyle(
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 16,
+                                style: textTheme.titleMedium?.copyWith(
+                                  fontWeight: FontWeight.w800,
                                   color: index == 0
                                       ? AppColors.clay
                                       : AppSurfaces.textPrimary(context),
@@ -162,13 +164,15 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
                         ),
                         title: Text(
                           entry.displayName,
-                          style: const TextStyle(fontWeight: FontWeight.w600),
+                          style: textTheme.titleMedium?.copyWith(
+                            color: AppSurfaces.textPrimary(context),
+                            fontWeight: FontWeight.w800,
+                          ),
                         ),
                         trailing: Text(
                           _formatMetric(entry),
-                          style: TextStyle(
-                            fontSize: 14,
-                            fontWeight: FontWeight.w500,
+                          style: textTheme.bodyMedium?.copyWith(
+                            fontWeight: FontWeight.w700,
                             color: AppSurfaces.textMuted(context),
                           ),
                         ),

@@ -23,6 +23,7 @@ import '../domain/public_profile.dart';
 import '../widgets/follow_relationship_button.dart';
 import '../widgets/private_follow_confirm.dart';
 import '../widgets/social_avatar.dart';
+import '../widgets/social_message.dart';
 import 'other_user_profile_screen.dart';
 
 /// Whether the screen lists people the selected user follows or their followers.
@@ -96,16 +97,10 @@ class _FollowConnectionsScreenState extends State<FollowConnectionsScreen> {
 
           final ids = snapshot.data ?? const <String>[];
           if (ids.isEmpty) {
-            return Center(
-              child: Text(
-                widget.mode == FollowConnectionsMode.following
-                    ? 'Not following anyone yet'
-                    : 'No followers yet',
-                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                  color: AppSurfaces.textMuted(context),
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
+            return SocialMessage(
+              widget.mode == FollowConnectionsMode.following
+                  ? 'Not following anyone yet'
+                  : 'No followers yet',
             );
           }
 
