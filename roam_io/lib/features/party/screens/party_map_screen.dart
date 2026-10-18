@@ -15,6 +15,8 @@ import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
 import '../../../shared/widgets/app_toast.dart';
+import '../../../theme/app_cartoon.dart';
+import '../../../theme/app_colours.dart';
 import '../../../theme/app_surfaces.dart';
 import '../../auth/providers/auth_provider.dart';
 import '../../map/data/map_controller.dart';
@@ -26,6 +28,7 @@ import '../data/party_tile_ownership_service.dart';
 import '../domain/party.dart';
 import '../widgets/confirm_leave_party.dart';
 import '../widgets/party_member_name.dart';
+import '../widgets/party_style.dart';
 
 /// Full-screen map view for a specific Party Mode party.
 class PartyMapScreen extends StatefulWidget {
@@ -401,6 +404,7 @@ class _PartyMapScreenState extends State<PartyMapScreen> {
     showModalBottomSheet<void>(
       context: context,
       showDragHandle: true,
+      backgroundColor: AppSurfaces.pageBackground(context),
       useSafeArea: true,
       isScrollControlled: true,
       builder: (sheetContext) {
@@ -417,35 +421,49 @@ class _PartyMapScreenState extends State<PartyMapScreen> {
                   Text(
                     'Party Details',
                     style: theme.textTheme.titleLarge?.copyWith(
-                      fontWeight: FontWeight.w800,
+                      fontWeight: FontWeight.w900,
+                      letterSpacing: -0.5,
                     ),
                   ),
-                  InkWell(
-                    onTap: _copyJoinCode,
-                    borderRadius: BorderRadius.circular(8),
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 8,
-                        vertical: 4,
+                  CartoonPressable(
+                    soft: true,
+                    offset: 3,
+                    child: Material(
+                      color: AppColors.sand,
+                      shape: StadiumBorder(
+                        side: BorderSide(
+                          color: PartyStyle.outline(sheetContext),
+                          width: PartyStyle.outlineWidth,
+                        ),
                       ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(
-                            Icons.copy_rounded,
-                            size: 16,
-                            color: theme.colorScheme.primary,
+                      clipBehavior: Clip.antiAlias,
+                      child: InkWell(
+                        onTap: _copyJoinCode,
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 12,
+                            vertical: 6,
                           ),
-                          const SizedBox(width: 4),
-                          Text(
-                            _party.joinCode,
-                            style: theme.textTheme.labelLarge?.copyWith(
-                              color: theme.colorScheme.primary,
-                              fontWeight: FontWeight.w800,
-                              letterSpacing: 1.2,
-                            ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              const Icon(
+                                Icons.copy_rounded,
+                                size: 16,
+                                color: AppColors.ink,
+                              ),
+                              const SizedBox(width: 4),
+                              Text(
+                                _party.joinCode,
+                                style: theme.textTheme.labelLarge?.copyWith(
+                                  color: AppColors.ink,
+                                  fontWeight: FontWeight.w900,
+                                  letterSpacing: 1.2,
+                                ),
+                              ),
+                            ],
                           ),
-                        ],
+                        ),
                       ),
                     ),
                   ),
@@ -455,25 +473,19 @@ class _PartyMapScreenState extends State<PartyMapScreen> {
               if (userTeam != null)
                 Container(
                   width: double.infinity,
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: userTeam == 'A'
-                        ? const Color(0xFF0288D1).withValues(alpha: 0.12)
-                        : const Color(0xFFE53935).withValues(alpha: 0.12),
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(
-                      color: userTeam == 'A'
-                          ? const Color(0xFF0288D1).withValues(alpha: 0.3)
-                          : const Color(0xFFE53935).withValues(alpha: 0.3),
-                    ),
+                  padding: const EdgeInsets.all(14),
+                  decoration: PartyStyle.card(
+                    sheetContext,
+                    color: PartyStyle.team(userTeam),
+                    radius: 18,
+                    offset: 3,
                   ),
                   child: Text(
-                    'You are on Team $userTeam (${userTeam == 'A' ? 'Blue' : 'Red'})',
-                    style: TextStyle(
-                      fontWeight: FontWeight.w700,
-                      color: userTeam == 'A'
-                          ? const Color(0xFF0288D1)
-                          : const Color(0xFFE53935),
+                    'You are on Team $userTeam '
+                    '(${PartyStyle.teamColourName(userTeam)})',
+                    style: const TextStyle(
+                      fontWeight: FontWeight.w900,
+                      color: Colors.white,
                     ),
                   ),
                 ),
@@ -481,7 +493,8 @@ class _PartyMapScreenState extends State<PartyMapScreen> {
               Text(
                 'Team A (${_party.teamAMembers.length} members):',
                 style: theme.textTheme.bodyMedium?.copyWith(
-                  fontWeight: FontWeight.w700,
+                  fontWeight: FontWeight.w900,
+                  color: AppColors.teamA,
                 ),
               ),
               const SizedBox(height: 4),
@@ -490,14 +503,15 @@ class _PartyMapScreenState extends State<PartyMapScreen> {
               Text(
                 'Team B (${_party.teamBMembers.length} members):',
                 style: theme.textTheme.bodyMedium?.copyWith(
-                  fontWeight: FontWeight.w700,
+                  fontWeight: FontWeight.w900,
+                  color: AppColors.teamB,
                 ),
               ),
               const SizedBox(height: 4),
               _memberRoster(_party.teamBMembers, uid),
               const SizedBox(height: 24),
-              SizedBox(
-                width: double.infinity,
+              CartoonPressable(
+                soft: true,
                 child: OutlinedButton.icon(
                   onPressed: () async {
                     if (!await confirmLeaveParty(sheetContext) ||
@@ -508,21 +522,19 @@ class _PartyMapScreenState extends State<PartyMapScreen> {
                     Navigator.of(sheetContext).pop();
                     await _leaveParty();
                   },
-                  icon: const Icon(
-                    Icons.exit_to_app_rounded,
-                    color: Colors.red,
-                  ),
-                  label: const Text(
-                    'Leave Party',
-                    style: TextStyle(
-                      color: Colors.red,
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                  style: OutlinedButton.styleFrom(
-                    side: const BorderSide(color: Colors.red),
-                    padding: const EdgeInsets.symmetric(vertical: 12),
-                  ),
+                  icon: const Icon(Icons.exit_to_app_rounded),
+                  label: const Text('Leave Party'),
+                  style:
+                      PartyStyle.button(
+                        sheetContext,
+                        background: AppSurfaces.softCard(sheetContext),
+                        foreground: theme.colorScheme.error,
+                        height: 50,
+                      ).copyWith(
+                        minimumSize: const WidgetStatePropertyAll(
+                          Size.fromHeight(50),
+                        ),
+                      ),
                 ),
               ),
             ],
@@ -549,83 +561,114 @@ class _PartyMapScreenState extends State<PartyMapScreen> {
         : null;
 
     return Scaffold(
-      appBar: AppBar(
-        title: Text(_party.displayName),
-        centerTitle: false,
-        actions: [
-          IconButton(
-            tooltip: 'Copy join code',
-            icon: const Icon(Icons.copy_rounded, size: 20),
-            onPressed: _copyJoinCode,
-          ),
-          IconButton(
-            tooltip: 'Party info',
-            icon: const Icon(Icons.info_outline_rounded),
-            onPressed: _showPartyDetailsSheet,
-          ),
-        ],
-      ),
-      body: Stack(
-        children: [
-          MapRender(
-            initialCenter: _mapController.center,
-            polygons: _mapController.polygons,
-            markers: const {},
-            polylines: const {},
-            myLocationEnabled: _mapController.myLocationEnabled,
-            onMapCreated: _mapController.onMapCreated,
-            onCameraIdle: _mapController.onCameraIdle,
-            onCameraMove: _mapController.onCameraMove,
-            onCameraMoveStarted: _mapController.onCameraMoveStarted,
-          ),
-          // Top Scoreboard & Team Status Banner
-          Positioned(
-            top: 12,
-            left: 16,
-            right: 16,
-            child: _PartyScoreboard(
-              party: _party,
-              teamATileCount: _teamATileCount,
-              teamBTileCount: _teamBTileCount,
-              userTeam: userTeam,
-              onTapDetails: _showPartyDetailsSheet,
-            ),
-          ),
-          // Bottom tile summary, expandable details, and recenter control.
-          Positioned(
-            bottom: 16,
-            left: 16,
-            right: 16,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                if (_mapController.myLocationEnabled) ...[
-                  Align(
-                    alignment: Alignment.centerRight,
-                    child: FloatingActionButton.small(
-                      heroTag: 'recenter_party_map',
-                      tooltip: 'Centre on my location',
-                      onPressed: _mapController.recenterOnUser,
-                      backgroundColor: AppSurfaces.card(context),
-                      foregroundColor: AppSurfaces.textPrimary(context),
-                      child: const Icon(Icons.my_location),
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                ],
-                _CurrentTileCountdownCard(
-                  userTeam: userTeam,
-                  currentRegionName: currentRegion?.name,
-                  currentTileId: currentTileId,
-                  tileData: currentTileData,
-                  sessionDwell: _sessionDwellDuration,
-                  flushedSeconds: _flushedSecondsInCurrentTile,
+      backgroundColor: AppSurfaces.pageBackground(context),
+      body: SafeArea(
+        bottom: false,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            CartoonPageHeader(
+              soft: true,
+              outlineWidth: PartyStyle.outlineWidth,
+              title: _party.displayName,
+              actions: [
+                CartoonIconButton(
+                  soft: true,
+                  outlineWidth: PartyStyle.outlineWidth,
+                  tooltip: 'Copy join code',
+                  icon: Icons.copy_rounded,
+                  onPressed: _copyJoinCode,
+                ),
+                CartoonIconButton(
+                  soft: true,
+                  outlineWidth: PartyStyle.outlineWidth,
+                  tooltip: 'Party info',
+                  icon: Icons.info_outline_rounded,
+                  onPressed: _showPartyDetailsSheet,
                 ),
               ],
             ),
-          ),
-        ],
+            Expanded(
+              child: Container(
+                margin: EdgeInsets.fromLTRB(
+                  12,
+                  0,
+                  12,
+                  12 + MediaQuery.paddingOf(context).bottom,
+                ),
+                decoration: PartyStyle.card(context, radius: 28),
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(
+                    28 - PartyStyle.outlineWidth,
+                  ),
+                  child: Stack(
+                    children: [
+                      MapRender(
+                        initialCenter: _mapController.center,
+                        polygons: _mapController.polygons,
+                        markers: const {},
+                        polylines: const {},
+                        myLocationEnabled: _mapController.myLocationEnabled,
+                        onMapCreated: _mapController.onMapCreated,
+                        onCameraIdle: _mapController.onCameraIdle,
+                        onCameraMove: _mapController.onCameraMove,
+                        onCameraMoveStarted: _mapController.onCameraMoveStarted,
+                      ),
+                      // Top Scoreboard & Team Status Banner
+                      Positioned(
+                        top: 12,
+                        left: 12,
+                        right: 12,
+                        child: _PartyScoreboard(
+                          party: _party,
+                          teamATileCount: _teamATileCount,
+                          teamBTileCount: _teamBTileCount,
+                          userTeam: userTeam,
+                          onTapDetails: _showPartyDetailsSheet,
+                        ),
+                      ),
+                      // Bottom tile summary, expandable details, and recenter
+                      // control.
+                      Positioned(
+                        bottom: 16,
+                        left: 12,
+                        right: 12,
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            if (_mapController.myLocationEnabled) ...[
+                              Align(
+                                alignment: Alignment.centerRight,
+                                child: CartoonIconButton(
+                                  soft: true,
+                                  outlineWidth: PartyStyle.outlineWidth,
+                                  tooltip: 'Centre on my location',
+                                  icon: Icons.my_location,
+                                  onPressed: _mapController.recenterOnUser,
+                                  background: AppSurfaces.softCard(context),
+                                ),
+                              ),
+                              const SizedBox(height: 12),
+                            ],
+                            _CurrentTileCountdownCard(
+                              userTeam: userTeam,
+                              currentRegionName: currentRegion?.name,
+                              currentTileId: currentTileId,
+                              tileData: currentTileData,
+                              sessionDwell: _sessionDwellDuration,
+                              flushedSeconds: _flushedSecondsInCurrentTile,
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -648,138 +691,74 @@ class _PartyScoreboard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-
-    return Material(
-      color: AppSurfaces.card(context),
-      elevation: 4,
-      shadowColor: Colors.black.withValues(alpha: 0.16),
-      borderRadius: BorderRadius.circular(16),
-      child: InkWell(
-        onTap: onTapDetails,
-        borderRadius: BorderRadius.circular(16),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-          child: Row(
-            children: [
-              // Team A Score
-              Expanded(
-                child: Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 10,
-                    vertical: 6,
-                  ),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFF0288D1).withValues(alpha: 0.12),
-                    borderRadius: BorderRadius.circular(10),
-                    border: userTeam == 'A'
-                        ? Border.all(color: const Color(0xFF0288D1), width: 1.5)
-                        : null,
-                  ),
-                  child: Column(
-                    children: [
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Container(
-                            width: 8,
-                            height: 8,
-                            decoration: const BoxDecoration(
-                              color: Color(0xFF0288D1),
-                              shape: BoxShape.circle,
-                            ),
-                          ),
-                          const SizedBox(width: 4),
-                          Flexible(
-                            child: Text(
-                              userTeam == 'A' ? 'Team A (You)' : 'Team A',
-                              textAlign: TextAlign.center,
-                              style: theme.textTheme.labelSmall?.copyWith(
-                                fontWeight: FontWeight.w800,
-                                color: const Color(0xFF0288D1),
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 2),
-                      Text(
-                        '$teamATileCount tiles',
-                        style: theme.textTheme.titleMedium?.copyWith(
-                          fontWeight: FontWeight.w900,
-                          color: const Color(0xFF0288D1),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-              const Padding(
-                padding: EdgeInsets.symmetric(horizontal: 8),
-                child: Text(
-                  'VS',
-                  style: TextStyle(
-                    fontWeight: FontWeight.w900,
-                    fontSize: 12,
-                    color: Colors.grey,
-                  ),
-                ),
-              ),
-              // Team B Score
-              Expanded(
-                child: Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 10,
-                    vertical: 6,
-                  ),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFE53935).withValues(alpha: 0.12),
-                    borderRadius: BorderRadius.circular(10),
-                    border: userTeam == 'B'
-                        ? Border.all(color: const Color(0xFFE53935), width: 1.5)
-                        : null,
-                  ),
-                  child: Column(
-                    children: [
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Container(
-                            width: 8,
-                            height: 8,
-                            decoration: const BoxDecoration(
-                              color: Color(0xFFE53935),
-                              shape: BoxShape.circle,
-                            ),
-                          ),
-                          const SizedBox(width: 4),
-                          Flexible(
-                            child: Text(
-                              userTeam == 'B' ? 'Team B (You)' : 'Team B',
-                              textAlign: TextAlign.center,
-                              style: theme.textTheme.labelSmall?.copyWith(
-                                fontWeight: FontWeight.w800,
-                                color: const Color(0xFFE53935),
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 2),
-                      Text(
-                        '$teamBTileCount tiles',
-                        style: theme.textTheme.titleMedium?.copyWith(
-                          fontWeight: FontWeight.w900,
-                          color: const Color(0xFFE53935),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ],
+    return CartoonPressable(
+      soft: true,
+      borderRadius: BorderRadius.circular(20),
+      offset: 4,
+      child: Material(
+        color: AppSurfaces.softCard(context),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(20),
+          side: BorderSide(
+            color: PartyStyle.outline(context),
+            width: PartyStyle.outlineWidth,
           ),
         ),
+        clipBehavior: Clip.antiAlias,
+        child: InkWell(
+          onTap: onTapDetails,
+          child: Padding(
+            padding: const EdgeInsets.all(8),
+            child: Row(
+              children: [
+                Expanded(child: _teamScore(context, 'A', teamATileCount)),
+                const PartyVsBadge(),
+                Expanded(child: _teamScore(context, 'B', teamBTileCount)),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _teamScore(BuildContext context, String team, int tiles) {
+    final theme = Theme.of(context);
+    final isMine = userTeam == team;
+    final color = PartyStyle.team(team);
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+      decoration: BoxDecoration(
+        color: isMine ? color : color.withValues(alpha: 0.16),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(
+          color: isMine
+              ? PartyStyle.outline(context)
+              : color.withValues(alpha: 0.5),
+          width: 2,
+        ),
+      ),
+      child: Column(
+        children: [
+          Text(
+            isMine ? 'Team $team (You)' : 'Team $team',
+            textAlign: TextAlign.center,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: theme.textTheme.labelSmall?.copyWith(
+              fontWeight: FontWeight.w900,
+              color: isMine ? Colors.white : color,
+            ),
+          ),
+          const SizedBox(height: 1),
+          Text(
+            '$tiles tiles',
+            style: theme.textTheme.titleMedium?.copyWith(
+              fontWeight: FontWeight.w900,
+              color: isMine ? Colors.white : color,
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -843,25 +822,18 @@ class _CurrentTileCountdownCardState extends State<_CurrentTileCountdownCard> {
     if (currentTileId == null) {
       return Container(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-        decoration: BoxDecoration(
-          color: AppSurfaces.card(context),
-          borderRadius: BorderRadius.circular(18),
-          border: Border.all(color: AppSurfaces.border(context)),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withValues(alpha: 0.12),
-              blurRadius: 10,
-              offset: const Offset(0, 4),
-            ),
-          ],
-        ),
+        decoration: PartyStyle.card(context, radius: 20),
         child: Row(
           children: [
             Container(
               padding: const EdgeInsets.all(10),
               decoration: BoxDecoration(
-                color: theme.colorScheme.primary.withValues(alpha: 0.1),
+                color: theme.colorScheme.primary.withValues(alpha: 0.16),
                 shape: BoxShape.circle,
+                border: Border.all(
+                  color: PartyStyle.outline(context),
+                  width: 2,
+                ),
               ),
               child: Icon(
                 Icons.radar_rounded,
@@ -878,7 +850,7 @@ class _CurrentTileCountdownCardState extends State<_CurrentTileCountdownCard> {
                   Text(
                     'Locating Tile...',
                     style: theme.textTheme.titleSmall?.copyWith(
-                      fontWeight: FontWeight.w800,
+                      fontWeight: FontWeight.w900,
                     ),
                   ),
                   const SizedBox(height: 2),
@@ -930,9 +902,7 @@ class _CurrentTileCountdownCardState extends State<_CurrentTileCountdownCard> {
       final leadSec = (myDwell - opponentDwell).toInt();
       countdownText = 'Tile Claimed!';
       statusSubtitle = 'Lead: +${_formatSeconds(leadSec)} · Defending tile';
-      statusColor = userTeam == 'A'
-          ? const Color(0xFF0288D1)
-          : const Color(0xFFE53935);
+      statusColor = PartyStyle.team(userTeam);
       badgeLabel = 'Claimed by You';
     } else if (isClaimedByOpponent) {
       final target = opponentDwell + 1;
@@ -941,9 +911,7 @@ class _CurrentTileCountdownCardState extends State<_CurrentTileCountdownCard> {
       countdownText = '${_formatSeconds(remaining)} to overtake';
       statusSubtitle =
           'Enemy tile (Team $opponentTeam: ${_formatSeconds(opponentDwell)})';
-      statusColor = userTeam == 'A'
-          ? const Color(0xFFE53935)
-          : const Color(0xFF0288D1);
+      statusColor = PartyStyle.team(opponentTeam);
       badgeLabel = 'Claimed by Team $opponentTeam';
     } else {
       final target = max(claimGateSeconds.toDouble(), opponentDwell);
@@ -965,18 +933,7 @@ class _CurrentTileCountdownCardState extends State<_CurrentTileCountdownCard> {
       curve: Curves.easeInOut,
       child: Container(
         padding: const EdgeInsets.all(14),
-        decoration: BoxDecoration(
-          color: AppSurfaces.card(context),
-          borderRadius: BorderRadius.circular(18),
-          border: Border.all(color: AppSurfaces.border(context)),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withValues(alpha: 0.12),
-              blurRadius: 10,
-              offset: const Offset(0, 4),
-            ),
-          ],
-        ),
+        decoration: PartyStyle.card(context, radius: 20),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -991,7 +948,7 @@ class _CurrentTileCountdownCardState extends State<_CurrentTileCountdownCard> {
                   child: Text(
                     displayName,
                     style: theme.textTheme.titleSmall?.copyWith(
-                      fontWeight: FontWeight.w800,
+                      fontWeight: FontWeight.w900,
                     ),
                   ),
                 ),
@@ -1009,18 +966,19 @@ class _CurrentTileCountdownCardState extends State<_CurrentTileCountdownCard> {
                     vertical: 3,
                   ),
                   decoration: BoxDecoration(
-                    color: statusColor.withValues(alpha: 0.12),
-                    borderRadius: BorderRadius.circular(8),
+                    color: statusColor,
+                    borderRadius: BorderRadius.circular(999),
                     border: Border.all(
-                      color: statusColor.withValues(alpha: 0.3),
+                      color: PartyStyle.outline(context),
+                      width: 2,
                     ),
                   ),
                   child: Text(
                     badgeLabel,
-                    style: TextStyle(
-                      color: statusColor,
+                    style: const TextStyle(
+                      color: Colors.white,
                       fontSize: 11,
-                      fontWeight: FontWeight.w800,
+                      fontWeight: FontWeight.w900,
                     ),
                   ),
                 ),
@@ -1058,13 +1016,22 @@ class _CurrentTileCountdownCardState extends State<_CurrentTileCountdownCard> {
                 ),
               ),
               const SizedBox(height: 8),
-              ClipRRect(
-                borderRadius: BorderRadius.circular(4),
-                child: LinearProgressIndicator(
-                  value: progress,
-                  minHeight: 6,
-                  backgroundColor: statusColor.withValues(alpha: 0.15),
-                  valueColor: AlwaysStoppedAnimation<Color>(statusColor),
+              Container(
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(999),
+                  border: Border.all(
+                    color: PartyStyle.outline(context),
+                    width: 2,
+                  ),
+                ),
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(999),
+                  child: LinearProgressIndicator(
+                    value: progress,
+                    minHeight: 10,
+                    backgroundColor: statusColor.withValues(alpha: 0.18),
+                    valueColor: AlwaysStoppedAnimation<Color>(statusColor),
+                  ),
                 ),
               ),
               const SizedBox(height: 10),
@@ -1075,7 +1042,8 @@ class _CurrentTileCountdownCardState extends State<_CurrentTileCountdownCard> {
                 ),
                 decoration: BoxDecoration(
                   color: AppSurfaces.innerCard(context),
-                  borderRadius: BorderRadius.circular(10),
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(color: AppSurfaces.border(context)),
                 ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -1106,6 +1074,7 @@ class _CurrentTileCountdownCardState extends State<_CurrentTileCountdownCard> {
                 style: TextButton.styleFrom(
                   foregroundColor: theme.colorScheme.primary,
                   visualDensity: VisualDensity.compact,
+                  textStyle: const TextStyle(fontWeight: FontWeight.w900),
                 ),
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
