@@ -1,6 +1,10 @@
 import 'package:flutter/material.dart';
 
+import '../../../theme/app_cartoon.dart';
+import '../../../theme/app_colours.dart';
+import '../../../theme/app_surfaces.dart';
 import '../data/party_service.dart';
+import 'party_style.dart';
 
 Future<String?> showPartyNameDialog(
   BuildContext context, {
@@ -50,17 +54,33 @@ class _PartyNameDialogState extends State<_PartyNameDialog> {
     final name = _controller.text.trim();
     final canSubmit =
         name.isNotEmpty && name.length <= PartyService.maxNameLength;
+    final outline = PartyStyle.outline(context);
+    OutlineInputBorder border(Color color) => OutlineInputBorder(
+      borderRadius: BorderRadius.circular(16),
+      borderSide: BorderSide(color: color, width: PartyStyle.outlineWidth),
+    );
     return AlertDialog(
-      title: Text(widget.creating ? 'Name your party' : 'Edit party name'),
+      backgroundColor: AppSurfaces.pageBackground(context),
+      shape: PartyStyle.dialogShape(context),
+      title: Text(
+        widget.creating ? 'Name your party' : 'Edit party name',
+        style: const TextStyle(fontWeight: FontWeight.w900),
+      ),
       content: TextField(
         controller: _controller,
         autofocus: true,
         maxLength: PartyService.maxNameLength,
         textCapitalization: TextCapitalization.words,
         textInputAction: TextInputAction.done,
-        decoration: const InputDecoration(
+        style: const TextStyle(fontWeight: FontWeight.w800),
+        decoration: InputDecoration(
           labelText: 'Party name',
           hintText: 'Enter a name for your party',
+          filled: true,
+          fillColor: AppSurfaces.softCard(context),
+          border: border(outline),
+          enabledBorder: border(outline),
+          focusedBorder: border(AppColors.sage),
         ),
         onChanged: (_) => setState(() {}),
         onSubmitted: (_) => _submit(),
@@ -68,17 +88,26 @@ class _PartyNameDialogState extends State<_PartyNameDialog> {
       actions: [
         TextButton(
           onPressed: () => Navigator.of(context).pop(),
+          style: TextButton.styleFrom(
+            foregroundColor: AppSurfaces.textMuted(context),
+            textStyle: const TextStyle(fontWeight: FontWeight.w800),
+          ),
           child: const Text('Cancel'),
         ),
-        ElevatedButton(
-          onPressed: canSubmit ? _submit : null,
-          style: widget.creating
-              ? ElevatedButton.styleFrom(
-                  backgroundColor: Theme.of(context).colorScheme.primary,
-                  foregroundColor: Theme.of(context).colorScheme.onPrimary,
-                )
-              : null,
-          child: Text(widget.creating ? 'Create Party' : 'Save'),
+        CartoonPressable(
+          soft: true,
+          enabled: canSubmit,
+          offset: 3,
+          child: ElevatedButton(
+            onPressed: canSubmit ? _submit : null,
+            style: PartyStyle.button(
+              context,
+              background: AppColors.sage,
+              foreground: Colors.white,
+              height: 44,
+            ),
+            child: Text(widget.creating ? 'Create Party' : 'Save'),
+          ),
         ),
       ],
     );
