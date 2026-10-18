@@ -200,37 +200,6 @@ void main() {
       expect(cache.updateStyle(ExplorationOverlayStyle.dark), isFalse);
     });
 
-    test('keeps explicit party overrides during a style refresh', () {
-      final cache = RegionPolygonCache();
-      const overrideFill = Color(0xAA123456);
-      const overrideStroke = Color(0xFF654321);
-      const overrideWidth = 7;
-
-      cache.cacheRegion(
-        region: _region(areaSquareMetres: 4000000),
-        isVisited: true,
-        isCurrentRegion: false,
-        onRegionTapped: (_, _) {},
-        overrideFillColor: overrideFill,
-        overrideStrokeColor: overrideStroke,
-        overrideStrokeWidth: overrideWidth,
-      );
-      cache.updateStyle(ExplorationOverlayStyle.dark);
-      cache.refreshStyles(
-        shouldRenderAsVisited: (_) => true,
-        isCurrentRegion: (_) => false,
-        onRegionTapped: (_, _) {},
-        overrideFillColorForRegion: (_) => overrideFill,
-        overrideStrokeColorForRegion: (_) => overrideStroke,
-        overrideStrokeWidthForRegion: (_) => overrideWidth,
-      );
-
-      final polygon = cache.polygons.single;
-      expect(polygon.fillColor, overrideFill);
-      expect(polygon.strokeColor, overrideStroke);
-      expect(polygon.strokeWidth, overrideWidth);
-    });
-
     test('keeps every edge around an isolated explored region', () {
       final cache = RegionPolygonCache();
       cache.cacheRegion(

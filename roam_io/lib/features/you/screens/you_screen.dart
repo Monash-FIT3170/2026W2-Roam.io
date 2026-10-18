@@ -26,7 +26,6 @@ import '../../activity_feed/models/activity_feed_item.dart';
 import '../../auth/providers/auth_provider.dart';
 import '../../map/data/visit_service.dart';
 import '../../map/data/visited_region_service.dart';
-import '../../party/providers/current_party_provider.dart';
 import '../../profile/domain/xp_event.dart';
 import '../../social/data/follow_service.dart';
 import '../../social/data/friendship_service.dart';
@@ -350,12 +349,9 @@ class _YouTabBar extends StatelessWidget {
                 visualDensity: VisualDensity.compact,
                 constraints: const BoxConstraints(minWidth: 40, minHeight: 40),
                 onPressed: () {
-                  final currentParty = context.read<CurrentPartyProvider>();
                   Navigator.of(context).push(
                     appHorizontalPageRoute<void>(
-                      builder: (_) => NotificationsScreen(
-                        currentPartyProvider: currentParty,
-                      ),
+                      builder: (_) => const NotificationsScreen(),
                     ),
                   );
                 },

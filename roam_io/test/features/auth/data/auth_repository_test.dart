@@ -77,6 +77,20 @@ void main() {
     );
   });
 
+  test('completion writes only the signed-in account', () async {
+    await repository.completeOnboarding();
+    expect(profileService.completedOnboardingUid, 'user-1');
+  });
+
+  test('completion requires an authenticated account', () async {
+    authService.currentUserValue = null;
+    expect(
+      () => repository.completeOnboarding(),
+      throwsA(isA<firebase_auth.FirebaseAuthException>()),
+    );
+    expect(profileService.completedOnboardingUid, isNull);
+  });
+
   group('AuthRepository signUp', () {
     test('creates profile and sends verification email', () async {
       authService.signUpCredential = _FakeUserCredential(
@@ -99,6 +113,7 @@ void main() {
       expect(created.displayName, 'New Traveller');
       expect(created.email, 'new@example.com');
       expect(created.darkModeEnabled, isFalse);
+      expect(created.onboardingCompleted, isFalse);
       expect(authService.sendVerificationCount, 1);
     });
 
@@ -419,6 +434,13 @@ class _FakeAuthService implements AuthService {
 }
 
 class _FakeProfileService implements ProfileService {
+  String? completedOnboardingUid;
+
+  @override
+  Future<void> completeOnboarding(String uid) async {
+    completedOnboardingUid = uid;
+  }
+
   _FakeProfileService({this.profile});
 
   ProfileModel? profile;

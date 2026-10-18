@@ -1,6 +1,6 @@
 /*
  * Author: Sanjevan Rajasegar
- * Last Updated: 6 August 2026
+ * Last Updated: 06/10/2026
  * Description:
  *   Coordinates authentication, profile, and storage services for user account
  *   workflows, including Settings account edit flows and XP awards.
@@ -70,9 +70,19 @@ class AuthRepository {
       createdAt: now,
       updatedAt: now,
       themeMode: AppThemeMode.light,
+      onboardingCompleted: false,
     );
     await _profileService.createProfile(profile);
     await _authService.sendEmailVerification();
+  }
+
+  /// Saves completion for the authenticated account only.
+  Future<void> completeOnboarding() {
+    final user = currentUser;
+    if (user == null) {
+      throw FirebaseAuthException(code: 'user-not-found');
+    }
+    return _profileService.completeOnboarding(user.uid);
   }
 
   /// Signs in a user with email and password credentials.
@@ -178,6 +188,22 @@ class AuthRepository {
     await _profileService.updateFogDecayDifficulty(
       uid: user.uid,
       difficulty: difficulty,
+    );
+  }
+
+  /// Persists whether supported Roammate messages may be spoken aloud.
+  Future<void> updateRoammateVoicePreference(bool enabled) async {
+    final user = currentUser;
+    if (user == null) {
+      throw FirebaseAuthException(
+        code: 'user-not-found',
+        message: 'No logged in user found.',
+      );
+    }
+
+    await _profileService.updateRoammateVoicePreference(
+      uid: user.uid,
+      enabled: enabled,
     );
   }
 

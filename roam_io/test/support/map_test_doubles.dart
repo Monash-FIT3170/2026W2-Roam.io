@@ -18,32 +18,44 @@ import 'package:roam_io/features/map/fog/fog_decay_difficulty.dart';
 import 'package:roam_io/services/polygon_service.dart';
 
 /// Test [Position] near Melbourne CBD.
-Position testPosition(double lat, double lng) => Position(
+Position testPosition(
+  double lat,
+  double lng, {
+  double heading = 0,
+  double headingAccuracy = 0,
+  double speed = 0,
+  double speedAccuracy = 0,
+}) => Position(
   latitude: lat,
   longitude: lng,
   timestamp: DateTime(2026, 1, 1),
   accuracy: 1,
   altitude: 0,
   altitudeAccuracy: 0,
-  heading: 0,
-  headingAccuracy: 0,
-  speed: 0,
-  speedAccuracy: 0,
+  heading: heading,
+  headingAccuracy: headingAccuracy,
+  speed: speed,
+  speedAccuracy: speedAccuracy,
 );
 
 /// Overrides [GeoLocatorService.getCurrentLocation] for deterministic tests.
 class FakeGeoLocatorService extends GeoLocatorService {
   FakeGeoLocatorService(this._position, {this.throwOnGet = false});
 
-  final Position? _position;
+  Position? _position;
   final bool throwOnGet;
+
+  void setPosition(Position? position) {
+    _position = position;
+  }
 
   @override
   Future<Position> getCurrentLocation() async {
-    if (throwOnGet || _position == null) {
+    final position = _position;
+    if (throwOnGet || position == null) {
       throw Exception('location unavailable');
     }
-    return _position;
+    return position;
   }
 }
 
@@ -143,14 +155,17 @@ PlaceOfInterest testPlace({
   String? name,
   LatLng location = const LatLng(-37.8136, 144.9631),
   String regionId = 'region-1',
+  double? rating,
+  PlaceCategory category = PlaceCategory.other,
 }) {
   return PlaceOfInterest(
     id: id,
     googlePlaceId: 'gp-$id',
     name: name ?? 'Test Place $id',
-    category: PlaceCategory.other,
+    category: category,
     types: const <String>[],
     location: location,
     regionId: regionId,
+    rating: rating,
   );
 }

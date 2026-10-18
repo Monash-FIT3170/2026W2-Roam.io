@@ -1,6 +1,6 @@
 /*
  * Author: Sanjevan Rajasegar
- * Last Updated: 8 August 2026
+ * Last Updated: 06/10/2026
  * Description:
  *   Provides the row-based Settings screen for account identity, account edit
  *   navigation, profile photo updates, privacy, session actions, and app
@@ -19,6 +19,8 @@ import '../../../theme/app_theme_mode.dart';
 import '../../auth/providers/auth_provider.dart';
 import '../../auth/screens/change_password_screen.dart';
 import '../../map/fog/fog_decay_difficulty.dart';
+import '../../onboarding/screens/onboarding_screen.dart';
+import '../../roammate/services/roammate_voice_service.dart';
 import '../widgets/settings_group.dart';
 import 'change_display_name_screen.dart';
 import 'change_email_screen.dart';
@@ -156,6 +158,24 @@ class _SettingsScreenState extends State<SettingsScreen> {
     }
   }
 
+  /// Enables or disables spoken Roammate messages.
+  Future<void> _toggleRoammateVoice(bool enabled) async {
+    final auth = context.read<AuthProvider>();
+
+    // Stop immediately when the user opts out, without waiting for Firestore.
+    if (!enabled) {
+      await RoammateVoiceService.instance.stop();
+    }
+
+    await auth.updateRoammateVoicePreference(enabled);
+
+    if (!mounted) return;
+
+    if (auth.errorMessage != null) {
+      AppToast.error(context, auth.errorMessage!);
+    }
+  }
+
   /// Persists whether the account requires approval for new followers.
   Future<void> _togglePrivateAccount(bool enabled) async {
     final auth = context.read<AuthProvider>();
@@ -285,6 +305,23 @@ class _SettingsScreenState extends State<SettingsScreen> {
                               ),
                             ),
                             SettingsRow(
+                              icon: Icons.record_voice_over_rounded,
+                              title: 'Roammate Voice',
+                              showChevron: false,
+                              trailing: Switch(
+                                key: const ValueKey<String>(
+                                  'roammate-voice-switch',
+                                ),
+                                trackOutlineColor: WidgetStatePropertyAll(
+                                  SettingsStyle.outline(context),
+                                ),
+                                value: auth.roammateVoiceEnabled,
+                                onChanged: auth.isBusy || profile == null
+                                    ? null
+                                    : _toggleRoammateVoice,
+                              ),
+                            ),
+                            SettingsRow(
                               icon: Icons.cloud_rounded,
                               title: 'Fog Decay Difficulty',
                               onTap: auth.isBusy || profile == null
@@ -334,7 +371,25 @@ class _SettingsScreenState extends State<SettingsScreen> {
                           ],
                         ),
                         const SizedBox(height: 22),
-                        const SizedBox(height: 6),
+                        SettingsGroup(
+                          title: 'Help',
+                          children: [
+                            SettingsRow(
+                              icon: Icons.auto_stories_rounded,
+                              title: 'View tutorial',
+                              onTap: () => Navigator.of(context).push<void>(
+                                MaterialPageRoute(
+                                  builder: (tutorialContext) =>
+                                      OnboardingScreen(
+                                        onComplete: () =>
+                                            Navigator.of(tutorialContext).pop(),
+                                      ),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 28),
                         Center(
                           child: CartoonPressable(
                             enabled: !auth.isBusy,

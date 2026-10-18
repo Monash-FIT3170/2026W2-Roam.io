@@ -44,4 +44,7 @@ enum NotificationType {
 
   /// Warning that explored map regions will soon become fogged again.
   fogDecay,
+
+  /// Safety alert when the user is near a configured train station.
+  trainStationProximity,
 }

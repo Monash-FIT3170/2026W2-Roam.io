@@ -1,3 +1,11 @@
+/*
+ * Author: Sam Sutherland
+ * Last Modified: 06/10/2026
+ * Description:
+ *   Tests the ProfileService's ability to persist user preferences for theme mode, 
+ *   fog decay difficulty, and Roammate voice preference.
+ */
+
 import 'package:fake_cloud_firestore/fake_cloud_firestore.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:roam_io/services/profile_service.dart';
@@ -42,6 +50,21 @@ void main() {
     final data = (await firestore.collection('profiles').doc('user-1').get())
         .data()!;
     expect(data['fogDecayDifficulty'], 'YEARLY');
+    expect(data['updatedAt'], isA<String>());
+  });
+
+  test('ProfileService persists Roammate voice preference', () async {
+    final firestore = FakeFirebaseFirestore();
+    await firestore.collection('profiles').doc('user-1').set(<String, dynamic>{
+      'uid': 'user-1',
+    });
+    final service = ProfileService(firestore: firestore);
+
+    await service.updateRoammateVoicePreference(uid: 'user-1', enabled: true);
+
+    final data = (await firestore.collection('profiles').doc('user-1').get())
+        .data()!;
+    expect(data['roammateVoiceEnabled'], isTrue);
     expect(data['updatedAt'], isA<String>());
   });
 }

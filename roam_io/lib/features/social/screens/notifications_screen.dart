@@ -25,10 +25,6 @@ import '../../activity_feed/models/activity_feed_item.dart';
 import '../../activity_feed/screens/activity_detail_screen.dart';
 import '../../activity_feed/screens/comments_screen.dart';
 import '../../auth/providers/auth_provider.dart';
-import '../../party/data/party_service.dart';
-import '../../party/domain/party.dart';
-import '../../party/providers/current_party_provider.dart';
-import '../../party/screens/party_screen.dart';
 import '../data/follow_request_service.dart';
 import '../data/follow_service.dart';
 import '../data/friendship_service.dart';
@@ -57,7 +53,6 @@ class NotificationsScreen extends StatefulWidget {
     CommentService? commentService,
     CommentLikeService? commentLikeService,
     KudosService? kudosService,
-    CurrentPartyProvider? currentPartyProvider,
   }) : _notificationService = notificationService,
        _followService = followService,
        _followRequestService = followRequestService,
@@ -65,8 +60,7 @@ class NotificationsScreen extends StatefulWidget {
        _activityFeedService = activityFeedService,
        _commentService = commentService,
        _commentLikeService = commentLikeService,
-       _kudosService = kudosService,
-       _currentPartyProvider = currentPartyProvider;
+       _kudosService = kudosService;
 
   final SocialNotificationService? _notificationService;
   final FollowService? _followService;
@@ -76,7 +70,6 @@ class NotificationsScreen extends StatefulWidget {
   final CommentService? _commentService;
   final CommentLikeService? _commentLikeService;
   final KudosService? _kudosService;
-  final CurrentPartyProvider? _currentPartyProvider;
 
   @override
   State<NotificationsScreen> createState() => _NotificationsScreenState();
@@ -198,7 +191,6 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                             commentService: _commentService,
                             commentLikeService: _commentLikeService,
                             kudosService: _kudosService,
-                            currentPartyProvider: widget._currentPartyProvider,
                           ),
                           if (index != group.items.length - 1)
                             Divider(
@@ -229,7 +221,6 @@ class _FollowNotificationRow extends StatelessWidget {
     required this.commentService,
     required this.commentLikeService,
     required this.kudosService,
-    required this.currentPartyProvider,
   });
 
   final SocialNotification notification;
@@ -241,7 +232,6 @@ class _FollowNotificationRow extends StatelessWidget {
   final CommentService commentService;
   final CommentLikeService? commentLikeService;
   final KudosService? kudosService;
-  final CurrentPartyProvider? currentPartyProvider;
 
   @override
   Widget build(BuildContext context) {
@@ -265,9 +255,6 @@ class _FollowNotificationRow extends StatelessWidget {
                 : ' commented on your activity',
           SocialNotificationType.commentReply => ' replied to your comment',
           SocialNotificationType.commentLike => ' liked your comment',
-          SocialNotificationType.partyTileLost =>
-            ' your team lost a Party Mode tile',
-          SocialNotificationType.partyInvite => ' invited you to a party',
         };
 
         return Padding(
@@ -298,10 +285,6 @@ class _FollowNotificationRow extends StatelessWidget {
                 child: InkWell(
                   borderRadius: BorderRadius.circular(8),
                   onTap: () {
-                    if (notification.type ==
-                        SocialNotificationType.partyInvite) {
-                      return;
-                    }
                     if (notification.isActivityInteraction &&
                         notification.activityId != null) {
                       Navigator.of(context).push(
@@ -406,16 +389,6 @@ class _FollowNotificationRow extends StatelessWidget {
                   currentUserId: currentUserId,
                   followRequestService: followRequestService,
                 ),
-              if (notification.type == SocialNotificationType.partyInvite &&
-                  notification.partyId != null)
-                _PartyInviteAction(
-                  partyId: notification.partyId!,
-                  currentUserId: currentUserId,
-                  partyService: PartyService(
-                    firestore: friendshipService.firestore,
-                  ),
-                  currentPartyProvider: currentPartyProvider,
-                ),
               if (notification.isFollow)
                 PopupMenuButton<String>(
                   tooltip: 'More',
@@ -457,109 +430,6 @@ class _FollowNotificationRow extends StatelessWidget {
           ),
         );
       },
-    );
-  }
-}
-
-class _PartyInviteAction extends StatefulWidget {
-  const _PartyInviteAction({
-    required this.partyId,
-    required this.currentUserId,
-    required this.partyService,
-    required this.currentPartyProvider,
-  });
-
-  final String partyId;
-  final String currentUserId;
-  final PartyService partyService;
-  final CurrentPartyProvider? currentPartyProvider;
-
-  @override
-  State<_PartyInviteAction> createState() => _PartyInviteActionState();
-}
-
-class _PartyInviteActionState extends State<_PartyInviteAction> {
-  bool _joining = false;
-
-  Future<void> _join() async {
-    if (_joining) return;
-    setState(() => _joining = true);
-    try {
-      Party joined;
-      try {
-        final party = await widget.partyService.getParty(widget.partyId);
-        if (party == null) throw const PartyNotFoundException('');
-        joined = await widget.partyService.joinParty(
-          code: party.joinCode,
-          uid: widget.currentUserId,
-        );
-      } on AlreadyInPartyException {
-        if (mounted) {
-          AppToast.error(
-            context,
-            'Leave your current party before joining another.',
-          );
-        }
-        return;
-      } on PartyFullException {
-        if (mounted) AppToast.error(context, 'This party is full.');
-        return;
-      } on PartyNotFoundException {
-        if (mounted) {
-          AppToast.error(context, 'This party is no longer available.');
-        }
-        return;
-      } catch (error) {
-        debugPrint(
-          '[NotificationsScreen] party invite join failed '
-          'partyId=${widget.partyId} userId=${widget.currentUserId} '
-          'error=$error',
-        );
-        if (mounted) {
-          AppToast.error(
-            context,
-            'Could not join this party. Please try again.',
-          );
-        }
-        return;
-      }
-
-      if (!mounted) return;
-      widget.currentPartyProvider?.setParty(joined);
-      try {
-        await Navigator.of(context).push(
-          appHorizontalPageRoute<void>(
-            builder: (_) => PartyScreen(
-              partyService: widget.partyService,
-              initialParty: joined,
-              onPartyChanged: widget.currentPartyProvider?.setParty,
-            ),
-          ),
-        );
-      } catch (error) {
-        debugPrint(
-          '[NotificationsScreen] opening joined party failed '
-          'partyId=${widget.partyId} userId=${widget.currentUserId} '
-          'error=$error',
-        );
-        if (mounted) {
-          AppToast.error(
-            context,
-            'Joined the party, but could not open Party Mode.',
-          );
-        }
-      }
-    } finally {
-      if (mounted) setState(() => _joining = false);
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return FilledButton(
-      onPressed: _joining ? null : _join,
-      style: SocialButtonStyles.primary(compact: true),
-      child: Text(_joining ? 'Joining…' : 'Join'),
     );
   }
 }

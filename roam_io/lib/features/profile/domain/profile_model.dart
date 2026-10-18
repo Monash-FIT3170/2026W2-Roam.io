@@ -6,7 +6,7 @@ import '../../social/domain/social_privacy_settings.dart';
 
 /*
  * Author: Sanjevan Rajasegar
- * Last Updated: 8 August 2026
+ * Last Updated: 06/10/2026
  * Description:
  *   Represents a user profile and maps profile data to and from Firestore,
  *   including appearance preferences and nested social privacy settings.
@@ -67,6 +67,8 @@ class ProfileModel {
     required this.updatedAt,
     AppThemeMode themeMode = AppThemeMode.light,
     this.fogDecayDifficulty = FogDecayDifficulty.quarterly,
+    this.roammateVoiceEnabled = false,
+    this.onboardingCompleted = true,
     bool? darkModeEnabled,
     this.privacy = const SocialPrivacySettings(),
     this.xp = 0,
@@ -85,6 +87,10 @@ class ProfileModel {
   final DateTime updatedAt;
   final AppThemeMode themeMode;
   final FogDecayDifficulty fogDecayDifficulty;
+  final bool roammateVoiceEnabled;
+
+  /// Missing on older accounts, which can replay the tutorial from Settings.
+  final bool onboardingCompleted;
   final SocialPrivacySettings privacy;
   final int xp;
   final int level;
@@ -105,6 +111,8 @@ class ProfileModel {
     DateTime? updatedAt,
     AppThemeMode? themeMode,
     FogDecayDifficulty? fogDecayDifficulty,
+    bool? roammateVoiceEnabled,
+    bool? onboardingCompleted,
     bool? darkModeEnabled,
     SocialPrivacySettings? privacy,
     int? xp,
@@ -123,6 +131,8 @@ class ProfileModel {
           ? (themeMode ?? this.themeMode)
           : (darkModeEnabled ? AppThemeMode.dark : AppThemeMode.light),
       fogDecayDifficulty: fogDecayDifficulty ?? this.fogDecayDifficulty,
+      roammateVoiceEnabled: roammateVoiceEnabled ?? this.roammateVoiceEnabled,
+      onboardingCompleted: onboardingCompleted ?? this.onboardingCompleted,
       privacy: privacy ?? this.privacy,
       xp: xp ?? this.xp,
       level: level ?? this.level,
@@ -140,6 +150,8 @@ class ProfileModel {
       'updatedAt': updatedAt.toIso8601String(),
       'themeMode': themeMode.storageValue,
       'fogDecayDifficulty': fogDecayDifficulty.storageValue,
+      'roammateVoiceEnabled': roammateVoiceEnabled,
+      'onboardingCompleted': onboardingCompleted,
       // Retained for compatibility with clients that predate Dynamic mode.
       'darkModeEnabled': darkModeEnabled,
       'privacy': privacy.toMap(),
@@ -179,6 +191,8 @@ class ProfileModel {
       fogDecayDifficulty: FogDecayDifficulty.fromStorage(
         map['fogDecayDifficulty'],
       ),
+      roammateVoiceEnabled: map['roammateVoiceEnabled'] == true,
+      onboardingCompleted: map['onboardingCompleted'] != false,
       privacy: SocialPrivacySettings.fromMap(map['privacy']),
       xp: (map['xp'] as num?)?.toInt() ?? 0,
       level:

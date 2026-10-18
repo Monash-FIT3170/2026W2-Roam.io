@@ -18,6 +18,7 @@ import 'package:roam_io/features/auth/screens/login_screen.dart';
 import 'package:roam_io/features/auth/screens/verify_email_screen.dart';
 import 'package:roam_io/features/journeys/data/journey_controller.dart';
 import 'package:roam_io/features/navigation/screens/main_shell_screen.dart';
+import 'package:roam_io/features/onboarding/screens/onboarding_screen.dart';
 import 'package:roam_io/features/profile/domain/profile_model.dart';
 import 'package:roam_io/notifications/notification.dart';
 
@@ -60,7 +61,13 @@ void main() {
         email: 'a@b.com',
         emailVerified: false,
       );
-      final repo = _AuthGateRepository(user: user);
+      final repo = _AuthGateRepository(
+        user: user,
+        profile: ProfileModel.fromMap({
+          'uid': 'u1',
+          'onboardingCompleted': false,
+        }),
+      );
       await tester.pumpWidget(
         MaterialApp(
           home: ChangeNotifierProvider(
@@ -74,6 +81,133 @@ void main() {
       await tester.pump();
 
       expect(find.byType(VerifyEmailScreen), findsOneWidget);
+    });
+
+    for (final skip in [true, false]) {
+      testWidgets(
+        'new account ${skip ? 'skips' : 'finishes'} once, then opens Home',
+        (tester) async {
+          final repo = _AuthGateRepository(
+            user: FakeFirebaseUser(
+              uid: 'new',
+              email: 'new@example.com',
+              emailVerified: true,
+            ),
+            profile: ProfileModel.fromMap({
+              'uid': 'new',
+              'onboardingCompleted': false,
+            }),
+          );
+          final auth = AuthProvider(authRepository: repo);
+          addTearDown(auth.dispose);
+          await tester.pumpWidget(
+            MaterialApp(
+              home: MultiProvider(
+                providers: [
+                  ChangeNotifierProvider.value(value: auth),
+                  ChangeNotifierProvider<JourneyController>(
+                    create: (_) => JourneyTestController(),
+                  ),
+                ],
+                child: const AuthGateScreen(
+                  requestNotificationPermission: false,
+                ),
+              ),
+            ),
+          );
+          await tester.pump(const Duration(seconds: 2));
+          await tester.pumpAndSettle();
+          expect(find.byType(OnboardingScreen), findsOneWidget);
+          expect(find.byType(MainShellScreen), findsNothing);
+          if (!skip) {
+            for (var i = 0; i < 5; i++) {
+              await tester.tap(find.text('Next chapter'));
+              await tester.pumpAndSettle();
+            }
+          }
+          await tester.tap(find.text(skip ? 'Skip tour' : 'Let’s roam'));
+          await tester.pump();
+          await tester.pump(const Duration(seconds: 1));
+          expect(find.byType(OnboardingScreen), findsNothing);
+          expect(
+            tester
+                .widget<MainShellScreen>(find.byType(MainShellScreen))
+                .initialIndex,
+            0,
+          );
+          expect(repo.completionWrites, 1);
+          expect(auth.currentProfile!.onboardingCompleted, isTrue);
+          await auth.refreshCurrentUser();
+          await tester.pump();
+          expect(find.byType(OnboardingScreen), findsNothing);
+        },
+      );
+    }
+
+    testWidgets('save failure keeps tutorial open and supports retry', (
+      tester,
+    ) async {
+      final repo = _AuthGateRepository(
+        user: FakeFirebaseUser(
+          uid: 'new',
+          email: 'new@example.com',
+          emailVerified: true,
+        ),
+        profile: ProfileModel.fromMap({
+          'uid': 'new',
+          'onboardingCompleted': false,
+        }),
+      )..failCompletion = true;
+      final auth = AuthProvider(authRepository: repo);
+      addTearDown(auth.dispose);
+      await tester.pumpWidget(
+        MaterialApp(
+          home: ChangeNotifierProvider.value(
+            value: auth,
+            child: const AuthGateScreen(requestNotificationPermission: false),
+          ),
+        ),
+      );
+      await tester.pump(const Duration(seconds: 2));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Skip tour'));
+      await tester.pumpAndSettle();
+      expect(
+        find.text('Couldn’t save your progress. Please try again.'),
+        findsOneWidget,
+      );
+      expect(auth.currentProfile!.onboardingCompleted, isFalse);
+      await tester.tap(find.text('Skip tour'));
+      await tester.pumpAndSettle();
+      expect(repo.completionWrites, 2);
+      expect(find.byType(OnboardingScreen), findsOneWidget);
+    });
+
+    testWidgets('missing profile cannot bypass first-time onboarding', (
+      tester,
+    ) async {
+      final repo = _AuthGateRepository(
+        user: FakeFirebaseUser(
+          uid: 'new',
+          email: 'new@example.com',
+          emailVerified: true,
+        ),
+      );
+      await tester.pumpWidget(
+        MaterialApp(
+          home: ChangeNotifierProvider(
+            create: (_) => AuthProvider(authRepository: repo),
+            child: const AuthGateScreen(requestNotificationPermission: false),
+          ),
+        ),
+      );
+      await tester.pump(const Duration(seconds: 2));
+      await tester.pumpAndSettle();
+      expect(find.byType(MainShellScreen), findsNothing);
+      expect(find.text('We couldn’t load your profile.'), findsOneWidget);
+      await tester.tap(find.text('Try again'));
+      await tester.pumpAndSettle();
+      expect(find.text('Try again'), findsOneWidget);
     });
 
     testWidgets('shows main shell when signed in and verified', (tester) async {
@@ -126,7 +260,16 @@ class _AuthGateRepository implements AuthRepository {
        _profile = profile;
 
   final firebase_auth.User? _user;
-  final ProfileModel? _profile;
+  ProfileModel? _profile;
+  int completionWrites = 0;
+  bool failCompletion = false;
+
+  @override
+  Future<void> completeOnboarding() async {
+    completionWrites++;
+    if (failCompletion) throw StateError('Offline');
+    _profile = _profile!.copyWith(onboardingCompleted: true);
+  }
 
   @override
   Stream<firebase_auth.User?> authStateChanges() async* {

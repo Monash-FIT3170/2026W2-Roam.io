@@ -1,6 +1,6 @@
 /*
  * Author: Sanjevan Rajasegar
- * Last Updated: 8 August 2026
+ * Last Updated: 06/10/2026
  * Description:
  *   Regression tests for row-based Settings appearance/privacy controls and
  *   profile data preservation across Light, Dark, and Dynamic modes.
@@ -15,10 +15,42 @@ import 'package:roam_io/features/auth/providers/auth_provider.dart';
 import 'package:roam_io/features/profile/domain/profile_model.dart';
 import 'package:roam_io/features/map/fog/fog_decay_difficulty.dart';
 import 'package:roam_io/features/settings/screens/settings_screen.dart';
+import 'package:roam_io/features/onboarding/screens/onboarding_screen.dart';
 import 'package:roam_io/features/settings/widgets/settings_group.dart';
 import 'package:roam_io/theme/app_theme_mode.dart';
 
 void main() {
+  for (final finish in [false, true]) {
+    testWidgets(
+      'tutorial replay ${finish ? 'finishes' : 'skips'} back to Settings',
+      (tester) async {
+        final repository = _FakeAuthRepository(
+          _buildProfile(themeMode: AppThemeMode.light),
+        );
+        final provider = AuthProvider(authRepository: repository);
+        await _pumpSettingsScreen(tester, provider);
+        final before = provider.currentProfile!.toMap();
+        await tester.ensureVisible(find.text('View tutorial'));
+        await tester.tap(find.text('View tutorial'));
+        await tester.pumpAndSettle();
+        expect(find.byType(OnboardingScreen), findsOneWidget);
+        expect(find.text('1 / 6'), findsOneWidget);
+        if (finish) {
+          for (var i = 0; i < 5; i++) {
+            await tester.tap(find.text('Next chapter'));
+            await tester.pumpAndSettle();
+          }
+        }
+        await tester.tap(find.text(finish ? 'Let’s roam' : 'Skip tour'));
+        await tester.pumpAndSettle();
+        expect(find.byType(OnboardingScreen), findsNothing);
+        expect(find.byType(SettingsScreen), findsOneWidget);
+        expect(provider.currentProfile!.toMap(), before);
+        provider.dispose();
+      },
+    );
+  }
+
   for (final testCase in <({AppThemeMode from, AppThemeMode to})>[
     (from: AppThemeMode.light, to: AppThemeMode.dark),
     (from: AppThemeMode.dark, to: AppThemeMode.light),
@@ -84,6 +116,28 @@ void main() {
     provider.dispose();
   });
 
+  testWidgets('Roammate Voice toggle persists the preference', (tester) async {
+    final repository = _FakeAuthRepository(
+      _buildProfile(themeMode: AppThemeMode.light),
+    );
+    final provider = AuthProvider(authRepository: repository);
+
+    await _pumpSettingsScreen(tester, provider);
+    repository.clearRecordedActions();
+
+    final voiceSwitch = _switchForRow('Roammate Voice');
+    expect(voiceSwitch, findsOneWidget);
+    expect(tester.widget<Switch>(voiceSwitch).value, isFalse);
+
+    await tester.tap(voiceSwitch);
+    await tester.pumpAndSettle();
+
+    expect(repository.roammateVoiceUpdates, <bool>[true]);
+    expect(provider.roammateVoiceEnabled, isTrue);
+
+    provider.dispose();
+  });
+
   for (final difficulty in FogDecayDifficulty.values) {
     testWidgets('selecting ${difficulty.name} saves the fog decay setting', (
       tester,
@@ -133,6 +187,7 @@ Future<void> _pumpSettingsScreen(
 
   expect(provider.currentProfile, isNotNull);
   expect(find.text('Appearance'), findsOneWidget);
+  expect(_switchForRow('Roammate Voice'), findsOneWidget);
   expect(_switchForRow('Private Account'), findsOneWidget);
 }
 
@@ -149,6 +204,7 @@ Finder _switchForRow(String rowTitle) {
 ProfileModel _buildProfile({
   required AppThemeMode themeMode,
   FogDecayDifficulty fogDecayDifficulty = FogDecayDifficulty.quarterly,
+  bool roammateVoiceEnabled = false,
 }) {
   return ProfileModel(
     uid: 'user-1',
@@ -161,6 +217,7 @@ ProfileModel _buildProfile({
     updatedAt: DateTime(2026, 5, 1, 11),
     themeMode: themeMode,
     fogDecayDifficulty: fogDecayDifficulty,
+    roammateVoiceEnabled: roammateVoiceEnabled,
   );
 }
 
@@ -175,6 +232,7 @@ void _expectUnrelatedProfileFieldsPreserved(
   expect(after.photoUrl, before.photoUrl);
   expect(after.photoHash, before.photoHash);
   expect(after.createdAt, before.createdAt);
+  expect(after.roammateVoiceEnabled, before.roammateVoiceEnabled);
 }
 
 class _FakeAuthRepository implements AuthRepository {
@@ -188,10 +246,12 @@ class _FakeAuthRepository implements AuthRepository {
 
   final List<AppThemeMode> themeModeUpdates = <AppThemeMode>[];
   final List<FogDecayDifficulty> fogDecayUpdates = <FogDecayDifficulty>[];
+  final List<bool> roammateVoiceUpdates = <bool>[];
 
   void clearRecordedActions() {
     themeModeUpdates.clear();
     fogDecayUpdates.clear();
+    roammateVoiceUpdates.clear();
   }
 
   @override
@@ -215,6 +275,11 @@ class _FakeAuthRepository implements AuthRepository {
   @override
   Future<void> updateFogDecayDifficulty(FogDecayDifficulty difficulty) async {
     fogDecayUpdates.add(difficulty);
+  }
+
+  @override
+  Future<void> updateRoammateVoicePreference(bool enabled) async {
+    roammateVoiceUpdates.add(enabled);
   }
 
   @override
