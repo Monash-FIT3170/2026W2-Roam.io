@@ -14,6 +14,7 @@ import 'package:provider/provider.dart';
 import '../../../../shared/widgets/app_bottom_nav_bar.dart';
 import '../../../../shared/widgets/app_page_transition.dart';
 import '../../../../shared/widgets/app_toast.dart';
+import '../../../../theme/app_cartoon.dart';
 import '../../../../theme/app_surfaces.dart';
 import '../../../activity_feed/data/comment_like_service.dart';
 import '../../../activity_feed/data/comment_service.dart';
@@ -30,6 +31,7 @@ import '../../../profile/domain/profile_model.dart';
 import '../../../profile/domain/profile_stats.dart';
 import '../../../profile/domain/visited_polygon_record.dart';
 import '../../../settings/screens/settings_screen.dart';
+import '../../../settings/widgets/settings_group.dart';
 import '../../../social/data/follow_service.dart';
 import '../../../social/data/friendship_service.dart';
 import '../../../social/screens/follow_connections_screen.dart';
@@ -478,9 +480,22 @@ class _ProfileTabState extends State<ProfileTab> {
     Navigator.of(context).push(
       appHorizontalPageRoute<void>(
         builder: (_) => Scaffold(
-          backgroundColor: AppSurfaces.pageBackground(context),
-          appBar: AppBar(title: const Text('Edit Profile')),
-          body: const SettingsScreen(showPageHeader: false),
+          backgroundColor: SettingsStyle.background(context),
+          body: SafeArea(
+            bottom: false,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                CartoonPageHeader(
+                  title: 'Edit Profile',
+                  outlineWidth: SettingsStyle.outlineWidth,
+                  soft: true,
+                  outlineColor: SettingsStyle.outline(context),
+                ),
+                const Expanded(child: SettingsScreen(showPageHeader: false)),
+              ],
+            ),
+          ),
         ),
       ),
     );
