@@ -114,14 +114,24 @@ void main() {
       const MaterialApp(home: Scaffold(body: SocialScreen())),
     );
     final wideCard = tester.getSize(
-      find.ancestor(of: find.text('Leaderboards'), matching: find.byType(Ink)),
+      find
+          .ancestor(
+            of: find.text('Leaderboards'),
+            matching: find.byType(DecoratedBox),
+          )
+          .first,
     );
     expect(wideCard.width, lessThanOrEqualTo(SocialLayout.maxContentWidth));
 
     tester.view.physicalSize = const Size(390, 844);
     await tester.pumpAndSettle();
     final phoneCard = tester.getSize(
-      find.ancestor(of: find.text('Leaderboards'), matching: find.byType(Ink)),
+      find
+          .ancestor(
+            of: find.text('Leaderboards'),
+            matching: find.byType(DecoratedBox),
+          )
+          .first,
     );
     expect(phoneCard.width, 390 - SocialLayout.gutter * 2);
   });

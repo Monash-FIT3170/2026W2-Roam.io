@@ -163,6 +163,8 @@ class _SocialHeader extends StatelessWidget {
   }
 }
 
+/// Cream entry card matching the You tab's profile cards; [color] tints the
+/// icon badge so each destination stays recognisable.
 class _SocialDestinationCard extends StatelessWidget {
   const _SocialDestinationCard({
     required this.title,
@@ -184,57 +186,67 @@ class _SocialDestinationCard extends StatelessWidget {
 
     return Semantics(
       button: true,
-      child: Material(
-        type: MaterialType.transparency,
-        child: InkWell(
-          onTap: onTap,
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          color: AppSurfaces.softCard(context),
           borderRadius: SocialCard.borderRadius,
-          focusColor: Colors.white.withValues(alpha: 0.12),
-          splashColor: Colors.white.withValues(alpha: 0.16),
-          highlightColor: Colors.white.withValues(alpha: 0.08),
-          child: Ink(
-            padding: const EdgeInsets.all(20),
-            decoration: BoxDecoration(
-              borderRadius: SocialCard.borderRadius,
-              color: color,
-              boxShadow: AppSurfaces.cardShadow(context),
+          border: Border.all(color: AppSurfaces.border(context)),
+          boxShadow: [
+            BoxShadow(
+              color: AppSurfaces.shadow(context),
+              blurRadius: 8,
+              offset: const Offset(0, 2),
             ),
-            child: Row(
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: Colors.white.withValues(alpha: 0.2),
-                    shape: BoxShape.circle,
-                  ),
-                  child: Icon(icon, color: Colors.white, size: 28),
-                ),
-                const SizedBox(width: 16),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        title,
-                        style: textTheme.titleLarge?.copyWith(
-                          fontWeight: FontWeight.w800,
-                          color: Colors.white,
-                        ),
+          ],
+        ),
+        child: ClipRRect(
+          borderRadius: SocialCard.borderRadius,
+          child: Material(
+            color: Colors.transparent,
+            child: InkWell(
+              onTap: onTap,
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(11),
+                      decoration: BoxDecoration(
+                        color: color.withValues(alpha: 0.14),
+                        shape: BoxShape.circle,
                       ),
-                      const SizedBox(height: 4),
-                      Text(
-                        subtitle,
-                        // Pure white keeps AA contrast on both sage and clay.
-                        style: textTheme.bodyMedium?.copyWith(
-                          color: Colors.white,
-                          fontWeight: FontWeight.w500,
-                        ),
+                      child: Icon(icon, color: color, size: 24),
+                    ),
+                    const SizedBox(width: 14),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            title,
+                            style: textTheme.titleMedium?.copyWith(
+                              color: AppSurfaces.textPrimary(context),
+                              fontWeight: FontWeight.w800,
+                            ),
+                          ),
+                          const SizedBox(height: 3),
+                          Text(
+                            subtitle,
+                            style: textTheme.bodyMedium?.copyWith(
+                              color: AppSurfaces.textMuted(context),
+                            ),
+                          ),
+                        ],
                       ),
-                    ],
-                  ),
+                    ),
+                    const SizedBox(width: 8),
+                    Icon(
+                      Icons.chevron_right_rounded,
+                      color: AppSurfaces.textMuted(context),
+                    ),
+                  ],
                 ),
-                const Icon(Icons.chevron_right_rounded, color: Colors.white),
-              ],
+              ),
             ),
           ),
         ),
