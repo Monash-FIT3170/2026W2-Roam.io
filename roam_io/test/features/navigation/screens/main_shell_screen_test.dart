@@ -95,7 +95,7 @@ void main() {
 
     await tester.tap(find.text('SOCIAL'));
     await _pumpShellFrame(tester);
-    expect(find.text('Follow and community tools'), findsOneWidget);
+    expect(find.text('Leaderboards'), findsOneWidget);
 
     await tester.tap(find.text('YOU'));
     await _pumpShellFrame(tester);

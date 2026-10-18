@@ -11,7 +11,6 @@ import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:provider/provider.dart';
 
-import '../../../shared/widgets/app_page_header.dart';
 import '../../../theme/app_surfaces.dart';
 import '../../../theme/app_colours.dart';
 import '../../party/data/party_service.dart';
@@ -54,31 +53,24 @@ class SocialScreen extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            AppPageHeader(
-              title: 'Social',
-              subtitle: 'Follow and community tools',
-              trailing: IconButton(
-                tooltip: 'Find people',
-                color: AppSurfaces.textPrimary(context),
-                icon: const Icon(Icons.search),
-                onPressed: () {
-                  Navigator.of(context).push(
-                    MaterialPageRoute<void>(
-                      builder: (_) => FindPeopleScreen(
-                        friendshipService: friendshipService,
-                        followService: _followService,
-                      ),
+            _SocialHeader(
+              onSearch: () {
+                Navigator.of(context).push(
+                  MaterialPageRoute<void>(
+                    builder: (_) => FindPeopleScreen(
+                      friendshipService: friendshipService,
+                      followService: _followService,
                     ),
-                  );
-                },
-              ),
+                  ),
+                );
+              },
             ),
             Expanded(
               child: SocialContentWidth(
                 child: ListView(
                   padding: const EdgeInsets.fromLTRB(
                     SocialLayout.gutter,
-                    8,
+                    6,
                     SocialLayout.gutter,
                     118,
                   ),
@@ -120,6 +112,52 @@ class SocialScreen extends StatelessWidget {
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+/// Large page title matching the Home header, with a Find People action.
+class _SocialHeader extends StatelessWidget {
+  const _SocialHeader({required this.onSearch});
+
+  final VoidCallback onSearch;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(20, 18, 12, 18),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          Expanded(
+            child: Semantics(
+              header: true,
+              child: Text(
+                'Social',
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: theme.textTheme.headlineLarge?.copyWith(
+                  color: AppSurfaces.textPrimary(context),
+                  fontSize: 32,
+                  height: 1,
+                  fontWeight: FontWeight.w900,
+                  letterSpacing: -1.1,
+                ),
+              ),
+            ),
+          ),
+          IconButton(
+            tooltip: 'Find people',
+            visualDensity: VisualDensity.compact,
+            constraints: const BoxConstraints(minWidth: 40, minHeight: 40),
+            color: AppSurfaces.textPrimary(context),
+            icon: const Icon(Icons.search),
+            onPressed: onSearch,
+          ),
+        ],
       ),
     );
   }
