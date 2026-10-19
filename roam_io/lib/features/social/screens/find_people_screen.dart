@@ -25,6 +25,9 @@ import '../data/friendship_service.dart';
 import '../domain/public_profile.dart';
 import '../widgets/follow_relationship_button.dart';
 import '../widgets/social_avatar.dart';
+import '../widgets/social_card.dart';
+import '../widgets/social_layout.dart';
+import '../widgets/social_message.dart';
 import 'other_user_profile_screen.dart';
 
 /// Dedicated user-search screen for finding registered users.
@@ -181,37 +184,84 @@ class _FindPeopleScreenState extends State<FindPeopleScreen> {
 
     return Scaffold(
       backgroundColor: AppSurfaces.pageBackground(context),
-      appBar: AppBar(title: const Text('Find People')),
+      appBar: AppBar(
+        title: const Text('Find People'),
+        elevation: 0,
+        scrolledUnderElevation: 0,
+        backgroundColor: AppSurfaces.pageBackground(context),
+      ),
       body: SafeArea(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Padding(
-              padding: const EdgeInsets.fromLTRB(20, 12, 20, 16),
-              child: TextField(
-                controller: _controller,
-                focusNode: _focusNode,
-                textInputAction: TextInputAction.search,
-                onChanged: _handleQueryChanged,
-                decoration: const InputDecoration(
-                  hintText: 'Search by name or username...',
-                  prefixIcon: Icon(Icons.search),
+        child: SocialContentWidth(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Padding(
+                padding: const EdgeInsets.fromLTRB(
+                  SocialLayout.gutter,
+                  12,
+                  SocialLayout.gutter,
+                  16,
+                ),
+                child: TextField(
+                  controller: _controller,
+                  focusNode: _focusNode,
+                  textInputAction: TextInputAction.search,
+                  onChanged: _handleQueryChanged,
+                  decoration: InputDecoration(
+                    hintText: 'Search by name or username...',
+                    hintStyle: TextStyle(
+                      color: AppSurfaces.textSubtle(context),
+                    ),
+                    prefixIcon: Icon(
+                      Icons.search,
+                      color: AppSurfaces.textMuted(context),
+                    ),
+                    suffixIcon: _controller.text.isEmpty
+                        ? null
+                        : IconButton(
+                            tooltip: 'Clear search',
+                            icon: Icon(
+                              Icons.close_rounded,
+                              color: AppSurfaces.textMuted(context),
+                            ),
+                            onPressed: () {
+                              _controller.clear();
+                              _handleQueryChanged('');
+                            },
+                          ),
+                    filled: true,
+                    fillColor: AppSurfaces.softCard(context),
+                    contentPadding: const EdgeInsets.symmetric(vertical: 14),
+                    enabledBorder: OutlineInputBorder(
+                      borderRadius: SocialCard.borderRadius,
+                      borderSide: BorderSide(
+                        color: AppSurfaces.border(context),
+                      ),
+                    ),
+                    focusedBorder: OutlineInputBorder(
+                      borderRadius: SocialCard.borderRadius,
+                      borderSide: BorderSide(
+                        color: Theme.of(context).colorScheme.primary,
+                        width: 1.5,
+                      ),
+                    ),
+                  ),
                 ),
               ),
-            ),
-            Expanded(
-              child: _SearchResults(
-                currentUserId: currentUserId,
-                query: _query,
-                isSearching: _isSearching,
-                hasCompletedSearch: _hasCompletedSearch,
-                searchFailed: _searchFailed,
-                results: _results,
-                friendshipService: _friendshipService,
-                followService: _followService,
+              Expanded(
+                child: _SearchResults(
+                  currentUserId: currentUserId,
+                  query: _query,
+                  isSearching: _isSearching,
+                  hasCompletedSearch: _hasCompletedSearch,
+                  searchFailed: _searchFailed,
+                  results: _results,
+                  friendshipService: _friendshipService,
+                  followService: _followService,
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
@@ -242,7 +292,7 @@ class _SearchResults extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (currentUserId == null) {
-      return const Center(child: Text('Sign in to find people.'));
+      return const SocialMessage('Sign in to find people.');
     }
 
     if (query.isEmpty) {
@@ -250,16 +300,7 @@ class _SearchResults extends StatelessWidget {
     }
 
     if (searchFailed) {
-      return Center(
-        child: Text(
-          'Could not search people right now.',
-          textAlign: TextAlign.center,
-          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-            color: AppSurfaces.textMuted(context),
-            fontWeight: FontWeight.w700,
-          ),
-        ),
-      );
+      return const SocialMessage('Could not search people right now.');
     }
 
     if (isSearching) {
@@ -267,7 +308,7 @@ class _SearchResults extends StatelessWidget {
     }
 
     if (hasCompletedSearch && results.isEmpty) {
-      return const Center(child: Text('No people found.'));
+      return const SocialMessage('No people found.');
     }
 
     if (results.isEmpty) {
@@ -275,9 +316,14 @@ class _SearchResults extends StatelessWidget {
     }
 
     return ListView.separated(
-      padding: const EdgeInsets.fromLTRB(20, 4, 20, 120),
+      padding: const EdgeInsets.fromLTRB(
+        SocialLayout.gutter,
+        4,
+        SocialLayout.gutter,
+        120,
+      ),
       itemCount: results.length,
-      separatorBuilder: (_, _) => const SizedBox(height: 10),
+      separatorBuilder: (_, _) => const SizedBox(height: SocialLayout.rowGap),
       itemBuilder: (context, index) {
         return _PersonResultRow(
           profile: results[index],
@@ -305,74 +351,76 @@ class _PersonResultRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: AppSurfaces.card(context),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: AppSurfaces.border(context)),
-      ),
-      child: Row(
-        children: [
-          Expanded(
-            child: InkWell(
-              borderRadius: BorderRadius.circular(12),
-              onTap: () {
-                Navigator.of(context).push(
-                  MaterialPageRoute<void>(
-                    builder: (_) => OtherUserProfileScreen(
-                      selectedUserId: profile.uid,
-                      friendshipService: friendshipService,
-                      followService: followService,
+    return Material(
+      type: MaterialType.transparency,
+      child: Ink(
+        padding: const EdgeInsets.all(SocialLayout.cardPadding),
+        decoration: SocialCard.decoration(context),
+        child: Row(
+          children: [
+            Expanded(
+              child: InkWell(
+                borderRadius: BorderRadius.circular(12),
+                onTap: () {
+                  Navigator.of(context).push(
+                    MaterialPageRoute<void>(
+                      builder: (_) => OtherUserProfileScreen(
+                        selectedUserId: profile.uid,
+                        friendshipService: friendshipService,
+                        followService: followService,
+                      ),
                     ),
-                  ),
-                );
-              },
-              child: Row(
-                children: [
-                  SocialAvatar(
-                    displayName: profile.displayName,
-                    photoUrl: profile.photoUrl,
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          profile.displayName,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: Theme.of(context).textTheme.titleMedium
-                              ?.copyWith(
-                                color: AppSurfaces.textPrimary(context),
-                                fontWeight: FontWeight.w800,
-                              ),
-                        ),
-                        const SizedBox(height: 2),
-                        Text(
-                          '@${profile.username}',
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: Theme.of(context).textTheme.bodyMedium
-                              ?.copyWith(color: AppSurfaces.textMuted(context)),
-                        ),
-                      ],
+                  );
+                },
+                child: Row(
+                  children: [
+                    SocialAvatar(
+                      displayName: profile.displayName,
+                      photoUrl: profile.photoUrl,
+                      borderWidth: 1.5,
                     ),
-                  ),
-                ],
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            profile.displayName,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: Theme.of(context).textTheme.titleMedium
+                                ?.copyWith(
+                                  color: AppSurfaces.textPrimary(context),
+                                  fontWeight: FontWeight.w800,
+                                ),
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            '@${profile.username}',
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: Theme.of(context).textTheme.bodyMedium
+                                ?.copyWith(
+                                  color: AppSurfaces.textMuted(context),
+                                ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ),
-          ),
-          const SizedBox(width: 10),
-          FollowRelationshipButton(
-            followerId: currentUserId,
-            followeeId: profile.uid,
-            followService: followService,
-            followeeProfile: profile,
-            compact: true,
-          ),
-        ],
+            const SizedBox(width: 10),
+            FollowRelationshipButton(
+              followerId: currentUserId,
+              followeeId: profile.uid,
+              followService: followService,
+              followeeProfile: profile,
+              compact: true,
+            ),
+          ],
+        ),
       ),
     );
   }

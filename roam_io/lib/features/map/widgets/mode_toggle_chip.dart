@@ -7,7 +7,7 @@
 
 import 'package:flutter/material.dart';
 
-import '../../../theme/app_colours.dart';
+import '../../../shared/widgets/liquid_glass.dart';
 
 /// A tappable chip button to start a new journey.
 class StartJourneyChip extends StatelessWidget {
@@ -20,29 +20,29 @@ class StartJourneyChip extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
 
-    return Material(
-      color: AppColors.sage,
-      elevation: 8,
-      shadowColor: Colors.black.withValues(alpha: 0.24),
+    return LiquidGlass(
       borderRadius: BorderRadius.circular(24),
-      child: InkWell(
-        onTap: onPressed,
-        borderRadius: BorderRadius.circular(24),
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Icon(Icons.play_arrow, size: 20, color: Colors.white),
-              const SizedBox(width: 8),
-              Text(
-                'Start Journey',
-                style: theme.textTheme.labelLarge?.copyWith(
-                  fontWeight: FontWeight.w600,
-                  color: Colors.white,
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: onPressed,
+          borderRadius: BorderRadius.circular(24),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Icon(Icons.play_arrow, size: 20, color: Colors.white),
+                const SizedBox(width: 8),
+                Text(
+                  'Start Journey',
+                  style: theme.textTheme.labelLarge?.copyWith(
+                    fontWeight: FontWeight.w600,
+                    color: Colors.white,
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       ),

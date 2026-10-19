@@ -24,6 +24,32 @@ import 'package:roam_io/features/profile/domain/profile_model.dart';
 import 'package:roam_io/theme/app_surfaces.dart';
 
 void main() {
+  testWidgets('supports the owner-facing Discussion title', (tester) async {
+    final comments = _FakeCommentService();
+    final auth = AuthProvider(authRepository: _FakeAuthRepository());
+    await auth.refreshCurrentUser();
+
+    await tester.pumpWidget(
+      ChangeNotifierProvider<AuthProvider>.value(
+        value: auth,
+        child: MaterialApp(
+          home: CommentsScreen(
+            activityId: 'activity-1',
+            activityOwnerId: 'owner-1',
+            commentService: comments,
+            title: 'Discussion',
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Discussion'), findsOneWidget);
+
+    auth.dispose();
+    await comments.dispose();
+  });
+
   testWidgets('empty and whitespace comments cannot submit', (tester) async {
     final comments = _FakeCommentService();
     final auth = AuthProvider(authRepository: _FakeAuthRepository());

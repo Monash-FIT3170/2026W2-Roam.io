@@ -11,8 +11,9 @@ import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
 
-import '../../../shared/widgets/app_page_header.dart';
 import '../../../shared/widgets/app_toast.dart';
+import '../../../theme/app_cartoon.dart';
+import '../../../theme/app_colours.dart';
 import '../../../theme/app_surfaces.dart';
 import '../../../theme/app_theme_mode.dart';
 import '../../auth/providers/auth_provider.dart';
@@ -27,7 +28,11 @@ import 'change_username_screen.dart';
 
 /// Screen for viewing and updating the current user's account settings.
 class SettingsScreen extends StatefulWidget {
-  const SettingsScreen({super.key});
+  const SettingsScreen({super.key, this.showPageHeader = true});
+
+  /// The bottom-navigation destination owns its header. Embedded edit routes
+  /// can hide it and provide a standard app bar with a back affordance.
+  final bool showPageHeader;
 
   @override
   State<SettingsScreen> createState() => _SettingsScreenState();
@@ -105,6 +110,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
       showDragHandle: true,
       useSafeArea: true,
       isScrollControlled: true,
+      backgroundColor: SettingsStyle.background(context),
       builder: (sheetContext) => _ThemeModeSheet(
         selectedMode: auth.themeMode,
         onSelected: (mode) => Navigator.of(sheetContext).pop(mode),
@@ -132,6 +138,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
       showDragHandle: true,
       useSafeArea: true,
       isScrollControlled: true,
+      backgroundColor: SettingsStyle.background(context),
       builder: (sheetContext) => _FogDecayDifficultySheet(
         selectedDifficulty: auth.fogDecayDifficulty,
         onSelected: (difficulty) => Navigator.of(sheetContext).pop(difficulty),
@@ -192,7 +199,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     final theme = Theme.of(context);
 
     return Container(
-      color: AppSurfaces.pageBackground(context),
+      color: SettingsStyle.background(context),
       child: SafeArea(
         child: Consumer<AuthProvider>(
           builder: (context, auth, _) {
@@ -208,10 +215,22 @@ class _SettingsScreenState extends State<SettingsScreen> {
             return Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const AppPageHeader(title: 'Settings'),
+                if (widget.showPageHeader)
+                  CartoonPageHeader(
+                    title: 'Settings',
+                    showBrand: true,
+                    outlineWidth: SettingsStyle.outlineWidth,
+                    soft: true,
+                    outlineColor: SettingsStyle.outline(context),
+                  ),
                 Expanded(
                   child: SingleChildScrollView(
-                    padding: const EdgeInsets.fromLTRB(20, 0, 20, 118),
+                    padding: EdgeInsets.fromLTRB(
+                      20,
+                      widget.showPageHeader ? 4 : 16,
+                      20,
+                      118,
+                    ),
                     child: Column(
                       children: [
                         _AccountHeader(
@@ -226,7 +245,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                           title: 'Account',
                           children: [
                             SettingsRow(
-                              icon: Icons.badge_outlined,
+                              icon: Icons.badge_rounded,
                               title: 'Change Display Name',
                               onTap: auth.isBusy
                                   ? null
@@ -241,19 +260,18 @@ class _SettingsScreenState extends State<SettingsScreen> {
                                   : () => _open(const ChangeUsernameScreen()),
                             ),
                             SettingsRow(
-                              icon: Icons.email_outlined,
+                              icon: Icons.mail_rounded,
                               title: 'Change Email',
                               onTap: auth.isBusy
                                   ? null
                                   : () => _open(const ChangeEmailScreen()),
                             ),
                             SettingsRow(
-                              icon: Icons.lock_outline_rounded,
+                              icon: Icons.lock_rounded,
                               title: 'Change Password',
                               onTap: auth.isBusy
                                   ? null
                                   : () => _open(const ChangePasswordScreen()),
-                              showDivider: false,
                             ),
                           ],
                         ),
@@ -262,7 +280,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                           title: 'Preferences',
                           children: [
                             SettingsRow(
-                              icon: Icons.brightness_auto_outlined,
+                              icon: Icons.palette_rounded,
                               title: 'Appearance',
                               onTap: auth.isBusy || profile == null
                                   ? null
@@ -274,7 +292,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                                     _themeModeLabel(auth.themeMode),
                                     style: theme.textTheme.bodyMedium?.copyWith(
                                       color: AppSurfaces.textMuted(context),
-                                      fontWeight: FontWeight.w700,
+                                      fontWeight: FontWeight.w400,
                                     ),
                                   ),
                                   const SizedBox(width: 4),
@@ -287,12 +305,15 @@ class _SettingsScreenState extends State<SettingsScreen> {
                               ),
                             ),
                             SettingsRow(
-                              icon: Icons.record_voice_over_outlined,
+                              icon: Icons.record_voice_over_rounded,
                               title: 'Roammate Voice',
                               showChevron: false,
                               trailing: Switch(
                                 key: const ValueKey<String>(
                                   'roammate-voice-switch',
+                                ),
+                                trackOutlineColor: WidgetStatePropertyAll(
+                                  SettingsStyle.outline(context),
                                 ),
                                 value: auth.roammateVoiceEnabled,
                                 onChanged: auth.isBusy || profile == null
@@ -301,12 +322,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
                               ),
                             ),
                             SettingsRow(
-                              icon: Icons.cloud_outlined,
+                              icon: Icons.cloud_rounded,
                               title: 'Fog Decay Difficulty',
                               onTap: auth.isBusy || profile == null
                                   ? null
                                   : _chooseFogDecayDifficulty,
-                              showDivider: false,
                               trailing: Row(
                                 mainAxisSize: MainAxisSize.min,
                                 children: [
@@ -316,7 +336,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                                     ),
                                     style: theme.textTheme.bodyMedium?.copyWith(
                                       color: AppSurfaces.textMuted(context),
-                                      fontWeight: FontWeight.w700,
+                                      fontWeight: FontWeight.w400,
                                     ),
                                   ),
                                   const SizedBox(width: 4),
@@ -335,11 +355,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
                           title: 'Privacy',
                           children: [
                             SettingsRow(
-                              icon: Icons.visibility_off_outlined,
+                              icon: Icons.visibility_off_rounded,
                               title: 'Private Account',
                               showChevron: false,
-                              showDivider: false,
                               trailing: Switch(
+                                trackOutlineColor: WidgetStatePropertyAll(
+                                  SettingsStyle.outline(context),
+                                ),
                                 value: auth.socialPrivacy.isPrivateAccount,
                                 onChanged: auth.isBusy || profile == null
                                     ? null
@@ -353,9 +375,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
                           title: 'Help',
                           children: [
                             SettingsRow(
-                              icon: Icons.auto_stories_outlined,
+                              icon: Icons.auto_stories_rounded,
                               title: 'View tutorial',
-                              showDivider: false,
                               onTap: () => Navigator.of(context).push<void>(
                                 MaterialPageRoute(
                                   builder: (tutorialContext) =>
@@ -368,28 +389,21 @@ class _SettingsScreenState extends State<SettingsScreen> {
                             ),
                           ],
                         ),
-                        const SizedBox(height: 22),
+                        const SizedBox(height: 28),
                         Center(
-                          child: TextButton.icon(
-                            onPressed: auth.isBusy ? null : _logout,
-                            icon: Icon(
-                              Icons.logout_rounded,
-                              color: theme.colorScheme.error,
-                              size: 18,
-                            ),
-                            label: Text(
-                              'Log out',
-                              style: TextStyle(
-                                color: theme.colorScheme.error,
-                                fontWeight: FontWeight.w800,
+                          child: CartoonPressable(
+                            enabled: !auth.isBusy,
+                            flat: true,
+                            child: TextButton.icon(
+                              onPressed: auth.isBusy ? null : _logout,
+                              icon: const Icon(Icons.logout_rounded, size: 18),
+                              label: const Text('Log out'),
+                              style: SettingsStyle.button(
+                                context,
+                                background: Colors.transparent,
+                                foreground: theme.colorScheme.error,
+                                height: 46,
                               ),
-                            ),
-                            style: TextButton.styleFrom(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 18,
-                                vertical: 12,
-                              ),
-                              minimumSize: const Size(120, 44),
                             ),
                           ),
                         ),
@@ -445,6 +459,7 @@ class _FogDecayDifficultySheet extends StatelessWidget {
             'Fog Decay Difficulty',
             style: theme.textTheme.headlineSmall?.copyWith(
               fontWeight: FontWeight.w800,
+              letterSpacing: -0.6,
             ),
           ),
           const SizedBox(height: 6),
@@ -496,39 +511,47 @@ class _FogDecayDifficultyOption extends StatelessWidget {
     final theme = Theme.of(context);
 
     return Padding(
-      padding: const EdgeInsets.only(bottom: 8),
-      child: Material(
-        color: selected
-            ? theme.colorScheme.primary.withValues(alpha: 0.12)
-            : AppSurfaces.card(context),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(16),
-          side: BorderSide(
-            color: selected
-                ? theme.colorScheme.primary
-                : AppSurfaces.border(context),
-          ),
+      padding: const EdgeInsets.only(bottom: 10),
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(18),
+          boxShadow: AppSurfaces.cardShadow(context),
         ),
-        clipBehavior: Clip.antiAlias,
-        child: ListTile(
-          key: ValueKey<String>(
-            'fog-decay-${difficulty.storageValue.toLowerCase()}',
+        child: Material(
+          color: selected
+              ? AppColors.sage.withValues(alpha: 0.1)
+              : SettingsStyle.surface(context),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(18),
+            side: BorderSide(
+              color: selected ? AppColors.sage : SettingsStyle.outline(context),
+              width: selected ? 1.75 : SettingsStyle.outlineWidth,
+            ),
           ),
-          onTap: () => onTap(difficulty),
-          leading: Icon(
-            Icons.cloud_outlined,
-            color: selected
-                ? theme.colorScheme.primary
-                : AppSurfaces.textPrimary(context),
+          clipBehavior: Clip.antiAlias,
+          child: ListTile(
+            key: ValueKey<String>(
+              'fog-decay-${difficulty.storageValue.toLowerCase()}',
+            ),
+            onTap: () => onTap(difficulty),
+            leading: Icon(
+              Icons.cloud_outlined,
+              color: selected
+                  ? theme.colorScheme.primary
+                  : AppSurfaces.textPrimary(context),
+            ),
+            title: Text(
+              title,
+              style: const TextStyle(fontWeight: FontWeight.w600),
+            ),
+            subtitle: Text(subtitle),
+            trailing: selected
+                ? const Icon(Icons.check_circle_rounded, color: AppColors.sage)
+                : Icon(
+                    Icons.circle_outlined,
+                    color: AppSurfaces.textSubtle(context),
+                  ),
           ),
-          title: Text(
-            title,
-            style: const TextStyle(fontWeight: FontWeight.w800),
-          ),
-          subtitle: Text(subtitle),
-          trailing: selected
-              ? Icon(Icons.check_circle, color: theme.colorScheme.primary)
-              : const Icon(Icons.circle_outlined),
         ),
       ),
     );
@@ -555,6 +578,7 @@ class _ThemeModeSheet extends StatelessWidget {
             'Appearance',
             style: theme.textTheme.headlineSmall?.copyWith(
               fontWeight: FontWeight.w800,
+              letterSpacing: -0.6,
             ),
           ),
           const SizedBox(height: 6),
@@ -617,37 +641,45 @@ class _ThemeModeOption extends StatelessWidget {
     final theme = Theme.of(context);
 
     return Padding(
-      padding: const EdgeInsets.only(bottom: 8),
-      child: Material(
-        color: selected
-            ? theme.colorScheme.primary.withValues(alpha: 0.12)
-            : AppSurfaces.card(context),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(16),
-          side: BorderSide(
-            color: selected
-                ? theme.colorScheme.primary
-                : AppSurfaces.border(context),
-          ),
+      padding: const EdgeInsets.only(bottom: 10),
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(18),
+          boxShadow: AppSurfaces.cardShadow(context),
         ),
-        clipBehavior: Clip.antiAlias,
-        child: ListTile(
-          key: ValueKey<String>('theme-mode-${mode.storageValue}'),
-          onTap: () => onTap(mode),
-          leading: Icon(
-            icon,
-            color: selected
-                ? theme.colorScheme.primary
-                : AppSurfaces.textPrimary(context),
+        child: Material(
+          color: selected
+              ? AppColors.sage.withValues(alpha: 0.1)
+              : SettingsStyle.surface(context),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(18),
+            side: BorderSide(
+              color: selected ? AppColors.sage : SettingsStyle.outline(context),
+              width: selected ? 1.75 : SettingsStyle.outlineWidth,
+            ),
           ),
-          title: Text(
-            title,
-            style: const TextStyle(fontWeight: FontWeight.w800),
+          clipBehavior: Clip.antiAlias,
+          child: ListTile(
+            key: ValueKey<String>('theme-mode-${mode.storageValue}'),
+            onTap: () => onTap(mode),
+            leading: Icon(
+              icon,
+              color: selected
+                  ? theme.colorScheme.primary
+                  : AppSurfaces.textPrimary(context),
+            ),
+            title: Text(
+              title,
+              style: const TextStyle(fontWeight: FontWeight.w600),
+            ),
+            subtitle: Text(subtitle),
+            trailing: selected
+                ? const Icon(Icons.check_circle_rounded, color: AppColors.sage)
+                : Icon(
+                    Icons.circle_outlined,
+                    color: AppSurfaces.textSubtle(context),
+                  ),
           ),
-          subtitle: Text(subtitle),
-          trailing: selected
-              ? Icon(Icons.check_circle, color: theme.colorScheme.primary)
-              : const Icon(Icons.circle_outlined),
         ),
       ),
     );
@@ -674,91 +706,105 @@ class _AccountHeader extends StatelessWidget {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
 
-    return Row(
-      children: [
-        SizedBox(
-          width: 76,
-          height: 76,
-          child: Stack(
-            clipBehavior: Clip.none,
-            children: [
-              Material(
-                color: AppSurfaces.softCard(context),
-                shape: const CircleBorder(),
-                child: InkWell(
-                  customBorder: const CircleBorder(),
-                  onTap: isBusy ? null : onPhotoTap,
-                  child: Container(
-                    width: 76,
-                    height: 76,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      border: Border.all(color: colorScheme.primary, width: 2),
-                    ),
-                    child: ClipOval(
-                      child: photoUrl != null && photoUrl!.isNotEmpty
-                          ? Image.network(
-                              photoUrl!,
-                              fit: BoxFit.cover,
-                              errorBuilder: (context, error, stackTrace) =>
-                                  _AvatarFallback(color: colorScheme.primary),
-                            )
-                          : _AvatarFallback(color: colorScheme.primary),
-                    ),
-                  ),
-                ),
-              ),
-              Positioned(
-                right: -2,
-                bottom: -2,
-                child: Material(
-                  color: AppSurfaces.card(context),
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
+      child: Row(
+        children: [
+          SizedBox(
+            width: 76,
+            height: 76,
+            child: Stack(
+              clipBehavior: Clip.none,
+              children: [
+                Material(
+                  color: SettingsStyle.surface(context),
                   shape: const CircleBorder(),
                   child: InkWell(
                     customBorder: const CircleBorder(),
                     onTap: isBusy ? null : onPhotoTap,
-                    child: Padding(
-                      padding: const EdgeInsets.all(7),
-                      child: Icon(
-                        Icons.camera_alt_rounded,
-                        size: 15,
-                        color: colorScheme.onSurface,
+                    child: Container(
+                      width: 76,
+                      height: 76,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        border: Border.all(
+                          color: SettingsStyle.outline(context),
+                          width: SettingsStyle.outlineWidth,
+                        ),
+                      ),
+                      child: ClipOval(
+                        child: photoUrl != null && photoUrl!.isNotEmpty
+                            ? Image.network(
+                                photoUrl!,
+                                fit: BoxFit.cover,
+                                errorBuilder: (context, error, stackTrace) =>
+                                    _AvatarFallback(color: colorScheme.primary),
+                              )
+                            : _AvatarFallback(color: colorScheme.primary),
                       ),
                     ),
                   ),
                 ),
-              ),
-            ],
-          ),
-        ),
-        const SizedBox(width: 16),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                displayName,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: theme.textTheme.headlineSmall?.copyWith(
-                  color: AppSurfaces.textPrimary(context),
-                  fontWeight: FontWeight.w900,
+                Positioned(
+                  right: -4,
+                  bottom: -4,
+                  child: Material(
+                    color: AppColors.sage,
+                    shape: CircleBorder(
+                      side: BorderSide(
+                        color: SettingsStyle.outline(context),
+                        width: SettingsStyle.outlineWidth,
+                      ),
+                    ),
+                    child: InkWell(
+                      customBorder: const CircleBorder(),
+                      onTap: isBusy ? null : onPhotoTap,
+                      child: const Padding(
+                        padding: EdgeInsets.all(7),
+                        child: Icon(
+                          Icons.camera_alt_rounded,
+                          size: 15,
+                          color: Colors.white,
+                        ),
+                      ),
+                    ),
+                  ),
                 ),
-              ),
-              const SizedBox(height: 4),
-              Text(
-                '@$username',
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: theme.textTheme.bodyMedium?.copyWith(
-                  color: AppSurfaces.textMuted(context),
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-            ],
+              ],
+            ),
           ),
-        ),
-      ],
+          const SizedBox(width: 16),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  displayName,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: theme.textTheme.headlineSmall?.copyWith(
+                    color: AppSurfaces.textPrimary(context),
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: -0.6,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  '@$username',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: theme.textTheme.bodyMedium?.copyWith(
+                    color: AppSurfaces.isDark(context)
+                        ? AppColors.lightSage
+                        : AppColors.sage,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

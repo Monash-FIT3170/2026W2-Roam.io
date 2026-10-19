@@ -100,13 +100,15 @@ class ActivityFeedItem {
 
   bool get hasMedia => media.isNotEmpty;
 
-  /// Returns a copy with optional identity fields overridden (e.g. signed-in user).
+  /// Returns a copy with optional identity fields overridden (e.g. signed-in
+  /// user), or with a display [title] in place of the stored one.
   ActivityFeedItem copyWith({
     String? id,
     String? ownerId,
     String? displayName,
     String? username,
     String? photoUrl,
+    String? title,
   }) {
     return ActivityFeedItem(
       id: id ?? this.id,
@@ -116,7 +118,7 @@ class ActivityFeedItem {
       photoUrl: photoUrl ?? this.photoUrl,
       timestampLabel: timestampLabel,
       createdAt: createdAt,
-      title: title,
+      title: title ?? this.title,
       kind: kind,
       metrics: metrics,
       showMapPreview: showMapPreview,

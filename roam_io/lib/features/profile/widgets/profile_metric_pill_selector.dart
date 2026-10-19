@@ -18,6 +18,7 @@ class ProfileMetricPillSelector extends StatelessWidget {
     required this.onSelected,
     this.keyPrefix = 'profile-metric',
     this.itemKeys,
+    this.flat = false,
   }) : assert(itemKeys == null || itemKeys.length == labels.length);
 
   final List<String> labels;
@@ -25,18 +26,23 @@ class ProfileMetricPillSelector extends StatelessWidget {
   final ValueChanged<int> onSelected;
   final String keyPrefix;
   final List<String>? itemKeys;
+  final bool flat;
 
   @override
   Widget build(BuildContext context) {
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-      clipBehavior: Clip.antiAlias,
-      decoration: BoxDecoration(
-        color: AppSurfaces.card(context),
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: AppSurfaces.border(context)),
-      ),
+      padding: flat
+          ? EdgeInsets.zero
+          : const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+      clipBehavior: flat ? Clip.none : Clip.antiAlias,
+      decoration: flat
+          ? null
+          : BoxDecoration(
+              color: AppSurfaces.card(context),
+              borderRadius: BorderRadius.circular(18),
+              border: Border.all(color: AppSurfaces.border(context)),
+            ),
       child: LayoutBuilder(
         builder: (context, constraints) {
           return SingleChildScrollView(
@@ -58,6 +64,7 @@ class ProfileMetricPillSelector extends StatelessWidget {
                         ),
                         label: labels[index],
                         selected: selectedIndex == index,
+                        flat: flat,
                         onTap: () => onSelected(index),
                       ),
                     ),
@@ -76,11 +83,13 @@ class _MetricPill extends StatelessWidget {
     super.key,
     required this.label,
     required this.selected,
+    required this.flat,
     required this.onTap,
   });
 
   final String label;
   final bool selected;
+  final bool flat;
   final VoidCallback onTap;
 
   @override
@@ -89,7 +98,11 @@ class _MetricPill extends StatelessWidget {
     final selectedColor = theme.colorScheme.primary;
 
     return Material(
-      color: selected ? selectedColor : AppSurfaces.softCard(context),
+      color: selected
+          ? selectedColor
+          : flat
+          ? Colors.transparent
+          : AppSurfaces.softCard(context),
       borderRadius: BorderRadius.circular(999),
       child: InkWell(
         borderRadius: BorderRadius.circular(999),
@@ -99,7 +112,11 @@ class _MetricPill extends StatelessWidget {
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(999),
             border: Border.all(
-              color: selected ? selectedColor : AppSurfaces.border(context),
+              color: selected
+                  ? selectedColor
+                  : flat
+                  ? Colors.transparent
+                  : AppSurfaces.border(context),
             ),
           ),
           child: Text(
@@ -108,7 +125,7 @@ class _MetricPill extends StatelessWidget {
               color: selected
                   ? theme.colorScheme.onPrimary
                   : AppSurfaces.textMuted(context),
-              fontWeight: FontWeight.w800,
+              fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
             ),
           ),
         ),

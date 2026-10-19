@@ -1,19 +1,20 @@
 /*
  * Author: Sanjevan Rajasegar
- * Last Updated: 22 August 2026
+ * Last Updated: 4 October 2026 — Amarprit Singh
  * Description:
  *   Reusable activity feed card for persisted Home, You, external profile, and
  *   detail activity surfaces. Engagement is configurable via showKudos /
- *   showComments / showShare and reads live Firestore subcollection counts.
+ *   showComments / showShare and reads live Firestore subcollection counts
+ *   through [ActivityEngagementRow], which other cards reuse directly.
  *   Glaze is the product-facing name for persisted Kudos interactions.
  */
 
 import 'dart:async';
-import 'dart:typed_data';
-
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import '../../../shared/widgets/app_toast.dart';
+import '../../../theme/app_colours.dart';
 import '../../../theme/app_surfaces.dart';
 import '../../journeys/domain/transport_mode.dart';
 import '../../map/data/journey_map_snapshot_service.dart';
@@ -70,6 +71,10 @@ class ActivityFeedCard extends StatelessWidget {
     this.kudosLabel = 'Glaze',
     this.commentLabel = 'Comment',
     this.shareLabel = 'Share',
+    this.edgeToEdge = false,
+    this.largeEngagementActions = false,
+    this.profilePresentation = false,
+    this.journeyPresentation = false,
   });
 
   /// Builds a card from a shared [ActivityFeedItem] model.
@@ -91,6 +96,9 @@ class ActivityFeedCard extends StatelessWidget {
     VisitedRegionService? visitedRegionService,
     ActivityMutationService? mutationService,
     RouteEndpointMarkerIcons? endpointMarkerIcons,
+    bool edgeToEdge = false,
+    bool largeEngagementActions = false,
+    bool profilePresentation = false,
   }) {
     final route = item.showMapPreview
         ? ActivityRoute.tryCreate(
@@ -130,6 +138,10 @@ class ActivityFeedCard extends StatelessWidget {
       onKudosTap: onKudosTap,
       onCommentTap: onCommentTap,
       onShareTap: onShareTap,
+      edgeToEdge: edgeToEdge,
+      largeEngagementActions: largeEngagementActions,
+      profilePresentation: profilePresentation,
+      journeyPresentation: item.kind == ActivityFeedKind.journey,
     );
   }
 
@@ -174,7 +186,365 @@ class ActivityFeedCard extends StatelessWidget {
   final String commentLabel;
   final String shareLabel;
 
+  /// Strava-style full-width presentation: no rounded corners, border, or
+  /// shadow — the card spans the screen edge-to-edge with a hairline
+  /// divider below it instead of a floating card look.
+  final bool edgeToEdge;
+
+  /// Slightly larger engagement controls for the edge-to-edge Home feed.
+  final bool largeEngagementActions;
+
+  /// Tighter identity/metrics chrome with an inset, rounded visual intended
+  /// for the personal Profile journey feed.
+  final bool profilePresentation;
+
+  /// Uses the compact Journey-specific `time · tiles · XP` summary.
+  final bool journeyPresentation;
+
   bool get _hasEngagementActions => showKudos || showComments || showShare;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final routeSlide = _buildRouteSlide();
+
+    final hasMedia = media.isNotEmpty || routeSlide != null;
+    // Neutral, low-contrast hairline rather than AppSurfaces.border (which is
+    // tinted toward the brand primary and reads as a slightly different grey
+    // next to the card's plain-grey text).
+    final hairline = AppSurfaces.textPrimary(
+      context,
+    ).withValues(alpha: AppSurfaces.isDark(context) ? 0.08 : 0.05);
+    final decoration = profilePresentation
+        ? BoxDecoration(
+            color: AppSurfaces.softCard(context),
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: AppSurfaces.border(context)),
+            boxShadow: [
+              BoxShadow(
+                color: AppSurfaces.shadow(context),
+                blurRadius: 8,
+                offset: const Offset(0, 2),
+              ),
+            ],
+          )
+        : edgeToEdge
+        ? BoxDecoration(
+            color: AppSurfaces.pageBackground(context),
+            border: Border(bottom: BorderSide(color: hairline, width: 2.5)),
+          )
+        : BoxDecoration(
+            color: AppSurfaces.card(context),
+            borderRadius: BorderRadius.circular(18),
+            border: Border.all(color: AppSurfaces.border(context)),
+            boxShadow: [
+              BoxShadow(
+                color: AppSurfaces.shadow(context),
+                blurRadius: 12,
+                offset: const Offset(0, 5),
+              ),
+            ],
+          );
+
+    return Container(
+      width: double.infinity,
+      decoration: decoration,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Padding(
+            padding: EdgeInsets.fromLTRB(
+              profilePresentation ? 14 : 16,
+              profilePresentation ? 10 : 14,
+              profilePresentation ? 10 : 16,
+              hasMedia || _hasEngagementActions ? 0 : 14,
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                if (profilePresentation) ...[
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              title,
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                              style: theme.textTheme.titleMedium?.copyWith(
+                                color: AppSurfaces.textPrimary(context),
+                                fontSize: title.length > 40 ? 15 : 17,
+                                height: 1.15,
+                                fontWeight: FontWeight.w800,
+                                letterSpacing: -0.2,
+                              ),
+                            ),
+                            const SizedBox(height: 3),
+                            Text(
+                              timestampLabel,
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                              style: theme.textTheme.bodySmall?.copyWith(
+                                color: AppSurfaces.textSubtle(context),
+                                fontSize: 11,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      IconButton(
+                        visualDensity: VisualDensity.compact,
+                        padding: EdgeInsets.zero,
+                        constraints: const BoxConstraints(
+                          minWidth: 30,
+                          minHeight: 30,
+                        ),
+                        onPressed: onOverflowTap,
+                        icon: Icon(
+                          Icons.more_horiz_rounded,
+                          color: AppSurfaces.textMuted(context),
+                        ),
+                      ),
+                    ],
+                  ),
+                ] else ...[
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      SocialAvatar(
+                        displayName: displayName,
+                        photoUrl: photoUrl,
+                        radius: 22,
+                        borderWidth: 1.5,
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              displayName,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: theme.textTheme.titleSmall?.copyWith(
+                                color: AppSurfaces.textPrimary(context),
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                            const SizedBox(height: 2),
+                            Text(
+                              timestampLabel,
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                              style: theme.textTheme.bodySmall?.copyWith(
+                                color: AppSurfaces.textSubtle(context),
+                                fontSize: 12,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      IconButton(
+                        visualDensity: VisualDensity.compact,
+                        padding: EdgeInsets.zero,
+                        constraints: const BoxConstraints(
+                          minWidth: 36,
+                          minHeight: 36,
+                        ),
+                        onPressed: onOverflowTap,
+                        icon: Icon(
+                          Icons.more_horiz_rounded,
+                          color: AppSurfaces.textMuted(context),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 20),
+                  Text(
+                    title,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: theme.textTheme.titleMedium?.copyWith(
+                      color: AppSurfaces.textPrimary(context),
+                      fontSize: title.length > 40 ? 15 : 18,
+                      height: 1.2,
+                      fontWeight: FontWeight.w700,
+                      letterSpacing: -0.2,
+                    ),
+                  ),
+                ],
+                if (metrics.isNotEmpty) ...[
+                  SizedBox(height: profilePresentation ? 6 : 10),
+                  ActivityMetricsRow(
+                    metrics: metrics,
+                    compact: profilePresentation,
+                    journeyStyle: journeyPresentation,
+                  ),
+                ],
+              ],
+            ),
+          ),
+          if (hasMedia) ...[
+            SizedBox(height: profilePresentation ? 7 : 12),
+            Padding(
+              padding: EdgeInsets.symmetric(
+                horizontal: profilePresentation
+                    ? 14
+                    : edgeToEdge
+                    ? 12
+                    : 0,
+              ),
+              child: ActivityMediaCarousel(
+                media: media,
+                onTap: onMediaTap,
+                routeSlide: routeSlide,
+                routeFirst: true,
+                borderRadius: profilePresentation
+                    ? 12
+                    : edgeToEdge
+                    ? 14
+                    : 0,
+              ),
+            ),
+          ],
+          if (_hasEngagementActions)
+            Padding(
+              padding: EdgeInsets.fromLTRB(
+                16,
+                profilePresentation ? 6 : 12,
+                12,
+                profilePresentation ? 4 : 8,
+              ),
+              child: ActivityEngagementRow(
+                activityId: activityId,
+                activityOwnerId: activityOwnerId,
+                currentUserId: currentUserId,
+                commentService: commentService,
+                kudosService: kudosService,
+                commentCountStream: commentCountStream,
+                showKudos: showKudos,
+                showComments: showComments,
+                showShare: showShare,
+                onKudosTap: onKudosTap,
+                onCommentTap: onCommentTap,
+                onShareTap: onShareTap,
+                kudosLabel: kudosLabel,
+                commentLabel: commentLabel,
+                shareLabel: shareLabel,
+                large: largeEngagementActions,
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
+  /// The route slide: the stored picture when there is one, otherwise a live
+  /// map that doubles as the capture source for the activity's owner.
+  Widget? _buildRouteSlide() {
+    if (!showMapPreview) return null;
+
+    final storedMapImageUrl = mapImageUrl;
+    if (storedMapImageUrl != null && storedMapImageUrl.isNotEmpty) {
+      return _TappableJourneyVisual(
+        onTap: onOverflowTap,
+        child: ActivityMapSnapshotImage(
+          key: ValueKey<String>('activity-card-map-image-$activityId'),
+          url: storedMapImageUrl,
+        ),
+      );
+    }
+
+    if (route == null) return null;
+
+    return _TappableJourneyVisual(
+      onTap: onOverflowTap,
+      child: ActivityMapPreview(
+        key: ValueKey<String>('activity-card-map-$activityId'),
+        route: route,
+        snapshotProfileId: routeSnapshotProfileId,
+        mapSnapshotService: mapSnapshotService,
+        visitedRegionService: visitedRegionService,
+        transportMode: routeTransportMode,
+        showEndpoints: true,
+        endpointMarkerIcons: endpointMarkerIcons,
+        mapIdentity: activityId,
+        onSnapshotCaptured: _mapImageBackfill,
+      ),
+    );
+  }
+
+  /// Capture handler for an activity saved before the picture existed.
+  ///
+  /// Only the owner can write the picture, so nobody else's card wastes a
+  /// snapshot on it.
+  ValueChanged<Uint8List>? get _mapImageBackfill {
+    final id = activityId;
+    final ownerId = activityOwnerId;
+    if (id == null || id.isEmpty || ownerId == null || ownerId.isEmpty) {
+      return null;
+    }
+    if (currentUserId != ownerId) return null;
+    if (!ActivityMapImageBackfill.isPending(id)) return null;
+
+    return (bytes) => unawaited(
+      ActivityMapImageBackfill.record(
+        activityId: id,
+        ownerId: ownerId,
+        bytes: bytes,
+        mutationService: mutationService ?? ActivityMutationService(),
+      ),
+    );
+  }
+}
+
+/// Glaze / Comment / Share controls with live counts, shared by every
+/// activity card. Owners tapping Glaze see who glazed instead, since they
+/// cannot Glaze their own activity.
+class ActivityEngagementRow extends StatelessWidget {
+  const ActivityEngagementRow({
+    super.key,
+    this.activityId,
+    this.activityOwnerId,
+    this.currentUserId,
+    this.commentService,
+    this.kudosService,
+    this.commentCountStream,
+    this.showKudos = true,
+    this.showComments = true,
+    this.showShare = true,
+    this.onKudosTap,
+    this.onCommentTap,
+    this.onShareTap,
+    this.kudosLabel = 'Glaze',
+    this.commentLabel = 'Comment',
+    this.shareLabel = 'Share',
+    this.large = false,
+  });
+
+  final String? activityId;
+  final String? activityOwnerId;
+  final String? currentUserId;
+  final CommentService? commentService;
+  final KudosService? kudosService;
+
+  /// Injected count stream for tests; production uses [commentService].
+  final Stream<int>? commentCountStream;
+  final bool showKudos;
+  final bool showComments;
+  final bool showShare;
+  final VoidCallback? onKudosTap;
+  final VoidCallback? onCommentTap;
+  final VoidCallback? onShareTap;
+  final String kudosLabel;
+  final String commentLabel;
+  final String shareLabel;
+  final bool large;
 
   Stream<int>? get _resolvedCommentCountStream {
     if (!showComments) {
@@ -214,182 +584,33 @@ class ActivityFeedCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final countStream = _resolvedCommentCountStream;
-    final kudosCountStream = _resolvedKudosCountStream;
-    final hasKudosStream = _resolvedHasKudosStream;
-    final routeSlide = _buildRouteSlide();
-
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.fromLTRB(16, 14, 12, 10),
-      decoration: BoxDecoration(
-        color: AppSurfaces.card(context),
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: AppSurfaces.border(context)),
-        boxShadow: [
-          BoxShadow(
-            color: AppSurfaces.shadow(context),
-            blurRadius: 12,
-            offset: const Offset(0, 5),
+    return Row(
+      children: [
+        if (showKudos)
+          _KudosActionButton(
+            countStream: _resolvedKudosCountStream,
+            hasKudosStream: _resolvedHasKudosStream,
+            fallbackLabel: kudosLabel,
+            activityId: activityId,
+            onTap: onKudosTap ?? () => _toggleKudos(context),
+            large: large,
           ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              SocialAvatar(
-                displayName: displayName,
-                photoUrl: photoUrl,
-                radius: 22,
-                borderWidth: 1.5,
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      displayName,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: theme.textTheme.titleSmall?.copyWith(
-                        color: AppSurfaces.textPrimary(context),
-                        fontWeight: FontWeight.w900,
-                      ),
-                    ),
-                    const SizedBox(height: 2),
-                    Text(
-                      timestampLabel,
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      style: theme.textTheme.bodySmall?.copyWith(
-                        color: AppSurfaces.textMuted(context),
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              IconButton(
-                visualDensity: VisualDensity.compact,
-                padding: EdgeInsets.zero,
-                constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
-                onPressed: onOverflowTap,
-                icon: Icon(
-                  Icons.more_horiz_rounded,
-                  color: AppSurfaces.textMuted(context),
-                ),
-              ),
-            ],
+        if (showComments)
+          _CommentActionButton(
+            countStream: _resolvedCommentCountStream,
+            fallbackLabel: commentLabel,
+            activityId: activityId,
+            onTap: onCommentTap,
+            large: large,
           ),
-          const SizedBox(height: 14),
-          Text(
-            title,
-            style: theme.textTheme.titleMedium?.copyWith(
-              color: AppSurfaces.textPrimary(context),
-              fontWeight: FontWeight.w900,
-            ),
+        if (showShare)
+          _ActionButton(
+            icon: Icons.ios_share,
+            label: shareLabel,
+            onTap: onShareTap,
+            large: large,
           ),
-          if (media.isNotEmpty || routeSlide != null) ...[
-            const SizedBox(height: 12),
-            ActivityMediaCarousel(
-              media: media,
-              onTap: onMediaTap,
-              routeSlide: routeSlide,
-            ),
-          ],
-          if (metrics.isNotEmpty) ...[
-            const SizedBox(height: 14),
-            ActivityMetricsRow(metrics: metrics),
-          ],
-          if (_hasEngagementActions) ...[
-            const SizedBox(height: 12),
-            Divider(height: 1, color: AppSurfaces.border(context)),
-            const SizedBox(height: 4),
-            Row(
-              children: [
-                if (showKudos)
-                  _KudosActionButton(
-                    countStream: kudosCountStream,
-                    hasKudosStream: hasKudosStream,
-                    fallbackLabel: kudosLabel,
-                    activityId: activityId,
-                    onTap: onKudosTap ?? () => _toggleKudos(context),
-                  ),
-                if (showComments)
-                  _CommentActionButton(
-                    countStream: countStream,
-                    fallbackLabel: commentLabel,
-                    activityId: activityId,
-                    onTap: onCommentTap,
-                  ),
-                if (showShare)
-                  _ActionButton(
-                    icon: Icons.ios_share_rounded,
-                    label: shareLabel,
-                    onTap: onShareTap,
-                  ),
-              ],
-            ),
-          ],
-        ],
-      ),
-    );
-  }
-
-  /// The route slide: the stored picture when there is one, otherwise a live
-  /// map that doubles as the capture source for the activity's owner.
-  Widget? _buildRouteSlide() {
-    if (!showMapPreview) return null;
-
-    final storedMapImageUrl = mapImageUrl;
-    if (storedMapImageUrl != null && storedMapImageUrl.isNotEmpty) {
-      return ActivityMapSnapshotImage(
-        key: ValueKey<String>('activity-card-map-image-$activityId'),
-        url: storedMapImageUrl,
-      );
-    }
-
-    if (route == null) return null;
-
-    return ActivityMapPreview(
-      key: ValueKey<String>('activity-card-map-$activityId'),
-      route: route,
-      snapshotProfileId: routeSnapshotProfileId,
-      mapSnapshotService: mapSnapshotService,
-      visitedRegionService: visitedRegionService,
-      transportMode: routeTransportMode,
-      showEndpoints: true,
-      endpointMarkerIcons: endpointMarkerIcons,
-      mapIdentity: activityId,
-      onSnapshotCaptured: _mapImageBackfill,
-    );
-  }
-
-  /// Capture handler for an activity saved before the picture existed.
-  ///
-  /// Only the owner can write the picture, so nobody else's card wastes a
-  /// snapshot on it.
-  ValueChanged<Uint8List>? get _mapImageBackfill {
-    final id = activityId;
-    final ownerId = activityOwnerId;
-    if (id == null || id.isEmpty || ownerId == null || ownerId.isEmpty) {
-      return null;
-    }
-    if (currentUserId != ownerId) return null;
-    if (!ActivityMapImageBackfill.isPending(id)) return null;
-
-    return (bytes) => unawaited(
-      ActivityMapImageBackfill.record(
-        activityId: id,
-        ownerId: ownerId,
-        bytes: bytes,
-        mutationService: mutationService ?? ActivityMutationService(),
-      ),
+      ],
     );
   }
 
@@ -406,6 +627,9 @@ class ActivityFeedCard extends StatelessWidget {
       return;
     }
     if (uid == ownerId) {
+      // Owners inspect the people who reacted; they cannot Glaze themselves.
+      // This follows the same full-page drill-in pattern as Discussions.
+      unawaited(HapticFeedback.lightImpact());
       await ActivityGlazersSheet.show(
         context: context,
         activityId: id,
@@ -413,6 +637,7 @@ class ActivityFeedCard extends StatelessWidget {
       );
       return;
     }
+    unawaited(HapticFeedback.selectionClick());
     debugPrint(
       '[ActivityFeedCard] toggleKudos activityId=$id ownerId=$ownerId '
       'userId=$uid',
@@ -437,14 +662,99 @@ class ActivityFeedCard extends StatelessWidget {
 
 /// Shared equal-width, centre-aligned metric columns for cards and detail.
 class ActivityMetricsRow extends StatelessWidget {
-  const ActivityMetricsRow({super.key, required this.metrics, this.valueStyle});
+  const ActivityMetricsRow({
+    super.key,
+    required this.metrics,
+    this.valueStyle,
+    this.compact = false,
+    this.journeyStyle = false,
+  });
 
   final List<ActivityFeedMetric> metrics;
   final TextStyle? valueStyle;
+  final bool compact;
+  final bool journeyStyle;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+
+    if (compact) {
+      if (journeyStyle) {
+        return FittedBox(
+          fit: BoxFit.scaleDown,
+          alignment: Alignment.centerLeft,
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              for (var index = 0; index < metrics.length; index += 1) ...[
+                if (index > 0)
+                  Text(
+                    '  ·  ',
+                    style: theme.textTheme.bodyMedium?.copyWith(
+                      color: AppSurfaces.textSubtle(context),
+                    ),
+                  ),
+                Text(
+                  _compactMetricLabel(metrics[index]),
+                  style: theme.textTheme.bodyMedium?.copyWith(
+                    color: _isXpMetric(metrics[index].label)
+                        ? AppColors.sage
+                        : AppSurfaces.textPrimary(context),
+                    fontWeight: _isXpMetric(metrics[index].label)
+                        ? FontWeight.w700
+                        : FontWeight.w600,
+                  ),
+                ),
+              ],
+            ],
+          ),
+        );
+      }
+
+      return Row(
+        children: [
+          for (var index = 0; index < metrics.length; index += 1) ...[
+            if (index > 0)
+              Container(
+                width: 1,
+                height: 14,
+                color: AppSurfaces.border(context),
+              ),
+            Expanded(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 7),
+                child: FittedBox(
+                  fit: BoxFit.scaleDown,
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        metrics[index].value,
+                        style: theme.textTheme.labelLarge?.copyWith(
+                          color: _isXpMetric(metrics[index].label)
+                              ? AppColors.sage
+                              : AppSurfaces.textPrimary(context),
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                      const SizedBox(width: 3),
+                      Text(
+                        metrics[index].label,
+                        style: theme.textTheme.labelSmall?.copyWith(
+                          color: AppSurfaces.textMuted(context),
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ],
+      );
+    }
 
     return Row(
       children: [
@@ -463,8 +773,10 @@ class ActivityMetricsRow extends StatelessWidget {
                       softWrap: false,
                       textAlign: TextAlign.center,
                       style: theme.textTheme.labelMedium?.copyWith(
-                        color: AppSurfaces.textMuted(context),
+                        color: AppSurfaces.textSubtle(context),
+                        fontSize: 11,
                         fontWeight: FontWeight.w700,
+                        letterSpacing: 0,
                       ),
                     ),
                   ),
@@ -479,7 +791,9 @@ class ActivityMetricsRow extends StatelessWidget {
                       style:
                           valueStyle ??
                           theme.textTheme.titleSmall?.copyWith(
-                            color: AppSurfaces.textPrimary(context),
+                            color: _isXpMetric(metrics[index].label)
+                                ? AppColors.sage
+                                : AppSurfaces.textPrimary(context),
                             fontWeight: FontWeight.w900,
                           ),
                     ),
@@ -493,18 +807,56 @@ class ActivityMetricsRow extends StatelessWidget {
   }
 }
 
+bool _isXpMetric(String label) => label.toLowerCase().contains('xp');
+
+String _compactMetricLabel(ActivityFeedMetric metric) {
+  final label = metric.label.toLowerCase();
+  if (label.contains('time') || label.contains('duration')) {
+    return metric.value;
+  }
+  if (label.contains('tile')) {
+    final suffix = metric.value.trim() == '1' ? 'tile' : 'tiles';
+    return '${metric.value} $suffix';
+  }
+  if (_isXpMetric(metric.label)) return metric.value;
+  return '${metric.value} ${metric.label.toLowerCase()}';
+}
+
+class _TappableJourneyVisual extends StatelessWidget {
+  const _TappableJourneyVisual({required this.child, this.onTap});
+
+  final Widget child;
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    if (onTap == null) return child;
+    return Semantics(
+      button: true,
+      label: 'Open journey details',
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: onTap,
+        child: child,
+      ),
+    );
+  }
+}
+
 class _CommentActionButton extends StatelessWidget {
   const _CommentActionButton({
     required this.countStream,
     required this.fallbackLabel,
     required this.onTap,
     this.activityId,
+    this.large = false,
   });
 
   final Stream<int>? countStream;
   final String fallbackLabel;
   final VoidCallback? onTap;
   final String? activityId;
+  final bool large;
 
   @override
   Widget build(BuildContext context) {
@@ -513,6 +865,7 @@ class _CommentActionButton extends StatelessWidget {
         icon: Icons.chat_bubble_outline_rounded,
         label: fallbackLabel,
         onTap: onTap,
+        large: large,
       );
     }
 
@@ -530,6 +883,7 @@ class _CommentActionButton extends StatelessWidget {
               label: 'Comments',
               onTap: onTap,
               expand: false,
+              large: large,
             );
           }
           if (!snapshot.hasData) {
@@ -538,14 +892,16 @@ class _CommentActionButton extends StatelessWidget {
               label: 'Comments',
               onTap: onTap,
               expand: false,
+              large: large,
             );
           }
           final count = snapshot.data!;
           return _ActionButton(
             icon: Icons.chat_bubble_outline_rounded,
-            label: formatCommentCount(count),
+            label: count == 0 ? fallbackLabel : formatCommentCount(count),
             onTap: onTap,
             expand: false,
+            large: large,
           );
         },
       ),
@@ -560,6 +916,7 @@ class _KudosActionButton extends StatelessWidget {
     required this.fallbackLabel,
     required this.onTap,
     this.activityId,
+    this.large = false,
   });
 
   final Stream<int>? countStream;
@@ -567,6 +924,7 @@ class _KudosActionButton extends StatelessWidget {
   final String fallbackLabel;
   final VoidCallback? onTap;
   final String? activityId;
+  final bool large;
 
   @override
   Widget build(BuildContext context) {
@@ -575,6 +933,7 @@ class _KudosActionButton extends StatelessWidget {
         icon: Icons.thumb_up_alt_outlined,
         label: fallbackLabel,
         onTap: onTap,
+        large: large,
       );
     }
 
@@ -592,6 +951,7 @@ class _KudosActionButton extends StatelessWidget {
               label: fallbackLabel,
               onTap: onTap,
               expand: false,
+              large: large,
             );
           }
           final count = countSnapshot.hasData ? countSnapshot.data! : null;
@@ -601,6 +961,7 @@ class _KudosActionButton extends StatelessWidget {
               label: count == null ? fallbackLabel : _formatKudosCount(count),
               onTap: onTap,
               expand: false,
+              large: large,
             );
           }
           return StreamBuilder<bool>(
@@ -621,6 +982,8 @@ class _KudosActionButton extends StatelessWidget {
                 onTap: onTap,
                 expand: false,
                 active: hasKudos,
+                bounceOnActive: true,
+                large: large,
               );
             },
           );
@@ -639,6 +1002,8 @@ class _ActionButton extends StatelessWidget {
     required this.onTap,
     this.expand = true,
     this.active = false,
+    this.bounceOnActive = false,
+    this.large = false,
   });
 
   final IconData icon;
@@ -646,39 +1011,48 @@ class _ActionButton extends StatelessWidget {
   final VoidCallback? onTap;
   final bool expand;
   final bool active;
+  final bool large;
+
+  /// Plays a bounce animation when [active] flips from false to true.
+  final bool bounceOnActive;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final iconColor = active
+        ? theme.colorScheme.primary
+        : AppSurfaces.textMuted(context);
 
     final content = InkWell(
       onTap: onTap,
       borderRadius: BorderRadius.circular(10),
       child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 2),
+        padding: EdgeInsets.symmetric(vertical: large ? 11 : 7, horizontal: 2),
         child: FittedBox(
           fit: BoxFit.scaleDown,
           child: Row(
             mainAxisAlignment: MainAxisAlignment.center,
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(
-                icon,
-                size: 18,
-                color: active
-                    ? theme.colorScheme.primary
-                    : AppSurfaces.textMuted(context),
-              ),
-              const SizedBox(width: 6),
+              bounceOnActive
+                  ? _BounceIcon(
+                      icon: icon,
+                      color: iconColor,
+                      active: active,
+                      size: large ? 23 : 18,
+                    )
+                  : Icon(icon, size: large ? 23 : 18, color: iconColor),
+              SizedBox(width: large ? 7 : 4),
               Text(
                 label,
                 maxLines: 1,
                 softWrap: false,
-                style: theme.textTheme.labelLarge?.copyWith(
+                style: theme.textTheme.labelMedium?.copyWith(
                   color: active
                       ? theme.colorScheme.primary
                       : AppSurfaces.textMuted(context),
-                  fontWeight: FontWeight.w800,
+                  fontSize: large ? 14 : 12,
+                  fontWeight: FontWeight.w500,
                 ),
               ),
             ],
@@ -694,7 +1068,72 @@ class _ActionButton extends StatelessWidget {
   }
 }
 
+/// Icon that plays a quick scale bounce when [active] flips from false to
+/// true, so giving Glaze feels responsive rather than just swapping icons.
+class _BounceIcon extends StatefulWidget {
+  const _BounceIcon({
+    required this.icon,
+    required this.color,
+    required this.active,
+    required this.size,
+  });
+
+  final IconData icon;
+  final Color color;
+  final bool active;
+  final double size;
+
+  @override
+  State<_BounceIcon> createState() => _BounceIconState();
+}
+
+class _BounceIconState extends State<_BounceIcon>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _controller = AnimationController(
+    duration: const Duration(milliseconds: 320),
+    vsync: this,
+  );
+  late final Animation<double> _scale = TweenSequence<double>([
+    TweenSequenceItem(
+      weight: 45,
+      tween: Tween(
+        begin: 1.0,
+        end: 1.35,
+      ).chain(CurveTween(curve: Curves.easeOut)),
+    ),
+    TweenSequenceItem(
+      weight: 55,
+      tween: Tween(
+        begin: 1.35,
+        end: 1.0,
+      ).chain(CurveTween(curve: Curves.easeIn)),
+    ),
+  ]).animate(_controller);
+
+  @override
+  void didUpdateWidget(_BounceIcon oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.active && !oldWidget.active) {
+      _controller.forward(from: 0);
+    }
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return ScaleTransition(
+      scale: _scale,
+      child: Icon(widget.icon, size: widget.size, color: widget.color),
+    );
+  }
+}
+
 String _formatKudosCount(int count) {
   if (count <= 0) return 'Glaze';
-  return count == 1 ? '1 Glaze' : '$count Glaze';
+  return count == 1 ? '1 Glaze' : '$count Glazes';
 }

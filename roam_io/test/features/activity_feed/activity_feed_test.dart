@@ -16,6 +16,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:roam_io/features/activity_feed/data/activity_map_image.dart';
 import 'package:roam_io/features/activity_feed/data/activity_mutation_service.dart';
+import 'package:roam_io/features/activity_feed/data/kudos_service.dart';
 import 'package:roam_io/features/activity_feed/domain/activity_route.dart';
 import 'package:roam_io/features/activity_feed/models/activity_comment.dart';
 import 'package:roam_io/features/activity_feed/models/activity_feed_item.dart';
@@ -104,10 +105,11 @@ void main() {
     );
     await tester.pumpAndSettle();
 
+    expect(find.text('Traveller'), findsOneWidget);
     expect(find.text('Traveller Activity 1'), findsOneWidget);
     expect(find.text('August 3, 2026 at 10:07 AM'), findsOneWidget);
     expect(find.text('47m 51s'), findsOneWidget);
-    expect(find.text('Tiles Unlocked'), findsOneWidget);
+    expect(find.text('Tiles Explored'), findsOneWidget);
     expect(find.text('4'), findsOneWidget);
     expect(find.text('+200 XP'), findsOneWidget);
     expect(find.text('Map preview'), findsNothing);
@@ -146,7 +148,7 @@ void main() {
     expect(map.myLocationButtonEnabled, isFalse);
     expect(map.zoomControlsEnabled, isFalse);
     expect(find.text('Glaze'), findsOneWidget);
-    expect(find.text('0 comments'), findsOneWidget);
+    expect(find.text('Comment'), findsOneWidget);
     expect(find.text('Share'), findsOneWidget);
     // Full labels — no ellipsis clipping on the three-action row.
     expect(find.textContaining('…'), findsNothing);
@@ -154,10 +156,42 @@ void main() {
     expect(find.text('Morning Weight Training'), findsNothing);
     expect(find.byIcon(Icons.fitness_center), findsNothing);
 
-    final label = tester.widget<Text>(find.text('Tiles Unlocked'));
+    final label = tester.widget<Text>(find.text('Tiles Explored'));
     expect(label.maxLines, 1);
     expect(label.softWrap, isFalse);
     expect(label.textAlign, TextAlign.center);
+  });
+
+  testWidgets('profile journey uses one compact metric line', (tester) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: ActivityFeedCard.fromItem(
+            _testActivity(
+              encodedRoute: null,
+              routeBounds: null,
+              metrics: const [
+                ActivityFeedMetric(label: 'Time', value: '7m 7s'),
+                ActivityFeedMetric(label: 'Tiles Explored', value: '2'),
+                ActivityFeedMetric(label: 'XP Gained', value: '+109 XP'),
+              ],
+            ),
+            profilePresentation: true,
+            showKudos: false,
+            showComments: false,
+            showShare: false,
+          ),
+        ),
+      ),
+    );
+
+    expect(find.text('Traveller'), findsNothing);
+    expect(find.text('August 3, 2026 at 10:07 AM'), findsOneWidget);
+    expect(find.text('Traveller Activity 1'), findsOneWidget);
+    expect(find.text('7m 7s'), findsOneWidget);
+    expect(find.text('2 tiles'), findsOneWidget);
+    expect(find.text('+109 XP'), findsOneWidget);
+    expect(find.text('Tiles Explored'), findsNothing);
   });
 
   testWidgets('activity card uses Journey metrics and comment counts', (
@@ -168,7 +202,7 @@ void main() {
       title: 'Traveller Activity 2',
       metrics: const [
         ActivityFeedMetric(label: 'Time', value: '1h 12m'),
-        ActivityFeedMetric(label: 'Tiles Unlocked', value: '3'),
+        ActivityFeedMetric(label: 'Tiles Explored', value: '3'),
         ActivityFeedMetric(label: 'XP Gained', value: '+150 XP'),
       ],
     );
@@ -191,11 +225,11 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Sidequest Progress'), findsNothing);
-    expect(find.text('Tiles Unlocked'), findsOneWidget);
+    expect(find.text('Tiles Explored'), findsOneWidget);
     expect(find.text('3'), findsOneWidget);
     expect(find.text('Share'), findsNothing);
     expect(find.text('Glaze'), findsOneWidget);
-    expect(find.text('0 comments'), findsOneWidget);
+    expect(find.text('Comment'), findsOneWidget);
 
     counts.add(1);
     await tester.pumpAndSettle();
@@ -208,7 +242,7 @@ void main() {
     await counts.close();
   });
 
-  testWidgets('activity card carousel shows media first and route map last', (
+  testWidgets('activity card carousel shows the route map first, then media', (
     tester,
   ) async {
     await tester.binding.setSurfaceSize(const Size(400, 1200));
@@ -243,7 +277,12 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.byType(ActivityMediaCarousel), findsOneWidget);
-    expect(find.byIcon(Icons.videocam_outlined), findsWidgets);
+
+    // The route map opens the carousel so a post reads like a journey
+    // summary first; swiping reveals the photos/videos after it.
+    expect(find.byType(ActivityMapPreview), findsOneWidget);
+    final map = tester.widget<GoogleMap>(find.byType(GoogleMap));
+    expect(map.polylines.single.points, _decodedRoutePoints);
 
     // The carousel frames every slide, so it has to hold the shape the map
     // picture was captured in — a wider slot crops the route's ends off with
@@ -257,12 +296,42 @@ void main() {
 
     await tester.drag(find.byType(PageView), const Offset(-360, 0));
     await tester.pumpAndSettle();
-    await tester.drag(find.byType(PageView), const Offset(-360, 0));
+
+    expect(find.byIcon(Icons.videocam_outlined), findsWidgets);
+  });
+
+  testWidgets('edge-to-edge feed card insets and crops its media viewport', (
+    tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(400, 1200));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: SingleChildScrollView(
+            child: ActivityFeedCard.fromItem(
+              _testActivity(),
+              edgeToEdge: true,
+              showKudos: false,
+              showComments: false,
+              showShare: false,
+              mapSnapshotService: _FakeJourneyMapSnapshotService(),
+              visitedRegionService: _FakeVisitedRegionService({
+                'user-1': {'tile_visited'},
+              }),
+              endpointMarkerIcons: _testEndpointIcons,
+            ),
+          ),
+        ),
+      ),
+    );
     await tester.pumpAndSettle();
 
-    expect(find.byType(ActivityMapPreview), findsOneWidget);
-    final map = tester.widget<GoogleMap>(find.byType(GoogleMap));
-    expect(map.polylines.single.points, _decodedRoutePoints);
+    final carouselFinder = find.byType(ActivityMediaCarousel);
+    final carousel = tester.widget<ActivityMediaCarousel>(carouselFinder);
+    expect(tester.getSize(carouselFinder).width, 376);
+    expect(carousel.borderRadius, 14);
   });
 
   testWidgets('formatCommentCount uses singular and plural forms', (
@@ -520,6 +589,43 @@ void main() {
     expect(find.byIcon(Icons.arrow_upward), findsNothing);
     expect(find.byIcon(Icons.arrow_downward), findsNothing);
   });
+
+  testWidgets('owner tapping Glaze opens the full glazer list', (tester) async {
+    final firestore = FakeFirebaseFirestore();
+    await firestore.collection('public_profiles').doc('glazer-1').set({
+      'displayName': 'Sahib Singh',
+      'username': 'sahib',
+    });
+    await firestore
+        .collection('activities')
+        .doc('activity-1')
+        .collection('kudos')
+        .doc('glazer-1')
+        .set({'userId': 'glazer-1'});
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: ActivityFeedCard.fromItem(
+            _testActivity(encodedRoute: null, routeBounds: null),
+            currentUserId: 'user-1',
+            kudosService: KudosService(firestore: firestore),
+            showComments: false,
+            showShare: false,
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('1 Glaze'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Glazes'), findsOneWidget);
+    expect(find.text('Sahib Singh'), findsOneWidget);
+    expect(find.text('@sahib'), findsOneWidget);
+    expect(find.byType(BackButton), findsOneWidget);
+  });
 }
 
 ActivityFeedItem _testActivity({
@@ -529,7 +635,7 @@ ActivityFeedItem _testActivity({
   ActivityRouteBounds? routeBounds = _routeBounds,
   List<ActivityFeedMetric> metrics = const [
     ActivityFeedMetric(label: 'Time', value: '47m 51s'),
-    ActivityFeedMetric(label: 'Tiles Unlocked', value: '4'),
+    ActivityFeedMetric(label: 'Tiles Explored', value: '4'),
     ActivityFeedMetric(label: 'XP Gained', value: '+200 XP'),
   ],
   String? transportMode = 'walk',

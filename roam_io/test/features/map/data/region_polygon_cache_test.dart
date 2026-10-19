@@ -11,6 +11,7 @@ import 'dart:ui';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:roam_io/features/map/data/region_polygon.dart';
 import 'package:roam_io/features/map/data/region_polygon_cache.dart';
+import 'package:roam_io/features/map/domain/exploration_overlay_style.dart';
 
 void main() {
   group('RegionPolygonCache', () {
@@ -92,6 +93,113 @@ void main() {
       },
     );
 
+    test('keeps dark heatmap polygons translucent over the base map', () {
+      final cache = RegionPolygonCache(style: ExplorationOverlayStyle.dark);
+
+      cache.cacheRegion(
+        region: _region(areaSquareMetres: 4000000),
+        isVisited: true,
+        isCurrentRegion: false,
+        onRegionTapped: (_, _) {},
+        heatmapIntensity: 0.5,
+      );
+
+      final fillColor = cache.polygons.single.fillColor;
+
+      expect(
+        fillColor,
+        ExplorationOverlayStyle.dark.heatmapFillColorForIntensity(0.5),
+      );
+      expect(fillColor.a, closeTo(0.55, 0.001));
+      expect(fillColor.a, lessThan(1));
+    });
+
+    for (final testCase in <({String name, ExplorationOverlayStyle style})>[
+      (name: 'light', style: ExplorationOverlayStyle.light),
+      (name: 'dark', style: ExplorationOverlayStyle.dark),
+    ]) {
+      test('sources every ${testCase.name} polygon value from its style', () {
+        final style = testCase.style;
+        final cache = RegionPolygonCache(style: style);
+
+        void cacheState({
+          required bool isVisited,
+          required bool isCurrentRegion,
+          double? heatmapIntensity,
+        }) {
+          cache.cacheRegion(
+            region: _region(areaSquareMetres: 4000000),
+            isVisited: isVisited,
+            isCurrentRegion: isCurrentRegion,
+            onRegionTapped: (_, _) {},
+            heatmapIntensity: heatmapIntensity,
+          );
+        }
+
+        cacheState(isVisited: false, isCurrentRegion: false);
+        expect(
+          cache.polygons.single.fillColor,
+          style.unexploredRegionFillColor,
+        );
+
+        cacheState(isVisited: true, isCurrentRegion: false);
+        expect(cache.polygons.single.fillColor, style.exploredRegionFillColor);
+
+        cacheState(isVisited: true, isCurrentRegion: true);
+        expect(cache.polygons.single.fillColor, style.currentRegionFillColor);
+
+        cacheState(
+          isVisited: true,
+          isCurrentRegion: false,
+          heatmapIntensity: 0.5,
+        );
+        final polygon = cache.polygons.single;
+        expect(polygon.fillColor, style.heatmapFillColorForIntensity(0.5));
+        expect(polygon.strokeColor, style.regionStrokeColor);
+        expect(polygon.strokeWidth, style.regionStrokeWidth);
+      });
+    }
+
+    test('rebuilds cached fills and boundaries after a style change', () {
+      final cache = RegionPolygonCache();
+      cache.cacheRegion(
+        region: _squareRegion('left', west: 144, east: 145),
+        isVisited: true,
+        isCurrentRegion: false,
+        onRegionTapped: (_, _) {},
+      );
+
+      expect(
+        cache.polygons.single.fillColor,
+        ExplorationOverlayStyle.light.exploredRegionFillColor,
+      );
+      expect(cache.updateStyle(ExplorationOverlayStyle.dark), isTrue);
+
+      cache.refreshStyles(
+        shouldRenderAsVisited: (_) => true,
+        isCurrentRegion: (_) => false,
+        onRegionTapped: (_, _) {},
+      );
+
+      expect(
+        cache.polygons.single.fillColor,
+        ExplorationOverlayStyle.dark.exploredRegionFillColor,
+      );
+      expect(
+        cache
+            .exploredBoundaryPolylines(<String>{'left'})
+            .every(
+              (line) =>
+                  line.color ==
+                      ExplorationOverlayStyle.dark.exploredBoundaryColor &&
+                  line.width ==
+                      ExplorationOverlayStyle.dark.exploredBoundaryWidth,
+            ),
+        isTrue,
+      );
+      expect(cache.updateStyle(ExplorationOverlayStyle.dark), isFalse);
+    });
+
     test('keeps every edge around an isolated explored region', () {
       final cache = RegionPolygonCache();
       cache.cacheRegion(
@@ -107,8 +215,8 @@ void main() {
       expect(outlines.every((line) => line.width == 3), isTrue);
     });
 
-    test('uses the requested theme colour for every boundary edge', () {
-      final cache = RegionPolygonCache();
+    test('uses the active overlay style for every boundary edge', () {
+      final cache = RegionPolygonCache(style: ExplorationOverlayStyle.dark);
       cache.cacheRegion(
         region: _squareRegion('left', west: 144, east: 145),
         isVisited: true,
@@ -116,12 +224,17 @@ void main() {
         onRegionTapped: (_, _) {},
       );
 
-      const darkModeSage = Color(0xFF9EB58D);
-      final outlines = cache.exploredBoundaryPolylines(<String>{
-        'left',
-      }, boundaryColor: darkModeSage);
+      final outlines = cache.exploredBoundaryPolylines(<String>{'left'});
 
-      expect(outlines.every((line) => line.color == darkModeSage), isTrue);
+      expect(
+        outlines.every(
+          (line) =>
+              line.color ==
+                  ExplorationOverlayStyle.dark.exploredBoundaryColor &&
+              line.width == ExplorationOverlayStyle.dark.exploredBoundaryWidth,
+        ),
+        isTrue,
+      );
     });
 
     test('removes the shared edge between adjacent explored regions', () {

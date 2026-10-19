@@ -95,7 +95,7 @@ void main() {
 
     await tester.tap(find.text('SOCIAL'));
     await _pumpShellFrame(tester);
-    expect(find.text('Follow and community tools'), findsOneWidget);
+    expect(find.text('Leaderboards'), findsOneWidget);
 
     await tester.tap(find.text('YOU'));
     await _pumpShellFrame(tester);
@@ -104,7 +104,7 @@ void main() {
 
     await tester.tap(find.text('Statistics'));
     await _pumpShellFrame(tester);
-    expect(find.text('Visits by week'), findsOneWidget);
+    expect(find.text('VISITS BY WEEK'), findsOneWidget);
 
     await tester.tap(find.text('SETTINGS'));
     await _pumpShellFrame(tester);

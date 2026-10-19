@@ -37,6 +37,8 @@ void main() {
 
     expect(find.text('Home'), findsOneWidget);
     expect(find.text('No activities yet'), findsOneWidget);
+    expect(find.text('Roam.io'), findsOneWidget);
+    expect(find.byKey(const ValueKey('home-header-logo')), findsOneWidget);
     expect(find.text('Journeys'), findsNothing);
     expect(find.text('Quests'), findsNothing);
 
@@ -155,6 +157,11 @@ void main() {
     await tester.tap(find.byIcon(Icons.more_horiz_rounded).first);
     await tester.pumpAndSettle();
 
+    // Owning the post surfaces an actions sheet (Edit/View/Delete) rather
+    // than jumping straight to the detail screen.
+    await tester.tap(find.text('View activity'));
+    await tester.pumpAndSettle();
+
     expect(find.byType(ActivityDetailScreen), findsOneWidget);
     expect(find.text('Traveller Activity 1'), findsOneWidget);
     expect(find.text('Journey route map'), findsNothing);
@@ -166,7 +173,7 @@ void main() {
     await harness.dispose();
   });
 
-  testWidgets('Comment opens Comments page and count updates after post', (
+  testWidgets('Comment opens owner Discussion and count updates after post', (
     tester,
   ) async {
     await tester.binding.setSurfaceSize(const Size(400, 1200));
@@ -183,13 +190,13 @@ void main() {
     );
     final harness = await _pumpHome(tester, firestore: firestore);
 
-    expect(find.text('0 comments').first, findsOneWidget);
+    expect(find.text('Comment').first, findsOneWidget);
 
-    await tester.tap(find.text('0 comments').first);
+    await tester.tap(find.text('Comment').first);
     await tester.pumpAndSettle();
 
     expect(find.byType(CommentsScreen), findsOneWidget);
-    expect(find.text('Comments'), findsOneWidget);
+    expect(find.text('Discussion'), findsOneWidget);
     expect(find.text('Write a comment...'), findsOneWidget);
     expect(find.text('No comments yet'), findsOneWidget);
 

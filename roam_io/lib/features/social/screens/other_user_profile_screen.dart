@@ -17,6 +17,7 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:provider/provider.dart';
 
 import '../../../services/profile_service.dart';
+import '../../../theme/app_colours.dart';
 import '../../../theme/app_surfaces.dart';
 import '../../activity_feed/data/activity_feed_service.dart';
 import '../../activity_feed/data/comment_like_service.dart';
@@ -41,6 +42,9 @@ import '../data/social_privacy_service.dart';
 import '../domain/follow_relationship_state.dart';
 import '../domain/public_profile.dart';
 import '../widgets/follow_relationship_button.dart';
+import '../widgets/social_card.dart';
+import '../widgets/social_layout.dart';
+import '../widgets/social_message.dart';
 import 'follow_connections_screen.dart';
 
 /// Read-only social profile for a selected user.
@@ -154,7 +158,12 @@ class _OtherUserProfileScreenState extends State<OtherUserProfileScreen>
       value: _analytics,
       child: Scaffold(
         backgroundColor: AppSurfaces.pageBackground(context),
-        appBar: AppBar(title: const Text('Profile')),
+        appBar: AppBar(
+          title: const Text('Profile'),
+          elevation: 0,
+          scrolledUnderElevation: 0,
+          backgroundColor: AppSurfaces.pageBackground(context),
+        ),
         body: SafeArea(
           bottom: false,
           child: StreamBuilder<PublicProfile?>(
@@ -168,18 +177,7 @@ class _OtherUserProfileScreenState extends State<OtherUserProfileScreen>
 
               final profile = profileSnapshot.data;
               if (profile == null) {
-                return Center(
-                  child: Padding(
-                    padding: const EdgeInsets.all(24),
-                    child: Text(
-                      'This profile is unavailable.',
-                      textAlign: TextAlign.center,
-                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                        color: AppSurfaces.textMuted(context),
-                      ),
-                    ),
-                  ),
-                );
+                return const SocialMessage('This profile is unavailable.');
               }
 
               return StreamBuilder<SocialAccessPermissions>(
@@ -204,44 +202,46 @@ class _OtherUserProfileScreenState extends State<OtherUserProfileScreen>
                         ? widget.selectedUserId
                         : null,
                   );
-                  return Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      _ExternalProfileTabBar(controller: _tabController),
-                      Expanded(
-                        child: TabBarView(
-                          controller: _tabController,
-                          children: [
-                            access.canViewProfileActivity
-                                ? _ExternalProfileDashboard(
-                                    profile: profile,
-                                    currentUserId: currentUserId,
-                                    followService: _followService,
-                                    friendshipService: _friendshipService,
-                                    activityFeedService: _activityFeedService,
-                                    selectedMetric: _selectedGraphMetric,
-                                    onMetricSelected: _selectGraphMetric,
-                                  )
-                                : _PrivateProfileSummary(
-                                    profile: profile,
-                                    currentUserId: currentUserId,
-                                    followService: _followService,
-                                    friendshipService: _friendshipService,
-                                  ),
-                            access.canViewProfileActivity
-                                ? _ExternalActivitiesTab(
-                                    selectedUserId: widget.selectedUserId,
-                                    currentUserId: currentUserId,
-                                    activityFeedService: _activityFeedService,
-                                    commentService: _commentService,
-                                    commentLikeService: _commentLikeService,
-                                    kudosService: _kudosService,
-                                  )
-                                : const _PrivateActivitiesTab(),
-                          ],
+                  return SocialContentWidth(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        _ExternalProfileTabBar(controller: _tabController),
+                        Expanded(
+                          child: TabBarView(
+                            controller: _tabController,
+                            children: [
+                              access.canViewProfileActivity
+                                  ? _ExternalProfileDashboard(
+                                      profile: profile,
+                                      currentUserId: currentUserId,
+                                      followService: _followService,
+                                      friendshipService: _friendshipService,
+                                      activityFeedService: _activityFeedService,
+                                      selectedMetric: _selectedGraphMetric,
+                                      onMetricSelected: _selectGraphMetric,
+                                    )
+                                  : _PrivateProfileSummary(
+                                      profile: profile,
+                                      currentUserId: currentUserId,
+                                      followService: _followService,
+                                      friendshipService: _friendshipService,
+                                    ),
+                              access.canViewProfileActivity
+                                  ? _ExternalActivitiesTab(
+                                      selectedUserId: widget.selectedUserId,
+                                      currentUserId: currentUserId,
+                                      activityFeedService: _activityFeedService,
+                                      commentService: _commentService,
+                                      commentLikeService: _commentLikeService,
+                                      kudosService: _kudosService,
+                                    )
+                                  : const _PrivateActivitiesTab(),
+                            ],
+                          ),
                         ),
-                      ),
-                    ],
+                      ],
+                    ),
                   );
                 },
               );
@@ -278,25 +278,41 @@ class _ExternalProfileTabBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    // Matches the bottom navigation bar's selected colour in each theme.
+    final selectedColor = AppSurfaces.isDark(context)
+        ? AppColors.lightSage
+        : AppColors.sage;
 
     return Padding(
-      padding: const EdgeInsets.fromLTRB(24, 12, 24, 0),
+      padding: const EdgeInsets.fromLTRB(
+        SocialLayout.gutter,
+        12,
+        SocialLayout.gutter,
+        0,
+      ),
       child: Align(
         alignment: Alignment.centerLeft,
         child: TabBar(
           controller: controller,
           isScrollable: true,
           tabAlignment: TabAlignment.start,
-          labelColor: theme.colorScheme.primary,
+          labelColor: selectedColor,
           unselectedLabelColor: AppSurfaces.textMuted(context),
-          indicatorColor: theme.colorScheme.primary,
-          indicatorWeight: 3,
+          indicator: UnderlineTabIndicator(
+            borderSide: BorderSide(color: selectedColor, width: 3),
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(3)),
+          ),
+          indicatorSize: TabBarIndicatorSize.label,
           dividerColor: AppSurfaces.border(context),
+          overlayColor: WidgetStatePropertyAll(
+            selectedColor.withValues(alpha: 0.08),
+          ),
+          splashBorderRadius: BorderRadius.circular(8),
           labelStyle: theme.textTheme.titleMedium?.copyWith(
-            fontWeight: FontWeight.w900,
+            fontWeight: FontWeight.w800,
           ),
           unselectedLabelStyle: theme.textTheme.titleMedium?.copyWith(
-            fontWeight: FontWeight.w700,
+            fontWeight: FontWeight.w600,
           ),
           tabs: const [
             Tab(text: 'Profile'),
@@ -415,7 +431,12 @@ class _PrivateProfileSummary extends StatelessWidget {
     return SingleChildScrollView(
       padding: EdgeInsets.only(bottom: bottomPadding),
       child: Padding(
-        padding: const EdgeInsets.fromLTRB(24, 14, 24, 0),
+        padding: const EdgeInsets.fromLTRB(
+          SocialLayout.gutter,
+          14,
+          SocialLayout.gutter,
+          0,
+        ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -428,28 +449,42 @@ class _PrivateProfileSummary extends StatelessWidget {
             const SizedBox(height: 18),
             Container(
               width: double.infinity,
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-              decoration: BoxDecoration(
-                color: AppSurfaces.card(context),
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: AppSurfaces.border(context)),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+              padding: const EdgeInsets.all(16),
+              decoration: SocialCard.decoration(context),
+              child: Row(
                 children: [
-                  Text(
-                    'Private account',
-                    style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                      color: AppSurfaces.textPrimary(context),
-                      fontWeight: FontWeight.w900,
+                  Container(
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      color: AppSurfaces.softCard(context),
+                      shape: BoxShape.circle,
+                    ),
+                    child: Icon(
+                      Icons.lock_outline_rounded,
+                      size: 20,
+                      color: AppSurfaces.textMuted(context),
                     ),
                   ),
-                  const SizedBox(height: 4),
-                  Text(
-                    'Follow this account to see their activity',
-                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                      color: AppSurfaces.textMuted(context),
-                      fontWeight: FontWeight.w700,
+                  const SizedBox(width: 14),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Private account',
+                          style: Theme.of(context).textTheme.titleMedium
+                              ?.copyWith(
+                                color: AppSurfaces.textPrimary(context),
+                                fontWeight: FontWeight.w800,
+                              ),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          'Follow this account to see their activity',
+                          style: Theme.of(context).textTheme.bodyMedium
+                              ?.copyWith(color: AppSurfaces.textMuted(context)),
+                        ),
+                      ],
                     ),
                   ),
                 ],
@@ -545,19 +580,7 @@ class _PrivateActivitiesTab extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(24),
-        child: Text(
-          'Follow this account to see their activity',
-          textAlign: TextAlign.center,
-          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-            color: AppSurfaces.textMuted(context),
-            fontWeight: FontWeight.w700,
-          ),
-        ),
-      ),
-    );
+    return const SocialMessage('Follow this account to see their activity');
   }
 }
 
@@ -606,25 +629,19 @@ class _ExternalActivitiesTab extends StatelessWidget {
         }
         final activities = snapshot.data ?? const <ActivityFeedItem>[];
         if (activities.isEmpty) {
-          return Center(
-            child: Padding(
-              padding: const EdgeInsets.all(24),
-              child: Text(
-                'No activities yet',
-                textAlign: TextAlign.center,
-                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                  color: AppSurfaces.textMuted(context),
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-            ),
-          );
+          return const SocialMessage('No activities yet');
         }
 
         return ListView.separated(
-          padding: EdgeInsets.fromLTRB(20, 20, 20, bottomPadding),
+          padding: EdgeInsets.fromLTRB(
+            SocialLayout.gutter,
+            20,
+            SocialLayout.gutter,
+            bottomPadding,
+          ),
           itemCount: activities.length,
-          separatorBuilder: (context, index) => const SizedBox(height: 14),
+          separatorBuilder: (context, index) =>
+              const SizedBox(height: SocialLayout.rowGap),
           itemBuilder: (context, index) {
             final activity = activities[index];
             return ActivityFeedCard.fromItem(

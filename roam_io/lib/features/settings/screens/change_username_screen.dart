@@ -10,8 +10,10 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../../shared/widgets/app_toast.dart';
-import '../../../theme/app_surfaces.dart';
+import '../../../theme/app_cartoon.dart';
+import '../../../theme/app_colours.dart';
 import '../../auth/providers/auth_provider.dart';
+import '../widgets/settings_group.dart';
 
 /// Dedicated screen for editing the user's username.
 class ChangeUsernameScreen extends StatefulWidget {
@@ -62,56 +64,86 @@ class _ChangeUsernameScreenState extends State<ChangeUsernameScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppSurfaces.pageBackground(context),
-      appBar: AppBar(title: const Text('Change Username')),
+      backgroundColor: SettingsStyle.background(context),
       body: SafeArea(
-        child: Consumer<AuthProvider>(
-          builder: (context, auth, _) {
-            return SingleChildScrollView(
-              padding: const EdgeInsets.fromLTRB(20, 20, 20, 32),
-              child: Form(
-                key: _formKey,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    TextFormField(
-                      controller: _controller,
-                      enabled: !auth.isBusy,
-                      textInputAction: TextInputAction.done,
-                      decoration: const InputDecoration(labelText: 'Username'),
-                      validator: (value) {
-                        final text = value?.trim() ?? '';
-                        if (text.isEmpty) return 'Username is required.';
-                        if (text.length < 3) {
-                          return 'Username must be at least 3 characters.';
-                        }
-                        return null;
-                      },
-                      onFieldSubmitted: (_) => _save(),
-                    ),
-                    const SizedBox(height: 20),
-                    ElevatedButton(
-                      onPressed: auth.isBusy ? null : _save,
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Theme.of(context).colorScheme.primary,
-                        foregroundColor: Theme.of(
-                          context,
-                        ).colorScheme.onPrimary,
-                        minimumSize: const Size.fromHeight(48),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            CartoonPageHeader(
+              title: 'Change Username',
+              outlineWidth: SettingsStyle.outlineWidth,
+              soft: true,
+              outlineColor: SettingsStyle.outline(context),
+            ),
+            Expanded(
+              child: Consumer<AuthProvider>(
+                builder: (context, auth, _) {
+                  return SingleChildScrollView(
+                    padding: const EdgeInsets.fromLTRB(20, 4, 20, 32),
+                    child: Container(
+                      padding: const EdgeInsets.all(18),
+                      decoration: SettingsStyle.card(context),
+                      child: Form(
+                        key: _formKey,
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            TextFormField(
+                              controller: _controller,
+                              enabled: !auth.isBusy,
+                              textInputAction: TextInputAction.done,
+                              decoration: SettingsStyle.input(
+                                context,
+                                labelText: 'Username',
+                              ),
+                              validator: (value) {
+                                final text = value?.trim() ?? '';
+                                if (text.isEmpty) {
+                                  return 'Username is required.';
+                                }
+                                if (text.length < 3) {
+                                  return 'Username must be at least 3 characters.';
+                                }
+                                return null;
+                              },
+                              onFieldSubmitted: (_) => _save(),
+                            ),
+                            const SizedBox(height: 20),
+                            CartoonPressable(
+                              enabled: !auth.isBusy,
+                              soft: true,
+                              child: ElevatedButton(
+                                onPressed: auth.isBusy ? null : _save,
+                                style:
+                                    SettingsStyle.button(
+                                      context,
+                                      background: AppColors.sage,
+                                      foreground: Colors.white,
+                                    ).copyWith(
+                                      minimumSize: const WidgetStatePropertyAll(
+                                        Size.fromHeight(50),
+                                      ),
+                                    ),
+                                child: auth.isBusy
+                                    ? const SizedBox(
+                                        width: 20,
+                                        height: 20,
+                                        child: CircularProgressIndicator(
+                                          strokeWidth: 2,
+                                        ),
+                                      )
+                                    : const Text('Save Username'),
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
-                      child: auth.isBusy
-                          ? const SizedBox(
-                              width: 20,
-                              height: 20,
-                              child: CircularProgressIndicator(strokeWidth: 2),
-                            )
-                          : const Text('Save Username'),
                     ),
-                  ],
-                ),
+                  );
+                },
               ),
-            );
-          },
+            ),
+          ],
         ),
       ),
     );

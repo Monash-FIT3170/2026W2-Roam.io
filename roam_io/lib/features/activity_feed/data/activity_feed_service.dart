@@ -10,6 +10,8 @@ import 'dart:async';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/foundation.dart';
 
+import '../../../shared/utils/app_date_format.dart';
+
 import '../models/activity_feed_item.dart';
 
 /// Firestore-backed reader for persisted activity feed items.
@@ -693,9 +695,7 @@ class ActivityFeedService {
 
   String _formatDate(DateTime value) {
     if (value.millisecondsSinceEpoch == 0) return 'Recently';
-    final local = value.toLocal();
-    final minute = local.minute.toString().padLeft(2, '0');
-    return '${local.day}/${local.month}/${local.year} at ${local.hour}:$minute';
+    return formatAppDateTime(value);
   }
 }
 
