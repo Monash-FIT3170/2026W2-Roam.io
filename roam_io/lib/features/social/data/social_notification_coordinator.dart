@@ -171,7 +171,16 @@ class SocialNotificationCoordinator extends ChangeNotifier {
     required String expectedUid,
     required int generation,
   }) async {
-    final actor = await _friendshipService.getPublicProfile(item.actorId);
+    // Party system rows intentionally omit actorId; skip profile lookup and
+    // live banners for those types.
+    if (item.type == SocialNotificationType.partyTileLost ||
+        item.type == SocialNotificationType.partyInvite) {
+      return;
+    }
+
+    final actor = item.actorId.isEmpty
+        ? null
+        : await _friendshipService.getPublicProfile(item.actorId);
     if (!_isCurrentBind(expectedUid, generation)) return;
     final name = actor?.displayName ?? actor?.username ?? 'Someone';
     final banner = switch (item.type) {
@@ -232,7 +241,10 @@ class SocialNotificationCoordinator extends ChangeNotifier {
         activityId: item.activityId,
         commentId: item.commentId,
       ),
+      SocialNotificationType.partyTileLost ||
+      SocialNotificationType.partyInvite => null,
     };
+    if (banner == null) return;
     await _bannerService.show(banner);
   }
 

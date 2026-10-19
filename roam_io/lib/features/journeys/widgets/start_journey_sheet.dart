@@ -9,6 +9,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 
+import '../../../shared/widgets/liquid_glass.dart';
 import '../../../theme/app_colours.dart';
 import '../../../theme/app_surfaces.dart';
 import '../domain/journey_location.dart';
@@ -67,6 +68,7 @@ class StartJourneySheet extends StatefulWidget {
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
+      barrierColor: Colors.black.withValues(alpha: 0.35),
       builder: (context) => StartJourneySheet(
         currentPosition: currentPosition,
         nearbyPlaces: nearbyPlaces,
@@ -124,11 +126,7 @@ class _StartJourneySheetState extends State<StartJourneySheet> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
 
-    return Container(
-      decoration: BoxDecoration(
-        color: AppSurfaces.card(context),
-        borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
-      ),
+    return LiquidGlassSheet(
       child: SafeArea(
         child: Padding(
           padding: const EdgeInsets.all(24),

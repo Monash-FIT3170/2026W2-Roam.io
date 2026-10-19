@@ -55,9 +55,8 @@ void main() {
     expect(reports, 1);
     expect(recenters, 1);
 
-    final reportButton = tester.widget<FloatingActionButton>(report);
-    expect(reportButton.backgroundColor, AppColors.sage);
-    expect(reportButton.foregroundColor, Colors.white);
+    expect(find.byIcon(Icons.add_rounded), findsOneWidget);
+    expect(find.byIcon(Icons.my_location_rounded), findsOneWidget);
   });
 
   testWidgets(

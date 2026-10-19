@@ -47,6 +47,9 @@ class RegionPolygonCache {
     required bool isCurrentRegion,
     required void Function(String regionId, String regionName) onRegionTapped,
     double? heatmapIntensity,
+    Color? overrideFillColor,
+    Color? overrideStrokeColor,
+    int? overrideStrokeWidth,
   }) {
     final wasAlreadyCached = _regionsById.containsKey(region.id);
     final previousRegion = _regionsById[region.id];
@@ -65,13 +68,15 @@ class RegionPolygonCache {
     _regionsById[region.id] = effectiveRegion;
 
     final googlePolygons = effectiveRegion.toGooglePolygons(
-      strokeColor: _style.regionStrokeColor,
-      fillColor: _fillColorForRegion(
-        isVisited: isVisited,
-        isCurrentRegion: isCurrentRegion,
-        heatmapIntensity: heatmapIntensity,
-      ),
-      strokeWidth: _style.regionStrokeWidth,
+      strokeColor: overrideStrokeColor ?? _style.regionStrokeColor,
+      fillColor:
+          overrideFillColor ??
+          _fillColorForRegion(
+            isVisited: isVisited,
+            isCurrentRegion: isCurrentRegion,
+            heatmapIntensity: heatmapIntensity,
+          ),
+      strokeWidth: overrideStrokeWidth ?? _style.regionStrokeWidth,
       onTap: onRegionTapped,
     );
 
@@ -92,6 +97,9 @@ class RegionPolygonCache {
     required bool Function(String regionId) isCurrentRegion,
     required void Function(String regionId, String regionName) onRegionTapped,
     double? Function(String regionId)? heatmapIntensityForRegion,
+    Color? Function(String regionId)? overrideFillColorForRegion,
+    Color? Function(String regionId)? overrideStrokeColorForRegion,
+    int? Function(String regionId)? overrideStrokeWidthForRegion,
   }) {
     for (final region in _regionsById.values) {
       cacheRegion(
@@ -100,6 +108,9 @@ class RegionPolygonCache {
         isCurrentRegion: isCurrentRegion(region.id),
         onRegionTapped: onRegionTapped,
         heatmapIntensity: heatmapIntensityForRegion?.call(region.id),
+        overrideFillColor: overrideFillColorForRegion?.call(region.id),
+        overrideStrokeColor: overrideStrokeColorForRegion?.call(region.id),
+        overrideStrokeWidth: overrideStrokeWidthForRegion?.call(region.id),
       );
     }
   }

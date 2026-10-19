@@ -2,15 +2,20 @@
  * Author: Sanjevan Rajasegar
  * Last Updated: 9 August 2026
  * Description:
- *   Provides the Social destination with Find People as the entry point.
+ *   Provides the Social destination with Find People, leaderboards, and
+ *   Party Mode entry points.
  *   Private follow requests are managed from Notifications only.
  */
 
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
+import 'package:provider/provider.dart';
 
 import '../../../theme/app_surfaces.dart';
 import '../../../theme/app_colours.dart';
+import '../../party/data/party_service.dart';
+import '../../party/providers/current_party_provider.dart';
+import '../../party/screens/party_screen.dart';
 import '../data/follow_service.dart';
 import '../data/friendship_service.dart';
 import '../domain/public_profile.dart';
@@ -25,11 +30,14 @@ class SocialScreen extends StatelessWidget {
     super.key,
     FriendshipService? friendshipService,
     FollowService? followService,
+    PartyService? partyService,
   }) : _friendshipService = friendshipService,
-       _followService = followService;
+       _followService = followService,
+       _partyService = partyService;
 
   final FriendshipService? _friendshipService;
   final FollowService? _followService;
+  final PartyService? _partyService;
 
   @override
   Widget build(BuildContext context) {
@@ -77,6 +85,26 @@ class SocialScreen extends StatelessWidget {
                           builder: (_) => const LeaderboardScreen(),
                         ),
                       ),
+                    ),
+                    const SizedBox(height: SocialLayout.rowGap),
+                    _SocialDestinationCard(
+                      title: 'Party Mode',
+                      subtitle: 'Team up and claim map tiles together.',
+                      icon: Icons.groups_rounded,
+                      color: AppColors.clay,
+                      onTap: () {
+                        final currentParty = context
+                            .read<CurrentPartyProvider?>();
+                        Navigator.of(context).push(
+                          MaterialPageRoute<void>(
+                            builder: (_) => PartyScreen(
+                              partyService: _partyService ?? PartyService(),
+                              initialParty: currentParty?.currentParty,
+                              onPartyChanged: currentParty?.setParty,
+                            ),
+                          ),
+                        );
+                      },
                     ),
                   ],
                 ),

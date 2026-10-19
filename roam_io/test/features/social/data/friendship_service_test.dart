@@ -103,6 +103,13 @@ void main() {
       expect(withoutAt.map((profile) => profile.uid), ['jacob']);
       expect(withAt.map((profile) => profile.uid), ['jacob']);
     });
+
+    test('ignores empty uid for public profile reads', () async {
+      final service = FriendshipService(firestore: FakeFirebaseFirestore());
+
+      expect(await service.getPublicProfile(''), isNull);
+      expect(await service.watchPublicProfile('').first, isNull);
+    });
   });
 
   group('FriendshipService requests', () {

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../../shared/widgets/liquid_glass.dart';
 import '../../../theme/app_colours.dart';
 import '../../../theme/app_surfaces.dart';
 import '../domain/hazard_report.dart';
@@ -24,6 +25,7 @@ class HazardDetailsSheet extends StatefulWidget {
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
+      barrierColor: Colors.black.withValues(alpha: 0.35),
       builder: (_) => HazardDetailsSheet(report: report, onConfirm: onConfirm),
     );
   }
@@ -75,11 +77,7 @@ class _HazardDetailsSheetState extends State<HazardDetailsSheet> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final report = widget.report;
-    return Container(
-      decoration: BoxDecoration(
-        color: AppSurfaces.card(context),
-        borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
-      ),
+    return LiquidGlassSheet(
       child: SafeArea(
         top: false,
         child: SingleChildScrollView(

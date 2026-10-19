@@ -29,6 +29,8 @@ class FriendshipService {
 
   final FirebaseFirestore _firestore;
 
+  FirebaseFirestore get firestore => _firestore;
+
   CollectionReference<Map<String, dynamic>> get _publicProfiles =>
       _firestore.collection(publicProfilesCollection);
 
@@ -118,6 +120,7 @@ class FriendshipService {
 
   /// Reads a public profile by uid for notification copy.
   Future<PublicProfile?> getPublicProfile(String uid) async {
+    if (uid.isEmpty) return null;
     final doc = await _publicProfiles.doc(uid).get();
     final data = doc.data();
     if (data == null) return null;
@@ -126,6 +129,9 @@ class FriendshipService {
 
   /// Watches a public profile by uid for reactive external profile screens.
   Stream<PublicProfile?> watchPublicProfile(String uid) {
+    if (uid.isEmpty) {
+      return Stream<PublicProfile?>.value(null);
+    }
     return _publicProfiles.doc(uid).snapshots().map((doc) {
       final data = doc.data();
       if (data == null) return null;

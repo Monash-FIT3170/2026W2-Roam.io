@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 
+import '../../../shared/widgets/liquid_glass.dart';
 import '../../../theme/app_colours.dart';
 import '../../../theme/app_surfaces.dart';
 import '../domain/hazard_category.dart';
@@ -45,6 +46,7 @@ class HazardReportSheet extends StatefulWidget {
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
+      barrierColor: Colors.black.withValues(alpha: 0.35),
       builder: (_) => HazardReportSheet(
         category: category,
         onSubmit: onSubmit,
@@ -137,14 +139,7 @@ class _HazardReportSheetState extends State<HazardReportSheet> {
     return AnimatedPadding(
       duration: const Duration(milliseconds: 200),
       padding: EdgeInsets.only(bottom: keyboard),
-      child: Container(
-        constraints: BoxConstraints(
-          maxHeight: MediaQuery.sizeOf(context).height * .9,
-        ),
-        decoration: BoxDecoration(
-          color: AppSurfaces.card(context),
-          borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
-        ),
+      child: LiquidGlassSheet(
         child: SafeArea(
           top: false,
           child: SingleChildScrollView(
@@ -171,14 +166,13 @@ class _HazardReportSheetState extends State<HazardReportSheet> {
                   ),
                 ),
                 const SizedBox(height: 16),
-                Container(
+                LiquidGlass(
+                  tint: null,
+                  borderRadius: BorderRadius.circular(14),
+                  opacity: AppSurfaces.isDark(context) ? 0.12 : 0.45,
                   padding: const EdgeInsets.symmetric(
                     horizontal: 14,
                     vertical: 12,
-                  ),
-                  decoration: BoxDecoration(
-                    color: AppSurfaces.innerCard(context),
-                    borderRadius: BorderRadius.circular(14),
                   ),
                   child: Row(
                     children: [

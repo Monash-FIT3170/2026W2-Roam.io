@@ -73,7 +73,13 @@ void main() {
 
     test('All spans from earliest activity through the current week', () {
       final currentWeek = startOfWeek(DateTime.now());
-      final earliest = currentWeek.subtract(const Duration(days: 80 * 7));
+      // Calendar-day math avoids DST hour shifts pushing the date into the
+      // previous ISO week when subtracting a Duration from local midnight.
+      final earliest = DateTime(
+        currentWeek.year,
+        currentWeek.month,
+        currentWeek.day - 80 * 7,
+      );
 
       final buckets = service.weeklyBucketsFromDatesForRange(<DateTime>[
         earliest,
@@ -81,10 +87,18 @@ void main() {
       ], StatsTimeRange.all);
 
       expect(buckets, hasLength(81));
-      expect(buckets.first.weekStart, earliest);
       expect(buckets.last.weekStart, currentWeek);
       expect(buckets.first.value, 1);
       expect(buckets.last.value, 1);
+      // Local Duration week starts can be off by an hour around DST; the first
+      // bucket should still cover the earliest activity calendar week.
+      expect(
+        !earliest.isBefore(buckets.first.weekStart) &&
+            earliest.isBefore(
+              buckets.first.weekStart.add(const Duration(days: 7)),
+            ),
+        isTrue,
+      );
     });
   });
 }

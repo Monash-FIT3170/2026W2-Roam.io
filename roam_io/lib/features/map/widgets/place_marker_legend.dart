@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../../shared/widgets/liquid_glass.dart';
 import '../domain/place_visit_feedback.dart';
 
 /// Compact map help that explains the status shapes on demand.
@@ -8,19 +9,15 @@ class PlaceMarkerLegendButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Material(
-      color: Theme.of(context).colorScheme.surface,
-      elevation: 6,
-      shape: const CircleBorder(),
-      child: IconButton(
-        tooltip: 'Location marker guide',
-        icon: const Icon(Icons.info_outline),
-        onPressed: () => showModalBottomSheet<void>(
-          context: context,
-          isScrollControlled: true,
-          showDragHandle: true,
-          builder: (_) => const PlaceMarkerLegend(),
-        ),
+    return LiquidGlassIconButton(
+      tooltip: 'Location marker guide',
+      icon: Icons.info_outline_rounded,
+      onPressed: () => showModalBottomSheet<void>(
+        context: context,
+        isScrollControlled: true,
+        backgroundColor: Colors.transparent,
+        barrierColor: Colors.black.withValues(alpha: 0.35),
+        builder: (_) => const PlaceMarkerLegend(),
       ),
     );
   }
@@ -31,42 +28,57 @@ class PlaceMarkerLegend extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return SafeArea(
-      top: false,
-      child: SingleChildScrollView(
-        padding: const EdgeInsets.fromLTRB(20, 0, 20, 24),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'Location markers',
-              style: Theme.of(context).textTheme.titleLarge,
-            ),
-            const SizedBox(height: 16),
-            const _LegendEntry(
-              icon: Icons.radio_button_unchecked,
-              title: 'Not visited',
-              description:
-                  'A hollow marker is a place you have not visited yet.',
-            ),
-            _LegendEntry(
-              icon: Icons.my_location,
-              title: 'In range',
-              description:
-                  'A target ring means you are within ${PlaceVisitFeedback.visitRadiusMetres.round()}m. Tap the place to mark your visit.',
-            ),
-            const _LegendEntry(
-              icon: Icons.check_circle,
-              title: 'Visited',
-              description:
-                  'A filled checkmark means your visit is saved, even when you move away.',
-            ),
-            Text(
-              'Train, tram and bus icons keep their transport symbol and add the same range ring or visited checkmark.',
-              style: Theme.of(context).textTheme.bodyMedium,
-            ),
-          ],
+    return LiquidGlassSheet(
+      child: SafeArea(
+        top: false,
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Center(
+                child: Container(
+                  width: 40,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: Colors.black.withValues(alpha: 0.18),
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 16),
+              Text(
+                'Location markers',
+                style: Theme.of(
+                  context,
+                ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w800),
+              ),
+              const SizedBox(height: 16),
+              const _LegendEntry(
+                icon: Icons.radio_button_unchecked,
+                title: 'Not visited',
+                description:
+                    'A hollow marker is a place you have not visited yet.',
+              ),
+              _LegendEntry(
+                icon: Icons.my_location,
+                title: 'In range',
+                description:
+                    'A target ring means you are within ${PlaceVisitFeedback.visitRadiusMetres.round()}m. Tap the place to mark your visit.',
+              ),
+              const _LegendEntry(
+                icon: Icons.check_circle,
+                title: 'Visited',
+                description:
+                    'A filled checkmark means your visit is saved, even when you move away.',
+              ),
+              Text(
+                'Train, tram and bus icons keep their transport symbol and add the same range ring or visited checkmark.',
+                style: Theme.of(context).textTheme.bodyMedium,
+              ),
+            ],
+          ),
         ),
       ),
     );
