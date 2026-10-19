@@ -274,8 +274,7 @@ class _FollowNotificationRow extends StatelessWidget {
                 : ' commented on your activity',
           SocialNotificationType.commentReply => ' replied to your comment',
           SocialNotificationType.commentLike => ' liked your comment',
-          SocialNotificationType.partyTileLost =>
-            ': your team lost a tile',
+          SocialNotificationType.partyTileLost => ': your team lost a tile',
           SocialNotificationType.partyInvite => ' invited you to a party',
         };
 
@@ -473,7 +472,6 @@ class _FollowNotificationRow extends StatelessWidget {
     );
   }
 }
-
 
 class _PartyInviteAction extends StatefulWidget {
   const _PartyInviteAction({

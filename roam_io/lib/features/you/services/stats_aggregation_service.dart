@@ -185,7 +185,12 @@ class StatsAggregationService {
     final earliest = startOfWeek(
       dates.reduce((left, right) => left.isBefore(right) ? left : right),
     );
-    return math.max(1, anchor.difference(earliest).inDays ~/ 7 + 1);
+    // Use UTC calendar days so DST transitions cannot shift the inclusive
+    // week span (local Duration math can land on the previous ISO week).
+    final days = DateTime.utc(anchor.year, anchor.month, anchor.day)
+        .difference(DateTime.utc(earliest.year, earliest.month, earliest.day))
+        .inDays;
+    return math.max(1, days ~/ 7 + 1);
   }
 
   List<StatsMetricBucket> emptyRecentBuckets() {

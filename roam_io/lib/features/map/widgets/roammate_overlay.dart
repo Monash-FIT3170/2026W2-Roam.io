@@ -481,167 +481,172 @@ class _RoammateOverlayState extends State<RoammateOverlay>
                   borderRadius: BorderRadius.circular(24),
                   opacity: isDark ? 0.18 : 0.78,
                   child: Container(
-                  width: 280,
-                  constraints: const BoxConstraints(maxHeight: 440),
-                  padding: const EdgeInsets.all(16),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      // Active contextual recommendation banner
-                      if (_recommendationData != null) ...[
-                        _buildRecommendationBanner(
-                          theme: theme,
-                          isDark: isDark,
-                        ),
-                        const SizedBox(height: 12),
-                      ] else if (_tileBannerData != null) ...[
-                        _buildTileEntryBanner(theme: theme, isDark: isDark),
-                        const SizedBox(height: 12),
-                      ],
-
-                      // Active community hazards section
-                      if (_nearbyHazards.isNotEmpty) ...[
-                        _buildHazardSection(theme: theme, isDark: isDark),
-                        const SizedBox(height: 16),
-                      ],
-
-                      Padding(
-                        padding: const EdgeInsets.only(bottom: 12),
-                        child: Text(
-                          'Locations in this tile',
-                          style: theme.textTheme.titleMedium?.copyWith(
-                            fontWeight: FontWeight.w800,
-                            color: titleColor,
-                            letterSpacing: -0.5,
+                    width: 280,
+                    constraints: const BoxConstraints(maxHeight: 440),
+                    padding: const EdgeInsets.all(16),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        // Active contextual recommendation banner
+                        if (_recommendationData != null) ...[
+                          _buildRecommendationBanner(
+                            theme: theme,
+                            isDark: isDark,
                           ),
-                        ),
-                      ),
+                          const SizedBox(height: 12),
+                        ] else if (_tileBannerData != null) ...[
+                          _buildTileEntryBanner(theme: theme, isDark: isDark),
+                          const SizedBox(height: 12),
+                        ],
 
-                      if (_allPlaces.isEmpty)
-                        Text(
-                          'No locations available.',
-                          style: theme.textTheme.bodyMedium?.copyWith(
-                            color: titleColor.withValues(alpha: 0.6),
-                          ),
-                        )
-                      else
-                        Flexible(
-                          child: NotificationListener<ScrollNotification>(
-                            onNotification: (notification) {
-                              if (notification.metrics.axis == Axis.vertical) {
-                                _canScrollUp.value =
-                                    notification.metrics.extentBefore > 0;
-                                _canScrollDown.value =
-                                    notification.metrics.extentAfter > 0;
-                              }
-                              return false; // Let the scrollbar handle it too
-                            },
-                            child: Stack(
-                              children: [
-                                Scrollbar(
-                                  thumbVisibility: true,
-                                  child: ListView(
-                                    padding: const EdgeInsets.only(
-                                      right: 8,
-                                    ), // Padding for scrollbar
-                                    shrinkWrap: true,
-                                    physics:
-                                        const AlwaysScrollableScrollPhysics(),
-                                    children: _sortedPlaces.map((p) {
-                                      final isVisited = widget.mapController
-                                          .isPlaceVisited(p.id);
-                                      return _buildLocationCard(
-                                        p,
-                                        isVisited,
-                                        theme,
-                                      );
-                                    }).toList(),
-                                  ),
-                                ),
-                                // Top Scroll Shadow
-                                Positioned(
-                                  top: 0,
-                                  left: 0,
-                                  right: 0,
-                                  child: ValueListenableBuilder<bool>(
-                                    valueListenable: _canScrollUp,
-                                    builder: (context, canScrollUp, child) {
-                                      return IgnorePointer(
-                                        child: AnimatedOpacity(
-                                          opacity: canScrollUp ? 1.0 : 0.0,
-                                          duration: const Duration(
-                                            milliseconds: 150,
-                                          ),
-                                          child: Container(
-                                            height: 12,
-                                            decoration: BoxDecoration(
-                                              gradient: LinearGradient(
-                                                begin: Alignment.topCenter,
-                                                end: Alignment.bottomCenter,
-                                                colors: [
-                                                  isDark
-                                                      ? Colors.black.withValues(
-                                                          alpha: 0.4,
-                                                        )
-                                                      : Colors.black.withValues(
-                                                          alpha: 0.1,
-                                                        ),
-                                                  Colors.transparent,
-                                                ],
-                                              ),
-                                            ),
-                                          ),
-                                        ),
-                                      );
-                                    },
-                                  ),
-                                ),
-                                // Bottom Scroll Shadow
-                                Positioned(
-                                  bottom: 0,
-                                  left: 0,
-                                  right: 0,
-                                  child: ValueListenableBuilder<bool>(
-                                    valueListenable: _canScrollDown,
-                                    builder: (context, canScrollDown, child) {
-                                      return IgnorePointer(
-                                        child: AnimatedOpacity(
-                                          opacity: canScrollDown ? 1.0 : 0.0,
-                                          duration: const Duration(
-                                            milliseconds: 150,
-                                          ),
-                                          child: Container(
-                                            height: 12,
-                                            decoration: BoxDecoration(
-                                              gradient: LinearGradient(
-                                                begin: Alignment.bottomCenter,
-                                                end: Alignment.topCenter,
-                                                colors: [
-                                                  isDark
-                                                      ? Colors.black.withValues(
-                                                          alpha: 0.4,
-                                                        )
-                                                      : Colors.black.withValues(
-                                                          alpha: 0.1,
-                                                        ),
-                                                  Colors.transparent,
-                                                ],
-                                              ),
-                                            ),
-                                          ),
-                                        ),
-                                      );
-                                    },
-                                  ),
-                                ),
-                              ],
+                        // Active community hazards section
+                        if (_nearbyHazards.isNotEmpty) ...[
+                          _buildHazardSection(theme: theme, isDark: isDark),
+                          const SizedBox(height: 16),
+                        ],
+
+                        Padding(
+                          padding: const EdgeInsets.only(bottom: 12),
+                          child: Text(
+                            'Locations in this tile',
+                            style: theme.textTheme.titleMedium?.copyWith(
+                              fontWeight: FontWeight.w800,
+                              color: titleColor,
+                              letterSpacing: -0.5,
                             ),
                           ),
                         ),
-                    ],
+
+                        if (_allPlaces.isEmpty)
+                          Text(
+                            'No locations available.',
+                            style: theme.textTheme.bodyMedium?.copyWith(
+                              color: titleColor.withValues(alpha: 0.6),
+                            ),
+                          )
+                        else
+                          Flexible(
+                            child: NotificationListener<ScrollNotification>(
+                              onNotification: (notification) {
+                                if (notification.metrics.axis ==
+                                    Axis.vertical) {
+                                  _canScrollUp.value =
+                                      notification.metrics.extentBefore > 0;
+                                  _canScrollDown.value =
+                                      notification.metrics.extentAfter > 0;
+                                }
+                                return false; // Let the scrollbar handle it too
+                              },
+                              child: Stack(
+                                children: [
+                                  Scrollbar(
+                                    thumbVisibility: true,
+                                    child: ListView(
+                                      padding: const EdgeInsets.only(
+                                        right: 8,
+                                      ), // Padding for scrollbar
+                                      shrinkWrap: true,
+                                      physics:
+                                          const AlwaysScrollableScrollPhysics(),
+                                      children: _sortedPlaces.map((p) {
+                                        final isVisited = widget.mapController
+                                            .isPlaceVisited(p.id);
+                                        return _buildLocationCard(
+                                          p,
+                                          isVisited,
+                                          theme,
+                                        );
+                                      }).toList(),
+                                    ),
+                                  ),
+                                  // Top Scroll Shadow
+                                  Positioned(
+                                    top: 0,
+                                    left: 0,
+                                    right: 0,
+                                    child: ValueListenableBuilder<bool>(
+                                      valueListenable: _canScrollUp,
+                                      builder: (context, canScrollUp, child) {
+                                        return IgnorePointer(
+                                          child: AnimatedOpacity(
+                                            opacity: canScrollUp ? 1.0 : 0.0,
+                                            duration: const Duration(
+                                              milliseconds: 150,
+                                            ),
+                                            child: Container(
+                                              height: 12,
+                                              decoration: BoxDecoration(
+                                                gradient: LinearGradient(
+                                                  begin: Alignment.topCenter,
+                                                  end: Alignment.bottomCenter,
+                                                  colors: [
+                                                    isDark
+                                                        ? Colors.black
+                                                              .withValues(
+                                                                alpha: 0.4,
+                                                              )
+                                                        : Colors.black
+                                                              .withValues(
+                                                                alpha: 0.1,
+                                                              ),
+                                                    Colors.transparent,
+                                                  ],
+                                                ),
+                                              ),
+                                            ),
+                                          ),
+                                        );
+                                      },
+                                    ),
+                                  ),
+                                  // Bottom Scroll Shadow
+                                  Positioned(
+                                    bottom: 0,
+                                    left: 0,
+                                    right: 0,
+                                    child: ValueListenableBuilder<bool>(
+                                      valueListenable: _canScrollDown,
+                                      builder: (context, canScrollDown, child) {
+                                        return IgnorePointer(
+                                          child: AnimatedOpacity(
+                                            opacity: canScrollDown ? 1.0 : 0.0,
+                                            duration: const Duration(
+                                              milliseconds: 150,
+                                            ),
+                                            child: Container(
+                                              height: 12,
+                                              decoration: BoxDecoration(
+                                                gradient: LinearGradient(
+                                                  begin: Alignment.bottomCenter,
+                                                  end: Alignment.topCenter,
+                                                  colors: [
+                                                    isDark
+                                                        ? Colors.black
+                                                              .withValues(
+                                                                alpha: 0.4,
+                                                              )
+                                                        : Colors.black
+                                                              .withValues(
+                                                                alpha: 0.1,
+                                                              ),
+                                                    Colors.transparent,
+                                                  ],
+                                                ),
+                                              ),
+                                            ),
+                                          ),
+                                        );
+                                      },
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                      ],
+                    ),
                   ),
-                ),
                 ),
               ),
             ),

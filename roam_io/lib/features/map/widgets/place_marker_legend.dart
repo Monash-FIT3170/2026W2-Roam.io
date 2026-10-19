@@ -50,9 +50,9 @@ class PlaceMarkerLegend extends StatelessWidget {
               const SizedBox(height: 16),
               Text(
                 'Location markers',
-                style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                  fontWeight: FontWeight.w800,
-                ),
+                style: Theme.of(
+                  context,
+                ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w800),
               ),
               const SizedBox(height: 16),
               const _LegendEntry(

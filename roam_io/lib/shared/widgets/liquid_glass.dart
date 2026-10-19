@@ -47,18 +47,18 @@ class LiquidGlass extends StatelessWidget {
     final Color border;
 
     if (tintColor == null) {
-      fill = Colors.white.withValues(
-        alpha: opacity ?? (isDark ? 0.14 : 0.58),
-      );
-      border = borderColor ??
-          Colors.white.withValues(alpha: isDark ? 0.28 : 0.72);
+      fill = Colors.white.withValues(alpha: opacity ?? (isDark ? 0.14 : 0.58));
+      border =
+          borderColor ?? Colors.white.withValues(alpha: isDark ? 0.28 : 0.72);
     } else {
-      fill = tintColor.withValues(
-        alpha: opacity ?? (isDark ? 0.72 : 0.82),
-      );
-      border = borderColor ??
-          Color.lerp(tintColor, Colors.white, isDark ? 0.35 : 0.45)!
-              .withValues(alpha: 0.85);
+      fill = tintColor.withValues(alpha: opacity ?? (isDark ? 0.72 : 0.82));
+      border =
+          borderColor ??
+          Color.lerp(
+            tintColor,
+            Colors.white,
+            isDark ? 0.35 : 0.45,
+          )!.withValues(alpha: 0.85);
     }
 
     return ClipRRect(

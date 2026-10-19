@@ -199,46 +199,57 @@ void main() {
     expect(updated.teamBMembers, ['other']);
   });
 
-  test('leaving a legacy party works when membership reads are denied', () async {
-    final firestore = FakeFirebaseFirestore();
-    final service = PartyService(firestore: firestore);
-    await firestore.collection('parties').doc('legacy').set({
-      'joinCode': 'LEGACY',
-      'teamAMembers': ['user-1'],
-      'teamBMembers': ['other'],
-      'tiles': <String, dynamic>{},
-    });
-    whenCalling(Invocation.method(#get, null))
-        .on(firestore.collection('party_memberships').doc('user-1'))
-        .thenThrow(FirebaseException(
-          plugin: 'cloud_firestore',
-          code: 'permission-denied',
-        ));
+  test(
+    'leaving a legacy party works when membership reads are denied',
+    () async {
+      final firestore = FakeFirebaseFirestore();
+      final service = PartyService(firestore: firestore);
+      await firestore.collection('parties').doc('legacy').set({
+        'joinCode': 'LEGACY',
+        'teamAMembers': ['user-1'],
+        'teamBMembers': ['other'],
+        'tiles': <String, dynamic>{},
+      });
+      whenCalling(Invocation.method(#get, null))
+          .on(firestore.collection('party_memberships').doc('user-1'))
+          .thenThrow(
+            FirebaseException(
+              plugin: 'cloud_firestore',
+              code: 'permission-denied',
+            ),
+          );
 
-    final updated = await service.leaveParty(partyId: 'legacy', uid: 'user-1');
+      final updated = await service.leaveParty(
+        partyId: 'legacy',
+        uid: 'user-1',
+      );
 
-    expect(updated.teamAMembers, isEmpty);
-    expect(updated.teamBMembers, ['other']);
-  });
+      expect(updated.teamAMembers, isEmpty);
+      expect(updated.teamBMembers, ['other']);
+    },
+  );
 
-  test('membership network errors do not remove the user from the party', () async {
-    final firestore = FakeFirebaseFirestore();
-    final service = PartyService(firestore: firestore);
-    final party = await service.createParty(uid: 'user-1');
-    final error = FirebaseException(
-      plugin: 'cloud_firestore',
-      code: 'unavailable',
-    );
-    whenCalling(Invocation.method(#get, null))
-        .on(firestore.collection('party_memberships').doc('user-1'))
-        .thenThrow(error);
+  test(
+    'membership network errors do not remove the user from the party',
+    () async {
+      final firestore = FakeFirebaseFirestore();
+      final service = PartyService(firestore: firestore);
+      final party = await service.createParty(uid: 'user-1');
+      final error = FirebaseException(
+        plugin: 'cloud_firestore',
+        code: 'unavailable',
+      );
+      whenCalling(Invocation.method(#get, null))
+          .on(firestore.collection('party_memberships').doc('user-1'))
+          .thenThrow(error);
 
-    await expectLater(
-      service.leaveParty(partyId: party.id, uid: 'user-1'),
-      throwsA(same(error)),
-    );
-    expect((await service.getParty(party.id))?.teamAMembers, ['user-1']);
-  });
+      await expectLater(
+        service.leaveParty(partyId: party.id, uid: 'user-1'),
+        throwsA(same(error)),
+      );
+      expect((await service.getParty(party.id))?.teamAMembers, ['user-1']);
+    },
+  );
 
   test(
     'joining the current party again does not duplicate membership',

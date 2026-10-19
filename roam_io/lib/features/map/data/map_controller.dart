@@ -296,7 +296,6 @@ class MapController extends ChangeNotifier {
     notifyListeners();
   }
 
-
   /// Ownership by tile ID for the currently bound party, or empty if none.
   Map<String, String?> get partyTileOwnership =>
       Map<String, String?>.unmodifiable(_partyTileOwnership);
