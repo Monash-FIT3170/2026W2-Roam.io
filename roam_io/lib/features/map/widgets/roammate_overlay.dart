@@ -3,6 +3,7 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:provider/provider.dart';
+import '../../../shared/widgets/liquid_glass.dart';
 import '../../../theme/app_colours.dart';
 import '../../auth/providers/auth_provider.dart';
 import '../../hazards/data/hazard_controller.dart';
@@ -451,8 +452,6 @@ class _RoammateOverlayState extends State<RoammateOverlay>
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
 
-    // Clean, flat box appearance using AppColors
-    final boxBackgroundColor = isDark ? AppColors.ink : AppColors.cream;
     final titleColor = isDark ? AppColors.cream : AppColors.ink;
 
     return Column(
@@ -477,22 +476,13 @@ class _RoammateOverlayState extends State<RoammateOverlay>
               child: Listener(
                 onPointerDown: (_) => _cancelAutoCollapseTimer(),
                 behavior: HitTestBehavior.translucent,
-                child: Container(
+                child: LiquidGlass(
+                  tint: null,
+                  borderRadius: BorderRadius.circular(24),
+                  opacity: isDark ? 0.18 : 0.78,
+                  child: Container(
                   width: 280,
                   constraints: const BoxConstraints(maxHeight: 440),
-                  decoration: BoxDecoration(
-                    color: boxBackgroundColor,
-                    borderRadius: BorderRadius.circular(
-                      24,
-                    ), // Heavily rounded corners
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withValues(alpha: 0.15),
-                        blurRadius: 20,
-                        offset: const Offset(0, 8),
-                      ),
-                    ],
-                  ),
                   padding: const EdgeInsets.all(16),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -652,6 +642,7 @@ class _RoammateOverlayState extends State<RoammateOverlay>
                     ],
                   ),
                 ),
+                ),
               ),
             ),
           ),
@@ -661,26 +652,16 @@ class _RoammateOverlayState extends State<RoammateOverlay>
           onTap: _toggleDetails,
           child: ScaleTransition(
             scale: _scaleAnimation,
-            child: Container(
-              width: 56,
-              height: 56,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: theme.colorScheme.primary,
-                boxShadow: [
-                  BoxShadow(
-                    color: theme.colorScheme.primary.withValues(alpha: 0.4),
-                    blurRadius: 12,
-                    spreadRadius: 4,
+            child: LiquidGlass(
+              borderRadius: BorderRadius.circular(24),
+              child: const SizedBox.square(
+                dimension: 48,
+                child: Center(
+                  child: Icon(
+                    Icons.smart_toy_rounded,
+                    color: Colors.white,
+                    size: 22,
                   ),
-                ],
-                border: Border.all(color: Colors.white, width: 2),
-              ),
-              child: const Center(
-                child: Icon(
-                  Icons.smart_toy_rounded,
-                  color: Colors.white,
-                  size: 32,
                 ),
               ),
             ),
