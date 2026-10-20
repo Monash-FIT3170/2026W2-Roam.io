@@ -8,6 +8,8 @@
 
 import 'package:flutter/material.dart';
 
+import 'social_button_styles.dart';
+
 /// Confirms unfollowing a private account (caller already checked privacy).
 Future<bool> confirmPrivateUnfollow(
   BuildContext context, {
@@ -31,6 +33,7 @@ Future<bool> confirmPrivateUnfollow(
           ),
           FilledButton(
             onPressed: () => Navigator.of(context).pop(true),
+            style: SocialButtonStyles.destructive(),
             child: const Text('Unfollow'),
           ),
         ],
@@ -60,6 +63,7 @@ Future<bool> confirmRemovePrivateFollower(
           ),
           FilledButton(
             onPressed: () => Navigator.of(context).pop(true),
+            style: SocialButtonStyles.destructive(),
             child: const Text('Remove'),
           ),
         ],

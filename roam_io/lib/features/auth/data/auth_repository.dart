@@ -70,9 +70,19 @@ class AuthRepository {
       createdAt: now,
       updatedAt: now,
       themeMode: AppThemeMode.light,
+      onboardingCompleted: false,
     );
     await _profileService.createProfile(profile);
     await _authService.sendEmailVerification();
+  }
+
+  /// Saves completion for the authenticated account only.
+  Future<void> completeOnboarding() {
+    final user = currentUser;
+    if (user == null) {
+      throw FirebaseAuthException(code: 'user-not-found');
+    }
+    return _profileService.completeOnboarding(user.uid);
   }
 
   /// Signs in a user with email and password credentials.

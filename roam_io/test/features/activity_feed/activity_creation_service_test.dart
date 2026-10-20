@@ -85,7 +85,7 @@ void main() {
       expect(data['media'], isEmpty);
       expect(data['metrics'], [
         {'label': 'Time', 'value': '30m 0s'},
-        {'label': 'Tiles Unlocked', 'value': '3'},
+        {'label': 'Tiles Explored', 'value': '3'},
         {'label': 'XP Gained', 'value': '+182 XP'},
       ]);
       expect(data.containsKey('kudos'), isFalse);

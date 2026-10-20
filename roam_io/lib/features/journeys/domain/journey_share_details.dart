@@ -78,7 +78,10 @@ class JourneyShareDetails {
     if (durationSeconds != null) stats.add(_durationStat(durationSeconds));
 
     final xpEarned = _metricInt(activity.metrics, 'xp gained');
-    final tilesUnlocked = _metricInt(activity.metrics, 'tiles unlocked');
+    // Posts are written with 'Tiles Explored'; older ones said 'Tiles Unlocked'.
+    final tilesUnlocked =
+        _metricInt(activity.metrics, 'tiles explored') ??
+        _metricInt(activity.metrics, 'tiles unlocked');
     if (xpEarned != null) {
       stats.add(ShareStat(value: '$xpEarned', unit: 'xp'));
     } else if (tilesUnlocked != null) {

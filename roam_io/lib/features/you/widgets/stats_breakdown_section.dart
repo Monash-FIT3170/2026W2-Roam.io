@@ -84,7 +84,7 @@ class _BreakdownRow extends StatelessWidget {
                 label,
                 style: theme.textTheme.labelLarge?.copyWith(
                   color: AppSurfaces.textPrimary(context),
-                  fontWeight: FontWeight.w700,
+                  fontWeight: FontWeight.w500,
                 ),
               ),
             ),
@@ -92,7 +92,7 @@ class _BreakdownRow extends StatelessWidget {
               '$value$valueSuffix',
               style: theme.textTheme.labelLarge?.copyWith(
                 color: AppColors.sage,
-                fontWeight: FontWeight.w800,
+                fontWeight: FontWeight.w700,
               ),
             ),
           ],
@@ -103,7 +103,7 @@ class _BreakdownRow extends StatelessWidget {
           child: LinearProgressIndicator(
             minHeight: 8,
             value: fraction,
-            backgroundColor: AppSurfaces.innerCard(context),
+            backgroundColor: AppSurfaces.progressTrack(context),
             color: theme.colorScheme.primary,
           ),
         ),

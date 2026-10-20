@@ -27,7 +27,7 @@ class StatsScreen extends StatefulWidget {
 
 class _StatsScreenState extends State<StatsScreen> {
   static const _categories = ['Locations', 'Tiles', 'Journeys', 'XP'];
-  static const double _pillsHeight = 68;
+  static const double _pillsHeight = 56;
 
   int _categoryIndex = 0;
   final _scrollController = ScrollController();
@@ -75,7 +75,8 @@ class _StatsScreenState extends State<StatsScreen> {
     final bottomClearance = AppBottomNavBar.clearanceFromScreenBottom(context);
     final sectionStyle = Theme.of(context).textTheme.headlineSmall?.copyWith(
       color: AppSurfaces.textPrimary(context),
-      fontWeight: FontWeight.w900,
+      fontWeight: FontWeight.w700,
+      letterSpacing: -0.4,
     );
 
     return Stack(
@@ -107,12 +108,12 @@ class _StatsScreenState extends State<StatsScreen> {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(widget.title, style: sectionStyle),
-                            const SizedBox(height: 12),
+                            const SizedBox(height: 14),
                             StatsHeroStrip(
                               profile: widget.profile,
                               analytics: analytics,
                             ),
-                            const SizedBox(height: 8),
+                            const SizedBox(height: 12),
                           ],
                         ),
                       ),
@@ -123,22 +124,40 @@ class _StatsScreenState extends State<StatsScreen> {
                 ),
               ),
               SliverPadding(
-                padding: EdgeInsets.fromLTRB(24, 12, 24, bottomClearance + 24),
+                padding: EdgeInsets.fromLTRB(24, 16, 24, bottomClearance + 24),
                 sliver: SliverToBoxAdapter(
-                  child: KeyedSubtree(
-                    key: ValueKey<int>(_categoryIndex),
-                    child: switch (_categoryIndex) {
-                      0 => LocationsStatsView(
-                        analytics: analytics,
-                        embedded: true,
+                  child: AnimatedSwitcher(
+                    duration: const Duration(milliseconds: 220),
+                    switchInCurve: Curves.easeOutCubic,
+                    switchOutCurve: Curves.easeInCubic,
+                    transitionBuilder: (child, animation) => FadeTransition(
+                      opacity: animation,
+                      child: SlideTransition(
+                        position: Tween<Offset>(
+                          begin: const Offset(0.025, 0),
+                          end: Offset.zero,
+                        ).animate(animation),
+                        child: child,
                       ),
-                      1 => TilesStatsView(analytics: analytics, embedded: true),
-                      2 => JourneysStatsView(
-                        analytics: analytics,
-                        embedded: true,
-                      ),
-                      _ => XpStatsView(analytics: analytics, embedded: true),
-                    },
+                    ),
+                    child: KeyedSubtree(
+                      key: ValueKey<int>(_categoryIndex),
+                      child: switch (_categoryIndex) {
+                        0 => LocationsStatsView(
+                          analytics: analytics,
+                          embedded: true,
+                        ),
+                        1 => TilesStatsView(
+                          analytics: analytics,
+                          embedded: true,
+                        ),
+                        2 => JourneysStatsView(
+                          analytics: analytics,
+                          embedded: true,
+                        ),
+                        _ => XpStatsView(analytics: analytics, embedded: true),
+                      },
+                    ),
                   ),
                 ),
               ),
@@ -191,7 +210,7 @@ class _StatsPillOverlay extends StatelessWidget {
   Widget build(BuildContext context) {
     final pageBg = AppSurfaces.pageBackground(context);
     // Compact only tightens chrome (padding / elevation), not type size.
-    final verticalInset = compact ? 6.0 : 8.0;
+    final verticalInset = compact ? 4.0 : 6.0;
 
     return Material(
       color: pageBg.withValues(alpha: compact ? 0.94 : 1.0),
@@ -206,6 +225,7 @@ class _StatsPillOverlay extends StatelessWidget {
           itemKeys: labels
               .map((label) => 'stats-category-${label.toLowerCase()}')
               .toList(growable: false),
+          flat: true,
           onSelected: onSelected,
         ),
       ),

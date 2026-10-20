@@ -7,6 +7,7 @@ import '../widgets/stats_chart_section.dart';
 import '../widgets/stats_hero_row.dart';
 import '../widgets/stats_insight_card.dart';
 import '../widgets/stats_recent_journeys_list.dart';
+import '../widgets/stats_section_card.dart';
 
 /// Journeys category on the Statistics page.
 class JourneysStatsView extends StatelessWidget {
@@ -34,38 +35,43 @@ class JourneysStatsView extends StatelessWidget {
     final body = Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Row(
-          children: [
-            StatsHeroStat(label: 'Journeys', value: '${journeys.length}'),
-            StatsHeroStat(
+        StatsMetricHero(
+          primaryLabel: 'Journeys',
+          primaryValue: '${journeys.length}',
+          secondary: [
+            StatsHeroMetricData(
               label: 'Distance',
               value: '${totalDistanceKm.toStringAsFixed(1)} km',
             ),
-            StatsHeroStat(
+            StatsHeroMetricData(
               label: 'Time',
               value: '${totalHours.toStringAsFixed(1)} hrs',
             ),
           ],
         ),
-        const SizedBox(height: 16),
+        const SizedBox(height: kStatsSectionGap),
         StatsChartSection(
           title: 'Journeys by week',
           buckets: buckets,
+          bucketsForRange: (range) =>
+              aggregationService.journeyBucketsForRange(journeys, range),
           emptyMessage: 'No journeys to chart yet',
+          hasData: journeys.isNotEmpty,
+          rangeStorageId: 'stats-journeys-range',
           detailLabelBuilder: (bucket) =>
               bucket.detailLabel(' Journeys Completed'),
         ),
-        const SizedBox(height: 16),
+        const SizedBox(height: kStatsSectionGap),
         StatsBreakdownSection(
           title: 'Transport modes',
           items: modeBreakdown,
           emptyMessage: 'No journeys to break down yet',
         ),
-        const SizedBox(height: 16),
+        const SizedBox(height: kStatsSectionGap),
         StatsJourneyHighlights(journeys: journeys),
-        const SizedBox(height: 16),
+        const SizedBox(height: kStatsSectionGap),
         StatsInsightCard(message: insight, icon: Icons.route_rounded),
-        const SizedBox(height: 16),
+        const SizedBox(height: kStatsSectionGap),
         StatsRecentJourneysList(journeys: journeys),
       ],
     );

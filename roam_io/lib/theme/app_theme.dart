@@ -86,13 +86,13 @@ class AppTheme {
     colorScheme: const ColorScheme.dark(
       primary: AppColors.sage,
       secondary: AppColors.clay,
-      surface: Color(0xFF171A20),
+      surface: AppColors.darkSurface,
       onPrimary: Colors.white,
       onSecondary: Colors.white,
       onSurface: Color(0xFFECE7DC),
     ),
 
-    scaffoldBackgroundColor: const Color(0xFF101216),
+    scaffoldBackgroundColor: AppColors.darkBackground,
 
     textTheme: ThemeData.dark().textTheme.copyWith(
       headlineLarge: const TextStyle(
@@ -131,7 +131,7 @@ class AppTheme {
     bottomNavigationBarTheme: const BottomNavigationBarThemeData(
       selectedItemColor: Color(0xFF9EB58D),
       unselectedItemColor: Color(0xFFB5B0A6),
-      backgroundColor: Color(0xFF171A20),
+      backgroundColor: AppColors.darkSurface,
     ),
 
     floatingActionButtonTheme: const FloatingActionButtonThemeData(
@@ -140,7 +140,7 @@ class AppTheme {
     ),
 
     cardTheme: CardThemeData(
-      color: const Color(0xFF171A20),
+      color: AppColors.darkSurface,
       elevation: 0,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
     ),
@@ -156,7 +156,7 @@ class AppTheme {
         if (states.contains(WidgetState.selected)) {
           return AppColors.sage;
         }
-        return const Color(0xFF30343D);
+        return AppColors.darkElevated;
       }),
     ),
   );

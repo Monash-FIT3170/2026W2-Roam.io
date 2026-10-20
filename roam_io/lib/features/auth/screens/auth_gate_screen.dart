@@ -12,6 +12,7 @@ import 'package:flutter_native_splash/flutter_native_splash.dart';
 import 'package:provider/provider.dart';
 
 import '../../navigation/screens/main_shell_screen.dart';
+import '../../onboarding/screens/onboarding_screen.dart';
 import '../providers/auth_provider.dart';
 import 'login_screen.dart';
 import 'verify_email_screen.dart';
@@ -35,6 +36,7 @@ class _AuthGateState extends State<AuthGateScreen> {
   static const _minimumSplashDuration = Duration(milliseconds: 500);
 
   bool _minimumSplashElapsed = false;
+  String? _onboardedUid;
 
   @override
   void initState() {
@@ -63,6 +65,7 @@ class _AuthGateState extends State<AuthGateScreen> {
         }
 
         if (!auth.isAuthenticated) {
+          _onboardedUid = null;
           return const LoginScreen();
         }
 
@@ -71,11 +74,48 @@ class _AuthGateState extends State<AuthGateScreen> {
         }
 
         final uid = auth.currentUser!.uid;
+        if (_onboardedUid != uid) _onboardedUid = null;
+        final profile = auth.currentProfile;
+        if (profile == null || profile.uid != uid) {
+          if (auth.isBusy) return const SplashLoadingScreen();
+          return Scaffold(
+            body: SafeArea(
+              child: Center(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Text('We couldn’t load your profile.'),
+                    TextButton(
+                      onPressed: auth.refreshCurrentUser,
+                      child: const Text('Try again'),
+                    ),
+                    TextButton(
+                      onPressed: auth.signOut,
+                      child: const Text('Log out'),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          );
+        }
+        if (!profile.onboardingCompleted) {
+          return OnboardingScreen(
+            key: ValueKey<String>('onboarding-$uid'),
+            onComplete: () async {
+              await auth.completeOnboarding();
+              if (mounted && auth.currentUser?.uid == uid) {
+                setState(() => _onboardedUid = uid);
+              }
+            },
+          );
+        }
         return NotificationOverlay(
           key: ValueKey<String>('notification-overlay-$uid'),
           child: MainShellScreen(
             key: ValueKey<String>('main-shell-$uid'),
             requestNotificationPermission: widget.requestNotificationPermission,
+            initialIndex: _onboardedUid == uid ? 0 : 2,
           ),
         );
       },

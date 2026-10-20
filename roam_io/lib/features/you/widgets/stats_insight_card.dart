@@ -40,7 +40,7 @@ class StatsInsightCard extends StatelessWidget {
               message,
               style: theme.textTheme.bodyLarge?.copyWith(
                 color: AppSurfaces.textPrimary(context),
-                fontWeight: FontWeight.w700,
+                fontWeight: FontWeight.w500,
                 height: 1.3,
               ),
             ),

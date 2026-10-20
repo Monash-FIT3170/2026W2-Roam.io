@@ -99,6 +99,39 @@ void main() {
     auth.dispose();
   });
 
+  testWidgets('party tile-loss row renders without actorId', (tester) async {
+    final firestore = FakeFirebaseFirestore();
+    final friendship = FriendshipService(firestore: firestore);
+    final notif = SocialNotificationService(firestore: firestore);
+    final follow = FollowService(firestore: firestore);
+    await notif.upsertNotificationForTests(
+      SocialNotification(
+        id: 'party_tile_lost_party_tile',
+        recipientId: 'current-user',
+        actorId: '',
+        type: SocialNotificationType.partyTileLost,
+        createdAt: DateTime.now(),
+        partyId: 'party',
+      ),
+    );
+
+    final auth = AuthProvider(authRepository: _NotifAuthRepository());
+    await pumpNotifScreen(
+      tester,
+      auth: auth,
+      notif: notif,
+      follow: follow,
+      friendship: friendship,
+    );
+
+    expect(
+      find.textContaining('Party Mode: your team lost a tile'),
+      findsOneWidget,
+    );
+    expect(tester.takeException(), isNull);
+    auth.dispose();
+  });
+
   testWidgets('Remove follower appears in overflow menu', (tester) async {
     final firestore = FakeFirebaseFirestore();
     final friendship = FriendshipService(firestore: firestore);

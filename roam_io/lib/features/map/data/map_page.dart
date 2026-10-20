@@ -48,10 +48,13 @@ import '../../roammate/services/roammate_voice_service.dart';
 import '../../../shared/widgets/activity_saved_celebration.dart';
 import '../../../shared/widgets/app_bottom_nav_bar.dart';
 import '../../../shared/widgets/app_toast.dart';
+import '../../../shared/widgets/liquid_glass.dart';
 import '../../../theme/app_colours.dart';
 import '../../../theme/app_surfaces.dart';
+import '../domain/exploration_overlay_style.dart';
 import '../fog/fog_overlay.dart';
 import '../fog/fog_decay_difficulty.dart';
+import '../widgets/heatmap_legend.dart';
 import '../widgets/map_render.dart';
 import '../widgets/place_marker_legend.dart';
 import '../widgets/mode_toggle_chip.dart';
@@ -146,6 +149,7 @@ class _MapPageState extends State<MapPage> with WidgetsBindingObserver {
   Set<Marker> _journeyMarkers = {};
   StreamSubscription<List<Journey>>? _journeysSubscription;
   FogDecayDifficulty? _lastFogDecayDifficulty;
+  ExplorationOverlayStyle? _lastExplorationOverlayStyle;
   bool _isOpeningJourneyCompletionFlow = false;
   bool _isSavingReviewedJourneyActivity = false;
   String? _lastLoggedHazardMarkerSignature;
@@ -209,10 +213,20 @@ class _MapPageState extends State<MapPage> with WidgetsBindingObserver {
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
+
+    final overlayStyle = ExplorationOverlayStyle.forBrightness(
+      Theme.of(context).brightness,
+    );
+    if (_lastExplorationOverlayStyle != overlayStyle) {
+      _lastExplorationOverlayStyle = overlayStyle;
+      _mapController.updateExplorationOverlayStyle(overlayStyle);
+    }
+
     final difficulty = context.watch<AuthProvider>().fogDecayDifficulty;
-    if (_lastFogDecayDifficulty == difficulty) return;
-    _lastFogDecayDifficulty = difficulty;
-    unawaited(_mapController.updateFogDecayDifficulty(difficulty));
+    if (_lastFogDecayDifficulty != difficulty) {
+      _lastFogDecayDifficulty = difficulty;
+      unawaited(_mapController.updateFogDecayDifficulty(difficulty));
+    }
   }
 
   /// Loads saved journeys and displays them on the map.
@@ -955,12 +969,11 @@ class _MapPageState extends State<MapPage> with WidgetsBindingObserver {
   // uses the shell [Scaffold] only — a nested scaffold here duplicates snackbars.
   @override
   Widget build(BuildContext context) {
+    final overlayStyle = ExplorationOverlayStyle.forBrightness(
+      Theme.of(context).brightness,
+    );
     final journeyController = context.watch<JourneyController>();
     final isTracking = journeyController.currentPhase == JourneyPhase.tracking;
-    final exploredBoundaryColor =
-        Theme.of(context).brightness == Brightness.dark
-        ? AppColors.lightSage
-        : AppColors.sage;
     final isLiveJourneyActive = isTracking;
     final isCompleting =
         journeyController.currentPhase == JourneyPhase.completing;
@@ -968,12 +981,9 @@ class _MapPageState extends State<MapPage> with WidgetsBindingObserver {
         journeyController.currentPhase == JourneyPhase.reviewing &&
         !_isSavingReviewedJourneyActivity;
     final canStartJourney = journeyController.currentPhase == JourneyPhase.idle;
-    final bottomNavigationClearance =
-        AppBottomNavBar.clearanceFromScreenBottom(context) + 8;
-
     // Combine active journey polyline with saved journey polylines
     final allPolylines = <Polyline>{
-      ..._mapController.exploredBoundaryPolylines(exploredBoundaryColor),
+      ..._mapController.exploredBoundaryPolylines(),
       ..._savedJourneyPolylines,
       ..._activeJourneyPolyline,
     };
@@ -1023,33 +1033,25 @@ class _MapPageState extends State<MapPage> with WidgetsBindingObserver {
           controller: _mapController.fogController,
           isJourneyActive: isLiveJourneyActive,
         ),
-        if (!isLiveJourneyActive && _mapController.myLocationEnabled)
+        // Idle map chrome: Side Quests (left) and location stack (right) share
+        // the same bottom so current-location lines up with Side Quests.
+        // Roammate is painted last so its expanded panel stays above heatmap/info.
+        if (!isLiveJourneyActive) ...[
           Positioned(
-            right: 16,
-            bottom: bottomNavigationClearance,
-            child: MapLocationControls(
-              onReportHazard: _openHazardReport,
-              onRecenter: _mapController.recenterOnUser,
+            left: 16,
+            bottom: _mapActionBottom,
+            child: _SideQuestsButton(onPressed: _openSideQuests),
+          ),
+          if (_mapController.myLocationEnabled)
+            Positioned(
+              right: 16,
+              bottom: _mapActionBottom,
+              child: MapLocationControls(
+                onReportHazard: _openHazardReport,
+                onRecenter: _mapController.recenterOnUser,
+              ),
             ),
-          ),
-
-        Positioned(
-          right: 16,
-          bottom: isLiveJourneyActive ? 420 : 180,
-          child: RoammateOverlay(
-            mapController: _mapController,
-            hazardController: _hazardController,
-            journeyController: journeyController,
-            onHazardSelected: _showHazardDetails,
-            onPlaceSelected: _showPlaceDetails,
-          ),
-        ),
-
-        Positioned(
-          left: 16,
-          bottom: isLiveJourneyActive ? 220 : 120,
-          child: _SideQuestsButton(onPressed: _openSideQuests),
-        ),
+        ],
         // Start Journey is available only while no Journey is active.
         if (canStartJourney)
           Positioned(
@@ -1103,7 +1105,7 @@ class _MapPageState extends State<MapPage> with WidgetsBindingObserver {
                   }
                 : null,
             heatmapLegend: _mapController.isHeatmapEnabled
-                ? const _HeatmapLegend()
+                ? HeatmapLegend(style: overlayStyle)
                 : null,
           ),
         Positioned(
@@ -1126,9 +1128,23 @@ class _MapPageState extends State<MapPage> with WidgetsBindingObserver {
         if (isLiveJourneyActive)
           ActiveJourneyMapOverlay(
             sideQuestsControl: _SideQuestsButton(onPressed: _openSideQuests),
-            locationControls: MapLocationControls(
-              onReportHazard: _openHazardReport,
-              onRecenter: _mapController.recenterOnUser,
+            locationControls: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [
+                RoammateOverlay(
+                  mapController: _mapController,
+                  hazardController: _hazardController,
+                  journeyController: journeyController,
+                  onHazardSelected: _showHazardDetails,
+                  onPlaceSelected: _showPlaceDetails,
+                ),
+                const SizedBox(height: _mapActionGap),
+                MapLocationControls(
+                  onReportHazard: _openHazardReport,
+                  onRecenter: _mapController.recenterOnUser,
+                ),
+              ],
             ),
             journeyCard: JourneyTrackingCard(
               distanceMeters: journeyController.distanceMeters,
@@ -1137,10 +1153,40 @@ class _MapPageState extends State<MapPage> with WidgetsBindingObserver {
               onEndJourney: _endJourneyFlow,
             ),
           ),
+        // Paint idle Roammate last so the open panel sits above heatmap/info.
+        if (!isLiveJourneyActive && _mapController.myLocationEnabled)
+          Positioned(
+            right: 16,
+            bottom: _roammateBottom,
+            child: RoammateOverlay(
+              mapController: _mapController,
+              hazardController: _hazardController,
+              journeyController: journeyController,
+              onHazardSelected: _showHazardDetails,
+              onPlaceSelected: _showPlaceDetails,
+            ),
+          ),
       ],
     );
   }
 }
+
+/// Shared bottom inset for Side Quests and the right-hand control stack.
+const double _mapActionBottom = 120;
+
+/// Even spacing between Roammate, hazard, and current-location controls.
+const double _mapActionGap = 12;
+
+/// Circular map control diameter used for Roammate / hazard / location.
+const double _mapActionButtonSize = 48;
+
+/// Roammate sits one gap above the hazard+location stack.
+const double _roammateBottom =
+    _mapActionBottom +
+    _mapActionButtonSize +
+    _mapActionGap +
+    _mapActionButtonSize +
+    _mapActionGap;
 
 /// Top-left map controls that share the map's safe-area-aware overlay anchor.
 class MapTopLeftControls extends StatelessWidget {
@@ -1259,24 +1305,22 @@ class MapLocationControls extends StatelessWidget {
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.end,
       children: [
-        FloatingActionButton.small(
+        KeyedSubtree(
           key: const ValueKey('report_hazard_button'),
-          heroTag: 'report_hazard',
-          tooltip: 'Report a hazard',
-          onPressed: onReportHazard,
-          backgroundColor: AppColors.sage,
-          foregroundColor: Colors.white,
-          child: const Icon(Icons.add),
+          child: LiquidGlassIconButton(
+            tooltip: 'Report a hazard',
+            icon: Icons.add_rounded,
+            onPressed: onReportHazard,
+          ),
         ),
-        const SizedBox(height: 8),
-        FloatingActionButton.small(
+        const SizedBox(height: _mapActionGap),
+        KeyedSubtree(
           key: const ValueKey('recenter_map_button'),
-          heroTag: 'recenter_map',
-          tooltip: 'Centre on my location',
-          onPressed: onRecenter,
-          backgroundColor: AppSurfaces.card(context),
-          foregroundColor: AppSurfaces.textPrimary(context),
-          child: const Icon(Icons.my_location),
+          child: LiquidGlassIconButton(
+            tooltip: 'Centre on my location',
+            icon: Icons.my_location_rounded,
+            onPressed: onRecenter,
+          ),
         ),
       ],
     );
@@ -1356,81 +1400,6 @@ class _CompassButton extends StatelessWidget {
   }
 }
 
-class _HeatmapLegend extends StatelessWidget {
-  const _HeatmapLegend();
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-
-    return Material(
-      color: theme.colorScheme.surface.withValues(alpha: 0.94),
-      elevation: 6,
-      shadowColor: Colors.black.withValues(alpha: 0.18),
-      borderRadius: BorderRadius.circular(12),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-        constraints: const BoxConstraints(maxWidth: 200),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'Heatmap legend',
-              style: theme.textTheme.labelLarge?.copyWith(
-                fontWeight: FontWeight.w700,
-              ),
-            ),
-            const SizedBox(height: 8),
-            const _LegendRow(color: Color(0xFFFFF176), label: '1–2 entries'),
-            const SizedBox(height: 6),
-            const _LegendRow(color: Color(0xFFFFC247), label: '3–4 entries'),
-            const SizedBox(height: 6),
-            const _LegendRow(color: Color(0xFFE53935), label: '5+ entries'),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _LegendRow extends StatelessWidget {
-  const _LegendRow({required this.color, required this.label});
-
-  final Color color;
-  final String label;
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Container(
-          width: 14,
-          height: 14,
-          decoration: BoxDecoration(
-            color: color,
-            shape: BoxShape.circle,
-            border: Border.all(
-              color: Colors.black.withValues(alpha: 0.14),
-              width: 0.8,
-            ),
-          ),
-        ),
-        const SizedBox(width: 8),
-        Expanded(
-          child: Text(
-            label,
-            style: Theme.of(
-              context,
-            ).textTheme.bodySmall?.copyWith(color: Colors.black),
-          ),
-        ),
-      ],
-    );
-  }
-}
-
 class _SideQuestsButton extends StatelessWidget {
   const _SideQuestsButton({required this.onPressed});
 
@@ -1438,33 +1407,33 @@ class _SideQuestsButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Material(
-      color: AppSurfaces.card(context),
-      elevation: 6,
-      shadowColor: Colors.black.withValues(alpha: 0.18),
+    return LiquidGlass(
       borderRadius: BorderRadius.circular(24),
-      child: InkWell(
-        borderRadius: BorderRadius.circular(24),
-        onTap: onPressed,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 11),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(
-                Icons.explore_rounded,
-                size: 21,
-                color: Theme.of(context).colorScheme.primary,
-              ),
-              const SizedBox(width: 8),
-              Text(
-                'Side Quests',
-                style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                  color: AppSurfaces.textPrimary(context),
-                  fontWeight: FontWeight.w800,
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(24),
+          onTap: onPressed,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 11),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Icon(
+                  Icons.explore_rounded,
+                  size: 21,
+                  color: Colors.white,
                 ),
-              ),
-            ],
+                const SizedBox(width: 8),
+                Text(
+                  'Side Quests',
+                  style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                    color: Colors.white,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
       ),
@@ -1483,26 +1452,13 @@ class _HeatmapToggleButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final activeColor = Colors.deepOrange.shade600;
-    final inactiveColor = theme.colorScheme.surface;
-
-    return Tooltip(
-      message: isEnabled ? 'Hide heatmap' : 'Show heatmap',
-      child: Material(
-        color: isEnabled ? activeColor : inactiveColor,
-        elevation: 8,
-        shadowColor: Colors.black.withValues(alpha: 0.24),
-        shape: const CircleBorder(),
-        child: IconButton(
-          onPressed: () {
-            onPressed();
-          },
-          icon: const Icon(Icons.local_fire_department_rounded),
-          color: isEnabled ? Colors.white : theme.colorScheme.onSurface,
-          iconSize: 26,
-        ),
-      ),
+    return LiquidGlassIconButton(
+      tooltip: isEnabled ? 'Hide heatmap' : 'Show heatmap',
+      icon: Icons.local_fire_department_rounded,
+      tint: isEnabled ? Colors.deepOrange.shade600 : AppColors.sage,
+      onPressed: () {
+        onPressed();
+      },
     );
   }
 }
