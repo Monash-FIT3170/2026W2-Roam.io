@@ -13,8 +13,8 @@ import 'package:flutter/material.dart';
 
 import '../../../theme/app_colours.dart';
 import '../../activity_feed/data/activity_map_image.dart';
-import '../domain/journey_share_details.dart';
 import '../data/polyline_codec.dart';
+import '../domain/journey_share_details.dart';
 
 class JourneyShareCard extends StatelessWidget {
   const JourneyShareCard({

@@ -9,6 +9,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 
+import '../../../theme/app_accessibility.dart';
 import '../../../theme/app_colours.dart';
 import '../../../theme/app_surfaces.dart';
 import '../domain/journey_location.dart';
@@ -59,6 +60,9 @@ class EndJourneySheet extends StatefulWidget {
   }) {
     return showModalBottomSheet<EndJourneyResult>(
       context: context,
+      sheetAnimationStyle: context.reduceMotion
+          ? AnimationStyle.noAnimation
+          : null,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       builder: (context) => EndJourneySheet(
@@ -140,7 +144,7 @@ class _EndJourneySheetState extends State<EndJourneySheet> {
         borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
       ),
       child: SafeArea(
-        child: Padding(
+        child: SingleChildScrollView(
           padding: const EdgeInsets.all(24),
           child: Column(
             mainAxisSize: MainAxisSize.min,
@@ -182,33 +186,39 @@ class _EndJourneySheetState extends State<EndJourneySheet> {
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceAround,
                   children: [
-                    _buildStatItem(
-                      context,
-                      icon: Icons.straighten,
-                      value: _formattedDistance,
-                      label: 'Distance',
+                    Expanded(
+                      child: _buildStatItem(
+                        context,
+                        icon: Icons.straighten,
+                        value: _formattedDistance,
+                        label: 'Distance',
+                      ),
                     ),
                     Container(
                       width: 1,
                       height: 40,
                       color: AppSurfaces.border(context),
                     ),
-                    _buildStatItem(
-                      context,
-                      icon: Icons.timer_outlined,
-                      value: _formattedDuration,
-                      label: 'Duration',
+                    Expanded(
+                      child: _buildStatItem(
+                        context,
+                        icon: Icons.timer_outlined,
+                        value: _formattedDuration,
+                        label: 'Duration',
+                      ),
                     ),
                     Container(
                       width: 1,
                       height: 40,
                       color: AppSurfaces.border(context),
                     ),
-                    _buildStatItem(
-                      context,
-                      icon: widget.transportMode.icon,
-                      value: widget.transportMode.displayName,
-                      label: 'Mode',
+                    Expanded(
+                      child: _buildStatItem(
+                        context,
+                        icon: widget.transportMode.icon,
+                        value: widget.transportMode.displayName,
+                        label: 'Mode',
+                      ),
                     ),
                   ],
                 ),
@@ -318,6 +328,7 @@ class _EndJourneySheetState extends State<EndJourneySheet> {
         const SizedBox(height: 4),
         Text(
           value,
+          textAlign: TextAlign.center,
           style: theme.textTheme.titleSmall?.copyWith(
             fontWeight: FontWeight.w700,
             color: AppSurfaces.textPrimary(context),
@@ -325,6 +336,7 @@ class _EndJourneySheetState extends State<EndJourneySheet> {
         ),
         Text(
           label,
+          textAlign: TextAlign.center,
           style: theme.textTheme.labelSmall?.copyWith(
             color: AppSurfaces.textMuted(context),
           ),

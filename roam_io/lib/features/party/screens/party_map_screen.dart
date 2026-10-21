@@ -15,6 +15,7 @@ import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
 import '../../../shared/widgets/app_toast.dart';
+import '../../../theme/app_accessibility.dart';
 import '../../../theme/app_cartoon.dart';
 import '../../../theme/app_colours.dart';
 import '../../../theme/app_surfaces.dart';
@@ -407,6 +408,9 @@ class _PartyMapScreenState extends State<PartyMapScreen> {
 
     showModalBottomSheet<void>(
       context: context,
+      sheetAnimationStyle: context.reduceMotion
+          ? AnimationStyle.noAnimation
+          : null,
       showDragHandle: true,
       backgroundColor: AppSurfaces.pageBackground(context),
       useSafeArea: true,

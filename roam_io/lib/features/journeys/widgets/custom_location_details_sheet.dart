@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
 
-import '../../map/widgets/media_viewer.dart';
+import '../../../theme/app_accessibility.dart';
 import '../../../theme/app_colours.dart';
 import '../../../theme/app_surfaces.dart';
+import '../../map/widgets/media_viewer.dart';
 import '../domain/journey_location.dart';
 import 'custom_location_form_sheet.dart';
 
@@ -29,6 +30,9 @@ class CustomLocationDetailsSheet extends StatefulWidget {
   }) {
     return showModalBottomSheet<void>(
       context: context,
+      sheetAnimationStyle: context.reduceMotion
+          ? AnimationStyle.noAnimation
+          : null,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       builder: (_) => CustomLocationDetailsSheet(

@@ -1,6 +1,7 @@
-import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flutter/material.dart';
 
+import '../../../theme/app_accessibility.dart';
 import '../../../theme/app_cartoon.dart';
 import '../../../theme/app_colours.dart';
 import '../../../theme/app_surfaces.dart';
@@ -17,6 +18,9 @@ Future<void> showInviteFriendsSheet(
 }) {
   return showModalBottomSheet<void>(
     context: context,
+    sheetAnimationStyle: context.reduceMotion
+        ? AnimationStyle.noAnimation
+        : null,
     isScrollControlled: true,
     showDragHandle: true,
     backgroundColor: AppSurfaces.pageBackground(context),
