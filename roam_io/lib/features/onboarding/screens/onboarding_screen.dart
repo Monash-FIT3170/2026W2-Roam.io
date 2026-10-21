@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 
 import '../../../theme/app_colours.dart';
 import '../widgets/onboarding_scene.dart';
+import '../../../theme/app_accessibility.dart';
 
 /// A self-contained introduction. Its caller owns routing and completion state.
 class OnboardingScreen extends StatefulWidget {
@@ -100,7 +101,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   }
 
   void _goTo(int page) {
-    if (MediaQuery.disableAnimationsOf(context)) {
+    if (context.reduceMotion) {
       _controller.jumpToPage(page);
     } else {
       _controller.animateToPage(
@@ -285,10 +286,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                                   children: List.generate(
                                     _chapters.length,
                                     (index) => AnimatedContainer(
-                                      duration:
-                                          MediaQuery.disableAnimationsOf(
-                                            context,
-                                          )
+                                      duration: context.reduceMotion
                                           ? Duration.zero
                                           : const Duration(milliseconds: 250),
                                       height: 5,

@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 
 import '../../../theme/app_colours.dart';
 import '../../map/fog/fog_palette.dart';
+import '../../../theme/app_accessibility.dart';
 
 /// Local, illustrative scenes: no GPS, maps SDK, network or account data.
 class OnboardingScene extends StatefulWidget {
@@ -40,7 +41,7 @@ class _OnboardingSceneState extends State<OnboardingScene>
   }
 
   void _animate() {
-    if (MediaQuery.disableAnimationsOf(context)) {
+    if (context.reduceMotion) {
       _entrance.value = 1;
     } else if (widget.active) {
       _entrance.forward(from: 0);
