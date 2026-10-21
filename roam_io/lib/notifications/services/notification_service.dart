@@ -9,11 +9,11 @@
 import 'dart:async';
 
 import 'package:flutter/foundation.dart';
+import 'package:roam_io/notifications/services/android_notification_service.dart';
+import 'package:roam_io/notifications/services/app_lifecycle_service.dart';
 
 import '../models/app_notification.dart';
 import '../models/notification_action.dart';
-import 'package:roam_io/notifications/services/android_notification_service.dart';
-import 'package:roam_io/notifications/services/app_lifecycle_service.dart';
 
 /// Represents an action selected from an application notification.
 class NotificationActionEvent {

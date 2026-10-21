@@ -10,6 +10,7 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 
+import '../../theme/app_accessibility.dart';
 import '../../theme/app_colours.dart';
 
 /// Full-screen success confirmation for a published Journey activity.
@@ -105,6 +106,7 @@ class _ActivitySavedCelebrationState extends State<ActivitySavedCelebration>
 
   @override
   Widget build(BuildContext context) {
+    final reduceMotion = context.reduceMotion;
     return AnimatedBuilder(
       animation: Listenable.merge([_fadeAnimation, _particleController]),
       builder: (context, child) {
@@ -114,19 +116,22 @@ class _ActivitySavedCelebrationState extends State<ActivitySavedCelebration>
             color: Colors.black.withValues(alpha: 0.58 * _fadeAnimation.value),
             child: Stack(
               children: [
-                Positioned.fill(
-                  child: CustomPaint(
-                    painter: _SavedParticlePainter(
-                      progress: _particleController.value,
-                      particles: _particles,
+                if (!reduceMotion)
+                  Positioned.fill(
+                    child: CustomPaint(
+                      painter: _SavedParticlePainter(
+                        progress: _particleController.value,
+                        particles: _particles,
+                      ),
                     ),
                   ),
-                ),
                 Center(
                   child: FadeTransition(
                     opacity: _fadeAnimation,
                     child: ScaleTransition(
-                      scale: _scaleAnimation,
+                      scale: reduceMotion
+                          ? const AlwaysStoppedAnimation<double>(1)
+                          : _scaleAnimation,
                       child: Column(
                         mainAxisSize: MainAxisSize.min,
                         children: [
