@@ -10,6 +10,8 @@
   - [Getting Started](#getting-started)
   - [Project Structure](#project-structure)
   - [CI / Quality Gates](#ci--quality-gates)
+  - [Versioning](#versioning)
+  - [Pull Requests](#pull-requests)
   - [Deployment](#deployment)
   - [Common Bugs](#common-bugs)
 - [Contributors](#contributors)
@@ -188,9 +190,51 @@ Flutter architecture and folder conventions are documented in `roam_io/lib/READM
 
 ### CI / Quality Gates
 
-- **Flutter CI** (`develop` / `main`) — format check, static analysis, tests with a **70% minimum coverage** threshold, and debug APK build. A release APK is built when a `v`\* tag is pushed.
+- **Flutter CI** (`develop` / `main`) — format check, static analysis, tests with a **70% minimum coverage** threshold, and debug APK build.
 - **iOS TestFlight** (`develop`) — signed IPA uploaded via Fastlane.
 - **iOS build check** (feature branches) — simulator build and Live Activity extension verification.
+
+### Versioning
+
+Roam.io uses [Semantic Versioning](https://semver.org/): `MAJOR.MINOR.PATCH`.
+
+The app version lives in `roam_io/pubspec.yaml` as `version: 1.0.0+1`. The part before `+` is the user-facing version (`CFBundleShortVersionString` on iOS, `versionName` on Android). The part after `+` is the build number (`CFBundleVersion` / `versionCode`). The current release is **1.0.0**, build **1**.
+
+| Bump      | When                                                                                                                 | Example           |
+| --------- | -------------------------------------------------------------------------------------------------------------------- | ----------------- |
+| **PATCH** | A bug fix that does not add behaviour or change stored data                                                          | `1.0.0` → `1.0.1` |
+| **MINOR** | A backward-compatible feature. Existing Firestore documents, Cloud Function contracts, and saved profiles still work | `1.0.1` → `1.1.0` |
+| **MAJOR** | A breaking change: data shape, auth, or behaviour that existing installs cannot keep using unchanged                 | `1.1.0` → `2.0.0` |
+
+Reset the lower numbers when a higher number increases (`1.4.2` → `1.5.0`, not `1.5.2`). Increment the build number (`+1`, `+2`, …) for every store or TestFlight upload of that version, including a rebuild that does not change features.
+
+To cut a release:
+
+1. Land the changes on `develop` through a pull request.
+2. In that change, set `version:` in `roam_io/pubspec.yaml` to the new `MAJOR.MINOR.PATCH` and the next build number.
+3. Merging to `develop` uploads the iOS build to TestFlight. That workflow uses the GitHub Actions run number as the iOS build number. The marketing version still comes from `pubspec.yaml`.
+4. Build the Android release locally with `flutter build apk --release` or `flutter build appbundle --release`. CI on `develop` and `main` uploads a debug APK only.
+
+`develop` is where completed work lands. `main` stays at the last promoted release and is not the branch for feature pull requests.
+
+### Pull Requests
+
+Open pull requests against `develop`. Do not push feature work straight to `develop` or `main`.
+
+1. Start from an up-to-date `develop`:
+
+```bash
+ git checkout develop
+ git pull origin develop
+ git checkout -b feature/ART2-123-short-description
+```
+
+2. Name the branch `type/TICKET-short-description`. Use `feature/` for new work and `fix/` for a defect. `TICKET` is the issue id, such as `ART2-123`.
+3. Keep commits focused. Start each message with the ticket id: `ART2-123: describe the change`.
+4. If `develop` moves while the branch is open, merge `origin/develop` into the branch before asking for review.
+5. Push the branch and open the pull request on GitHub with base `develop`. In the description, say what changed, why, and how to test it.
+6. Wait for Flutter CI on the pull request. It must pass formatting (`dart format`), `flutter analyze`, tests, and the **70%** coverage check. Fix failures on the same branch; do not merge a red check.
+7. Ask a teammate to review. Merge only after that review is approved and CI is green. Merging to `develop` is what triggers the TestFlight workflow.
 
 ### Deployment
 
@@ -222,7 +266,7 @@ Set a missing secret with `firebase functions:secrets:set SECRET_NAME --project 
 
 #### Android
 
-CI uploads a **debug APK** artifact on pushes and pull requests to `develop` and `main`. Pushing a `v`\* tag builds a **release APK** and uploads that artifact too.
+CI uploads a **debug APK** artifact on pushes and pull requests to `develop` and `main`. A release APK or app bundle is built locally.
 
 A local release build:
 
@@ -249,7 +293,7 @@ Testers install that build from TestFlight. App id `com.fit3170.roamio`, Apple t
 - **Quest completion says the verification method is not supported** — Only GPS, photo, and GPS+photo verification run. Any other quest verification type returns "This verification method is not supported yet." A GPS quest with no stored coordinates returns "This quest does not have a verification location."
 - **Map, journeys, or Live Activities do nothing on a simulator** — Exploration and journey tracking need location permission ("While Using" at minimum; "Always" / background location for recording a journey with the app backgrounded). Simulators do not fully reproduce GPS movement, background location, or iOS Live Activities. Use a physical device for those flows.
 - **Spatial region import fails on a new machine** — `roam_io/spatial-api/import_sa3.js` hardcodes a local GeoJSON path (`SA3_2021_AUST_GDA2020.json`). Point `GEOJSON_PATH` at your file and pass `DATABASE_URL` before running it.
-- **Android release APK is not Play-signed** — `flutter build apk --release` and the tagged CI release APK use the debug signing config. Install it for testing only. See [Deployment](#deployment).
+- **Android release APK is not Play-signed** — `flutter build apk --release` uses the debug signing config. Install it for testing only. See [Deployment](#deployment).
 
 ---
 
