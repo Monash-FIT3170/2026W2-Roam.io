@@ -36,6 +36,7 @@ The app is built with **Flutter** (iOS and Android) and backed by **Firebase** (
 - **Journey Tracking** — Record walks, drives, and public transport journeys with GPS route tracking, distance, and tile XP. Supports background location on iOS and Android, with iOS Live Activities and an Android foreground service during active journeys.
 - **Side Quests** — Optional exploration tasks with GPS, photo, and AI-assisted photo verification (Google Gemini). Quests award XP and can be published to the activity feed.
 - **Social & Activity Feed** — Follow other explorers, browse a home feed of journeys and quest completions, give kudos, and comment on activities. Includes a Find People search and XP-based leaderboard.
+- **Party mode** — Team up with friends to compete to claim tiles in a fast-paced, time-based mode.
 - **You Dashboard** — Personal profile with statistics, weekly charts, recent visits, top places, home base, and owned activities.
 - **Notifications** — In-app banners for social events (follows, follow requests) and local notifications for fog decay warnings.
 - **Settings** — Profile editing, theme (light / dark / dynamic day-night), fog decay difficulty, and private account toggle.
