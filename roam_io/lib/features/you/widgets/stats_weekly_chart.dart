@@ -7,6 +7,7 @@ import 'package:flutter/services.dart';
 import '../../../theme/app_surfaces.dart';
 import '../models/stats_chart_scale.dart';
 import '../models/stats_metric_bucket.dart';
+import '../../../theme/app_accessibility.dart';
 
 /// Interactive trend chart with shared time filters and direct manipulation.
 class StatsWeeklyChart extends StatefulWidget {
@@ -123,7 +124,7 @@ class _StatsWeeklyChartState extends State<StatsWeeklyChart> {
           height: 148,
           width: double.infinity,
           child: AnimatedSwitcher(
-            duration: const Duration(milliseconds: 180),
+            duration: context.motionDuration(const Duration(milliseconds: 180)),
             switchInCurve: Curves.easeOutCubic,
             switchOutCurve: Curves.easeInCubic,
             transitionBuilder: (child, animation) =>

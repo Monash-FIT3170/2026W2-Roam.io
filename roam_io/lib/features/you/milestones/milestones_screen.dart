@@ -18,6 +18,7 @@ import 'milestone_catalog.dart';
 import 'milestone_format.dart';
 import 'milestone_progress.dart';
 import 'milestones_provider.dart';
+import '../../../theme/app_accessibility.dart';
 
 /// You-tab surface for milestone progress and tier claims.
 class MilestonesScreen extends StatelessWidget {
@@ -234,7 +235,7 @@ class _CollectionProgress extends StatelessWidget {
           borderRadius: BorderRadius.circular(999),
           child: TweenAnimationBuilder<double>(
             tween: Tween<double>(begin: 0, end: progress.clamp(0.0, 1.0)),
-            duration: const Duration(milliseconds: 520),
+            duration: context.motionDuration(const Duration(milliseconds: 520)),
             curve: Curves.easeOutCubic,
             builder: (context, value, _) => LinearProgressIndicator(
               value: value,
@@ -321,7 +322,9 @@ void _showBadgePreview(BuildContext context, _EarnedBadge badge) {
     barrierDismissible: true,
     barrierLabel: 'Close badge preview',
     barrierColor: Colors.black.withValues(alpha: 0.72),
-    transitionDuration: const Duration(milliseconds: 200),
+    transitionDuration: context.motionDuration(
+      const Duration(milliseconds: 200),
+    ),
     pageBuilder: (context, animation, secondaryAnimation) {
       return SafeArea(
         child: Material(

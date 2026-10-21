@@ -15,15 +15,15 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../../services/profile_service.dart';
-import '../../journeys/data/journey_service.dart';
 import '../../../shared/widgets/app_page_transition.dart';
 import '../../../theme/app_surfaces.dart';
 import '../../activity_feed/data/activity_feed_service.dart';
-import '../../activity_feed/data/comment_service.dart';
 import '../../activity_feed/data/comment_like_service.dart';
+import '../../activity_feed/data/comment_service.dart';
 import '../../activity_feed/data/kudos_service.dart';
 import '../../activity_feed/models/activity_feed_item.dart';
 import '../../auth/providers/auth_provider.dart';
+import '../../journeys/data/journey_service.dart';
 import '../../map/data/visit_service.dart';
 import '../../map/data/visited_region_service.dart';
 import '../../party/providers/current_party_provider.dart';

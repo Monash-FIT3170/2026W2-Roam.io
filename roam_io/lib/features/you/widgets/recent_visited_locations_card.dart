@@ -8,10 +8,10 @@
 import 'package:flutter/material.dart';
 
 import '../../../shared/utils/app_date_format.dart';
-import '../../map/data/visit.dart';
-import '../../profile/domain/xp_reward_config.dart';
 import '../../../theme/app_colours.dart';
 import '../../../theme/app_surfaces.dart';
+import '../../map/data/visit.dart';
+import '../../profile/domain/xp_reward_config.dart';
 import 'stats_section_card.dart';
 
 /// Maximum visit rows shown in the Recent Visited Locations card.

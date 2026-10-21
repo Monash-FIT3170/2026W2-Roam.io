@@ -10,6 +10,7 @@
  */
 
 import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -28,9 +29,10 @@ import '../domain/activity_route.dart';
 import '../models/activity_comment.dart';
 import '../models/activity_feed_item.dart';
 import 'activity_glazers_sheet.dart';
-import 'activity_media_carousel.dart';
 import 'activity_map_preview.dart';
+import 'activity_media_carousel.dart';
 import 'route_marker_icons.dart';
+import '../../../theme/app_accessibility.dart';
 
 export '../models/activity_feed_item.dart' show ActivityFeedMetric;
 
@@ -1113,7 +1115,7 @@ class _BounceIconState extends State<_BounceIcon>
   @override
   void didUpdateWidget(_BounceIcon oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (widget.active && !oldWidget.active) {
+    if (widget.active && !oldWidget.active && !context.reduceMotion) {
       _controller.forward(from: 0);
     }
   }

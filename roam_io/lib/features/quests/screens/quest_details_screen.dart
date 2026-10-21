@@ -7,6 +7,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../../../theme/app_accessibility.dart';
 import '../../../theme/app_colours.dart';
 import '../../../theme/app_surfaces.dart';
 import '../../auth/providers/auth_provider.dart';
@@ -246,6 +247,9 @@ class _QuestDetailsScreenState extends State<QuestDetailsScreen> {
   Future<void> _showPhotoOptions() async {
     final source = await showModalBottomSheet<ImageSourceChoice>(
       context: context,
+      sheetAnimationStyle: context.reduceMotion
+          ? AnimationStyle.noAnimation
+          : null,
       backgroundColor: AppSurfaces.card(context),
       showDragHandle: true,
       builder: (sheetContext) {
