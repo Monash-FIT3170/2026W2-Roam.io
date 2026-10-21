@@ -223,6 +223,22 @@ class FogController extends ChangeNotifier {
     return dissolveSet.pruneCompleted(_clock).isNotEmpty;
   }
 
+  /// Settles every running dissolve and fog return at once, for Reduce Motion.
+  ///
+  /// Unlocked regions keep their holes and returning regions end up fogged, so
+  /// only the transition between the two states is skipped.
+  void settleAnimations() {
+    final transition = _returnTransition;
+    if (transition != null) {
+      dissolveSet.clear();
+      _completeFogReturn(transition);
+      return;
+    }
+    if (dissolveSet.isEmpty) return;
+    dissolveSet.clear();
+    notifyListeners();
+  }
+
   /// Clears all fog state, for sign-out or account switch.
   void reset() {
     _geometry?.clear();

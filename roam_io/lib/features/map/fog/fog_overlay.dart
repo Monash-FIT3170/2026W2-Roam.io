@@ -16,6 +16,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 
+import '../../../theme/app_accessibility.dart';
 import 'fog_atlas.dart';
 import 'fog_atlas_cache.dart';
 import 'fog_controller.dart';
@@ -75,6 +76,9 @@ class _FogOverlayState extends State<FogOverlay>
   Brightness? _heldAtlasBrightness;
   bool _isAppResumed = true;
 
+  /// True when the device asks for non-essential motion to be minimised.
+  bool _reduceMotion = false;
+
   final FogWind _wind = FogWind();
 
   /// The fog clock: what dissolves and fog returns are timed against.
@@ -106,6 +110,7 @@ class _FogOverlayState extends State<FogOverlay>
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
+    _reduceMotion = context.reduceMotion;
     if (widget.atlasOverride != null) return;
 
     final brightness = Theme.of(context).brightness;
@@ -201,6 +206,11 @@ class _FogOverlayState extends State<FogOverlay>
   void _onTick(Duration elapsed) {
     final controller = widget.controller;
 
+    // Reduce Motion: unlock dissolves and fog returns resolve at once, and the
+    // clouds hold still instead of drifting.
+    if (_reduceMotion) controller.settleAnimations();
+    final holdWind = widget.isJourneyActive || _reduceMotion;
+
     // Ticker time paces the frame; fog-clock time drives the animations. They
     // differ by every stop the ticker has taken. See [_clockBase].
     final clock = _clockBase + elapsed;
@@ -213,7 +223,7 @@ class _FogOverlayState extends State<FogOverlay>
     _wind.advance(
       elapsed,
       userSpeedMetresPerSecond: controller.userSpeedMetresPerSecond,
-      isHeld: widget.isJourneyActive,
+      isHeld: holdWind,
     );
 
     // With the wind held for a journey and the camera settled, the sheet is
@@ -226,7 +236,7 @@ class _FogOverlayState extends State<FogOverlay>
     // The clock still advances so a region unlocked during the skip is timed
     // from now rather than from the last painted frame, which would otherwise
     // start its dissipation part-finished.
-    if (widget.isJourneyActive &&
+    if (holdWind &&
         !isBusy &&
         !hasReturnAnimation &&
         _motionEase >= 1.0 &&
@@ -332,7 +342,7 @@ class _FogOverlayState extends State<FogOverlay>
             ),
           ),
         ),
-        if (controller.returnTransition != null)
+        if (controller.returnTransition != null && !_reduceMotion)
           Positioned(
             top: MediaQuery.paddingOf(context).top + 72,
             left: 0,

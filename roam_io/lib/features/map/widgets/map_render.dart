@@ -9,8 +9,8 @@
 import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 
-import '../domain/map_styles.dart';
 import '../data/map_viewport_policy.dart';
+import '../domain/map_styles.dart';
 
 /// Stateless Google Map wrapper used by the map page.
 class MapRender extends StatelessWidget {

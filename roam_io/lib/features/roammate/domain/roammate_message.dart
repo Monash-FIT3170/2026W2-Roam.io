@@ -60,4 +60,29 @@ class RoammateMessage {
 
     return RoammateMessage(text: text, speech: speech);
   }
+
+  /// Message produced when the user walks into a new tile.
+  factory RoammateMessage.tileEntered({
+    required String regionName,
+    required List<String> placeNames,
+  }) {
+    if (placeNames.isEmpty) {
+      return RoammateMessage(
+        text: 'Entered $regionName',
+        speech: 'You have entered $regionName. No new locations here.',
+      );
+    }
+    final count = placeNames.length;
+    final shown = placeNames.take(3).toList();
+    final more = count > shown.length
+        ? ' and ${count - shown.length} more'
+        : '';
+    return RoammateMessage(
+      text: 'Entered $regionName • $count locations',
+      speech:
+          'You have entered $regionName. '
+          '${count == 1 ? 'There is 1 location' : 'There are $count locations'}'
+          ' here: ${shown.join(', ')}$more.',
+    );
+  }
 }

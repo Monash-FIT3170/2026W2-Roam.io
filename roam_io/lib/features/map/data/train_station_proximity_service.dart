@@ -9,10 +9,10 @@
 import 'package:flutter/foundation.dart';
 import 'package:geolocator/geolocator.dart';
 
-import '../../journeys/domain/nearby_place.dart';
 import '../../../notifications/models/app_notification.dart';
 import '../../../notifications/services/notification_service.dart';
 import '../../../notifications/templates/notification_templates.dart';
+import '../../journeys/domain/nearby_place.dart';
 import 'places_service.dart';
 
 typedef TrainStationAlertShow =

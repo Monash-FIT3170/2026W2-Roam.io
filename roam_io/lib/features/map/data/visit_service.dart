@@ -10,8 +10,8 @@
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 
-import '../domain/visit_event.dart';
 import '../../you/services/stats_summary_service.dart';
+import '../domain/visit_event.dart';
 import 'place_of_interest.dart';
 import 'visit.dart';
 
