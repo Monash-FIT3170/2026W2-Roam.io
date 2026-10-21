@@ -12,9 +12,7 @@ void main() {
         await tester.pumpWidget(
           MaterialApp(
             builder: (context, child) => MediaQuery(
-              data: MediaQuery.of(
-                context,
-              ).copyWith(disableAnimations: reduce),
+              data: MediaQuery.of(context).copyWith(disableAnimations: reduce),
               child: Builder(
                 builder: (context) =>
                     AppAccessibility.wrap(context, child, largerText: false),
