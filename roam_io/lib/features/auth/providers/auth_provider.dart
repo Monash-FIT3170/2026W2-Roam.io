@@ -13,14 +13,14 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
 import 'package:image_picker/image_picker.dart';
 
-import '../data/auth_repository.dart';
+import '../../../theme/app_theme_mode.dart';
+import '../../map/fog/fog_decay_difficulty.dart';
 import '../../profile/domain/pending_xp_celebration.dart';
 import '../../profile/domain/profile_model.dart';
 import '../../profile/domain/xp_award_result.dart';
 import '../../profile/domain/xp_event.dart';
 import '../../social/domain/social_privacy_settings.dart';
-import '../../../theme/app_theme_mode.dart';
-import '../../map/fog/fog_decay_difficulty.dart';
+import '../data/auth_repository.dart';
 
 /// High-level authentication state used by auth gates and account screens.
 enum AuthViewState { loading, authenticated, unauthenticated }
@@ -63,6 +63,10 @@ class AuthProvider extends ChangeNotifier {
   bool get darkModeEnabled => _currentProfile?.darkModeEnabled ?? false;
   bool get roammateVoiceEnabled =>
       _currentProfile?.roammateVoiceEnabled ?? false;
+  bool get highContrastEnabled => _currentProfile?.highContrastEnabled ?? false;
+  bool get largerTextEnabled => _currentProfile?.largerTextEnabled ?? false;
+  double get largerTextScale =>
+      _currentProfile?.largerTextScale ?? ProfileModel.defaultTextScale;
 
   /// Full XP celebration payload (milestone claim or level-up).
   PendingXpCelebration? get pendingXpCelebration => _pendingXpCelebration;
@@ -269,6 +273,45 @@ class AuthProvider extends ChangeNotifier {
       await _authRepository.updateRoammateVoicePreference(enabled);
       _currentProfile = _currentProfile?.copyWith(
         roammateVoiceEnabled: enabled,
+        updatedAt: DateTime.now(),
+      );
+    });
+  }
+
+  /// Persists the High Contrast preference and updates local profile state.
+  Future<void> updateHighContrastPreference(bool enabled) async {
+    await _runAuthAction(() async {
+      await _authRepository.updateHighContrastPreference(enabled);
+      _currentProfile = _currentProfile?.copyWith(
+        highContrastEnabled: enabled,
+        updatedAt: DateTime.now(),
+      );
+    });
+  }
+
+  /// Persists the Larger Text preference and updates local profile state.
+  Future<void> updateLargerTextPreference(bool enabled) async {
+    await _runAuthAction(() async {
+      await _authRepository.updateLargerTextPreference(enabled);
+      _currentProfile = _currentProfile?.copyWith(
+        largerTextEnabled: enabled,
+        updatedAt: DateTime.now(),
+      );
+    });
+  }
+
+  /// Applies [scale] locally while the slider is dragged, without saving.
+  void previewLargerTextScale(double scale) {
+    _currentProfile = _currentProfile?.copyWith(largerTextScale: scale);
+    notifyListeners();
+  }
+
+  /// Persists the Larger Text scale and updates local profile state.
+  Future<void> updateLargerTextScale(double scale) async {
+    await _runAuthAction(() async {
+      await _authRepository.updateLargerTextScale(scale);
+      _currentProfile = _currentProfile?.copyWith(
+        largerTextScale: scale,
         updatedAt: DateTime.now(),
       );
     });

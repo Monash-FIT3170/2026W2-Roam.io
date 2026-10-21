@@ -6,19 +6,19 @@
  *   workflows, including Settings account edit flows and XP awards.
  */
 
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:crypto/crypto.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:image_picker/image_picker.dart';
 
-import '../../profile/domain/profile_model.dart';
-import '../../map/fog/fog_decay_difficulty.dart';
-import '../../profile/domain/xp_award_result.dart';
-import '../../profile/domain/xp_event.dart';
-import '../../social/domain/social_privacy_settings.dart';
 import '../../../services/auth_service.dart';
 import '../../../services/profile_service.dart';
 import '../../../services/storage_service.dart';
 import '../../../theme/app_theme_mode.dart';
+import '../../map/fog/fog_decay_difficulty.dart';
+import '../../profile/domain/profile_model.dart';
+import '../../profile/domain/xp_award_result.dart';
+import '../../profile/domain/xp_event.dart';
+import '../../social/domain/social_privacy_settings.dart';
 
 /// Orchestrates multi-step auth, profile, and profile photo workflows.
 class AuthRepository {
@@ -205,6 +205,51 @@ class AuthRepository {
       uid: user.uid,
       enabled: enabled,
     );
+  }
+
+  /// Persists whether the high-contrast theme is used.
+  Future<void> updateHighContrastPreference(bool enabled) async {
+    final user = currentUser;
+    if (user == null) {
+      throw FirebaseAuthException(
+        code: 'user-not-found',
+        message: 'No logged in user found.',
+      );
+    }
+
+    await _profileService.updateHighContrastPreference(
+      uid: user.uid,
+      enabled: enabled,
+    );
+  }
+
+  /// Persists whether Larger Text is applied.
+  Future<void> updateLargerTextPreference(bool enabled) async {
+    final user = currentUser;
+    if (user == null) {
+      throw FirebaseAuthException(
+        code: 'user-not-found',
+        message: 'No logged in user found.',
+      );
+    }
+
+    await _profileService.updateLargerTextPreference(
+      uid: user.uid,
+      enabled: enabled,
+    );
+  }
+
+  /// Persists how much Larger Text multiplies the system text scale by.
+  Future<void> updateLargerTextScale(double scale) async {
+    final user = currentUser;
+    if (user == null) {
+      throw FirebaseAuthException(
+        code: 'user-not-found',
+        message: 'No logged in user found.',
+      );
+    }
+
+    await _profileService.updateLargerTextScale(uid: user.uid, scale: scale);
   }
 
   /// Legacy wrapper retained for older callers and tests.

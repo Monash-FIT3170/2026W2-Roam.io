@@ -12,8 +12,8 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/foundation.dart';
 
-import '../features/profile/domain/profile_model.dart';
 import '../features/map/fog/fog_decay_difficulty.dart';
+import '../features/profile/domain/profile_model.dart';
 import '../features/profile/domain/xp_award_result.dart';
 import '../features/profile/domain/xp_event.dart';
 import '../features/social/data/friendship_service.dart';
@@ -123,6 +123,39 @@ class ProfileService {
   }) {
     return _profiles.doc(uid).update(<String, dynamic>{
       'roammateVoiceEnabled': enabled,
+      'updatedAt': DateTime.now().toIso8601String(),
+    });
+  }
+
+  /// Updates whether the high-contrast theme is used.
+  Future<void> updateHighContrastPreference({
+    required String uid,
+    required bool enabled,
+  }) {
+    return _profiles.doc(uid).update(<String, dynamic>{
+      'highContrastEnabled': enabled,
+      'updatedAt': DateTime.now().toIso8601String(),
+    });
+  }
+
+  /// Updates whether Larger Text is applied on top of the system text scale.
+  Future<void> updateLargerTextPreference({
+    required String uid,
+    required bool enabled,
+  }) {
+    return _profiles.doc(uid).update(<String, dynamic>{
+      'largerTextEnabled': enabled,
+      'updatedAt': DateTime.now().toIso8601String(),
+    });
+  }
+
+  /// Updates how much Larger Text multiplies the system text scale by.
+  Future<void> updateLargerTextScale({
+    required String uid,
+    required double scale,
+  }) {
+    return _profiles.doc(uid).update(<String, dynamic>{
+      'largerTextScale': scale,
       'updatedAt': DateTime.now().toIso8601String(),
     });
   }

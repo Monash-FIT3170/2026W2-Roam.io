@@ -7,6 +7,7 @@
  */
 
 import 'package:flutter/material.dart';
+import 'app_accessibility.dart';
 import 'app_colours.dart';
 
 /// Supplies theme-aware surface and text colors for custom UI components.
@@ -22,22 +23,26 @@ class AppSurfaces {
 
   /// Surface for primary cards, such as Settings and You screen cards.
   static Color card(BuildContext context) {
+    if (context.highContrast) return Theme.of(context).colorScheme.surface;
     return isDark(context) ? AppColors.darkSurface : AppColors.sand;
   }
 
   /// Surface for nested cards and fields inside a main card.
   static Color innerCard(BuildContext context) {
+    if (context.highContrast) return Theme.of(context).colorScheme.surface;
     return isDark(context) ? AppColors.darkElevated : const Color(0xFFF6EBD8);
   }
 
   /// Surface for subtle standalone controls, chips, and secondary cards.
   static Color softCard(BuildContext context) {
+    if (context.highContrast) return Theme.of(context).colorScheme.surface;
     return isDark(context) ? AppColors.darkSoft : AppColors.cream;
   }
 
   /// Border color tuned for the current theme brightness.
   static Color border(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
+    if (context.highContrast) return colorScheme.outline;
 
     return colorScheme.primary.withValues(alpha: isDark(context) ? 0.24 : 0.12);
   }
@@ -45,12 +50,16 @@ class AppSurfaces {
   /// Divider between distinct sections; stronger than [border] so flat
   /// layouts still read as separate blocks.
   static Color sectionDivider(BuildContext context) {
+    if (context.highContrast) return Theme.of(context).colorScheme.outline;
     return AppColors.sage.withValues(alpha: isDark(context) ? 0.45 : 0.32);
   }
 
   /// Unfilled part of progress bars, tinted so it stays visible against the
   /// page and cards in both themes.
   static Color progressTrack(BuildContext context) {
+    if (context.highContrast) {
+      return Theme.of(context).colorScheme.outline.withValues(alpha: 0.4);
+    }
     return AppColors.sage.withValues(alpha: isDark(context) ? 0.38 : 0.28);
   }
 
@@ -61,11 +70,13 @@ class AppSurfaces {
 
   /// Muted text color for secondary content.
   static Color textMuted(BuildContext context) {
+    if (context.highContrast) return Theme.of(context).colorScheme.onSurface;
     return Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6);
   }
 
   /// Subtle text color for low-emphasis labels and icons.
   static Color textSubtle(BuildContext context) {
+    if (context.highContrast) return Theme.of(context).colorScheme.onSurface;
     return Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.42);
   }
 

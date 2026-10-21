@@ -14,6 +14,13 @@ import '../../social/domain/social_privacy_settings.dart';
 
 /// App-level profile entity stored in Firestore at `profiles/{uid}`.
 class ProfileModel {
+  /// Text scale applied by Larger Text until the user picks their own.
+  static const double defaultTextScale = 1.2;
+
+  /// Smallest and largest scales the Larger Text slider offers.
+  static const double minTextScale = 1.0;
+  static const double maxTextScale = 1.8;
+
   /// Maximum level a user can reach.
   static const int maxLevel = 100;
 
@@ -68,6 +75,9 @@ class ProfileModel {
     AppThemeMode themeMode = AppThemeMode.light,
     this.fogDecayDifficulty = FogDecayDifficulty.quarterly,
     this.roammateVoiceEnabled = false,
+    this.highContrastEnabled = false,
+    this.largerTextEnabled = false,
+    this.largerTextScale = defaultTextScale,
     this.onboardingCompleted = true,
     bool? darkModeEnabled,
     this.privacy = const SocialPrivacySettings(),
@@ -88,6 +98,15 @@ class ProfileModel {
   final AppThemeMode themeMode;
   final FogDecayDifficulty fogDecayDifficulty;
   final bool roammateVoiceEnabled;
+
+  /// Use the high-contrast themes regardless of system settings.
+  final bool highContrastEnabled;
+
+  /// Boost text size on top of the system text scale.
+  final bool largerTextEnabled;
+
+  /// How much Larger Text multiplies the system text scale by.
+  final double largerTextScale;
 
   /// Missing on older accounts, which can replay the tutorial from Settings.
   final bool onboardingCompleted;
@@ -112,6 +131,9 @@ class ProfileModel {
     AppThemeMode? themeMode,
     FogDecayDifficulty? fogDecayDifficulty,
     bool? roammateVoiceEnabled,
+    bool? highContrastEnabled,
+    bool? largerTextEnabled,
+    double? largerTextScale,
     bool? onboardingCompleted,
     bool? darkModeEnabled,
     SocialPrivacySettings? privacy,
@@ -132,6 +154,9 @@ class ProfileModel {
           : (darkModeEnabled ? AppThemeMode.dark : AppThemeMode.light),
       fogDecayDifficulty: fogDecayDifficulty ?? this.fogDecayDifficulty,
       roammateVoiceEnabled: roammateVoiceEnabled ?? this.roammateVoiceEnabled,
+      highContrastEnabled: highContrastEnabled ?? this.highContrastEnabled,
+      largerTextEnabled: largerTextEnabled ?? this.largerTextEnabled,
+      largerTextScale: largerTextScale ?? this.largerTextScale,
       onboardingCompleted: onboardingCompleted ?? this.onboardingCompleted,
       privacy: privacy ?? this.privacy,
       xp: xp ?? this.xp,
@@ -151,6 +176,9 @@ class ProfileModel {
       'themeMode': themeMode.storageValue,
       'fogDecayDifficulty': fogDecayDifficulty.storageValue,
       'roammateVoiceEnabled': roammateVoiceEnabled,
+      'highContrastEnabled': highContrastEnabled,
+      'largerTextEnabled': largerTextEnabled,
+      'largerTextScale': largerTextScale,
       'onboardingCompleted': onboardingCompleted,
       // Retained for compatibility with clients that predate Dynamic mode.
       'darkModeEnabled': darkModeEnabled,
@@ -192,6 +220,11 @@ class ProfileModel {
         map['fogDecayDifficulty'],
       ),
       roammateVoiceEnabled: map['roammateVoiceEnabled'] == true,
+      highContrastEnabled: map['highContrastEnabled'] == true,
+      largerTextEnabled: map['largerTextEnabled'] == true,
+      largerTextScale:
+          ((map['largerTextScale'] as num?)?.toDouble() ?? defaultTextScale)
+              .clamp(minTextScale, maxTextScale),
       onboardingCompleted: map['onboardingCompleted'] != false,
       privacy: SocialPrivacySettings.fromMap(map['privacy']),
       xp: (map['xp'] as num?)?.toInt() ?? 0,

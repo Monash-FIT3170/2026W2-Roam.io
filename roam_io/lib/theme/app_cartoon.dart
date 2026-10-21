@@ -8,6 +8,7 @@
 
 import 'package:flutter/material.dart';
 
+import 'app_accessibility.dart';
 import 'app_colours.dart';
 import 'app_surfaces.dart';
 
@@ -17,14 +18,21 @@ class AppCartoon {
   static const double shadowOffset = 4;
 
   /// Soft sage hairline drawn around surfaces, matching the app's borders.
-  static Color outline(BuildContext context) => AppColors.sage.withValues(
-    alpha: AppSurfaces.isDark(context) ? 0.4 : 0.28,
-  );
+  static Color outline(BuildContext context) {
+    // High Contrast: a solid black (or white) outline, not a sage hairline.
+    if (context.highContrast) return Theme.of(context).colorScheme.outline;
+    return AppColors.sage.withValues(
+      alpha: AppSurfaces.isDark(context) ? 0.4 : 0.28,
+    );
+  }
 
   /// Hard, unblurred drop shadow colour.
-  static Color shadowColour(BuildContext context) => AppSurfaces.isDark(context)
-      ? Colors.black.withValues(alpha: 0.7)
-      : AppColors.ink;
+  static Color shadowColour(BuildContext context) {
+    if (context.highContrast) return Theme.of(context).colorScheme.outline;
+    return AppSurfaces.isDark(context)
+        ? Colors.black.withValues(alpha: 0.7)
+        : AppColors.ink;
+  }
 
   static List<BoxShadow> hardShadow(
     BuildContext context, {
@@ -196,7 +204,7 @@ class _CartoonPressableState extends State<CartoonPressable> {
       onPointerUp: (_) => _setPressed(false),
       onPointerCancel: (_) => _setPressed(false),
       child: AnimatedContainer(
-        duration: const Duration(milliseconds: 90),
+        duration: context.motionDuration(const Duration(milliseconds: 90)),
         curve: Curves.easeOut,
         transform: Matrix4.translationValues(0, down ? offset : 0, 0),
         decoration: BoxDecoration(
@@ -310,12 +318,14 @@ class CartoonPageHeader extends StatelessWidget {
                 ),
                 clipBehavior: Clip.antiAlias,
                 child: SizedBox.square(
-                  dimension: 42,
+                  dimension: AppAccessibility.minTapTarget,
                   child: BackButton(
                     color: AppSurfaces.textPrimary(context),
                     style: IconButton.styleFrom(
                       padding: EdgeInsets.zero,
-                      minimumSize: const Size.square(42),
+                      minimumSize: const Size.square(
+                        AppAccessibility.minTapTarget,
+                      ),
                     ),
                   ),
                 ),
