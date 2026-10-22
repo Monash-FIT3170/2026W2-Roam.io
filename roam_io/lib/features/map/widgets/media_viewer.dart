@@ -326,7 +326,7 @@ class _VideoViewerState extends State<_VideoViewer>
           ),
           // Play/pause overlay
           AnimatedOpacity(
-            opacity: _controller.value.isPlaying ? 0.0 : 1.0,
+            opacity: isPlaying ? 0.0 : 1.0,
             duration: context.motionDuration(const Duration(milliseconds: 200)),
             child: Container(
               padding: const EdgeInsets.all(16),
