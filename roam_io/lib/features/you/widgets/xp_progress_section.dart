@@ -9,8 +9,8 @@
 
 import 'package:flutter/material.dart';
 
-import '../../profile/domain/profile_model.dart';
 import '../../../theme/app_surfaces.dart';
+import '../../profile/domain/profile_model.dart';
 
 /// Green app-styled XP and level progress section for the You page.
 class XpProgressSection extends StatelessWidget {

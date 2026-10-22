@@ -8,12 +8,13 @@
  *   best-effort creates one current notification row. Unfollow removes it.
  */
 
-import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:flutter/foundation.dart';
 import 'dart:async';
 
-import '../domain/follow_relationship_state.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flutter/foundation.dart';
+
 import '../domain/follow.dart';
+import '../domain/follow_relationship_state.dart';
 import '../domain/social_notification.dart';
 import 'follow_request_service.dart';
 

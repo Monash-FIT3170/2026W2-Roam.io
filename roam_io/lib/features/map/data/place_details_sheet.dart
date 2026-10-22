@@ -10,14 +10,15 @@
 import 'package:flutter/material.dart';
 
 import '../../../shared/widgets/app_toast.dart';
+import '../../../theme/app_accessibility.dart';
 import '../../../theme/app_colours.dart';
 import '../../profile/domain/xp_reward_config.dart';
 import '../widgets/media_viewer.dart';
+import '../widgets/place_visit_status_card.dart';
 import 'map_controller.dart';
 import 'place_of_interest.dart';
 import 'visit.dart';
 import 'visit_form_sheet.dart';
-import '../widgets/place_visit_status_card.dart';
 
 /// Bottom sheet displayed when a place marker is tapped.
 /// Shows place details and allows marking the place as visited.
@@ -45,6 +46,9 @@ class PlaceDetailsSheet extends StatefulWidget {
   }) {
     return showModalBottomSheet(
       context: context,
+      sheetAnimationStyle: context.reduceMotion
+          ? AnimationStyle.noAnimation
+          : null,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       builder: (context) => PlaceDetailsSheet(

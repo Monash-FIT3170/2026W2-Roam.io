@@ -11,6 +11,7 @@ import '../../../theme/app_surfaces.dart';
 import 'milestone_badge_image.dart';
 import 'milestone_format.dart';
 import 'milestone_progress.dart';
+import '../../../theme/app_accessibility.dart';
 
 /// Single milestone row on the Milestones tab.
 class MilestoneCard extends StatefulWidget {
@@ -53,7 +54,9 @@ class _MilestoneCardState extends State<MilestoneCard>
   @override
   void didUpdateWidget(covariant MilestoneCard oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (widget.playClaimAnimation && !oldWidget.playClaimAnimation) {
+    if (widget.playClaimAnimation &&
+        !oldWidget.playClaimAnimation &&
+        !context.reduceMotion) {
       _controller.forward(from: 0);
     }
   }
@@ -325,7 +328,9 @@ class _MilestoneProgressBar extends StatelessWidget {
             ColoredBox(color: track),
             TweenAnimationBuilder<double>(
               tween: Tween<double>(begin: 0, end: progress),
-              duration: const Duration(milliseconds: 460),
+              duration: context.motionDuration(
+                const Duration(milliseconds: 460),
+              ),
               curve: Curves.easeOutCubic,
               builder: (context, value, _) => FractionallySizedBox(
                 widthFactor: value,

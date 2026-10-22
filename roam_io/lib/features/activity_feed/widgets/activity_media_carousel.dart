@@ -11,6 +11,7 @@ import 'package:flutter/material.dart';
 import '../../../theme/app_surfaces.dart';
 import '../data/activity_map_image.dart';
 import '../models/activity_media_item.dart';
+import '../../../theme/app_accessibility.dart';
 
 /// Swipeable activity media preview.
 class ActivityMediaCarousel extends StatefulWidget {
@@ -92,7 +93,9 @@ class _ActivityMediaCarouselState extends State<ActivityMediaCarousel> {
                     children: [
                       for (var i = 0; i < itemCount; i += 1)
                         AnimatedContainer(
-                          duration: const Duration(milliseconds: 180),
+                          duration: context.motionDuration(
+                            const Duration(milliseconds: 180),
+                          ),
                           width: 5,
                           height: 5,
                           margin: const EdgeInsets.symmetric(horizontal: 3),

@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 
 import '../../../services/storage_service.dart';
+import '../../../theme/app_accessibility.dart';
 import '../../../theme/app_colours.dart';
 import '../../../theme/app_surfaces.dart';
 import '../domain/journey_location.dart';
@@ -26,6 +27,9 @@ class CustomLocationFormSheet extends StatefulWidget {
   }) {
     return showModalBottomSheet<JourneyLocation>(
       context: context,
+      sheetAnimationStyle: context.reduceMotion
+          ? AnimationStyle.noAnimation
+          : null,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       builder: (_) =>

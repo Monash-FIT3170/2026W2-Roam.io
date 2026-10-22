@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../shared/widgets/liquid_glass.dart';
+import '../../../theme/app_accessibility.dart';
 import '../domain/place_visit_feedback.dart';
 
 /// Compact map help that explains the status shapes on demand.
@@ -14,6 +15,9 @@ class PlaceMarkerLegendButton extends StatelessWidget {
       icon: Icons.info_outline_rounded,
       onPressed: () => showModalBottomSheet<void>(
         context: context,
+        sheetAnimationStyle: context.reduceMotion
+            ? AnimationStyle.noAnimation
+            : null,
         isScrollControlled: true,
         backgroundColor: Colors.transparent,
         barrierColor: Colors.black.withValues(alpha: 0.35),

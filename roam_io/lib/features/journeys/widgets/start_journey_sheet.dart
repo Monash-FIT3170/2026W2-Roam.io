@@ -10,6 +10,7 @@ import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 
 import '../../../shared/widgets/liquid_glass.dart';
+import '../../../theme/app_accessibility.dart';
 import '../../../theme/app_colours.dart';
 import '../../../theme/app_surfaces.dart';
 import '../domain/journey_location.dart';
@@ -66,6 +67,9 @@ class StartJourneySheet extends StatefulWidget {
   }) {
     return showModalBottomSheet<StartJourneyResult>(
       context: context,
+      sheetAnimationStyle: context.reduceMotion
+          ? AnimationStyle.noAnimation
+          : null,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       barrierColor: Colors.black.withValues(alpha: 0.35),
@@ -128,7 +132,7 @@ class _StartJourneySheetState extends State<StartJourneySheet> {
 
     return LiquidGlassSheet(
       child: SafeArea(
-        child: Padding(
+        child: SingleChildScrollView(
           padding: const EdgeInsets.all(24),
           child: Column(
             mainAxisSize: MainAxisSize.min,

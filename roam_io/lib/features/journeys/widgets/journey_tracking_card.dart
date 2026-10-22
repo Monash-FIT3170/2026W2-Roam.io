@@ -8,6 +8,7 @@
 
 import 'package:flutter/material.dart';
 
+import '../../../theme/app_accessibility.dart';
 import '../../../theme/app_colours.dart';
 import '../../../theme/app_surfaces.dart';
 import '../domain/transport_mode.dart';
@@ -204,9 +205,15 @@ class _RecordingIndicatorState extends State<_RecordingIndicator>
     _controller = AnimationController(
       duration: const Duration(milliseconds: 1000),
       vsync: this,
-    )..repeat(reverse: true);
+    );
 
     _animation = Tween<double>(begin: 0.4, end: 1.0).animate(_controller);
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _controller.loopUnlessReduced(reduce: context.reduceMotion);
   }
 
   @override

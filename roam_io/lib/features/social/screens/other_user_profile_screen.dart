@@ -11,9 +11,9 @@
  *   for selectedUserId.
  */
 
-import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart' as firebase_auth;
 import 'package:firebase_core/firebase_core.dart';
+import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../../services/profile_service.dart';
@@ -33,8 +33,8 @@ import '../../map/data/visit_service.dart';
 import '../../map/data/visited_region_service.dart';
 import '../../profile/domain/profile_stats.dart';
 import '../../profile/domain/visited_polygon_record.dart';
-import '../../profile/widgets/profile_identity_header.dart';
 import '../../profile/widgets/profile_dashboard.dart';
+import '../../profile/widgets/profile_identity_header.dart';
 import '../../you/providers/you_analytics_provider.dart';
 import '../data/follow_service.dart';
 import '../data/friendship_service.dart';

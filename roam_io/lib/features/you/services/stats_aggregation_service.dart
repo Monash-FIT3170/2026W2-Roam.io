@@ -2,8 +2,8 @@ import 'dart:math' as math;
 
 import '../../journeys/domain/journey.dart';
 import '../../map/data/place_of_interest.dart';
-import '../../map/domain/visit_event.dart';
 import '../../map/data/visit.dart';
+import '../../map/domain/visit_event.dart';
 import '../../profile/domain/home_base.dart';
 import '../../profile/domain/stats_summary.dart';
 import '../../profile/domain/visited_polygon_meta.dart';

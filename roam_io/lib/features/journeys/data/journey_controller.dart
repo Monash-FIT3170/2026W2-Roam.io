@@ -12,11 +12,11 @@ import 'dart:math';
 import 'package:flutter/foundation.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 
+import '../../../notifications/services/live_activity_service.dart';
 import '../domain/journey.dart';
 import '../domain/journey_location.dart';
 import '../domain/journey_phase.dart';
 import '../domain/transport_mode.dart';
-import '../../../notifications/services/live_activity_service.dart';
 import 'journey_service.dart';
 import 'journey_tracking_service.dart';
 import 'polyline_codec.dart';

@@ -14,6 +14,7 @@ import 'package:provider/provider.dart';
 import '../../../../shared/widgets/app_bottom_nav_bar.dart';
 import '../../../../shared/widgets/app_page_transition.dart';
 import '../../../../shared/widgets/app_toast.dart';
+import '../../../../theme/app_accessibility.dart';
 import '../../../../theme/app_cartoon.dart';
 import '../../../../theme/app_surfaces.dart';
 import '../../../activity_feed/data/comment_like_service.dart';
@@ -378,6 +379,9 @@ class _ProfileTabState extends State<ProfileTab> {
     final isOwner = widget.currentUserId == activity.ownerId;
     await showModalBottomSheet<void>(
       context: context,
+      sheetAnimationStyle: context.reduceMotion
+          ? AnimationStyle.noAnimation
+          : null,
       showDragHandle: true,
       builder: (sheetContext) => SafeArea(
         child: Column(

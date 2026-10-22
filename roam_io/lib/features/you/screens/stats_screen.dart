@@ -13,6 +13,7 @@ import '../stats/locations_stats_view.dart';
 import '../stats/tiles_stats_view.dart';
 import '../stats/xp_stats_view.dart';
 import '../widgets/stats_hero_row.dart';
+import '../../../theme/app_accessibility.dart';
 
 /// Statistics page shell: scrollable title + XP hero, sticky full-width pills.
 class StatsScreen extends StatefulWidget {
@@ -127,7 +128,9 @@ class _StatsScreenState extends State<StatsScreen> {
                 padding: EdgeInsets.fromLTRB(24, 16, 24, bottomClearance + 24),
                 sliver: SliverToBoxAdapter(
                   child: AnimatedSwitcher(
-                    duration: const Duration(milliseconds: 220),
+                    duration: context.motionDuration(
+                      const Duration(milliseconds: 220),
+                    ),
                     switchInCurve: Curves.easeOutCubic,
                     switchOutCurve: Curves.easeInCubic,
                     transitionBuilder: (child, animation) => FadeTransition(

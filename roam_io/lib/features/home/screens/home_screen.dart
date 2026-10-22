@@ -10,6 +10,7 @@ import 'package:provider/provider.dart';
 
 import '../../../shared/widgets/app_bottom_nav_bar.dart';
 import '../../../shared/widgets/app_toast.dart';
+import '../../../theme/app_accessibility.dart';
 import '../../../theme/app_colours.dart';
 import '../../../theme/app_surfaces.dart';
 import '../../activity_feed/data/activity_feed_service.dart';
@@ -23,9 +24,9 @@ import '../../activity_feed/screens/comments_screen.dart';
 import '../../activity_feed/widgets/activity_feed_card.dart';
 import '../../activity_feed/widgets/activity_owner_actions.dart';
 import '../../auth/providers/auth_provider.dart';
+import '../../journeys/widgets/journey_share_sheet.dart';
 import '../../social/data/follow_service.dart';
 import '../../social/widgets/private_follow_confirm.dart';
-import '../../journeys/widgets/journey_share_sheet.dart';
 
 /// Top-level Home tab for the friend activity feed foundation.
 class HomeScreen extends StatefulWidget {
@@ -381,6 +382,9 @@ class _HomeActivityCard extends StatelessWidget {
     final theme = Theme.of(context);
     await showModalBottomSheet<void>(
       context: context,
+      sheetAnimationStyle: context.reduceMotion
+          ? AnimationStyle.noAnimation
+          : null,
       showDragHandle: true,
       builder: (sheetContext) => SafeArea(
         child: Column(
@@ -439,6 +443,9 @@ class _HomeActivityCard extends StatelessWidget {
     final theme = Theme.of(context);
     await showModalBottomSheet<void>(
       context: context,
+      sheetAnimationStyle: context.reduceMotion
+          ? AnimationStyle.noAnimation
+          : null,
       showDragHandle: true,
       builder: (sheetContext) => SafeArea(
         child: Column(

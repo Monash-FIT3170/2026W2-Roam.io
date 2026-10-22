@@ -10,15 +10,14 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_native_splash/flutter_native_splash.dart';
 import 'package:provider/provider.dart';
+import 'package:roam_io/notifications/widgets/notification_overlay.dart';
 
+import '../../../shared/widgets/splash_loading_screen.dart';
 import '../../navigation/screens/main_shell_screen.dart';
 import '../../onboarding/screens/onboarding_screen.dart';
 import '../providers/auth_provider.dart';
 import 'login_screen.dart';
 import 'verify_email_screen.dart';
-import 'package:roam_io/notifications/widgets/notification_overlay.dart';
-
-import '../../../shared/widgets/splash_loading_screen.dart';
 
 /// Chooses the correct top-level screen based on authentication state.
 class AuthGateScreen extends StatefulWidget {

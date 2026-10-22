@@ -16,6 +16,7 @@ import '../../features/profile/domain/profile_model.dart';
 import '../../features/you/models/explorer_rank.dart';
 import '../../theme/app_colours.dart';
 import 'app_toast.dart';
+import '../../theme/app_accessibility.dart';
 
 /// Dimmed overlay that animates XP progress and explorer badge level-ups.
 class XpProgressCelebration extends StatefulWidget {
@@ -95,11 +96,29 @@ class _XpProgressCelebrationState extends State<XpProgressCelebration>
         });
       }
     });
+  }
 
+  bool _started = false;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (_started) return;
+    _started = true;
+    // Reduce Motion: jump straight to the end state; the controllers' zero
+    // durations make every forward() complete immediately.
+    if (context.reduceMotion) {
+      _fadeController.duration = Duration.zero;
+      _xpController.duration = Duration.zero;
+      _spinController.duration = Duration.zero;
+    }
     _fadeController.forward();
-    _startXpTimer = Timer(const Duration(milliseconds: 180), () {
-      if (mounted) _xpController.forward();
-    });
+    _startXpTimer = Timer(
+      context.motionDuration(const Duration(milliseconds: 180)),
+      () {
+        if (mounted) _xpController.forward();
+      },
+    );
   }
 
   void _onXpTick() {

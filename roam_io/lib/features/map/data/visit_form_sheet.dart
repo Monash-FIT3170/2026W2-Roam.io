@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 
 import '../../../services/storage_service.dart';
+import '../../../theme/app_accessibility.dart';
 import '../../../theme/app_colours.dart';
 import 'place_of_interest.dart';
 import 'visit.dart';
@@ -76,6 +77,9 @@ class VisitFormSheet extends StatefulWidget {
   }) {
     return showModalBottomSheet<VisitFormResult>(
       context: context,
+      sheetAnimationStyle: context.reduceMotion
+          ? AnimationStyle.noAnimation
+          : null,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       builder: (context) => VisitFormSheet(
@@ -222,6 +226,9 @@ class _VisitFormSheetState extends State<VisitFormSheet> {
   Future<void> _chooseMedia() async {
     final choice = await showModalBottomSheet<String>(
       context: context,
+      sheetAnimationStyle: context.reduceMotion
+          ? AnimationStyle.noAnimation
+          : null,
       builder: (context) => SafeArea(
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -250,6 +257,9 @@ class _VisitFormSheetState extends State<VisitFormSheet> {
   Future<void> _captureMedia() async {
     final choice = await showModalBottomSheet<String>(
       context: context,
+      sheetAnimationStyle: context.reduceMotion
+          ? AnimationStyle.noAnimation
+          : null,
       builder: (context) => SafeArea(
         child: Column(
           mainAxisSize: MainAxisSize.min,

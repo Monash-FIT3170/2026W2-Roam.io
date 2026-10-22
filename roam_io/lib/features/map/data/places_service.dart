@@ -2,9 +2,10 @@ import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
-import 'place_of_interest.dart';
-import 'api_config.dart';
+
 import '../../journeys/domain/nearby_place.dart';
+import 'api_config.dart';
+import 'place_of_interest.dart';
 
 class PlacesService {
   static const int transportEligibilityRadiusMeters = 200;
