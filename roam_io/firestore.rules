@@ -614,6 +614,15 @@ service cloud.firestore {
         );
     }
 
+    function isActivityOwner(activityId) {
+      return isSignedIn()
+        && exists(/databases/$(database)/documents/activities/$(activityId))
+        && (
+          get(/databases/$(database)/documents/activities/$(activityId)).data.ownerId == request.auth.uid
+          || get(/databases/$(database)/documents/activities/$(activityId)).data.profileId == request.auth.uid
+        );
+    }
+
     function isValidActivityNotificationWrite(notificationId, data, userId) {
       return data.keys().hasAll(['activityId'])
         && request.auth.uid == data.actorId
@@ -1042,9 +1051,17 @@ service cloud.firestore {
             ).data.profileId
           )
           && request.resource.data.createdAt is string;
-        allow delete: if canInteractWithActivity(activityId)
-          && userId == request.auth.uid
-          && resource.data.userId == request.auth.uid;
+        allow delete: if (
+            canInteractWithActivity(activityId)
+            && userId == request.auth.uid
+            && resource.data.userId == request.auth.uid
+          ) || (
+            isSignedIn()
+            && (
+              resource.data.activityOwnerId == request.auth.uid
+              || isActivityOwner(activityId)
+            )
+          );
         allow update: if false;
       }
 
@@ -1079,7 +1096,13 @@ service cloud.firestore {
               )
             )
           );
-        allow update, delete: if false;
+        allow update: if false;
+        allow delete: if isActivityOwner(activityId)
+          || (
+            isSignedIn()
+            && resource.data.authorId == request.auth.uid
+            && canInteractWithActivity(activityId)
+          );
 
         match /likes/{userId} {
           allow read: if canInteractWithActivity(activityId);
@@ -1099,9 +1122,11 @@ service cloud.firestore {
               /databases/$(database)/documents/activities/$(activityId)/comments/$(commentId)
             ).data.authorId
             && request.resource.data.createdAt is string;
-          allow delete: if canInteractWithActivity(activityId)
-            && userId == request.auth.uid
-            && resource.data.userId == request.auth.uid;
+          allow delete: if (
+              canInteractWithActivity(activityId)
+              && userId == request.auth.uid
+              && resource.data.userId == request.auth.uid
+            ) || isActivityOwner(activityId);
           allow update: if false;
         }
       }

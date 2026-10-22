@@ -749,6 +749,105 @@ async function runActivityInteractionRulesTests() {
         createdAt,
       }),
     );
+
+    // Viewer likes comment-1
+    await assertSucceeds(
+      viewerDb
+        .collection('activities')
+        .doc('activity-1')
+        .collection('comments')
+        .doc('comment-1')
+        .collection('likes')
+        .doc('viewer')
+        .set({
+          activityId: 'activity-1',
+          commentId: 'comment-1',
+          commentAuthorId: 'viewer',
+          userId: 'viewer',
+          createdAt,
+        }),
+    );
+
+    // Unauthorized third-party user cannot delete kudos, comment likes, or comments
+    const otherDb = testEnv.authenticatedContext('other').firestore();
+    await assertFails(
+      otherDb
+        .collection('activities')
+        .doc('activity-1')
+        .collection('kudos')
+        .doc('viewer')
+        .delete(),
+    );
+    await assertFails(
+      otherDb
+        .collection('activities')
+        .doc('activity-1')
+        .collection('comments')
+        .doc('comment-1')
+        .collection('likes')
+        .doc('viewer')
+        .delete(),
+    );
+    await assertFails(
+      otherDb
+        .collection('activities')
+        .doc('activity-1')
+        .collection('comments')
+        .doc('comment-1')
+        .delete(),
+    );
+
+    // Activity owner can delete kudos, comment likes, and comments on their activity
+    await assertSucceeds(
+      ownerDb
+        .collection('activities')
+        .doc('activity-1')
+        .collection('kudos')
+        .doc('viewer')
+        .delete(),
+    );
+    await assertSucceeds(
+      ownerDb
+        .collection('activities')
+        .doc('activity-1')
+        .collection('comments')
+        .doc('comment-1')
+        .collection('likes')
+        .doc('viewer')
+        .delete(),
+    );
+    await assertSucceeds(
+      ownerDb
+        .collection('activities')
+        .doc('activity-1')
+        .collection('comments')
+        .doc('comment-1')
+        .delete(),
+    );
+
+    // Comment author can also delete their own comment
+    await assertSucceeds(
+      viewerDb.collection('activities').doc('activity-1').collection('comments').doc('comment-2').set({
+        activityId: 'activity-1',
+        authorId: 'viewer',
+        authorDisplayName: 'Viewer',
+        text: 'Another comment',
+        createdAt,
+        updatedAt: createdAt,
+        parentCommentId: null,
+        replyToUserId: null,
+        replyToDisplayName: null,
+      }),
+    );
+    await assertSucceeds(
+      viewerDb
+        .collection('activities')
+        .doc('activity-1')
+        .collection('comments')
+        .doc('comment-2')
+        .delete(),
+    );
+
     console.log('passed: activity interaction subcollection rules');
   } finally {
     await testEnv.cleanup();

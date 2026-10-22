@@ -256,12 +256,33 @@ class ActivityMutationService {
 
   Future<void> _deleteKnownSubcollections(String activityId) async {
     final activityRef = _activities.doc(activityId);
-    await _deleteCollection(activityRef.collection('kudos'));
-    final comments = await activityRef.collection('comments').get();
-    for (final comment in comments.docs) {
-      await _deleteCollection(comment.reference.collection('likes'));
+    try {
+      await _deleteCollection(activityRef.collection('kudos'));
+    } catch (error) {
+      debugPrint(
+        '[ActivityMutationService] kudos cleanup failed '
+        'activityId=$activityId error=$error',
+      );
     }
-    await _deleteCollection(activityRef.collection('comments'));
+    try {
+      final comments = await activityRef.collection('comments').get();
+      for (final comment in comments.docs) {
+        try {
+          await _deleteCollection(comment.reference.collection('likes'));
+        } catch (error) {
+          debugPrint(
+            '[ActivityMutationService] comment likes cleanup failed '
+            'activityId=$activityId commentId=${comment.id} error=$error',
+          );
+        }
+      }
+      await _deleteCollection(activityRef.collection('comments'));
+    } catch (error) {
+      debugPrint(
+        '[ActivityMutationService] comments cleanup failed '
+        'activityId=$activityId error=$error',
+      );
+    }
   }
 
   Future<void> _deleteCollection(
