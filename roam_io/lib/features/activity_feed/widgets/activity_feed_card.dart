@@ -404,7 +404,8 @@ class ActivityFeedCard extends StatelessWidget {
               ),
               child: ActivityMediaCarousel(
                 media: media,
-                onTap: onMediaTap ??
+                onTap:
+                    onMediaTap ??
                     (media.isNotEmpty
                         ? (index) => _handleMediaTap(context, index)
                         : null),

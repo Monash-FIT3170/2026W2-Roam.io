@@ -108,10 +108,7 @@ class _MediaViewerState extends State<MediaViewer> {
         itemBuilder: (context, index) {
           final url = widget.mediaUrls[index];
           if (_isVideo(index, url)) {
-            return _VideoViewer(
-              url: url,
-              isActive: index == _currentIndex,
-            );
+            return _VideoViewer(url: url, isActive: index == _currentIndex);
           }
           return _ImageViewer(url: url);
         },
@@ -170,10 +167,7 @@ class _ImageViewer extends StatelessWidget {
 
 /// Video player with controls.
 class _VideoViewer extends StatefulWidget {
-  const _VideoViewer({
-    required this.url,
-    this.isActive = true,
-  });
+  const _VideoViewer({required this.url, this.isActive = true});
 
   final String url;
   final bool isActive;
@@ -311,7 +305,8 @@ class _VideoViewerState extends State<_VideoViewer>
     }
 
     final isPlaying = controller.value.isPlaying;
-    final isEnded = controller.value.duration > Duration.zero &&
+    final isEnded =
+        controller.value.duration > Duration.zero &&
         controller.value.position >= controller.value.duration;
 
     return GestureDetector(

@@ -118,8 +118,9 @@ class JourneyCard extends StatelessWidget {
                   : (index) => MediaViewer.show(
                       context: context,
                       mediaUrls: activity.mediaUrls,
-                      isVideoFlags:
-                          activity.media.map((m) => m.isVideo).toList(),
+                      isVideoFlags: activity.media
+                          .map((m) => m.isVideo)
+                          .toList(),
                       initialIndex: index,
                     ),
             ),

@@ -347,42 +347,43 @@ void main() {
     expect(tappedMediaIndex, 0);
   });
 
-  testWidgets('tapping media in feed card defaults to pushing MediaViewer route', (
-    tester,
-  ) async {
-    await tester.binding.setSurfaceSize(const Size(400, 1200));
-    addTearDown(() => tester.binding.setSurfaceSize(null));
+  testWidgets(
+    'tapping media in feed card defaults to pushing MediaViewer route',
+    (tester) async {
+      await tester.binding.setSurfaceSize(const Size(400, 1200));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
 
-    final activity = _testActivity(
-      encodedRoute: null,
-      routeBounds: null,
-      media: [
-        _testMedia(id: 'photo-1', order: 0, type: ActivityMediaType.photo),
-      ],
-    );
+      final activity = _testActivity(
+        encodedRoute: null,
+        routeBounds: null,
+        media: [
+          _testMedia(id: 'photo-1', order: 0, type: ActivityMediaType.photo),
+        ],
+      );
 
-    await tester.pumpWidget(
-      MaterialApp(
-        home: Scaffold(
-          body: SingleChildScrollView(
-            child: ActivityFeedCard.fromItem(
-              activity,
-              showKudos: false,
-              showComments: false,
-              showShare: false,
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: SingleChildScrollView(
+              child: ActivityFeedCard.fromItem(
+                activity,
+                showKudos: false,
+                showComments: false,
+                showShare: false,
+              ),
             ),
           ),
         ),
-      ),
-    );
-    await tester.pumpAndSettle();
+      );
+      await tester.pumpAndSettle();
 
-    expect(find.byType(ActivityMediaCarousel), findsOneWidget);
-    await tester.tap(find.byType(ActivityMediaCarousel));
-    await tester.pumpAndSettle();
+      expect(find.byType(ActivityMediaCarousel), findsOneWidget);
+      await tester.tap(find.byType(ActivityMediaCarousel));
+      await tester.pumpAndSettle();
 
-    expect(find.byType(MediaViewer), findsOneWidget);
-  });
+      expect(find.byType(MediaViewer), findsOneWidget);
+    },
+  );
 
   testWidgets('edge-to-edge feed card insets and crops its media viewport', (
     tester,
