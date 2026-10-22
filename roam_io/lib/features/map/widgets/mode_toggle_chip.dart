@@ -34,11 +34,13 @@ class StartJourneyChip extends StatelessWidget {
               children: [
                 const Icon(Icons.play_arrow, size: 20, color: Colors.white),
                 const SizedBox(width: 8),
-                Text(
-                  'Start Journey',
-                  style: theme.textTheme.labelLarge?.copyWith(
-                    fontWeight: FontWeight.w600,
-                    color: Colors.white,
+                Flexible(
+                  child: Text(
+                    'Start Journey',
+                    style: theme.textTheme.labelLarge?.copyWith(
+                      fontWeight: FontWeight.w600,
+                      color: Colors.white,
+                    ),
                   ),
                 ),
               ],

@@ -2,9 +2,9 @@ import 'package:flutter/foundation.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 
+import '../domain/place_visit_feedback.dart';
 import 'place_of_interest.dart';
 import 'places_service.dart';
-import '../domain/place_visit_feedback.dart';
 
 /*
  * Author: Rushil Patel

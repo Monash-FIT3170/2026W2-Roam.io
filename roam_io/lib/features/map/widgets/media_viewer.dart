@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:video_player/video_player.dart';
+import '../../../theme/app_accessibility.dart';
 
 /// Full-screen viewer for photos and videos.
 /// Supports swiping between multiple media items.
@@ -325,8 +326,8 @@ class _VideoViewerState extends State<_VideoViewer>
           ),
           // Play/pause overlay
           AnimatedOpacity(
-            opacity: isPlaying ? 0.0 : 1.0,
-            duration: const Duration(milliseconds: 200),
+            opacity: _controller.value.isPlaying ? 0.0 : 1.0,
+            duration: context.motionDuration(const Duration(milliseconds: 200)),
             child: Container(
               padding: const EdgeInsets.all(16),
               decoration: const BoxDecoration(

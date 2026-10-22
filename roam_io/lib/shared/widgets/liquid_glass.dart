@@ -9,6 +9,7 @@ import 'dart:ui';
 
 import 'package:flutter/material.dart';
 
+import '../../theme/app_accessibility.dart';
 import '../../theme/app_colours.dart';
 import '../../theme/app_surfaces.dart';
 
@@ -46,7 +47,16 @@ class LiquidGlass extends StatelessWidget {
     final Color fill;
     final Color border;
 
-    if (tintColor == null) {
+    final highContrast = context.highContrast;
+    final outline = Theme.of(context).colorScheme.outline;
+
+    if (highContrast) {
+      // Solid fill and a heavy outline, so nothing depends on the map behind.
+      fill =
+          tintColor?.withValues(alpha: 1) ??
+          Theme.of(context).colorScheme.surface;
+      border = borderColor ?? outline;
+    } else if (tintColor == null) {
       fill = Colors.white.withValues(alpha: opacity ?? (isDark ? 0.14 : 0.58));
       border =
           borderColor ?? Colors.white.withValues(alpha: isDark ? 0.28 : 0.72);
@@ -69,7 +79,7 @@ class LiquidGlass extends StatelessWidget {
           decoration: BoxDecoration(
             color: fill,
             borderRadius: borderRadius,
-            border: Border.all(color: border, width: 1),
+            border: Border.all(color: border, width: highContrast ? 2 : 1),
             boxShadow: [
               BoxShadow(
                 color: Colors.black.withValues(alpha: isDark ? 0.28 : 0.14),

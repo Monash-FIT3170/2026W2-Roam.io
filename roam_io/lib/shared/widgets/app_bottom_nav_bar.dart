@@ -9,6 +9,8 @@
 
 import 'package:flutter/material.dart';
 
+import '../../theme/app_accessibility.dart';
+
 /// Renders the app's five-tab bottom navigation with a raised center map tab.
 class AppBottomNavBar extends StatelessWidget {
   /// Height of the bar content inside the shell nav [SafeArea].
@@ -47,6 +49,9 @@ class AppBottomNavBar extends StatelessWidget {
 
   static const int youIndex = 3;
 
+  /// The bar is a fixed height, so its labels stop growing past this scale.
+  static const double maxLabelTextScale = 1.3;
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -58,163 +63,199 @@ class AppBottomNavBar extends StatelessWidget {
         navTheme.unselectedItemColor ??
         colorScheme.onSurface.withValues(alpha: 0.62);
 
-    return SafeArea(
-      top: false,
-      minimum: const EdgeInsets.fromLTRB(14, 0, 14, outerBottomMinimum),
-      child: SizedBox(
-        height: barHeight,
-        child: Stack(
-          clipBehavior: Clip.none,
-          alignment: Alignment.bottomCenter,
-          children: [
-            // The center map tab is rendered separately so it can float above.
-            Positioned(
-              left: 0,
-              right: 0,
-              bottom: 0,
-              child: Container(
-                height: 56,
-                decoration: BoxDecoration(
-                  color: backgroundColor,
-                  borderRadius: BorderRadius.circular(24),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.18),
-                      blurRadius: 24,
-                      offset: const Offset(0, 8),
-                    ),
-                  ],
-                ),
-                child: Row(
-                  children: List.generate(items.length, (index) {
-                    final item = items[index];
-                    final isMap = index == 2;
-                    final isSelected = index == currentIndex;
+    final media = MediaQuery.of(context);
+    final scaleDuration = context.motionDuration(
+      const Duration(milliseconds: 180),
+    );
 
-                    if (isMap) {
-                      return const Expanded(child: SizedBox());
-                    }
+    return MediaQuery(
+      data: media.copyWith(
+        textScaler: media.textScaler.clamp(maxScaleFactor: maxLabelTextScale),
+      ),
+      child: SafeArea(
+        top: false,
+        minimum: const EdgeInsets.fromLTRB(14, 0, 14, outerBottomMinimum),
+        child: SizedBox(
+          height: barHeight,
+          child: Stack(
+            clipBehavior: Clip.none,
+            alignment: Alignment.bottomCenter,
+            children: [
+              // The center map tab is rendered separately so it can float above.
+              Positioned(
+                left: 0,
+                right: 0,
+                bottom: 0,
+                child: Container(
+                  height: 56,
+                  decoration: BoxDecoration(
+                    color: backgroundColor,
+                    borderRadius: BorderRadius.circular(24),
+                    border: context.highContrast
+                        ? Border.all(color: colorScheme.outline, width: 2.5)
+                        : null,
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.18),
+                        blurRadius: 24,
+                        offset: const Offset(0, 8),
+                      ),
+                    ],
+                  ),
+                  child: Row(
+                    children: List.generate(items.length, (index) {
+                      final item = items[index];
+                      final isMap = index == 2;
+                      final isSelected = index == currentIndex;
 
-                    return Expanded(
-                      child: GestureDetector(
-                        onTap: () => onTap(index),
-                        behavior: HitTestBehavior.opaque,
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            AnimatedScale(
-                              scale: isSelected ? 1.14 : 1.0,
-                              duration: const Duration(milliseconds: 180),
-                              curve: Curves.easeOutCubic,
-                              child: Stack(
-                                clipBehavior: Clip.none,
-                                children: [
-                                  Icon(
-                                    isSelected
-                                        ? item.filledIcon
-                                        : item.outlinedIcon,
-                                    size: 24,
+                      if (isMap) {
+                        return const Expanded(child: SizedBox());
+                      }
+
+                      return Expanded(
+                        child: Semantics(
+                          button: true,
+                          selected: isSelected,
+                          label: item.label,
+                          excludeSemantics: true,
+                          onTap: () => onTap(index),
+                          child: GestureDetector(
+                            onTap: () => onTap(index),
+                            behavior: HitTestBehavior.opaque,
+                            child: Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                AnimatedScale(
+                                  scale: isSelected ? 1.14 : 1.0,
+                                  duration: scaleDuration,
+                                  curve: Curves.easeOutCubic,
+                                  child: Stack(
+                                    clipBehavior: Clip.none,
+                                    children: [
+                                      Icon(
+                                        isSelected
+                                            ? item.filledIcon
+                                            : item.outlinedIcon,
+                                        size: 24,
+                                        color: isSelected
+                                            ? selectedColor
+                                            : unselectedColor,
+                                      ),
+                                      if (index == youIndex &&
+                                          youUnreadCount > 0)
+                                        Positioned(
+                                          top: -6,
+                                          right: -10,
+                                          child: _UnreadCountBadge(
+                                            count: youUnreadCount,
+                                            backgroundColor:
+                                                colorScheme.primary,
+                                            foregroundColor:
+                                                colorScheme.onPrimary,
+                                            borderColor: backgroundColor,
+                                          ),
+                                        ),
+                                    ],
+                                  ),
+                                ),
+                                const SizedBox(height: 3),
+                                AnimatedDefaultTextStyle(
+                                  duration: scaleDuration,
+                                  curve: Curves.easeOutCubic,
+                                  style: TextStyle(
+                                    fontSize: 9,
+                                    fontWeight: isSelected
+                                        ? FontWeight.w800
+                                        : FontWeight.w700,
+                                    letterSpacing: 0.45,
                                     color: isSelected
                                         ? selectedColor
                                         : unselectedColor,
                                   ),
-                                  if (index == youIndex && youUnreadCount > 0)
-                                    Positioned(
-                                      top: -6,
-                                      right: -10,
-                                      child: _UnreadCountBadge(
-                                        count: youUnreadCount,
-                                        backgroundColor: colorScheme.primary,
-                                        foregroundColor: colorScheme.onPrimary,
-                                        borderColor: backgroundColor,
-                                      ),
-                                    ),
-                                ],
-                              ),
+                                  child: FittedBox(
+                                    fit: BoxFit.scaleDown,
+                                    child: Text(item.label),
+                                  ),
+                                ),
+                              ],
                             ),
-                            const SizedBox(height: 3),
-                            AnimatedDefaultTextStyle(
-                              duration: const Duration(milliseconds: 180),
-                              curve: Curves.easeOutCubic,
-                              style: TextStyle(
+                          ),
+                        ),
+                      );
+                    }),
+                  ),
+                ),
+              ),
+
+              // The map button is visually emphasized as the primary navigation action.
+              Positioned(
+                top: 0,
+                child: Semantics(
+                  button: true,
+                  selected: currentIndex == 2,
+                  label: 'MAP',
+                  excludeSemantics: true,
+                  onTap: () => onTap(2),
+                  child: GestureDetector(
+                    onTap: () => onTap(2),
+                    behavior: HitTestBehavior.opaque,
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        AnimatedContainer(
+                          duration: context.motionDuration(
+                            const Duration(milliseconds: 240),
+                          ),
+                          curve: Curves.easeOutCubic,
+                          width: 48,
+                          height: 48,
+                          decoration: BoxDecoration(
+                            color: selectedColor,
+                            shape: BoxShape.circle,
+                            border: Border.all(
+                              color: currentIndex == 2
+                                  ? selectedColor
+                                  : backgroundColor,
+                              width: 4,
+                            ),
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.black.withValues(alpha: 0.22),
+                                blurRadius: 16,
+                                offset: const Offset(0, 6),
+                              ),
+                            ],
+                          ),
+                          child: Icon(
+                            currentIndex == 2
+                                ? Icons.public
+                                : Icons.public_outlined,
+                            color: Colors.white,
+                            size: 24,
+                          ),
+                        ),
+                        const SizedBox(height: 3),
+                        Text(
+                          'MAP',
+                          style: Theme.of(context).textTheme.labelMedium
+                              ?.copyWith(
                                 fontSize: 9,
-                                fontWeight: isSelected
+                                fontWeight: currentIndex == 2
                                     ? FontWeight.w800
                                     : FontWeight.w700,
-                                letterSpacing: 0.45,
-                                color: isSelected
+                                letterSpacing: 0.5,
+                                color: currentIndex == 2
                                     ? selectedColor
                                     : unselectedColor,
                               ),
-                              child: Text(item.label),
-                            ),
-                          ],
                         ),
-                      ),
-                    );
-                  }),
+                      ],
+                    ),
+                  ),
                 ),
               ),
-            ),
-
-            // The map button is visually emphasized as the primary navigation action.
-            Positioned(
-              top: 0,
-              child: GestureDetector(
-                onTap: () => onTap(2),
-                behavior: HitTestBehavior.opaque,
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    AnimatedContainer(
-                      duration: const Duration(milliseconds: 240),
-                      curve: Curves.easeOutCubic,
-                      width: 48,
-                      height: 48,
-                      decoration: BoxDecoration(
-                        color: selectedColor,
-                        shape: BoxShape.circle,
-                        border: Border.all(
-                          color: currentIndex == 2
-                              ? selectedColor
-                              : backgroundColor,
-                          width: 4,
-                        ),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black.withValues(alpha: 0.22),
-                            blurRadius: 16,
-                            offset: const Offset(0, 6),
-                          ),
-                        ],
-                      ),
-                      child: Icon(
-                        currentIndex == 2
-                            ? Icons.public
-                            : Icons.public_outlined,
-                        color: Colors.white,
-                        size: 24,
-                      ),
-                    ),
-                    const SizedBox(height: 3),
-                    Text(
-                      'MAP',
-                      style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                        fontSize: 9,
-                        fontWeight: currentIndex == 2
-                            ? FontWeight.w800
-                            : FontWeight.w700,
-                        letterSpacing: 0.5,
-                        color: currentIndex == 2
-                            ? selectedColor
-                            : unselectedColor,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );

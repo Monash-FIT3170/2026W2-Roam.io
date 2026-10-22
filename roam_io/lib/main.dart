@@ -12,6 +12,8 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_native_splash/flutter_native_splash.dart';
 import 'package:provider/provider.dart';
+import 'package:roam_io/notifications/services/android_notification_service.dart';
+import 'package:roam_io/notifications/services/app_lifecycle_service.dart';
 
 import 'features/auth/providers/auth_provider.dart';
 import 'features/auth/screens/auth_gate_screen.dart';
@@ -19,10 +21,9 @@ import 'features/journeys/data/journey_controller.dart';
 import 'features/profile/domain/pending_xp_celebration.dart';
 import 'firebase_options.dart';
 import 'shared/widgets/xp_progress_celebration.dart';
+import 'theme/app_accessibility.dart';
 import 'theme/app_theme.dart';
 import 'theme/app_theme_mode.dart';
-import 'package:roam_io/notifications/services/android_notification_service.dart';
-import 'package:roam_io/notifications/services/app_lifecycle_service.dart';
 
 /// Starts the Flutter app after Firebase has been initialized.
 Future<void> main() async {
@@ -107,8 +108,18 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
           return MaterialApp(
             title: 'Roam.io',
             debugShowCheckedModeBanner: false,
-            theme: AppTheme.lightTheme,
-            darkTheme: AppTheme.darkTheme,
+            theme: auth.highContrastEnabled
+                ? AppTheme.highContrastLightTheme
+                : AppTheme.lightTheme,
+            darkTheme: auth.highContrastEnabled
+                ? AppTheme.highContrastDarkTheme
+                : AppTheme.darkTheme,
+            builder: (context, child) => AppAccessibility.wrap(
+              context,
+              child,
+              largerText: auth.largerTextEnabled,
+              textScale: auth.largerTextScale,
+            ),
             themeMode: resolvedThemeMode,
             navigatorKey: _navigatorKey,
             home: const AuthGateScreen(),

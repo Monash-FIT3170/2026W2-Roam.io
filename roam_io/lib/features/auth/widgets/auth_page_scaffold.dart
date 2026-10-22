@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 
+import '../../../theme/app_accessibility.dart';
 import '../../../theme/app_colours.dart';
 import '../../map/domain/map_styles.dart';
 
@@ -149,7 +150,21 @@ class AuthPageScaffold extends StatelessWidget {
                     ),
                   );
                   if (!centerContent) {
-                    return Column(children: [const Spacer(), content]);
+                    // Scrolls once large text outgrows the screen, but still
+                    // sits at the bottom while it fits.
+                    return SingleChildScrollView(
+                      keyboardDismissBehavior:
+                          ScrollViewKeyboardDismissBehavior.onDrag,
+                      child: ConstrainedBox(
+                        constraints: BoxConstraints(
+                          minHeight: constraints.maxHeight,
+                        ),
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.end,
+                          children: [content],
+                        ),
+                      ),
+                    );
                   }
                   return SingleChildScrollView(
                     keyboardDismissBehavior:
@@ -202,10 +217,19 @@ class _CloudAuthBackgroundState extends State<CloudAuthBackground>
       } catch (_) {}
       return true;
     }());
+    _loopInTests = !isTest;
+  }
+
+  late final bool _loopInTests;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
     // Oscillate to prevent noticeable seams or bounds
-    if (!isTest) {
-      _controller.repeat(reverse: true);
-    }
+    _controller.loopUnlessReduced(
+      reduce: context.reduceMotion || !_loopInTests,
+      restAt: 0,
+    );
   }
 
   @override

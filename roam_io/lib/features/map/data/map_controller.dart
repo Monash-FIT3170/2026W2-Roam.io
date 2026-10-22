@@ -23,30 +23,30 @@ import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 
-import '../domain/exploration_mode.dart';
+import '../../../services/polygon_service.dart';
 import '../../party/data/party_tile_ownership_service.dart';
-import '../party/party_tile_style.dart';
+import '../../profile/domain/xp_reward_config.dart';
+import '../../you/services/exploration_stats_service.dart';
+import '../domain/exploration_mode.dart';
 import '../domain/exploration_overlay_style.dart';
+import '../domain/place_visit_feedback.dart';
 import '../fog/fog_controller.dart';
 import '../fog/fog_decay_difficulty.dart';
-import '../../profile/domain/xp_reward_config.dart';
+import '../party/party_tile_style.dart';
 import 'follow_camera_pacer.dart';
 import 'geolocator_service.dart';
 import 'map_viewport_policy.dart';
 import 'place_marker_manager.dart';
 import 'place_of_interest.dart';
-import '../domain/place_visit_feedback.dart';
 import 'region_polygon.dart';
 import 'region_polygon_cache.dart';
 import 'region_service.dart';
 import 'tile_unlock_xp_service.dart';
 import 'train_station_proximity_service.dart';
-import 'visit_service.dart';
-import 'visit.dart';
-import 'visited_region_service.dart';
 import 'viewport_region_loader.dart';
-import '../../you/services/exploration_stats_service.dart';
-import '../../../services/polygon_service.dart';
+import 'visit.dart';
+import 'visit_service.dart';
+import 'visited_region_service.dart';
 
 enum VisitResult { success, notLoggedIn, alreadyVisited, tooFar, error }
 

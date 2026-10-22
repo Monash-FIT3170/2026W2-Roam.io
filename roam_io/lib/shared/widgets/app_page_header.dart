@@ -7,6 +7,7 @@
  */
 
 import 'package:flutter/material.dart';
+import '../../theme/app_accessibility.dart';
 import '../../theme/app_cartoon.dart';
 import '../../theme/app_surfaces.dart';
 
@@ -50,12 +51,14 @@ class AppPageHeader extends StatelessWidget {
                     ),
                     clipBehavior: Clip.antiAlias,
                     child: SizedBox.square(
-                      dimension: 42,
+                      dimension: AppAccessibility.minTapTarget,
                       child: BackButton(
                         color: AppSurfaces.textPrimary(context),
                         style: IconButton.styleFrom(
                           padding: EdgeInsets.zero,
-                          minimumSize: const Size.square(42),
+                          minimumSize: const Size.square(
+                            AppAccessibility.minTapTarget,
+                          ),
                         ),
                       ),
                     ),

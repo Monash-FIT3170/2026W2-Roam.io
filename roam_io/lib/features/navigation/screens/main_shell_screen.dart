@@ -19,10 +19,10 @@ import 'package:roam_io/notifications/notification.dart';
 
 import '../../../shared/widgets/app_bottom_nav_bar.dart';
 import '../../../shared/widgets/app_toast.dart';
-import '../../activity_feed/data/activity_feed_service.dart';
 import '../../activity_feed/data/activity_creation_service.dart';
-import '../../activity_feed/data/comment_service.dart';
+import '../../activity_feed/data/activity_feed_service.dart';
 import '../../activity_feed/data/comment_like_service.dart';
+import '../../activity_feed/data/comment_service.dart';
 import '../../activity_feed/data/kudos_service.dart';
 import '../../activity_feed/screens/activity_detail_screen.dart';
 import '../../activity_feed/screens/comments_screen.dart';

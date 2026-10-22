@@ -43,4 +43,53 @@ void main() {
       'Roammate recommends Matheson Library in Monash Clayton, rated 4.8, 180 meters away.',
     );
   });
+
+  test('tileEntered with no places says there is nothing new', () {
+    final message = RoammateMessage.tileEntered(
+      regionName: 'Clayton',
+      placeNames: const <String>[],
+    );
+
+    expect(message.text, 'Entered Clayton');
+    expect(message.speech, 'You have entered Clayton. No new locations here.');
+  });
+
+  test('tileEntered with one place uses the singular', () {
+    final message = RoammateMessage.tileEntered(
+      regionName: 'Clayton',
+      placeNames: const <String>['Matheson Library'],
+    );
+
+    expect(message.text, 'Entered Clayton • 1 locations');
+    expect(
+      message.speech,
+      'You have entered Clayton. There is 1 location here: Matheson Library.',
+    );
+  });
+
+  test('tileEntered names up to three places', () {
+    final message = RoammateMessage.tileEntered(
+      regionName: 'Clayton',
+      placeNames: const <String>['A', 'B', 'C'],
+    );
+
+    expect(message.text, 'Entered Clayton • 3 locations');
+    expect(
+      message.speech,
+      'You have entered Clayton. There are 3 locations here: A, B, C.',
+    );
+  });
+
+  test('tileEntered summarises places beyond the first three', () {
+    final message = RoammateMessage.tileEntered(
+      regionName: 'Clayton',
+      placeNames: const <String>['A', 'B', 'C', 'D', 'E'],
+    );
+
+    expect(message.text, 'Entered Clayton • 5 locations');
+    expect(
+      message.speech,
+      'You have entered Clayton. There are 5 locations here: A, B, C and 2 more.',
+    );
+  });
 }

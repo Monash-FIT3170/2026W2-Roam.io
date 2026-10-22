@@ -14,6 +14,7 @@ import '../models/app_notification.dart';
 import '../models/notification_action.dart';
 import '../services/notification_service.dart';
 import 'notification_banner.dart';
+import '../../theme/app_accessibility.dart';
 
 /// Places animated in-app notification banners
 ///
@@ -120,8 +121,12 @@ class _NotificationOverlayState extends State<NotificationOverlay> {
                 child: Align(
                   alignment: Alignment.topCenter,
                   child: AnimatedSwitcher(
-                    duration: const Duration(milliseconds: 280),
-                    reverseDuration: const Duration(milliseconds: 220),
+                    duration: context.motionDuration(
+                      const Duration(milliseconds: 280),
+                    ),
+                    reverseDuration: context.motionDuration(
+                      const Duration(milliseconds: 220),
+                    ),
                     switchInCurve: Curves.easeOutCubic,
                     switchOutCurve: Curves.easeInCubic,
                     transitionBuilder: (child, animation) {

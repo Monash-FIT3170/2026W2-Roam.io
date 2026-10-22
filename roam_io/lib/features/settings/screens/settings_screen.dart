@@ -12,6 +12,7 @@ import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
 
 import '../../../shared/widgets/app_toast.dart';
+import '../../../theme/app_accessibility.dart';
 import '../../../theme/app_cartoon.dart';
 import '../../../theme/app_colours.dart';
 import '../../../theme/app_surfaces.dart';
@@ -20,6 +21,7 @@ import '../../auth/providers/auth_provider.dart';
 import '../../auth/screens/change_password_screen.dart';
 import '../../map/fog/fog_decay_difficulty.dart';
 import '../../onboarding/screens/onboarding_screen.dart';
+import '../../profile/domain/profile_model.dart';
 import '../../roammate/services/roammate_voice_service.dart';
 import '../widgets/settings_group.dart';
 import 'change_display_name_screen.dart';
@@ -107,6 +109,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
     final selectedMode = await showModalBottomSheet<AppThemeMode>(
       context: context,
+      sheetAnimationStyle: context.reduceMotion
+          ? AnimationStyle.noAnimation
+          : null,
       showDragHandle: true,
       useSafeArea: true,
       isScrollControlled: true,
@@ -135,6 +140,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
     final selectedDifficulty = await showModalBottomSheet<FogDecayDifficulty>(
       context: context,
+      sheetAnimationStyle: context.reduceMotion
+          ? AnimationStyle.noAnimation
+          : null,
       showDragHandle: true,
       useSafeArea: true,
       isScrollControlled: true,
@@ -169,6 +177,39 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
     await auth.updateRoammateVoicePreference(enabled);
 
+    if (!mounted) return;
+
+    if (auth.errorMessage != null) {
+      AppToast.error(context, auth.errorMessage!);
+    }
+  }
+
+  /// Enables or disables the high-contrast theme.
+  Future<void> _toggleHighContrast(bool enabled) async {
+    final auth = context.read<AuthProvider>();
+    await auth.updateHighContrastPreference(enabled);
+    if (!mounted) return;
+
+    if (auth.errorMessage != null) {
+      AppToast.error(context, auth.errorMessage!);
+    }
+  }
+
+  /// Saves the Larger Text size once the slider is released.
+  Future<void> _saveTextScale(double scale) async {
+    final auth = context.read<AuthProvider>();
+    await auth.updateLargerTextScale(scale);
+    if (!mounted) return;
+
+    if (auth.errorMessage != null) {
+      AppToast.error(context, auth.errorMessage!);
+    }
+  }
+
+  /// Enables or disables Larger Text.
+  Future<void> _toggleLargerText(bool enabled) async {
+    final auth = context.read<AuthProvider>();
+    await auth.updateLargerTextPreference(enabled);
     if (!mounted) return;
 
     if (auth.errorMessage != null) {
@@ -321,6 +362,46 @@ class _SettingsScreenState extends State<SettingsScreen> {
                                     : _toggleRoammateVoice,
                               ),
                             ),
+                            SettingsRow(
+                              icon: Icons.contrast_rounded,
+                              title: 'High Contrast',
+                              showChevron: false,
+                              trailing: Switch(
+                                key: const ValueKey<String>(
+                                  'high-contrast-switch',
+                                ),
+                                trackOutlineColor: WidgetStatePropertyAll(
+                                  SettingsStyle.outline(context),
+                                ),
+                                value: auth.highContrastEnabled,
+                                onChanged: auth.isBusy || profile == null
+                                    ? null
+                                    : _toggleHighContrast,
+                              ),
+                            ),
+                            SettingsRow(
+                              icon: Icons.text_increase_rounded,
+                              title: 'Larger Text',
+                              showChevron: false,
+                              trailing: Switch(
+                                key: const ValueKey<String>(
+                                  'larger-text-switch',
+                                ),
+                                trackOutlineColor: WidgetStatePropertyAll(
+                                  SettingsStyle.outline(context),
+                                ),
+                                value: auth.largerTextEnabled,
+                                onChanged: auth.isBusy || profile == null
+                                    ? null
+                                    : _toggleLargerText,
+                              ),
+                            ),
+                            if (auth.largerTextEnabled)
+                              _TextSizeSlider(
+                                scale: auth.largerTextScale,
+                                onChanged: auth.previewLargerTextScale,
+                                onChangeEnd: _saveTextScale,
+                              ),
                             SettingsRow(
                               icon: Icons.cloud_rounded,
                               title: 'Fog Decay Difficulty',
@@ -817,5 +898,70 @@ class _AvatarFallback extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Icon(Icons.person_rounded, size: 38, color: color);
+  }
+}
+
+/// Slider that sets how much Larger Text multiplies the system text size.
+class _TextSizeSlider extends StatelessWidget {
+  const _TextSizeSlider({
+    required this.scale,
+    required this.onChanged,
+    required this.onChangeEnd,
+  });
+
+  final double scale;
+  final ValueChanged<double> onChanged;
+  final ValueChanged<double> onChangeEnd;
+
+  @override
+  Widget build(BuildContext context) {
+    final percent = (scale * 100).round();
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(14, 0, 14, 10),
+      child: Row(
+        children: [
+          Icon(
+            Icons.text_fields_rounded,
+            size: 18,
+            color: AppSurfaces.textMuted(context),
+          ),
+          Expanded(
+            child: Slider(
+              key: const ValueKey<String>('text-size-slider'),
+              min: ProfileModel.minTextScale,
+              max: ProfileModel.maxTextScale,
+              divisions: 8,
+              value: scale.clamp(
+                ProfileModel.minTextScale,
+                ProfileModel.maxTextScale,
+              ),
+              label: '$percent%',
+              semanticFormatterCallback: (value) =>
+                  'Text size ${(value * 100).round()} percent',
+              onChanged: onChanged,
+              onChangeEnd: onChangeEnd,
+            ),
+          ),
+          Icon(
+            Icons.text_fields_rounded,
+            size: 28,
+            color: AppSurfaces.textMuted(context),
+          ),
+          const SizedBox(width: 8),
+          SizedBox(
+            width: 48,
+            child: Text(
+              '$percent%',
+              textAlign: TextAlign.end,
+              style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                color: AppSurfaces.textPrimary(context),
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
   }
 }

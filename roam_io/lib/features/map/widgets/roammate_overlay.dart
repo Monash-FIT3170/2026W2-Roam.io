@@ -1,19 +1,22 @@
 import 'dart:async';
 import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:provider/provider.dart';
+
 import '../../../shared/widgets/liquid_glass.dart';
+import '../../../theme/app_accessibility.dart';
 import '../../../theme/app_colours.dart';
 import '../../auth/providers/auth_provider.dart';
 import '../../hazards/data/hazard_controller.dart';
 import '../../hazards/domain/hazard_report.dart';
+import '../../journeys/data/journey_controller.dart';
 import '../../roammate/domain/roammate_message.dart';
 import '../../roammate/services/roammate_voice_service.dart';
 import '../data/map_controller.dart';
 import '../data/place_of_interest.dart';
 import '../data/places_service.dart';
-import '../../journeys/data/journey_controller.dart';
 import '../data/region_polygon.dart';
 
 class _TileBannerData {
@@ -60,11 +63,11 @@ class RoammateOverlay extends StatefulWidget {
     this.voiceService,
     this.placesService,
     this.proximityRadiusMeters = 500.0,
-    this.tileDwellDuration = const Duration(milliseconds: 3500),
+    this.tileDwellDuration = Duration.zero,
     this.autoCollapseDuration = const Duration(seconds: 5),
     this.recommendationAutoCollapseDuration = const Duration(seconds: 8),
-    this.tileAnnouncementCooldown = const Duration(minutes: 3),
-    this.maxSpeedMpsForPopup = 25.0 / 3.6,
+    this.tileAnnouncementCooldown = const Duration(seconds: 30),
+    this.maxSpeedMpsForPopup = double.infinity,
   });
 
   @override
@@ -83,6 +86,8 @@ class _RoammateOverlayState extends State<RoammateOverlay>
   Timer? _autoCollapseTimer;
   final Map<String, DateTime> _tileLastAnnouncedAt = {};
   _TileBannerData? _tileBannerData;
+  String? _placesLoadedForRegionId;
+  String? _announcedSpeechForRegionId;
 
   bool _firstTileUnlockTriggered = false;
   double _lastMilestoneDistanceMeters = 0.0;
@@ -110,7 +115,7 @@ class _RoammateOverlayState extends State<RoammateOverlay>
     _breathingController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 1500),
-    )..repeat(reverse: true);
+    );
 
     _scaleAnimation = Tween<double>(begin: 0.95, end: 1.05).animate(
       CurvedAnimation(parent: _breathingController, curve: Curves.easeInOut),
@@ -121,6 +126,15 @@ class _RoammateOverlayState extends State<RoammateOverlay>
     widget.journeyController?.addListener(_onJourneyControllerChanged);
     _onMapControllerChanged();
     _checkJourneyRecommendations();
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _breathingController.loopUnlessReduced(
+      reduce: context.reduceMotion,
+      restAt: 0.5,
+    );
   }
 
   @override
@@ -232,7 +246,12 @@ class _RoammateOverlayState extends State<RoammateOverlay>
       return;
     }
 
-    // Start dwell timer
+    // Announce straight away; a zero dwell means no waiting on entry.
+    if (widget.tileDwellDuration == Duration.zero) {
+      _announceTileEntry(currentRegion);
+      return;
+    }
+
     _tileEntryDwellTimer = Timer(widget.tileDwellDuration, () {
       _tileEntryDwellTimer = null;
       if (!mounted) return;
@@ -248,28 +267,66 @@ class _RoammateOverlayState extends State<RoammateOverlay>
         return;
       }
 
-      _hasAnnouncedCurrentTileVisit = true;
-      _tileLastAnnouncedAt[currentRegion.id] = DateTime.now();
-
-      final wasAlreadyOpen = _showDetails;
-      setState(() {
-        _tileBannerData = _TileBannerData(
-          regionId: currentRegion.id,
-          regionName: currentRegion.name,
-        );
-        _showDetails = true;
-      });
-
-      if (!wasAlreadyOpen) {
-        _startAutoCollapseTimer();
-      }
+      _announceTileEntry(currentRegion);
     });
+  }
+
+  void _announceTileEntry(RegionPolygon region) {
+    _hasAnnouncedCurrentTileVisit = true;
+    _tileLastAnnouncedAt[region.id] = DateTime.now();
+    _announcedSpeechForRegionId = null;
+
+    final wasAlreadyOpen = _showDetails;
+    setState(() {
+      _tileBannerData = _TileBannerData(
+        regionId: region.id,
+        regionName: region.name,
+      );
+      _showDetails = true;
+    });
+
+    if (!wasAlreadyOpen || _autoCollapseTimer != null) {
+      _startAutoCollapseTimer();
+    }
+
+    // Places may still be loading; speech fires once they arrive.
+    if (_placesLoadedForRegionId == region.id) {
+      _speakTileEntry(region.id, region.name);
+    }
+  }
+
+  void _speakTileEntry(String regionId, String regionName) {
+    if (_announcedSpeechForRegionId == regionId) return;
+    _announcedSpeechForRegionId = regionId;
+
+    bool voiceEnabled = false;
+    try {
+      voiceEnabled = context.read<AuthProvider>().roammateVoiceEnabled;
+    } catch (_) {
+      voiceEnabled = false;
+    }
+    if (!voiceEnabled) return;
+
+    final voiceService = widget.voiceService ?? RoammateVoiceService.instance;
+    final message = RoammateMessage.tileEntered(
+      regionName: regionName,
+      placeNames: _sortedPlaces
+          .where((p) => !widget.mapController.isPlaceVisited(p.id))
+          .map((p) => p.name)
+          .toList(),
+    );
+    unawaited(voiceService.speak(message.speech));
   }
 
   void _onMapControllerChanged() {
     final currentRegion = widget.mapController.currentRegion;
     if (currentRegion != null && currentRegion.id != _lastRegionId) {
       _lastRegionId = currentRegion.id;
+      _allPlaces = _cachedPlacesByTile[currentRegion.id] ?? [];
+      _placesLoadedForRegionId =
+          _cachedPlacesByTile.containsKey(currentRegion.id)
+          ? currentRegion.id
+          : null;
       _fetchRegionData(currentRegion.id, currentRegion.name);
     } else if (currentRegion == null && _lastRegionId != null) {
       _lastRegionId = null;
@@ -360,14 +417,18 @@ class _RoammateOverlayState extends State<RoammateOverlay>
       final places = await _placesService.getPlacesForRegion(
         regionId: regionId,
       );
-      if (mounted) {
+      if (mounted && widget.mapController.currentRegion?.id == regionId) {
         setState(() {
           // Filter out public transport (like bus stops) from the locations list
           _allPlaces = places
               .where((p) => p.category != PlaceCategory.publicTransport)
               .toList();
           _cachedPlacesByTile[regionId] = _allPlaces;
+          _placesLoadedForRegionId = regionId;
         });
+        if (_hasAnnouncedCurrentTileVisit && _currentRegionId == regionId) {
+          _speakTileEntry(regionId, regionName);
+        }
         _checkJourneyRecommendations();
       }
     } catch (e) {
@@ -464,7 +525,9 @@ class _RoammateOverlayState extends State<RoammateOverlay>
             padding: const EdgeInsets.only(bottom: 12),
             child: TweenAnimationBuilder<double>(
               tween: Tween(begin: 0.0, end: 1.0),
-              duration: const Duration(milliseconds: 300),
+              duration: context.motionDuration(
+                const Duration(milliseconds: 300),
+              ),
               curve: Curves.easeOutBack,
               builder: (context, value, child) {
                 return Transform.scale(
@@ -571,8 +634,8 @@ class _RoammateOverlayState extends State<RoammateOverlay>
                                         return IgnorePointer(
                                           child: AnimatedOpacity(
                                             opacity: canScrollUp ? 1.0 : 0.0,
-                                            duration: const Duration(
-                                              milliseconds: 150,
+                                            duration: context.motionDuration(
+                                              const Duration(milliseconds: 150),
                                             ),
                                             child: Container(
                                               height: 12,
@@ -611,8 +674,8 @@ class _RoammateOverlayState extends State<RoammateOverlay>
                                         return IgnorePointer(
                                           child: AnimatedOpacity(
                                             opacity: canScrollDown ? 1.0 : 0.0,
-                                            duration: const Duration(
-                                              milliseconds: 150,
+                                            duration: context.motionDuration(
+                                              const Duration(milliseconds: 150),
                                             ),
                                             child: Container(
                                               height: 12,

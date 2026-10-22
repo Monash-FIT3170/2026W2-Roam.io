@@ -14,12 +14,12 @@ import 'package:provider/provider.dart';
 import '../../../shared/widgets/app_toast.dart';
 import '../../../theme/app_surfaces.dart';
 import '../../auth/providers/auth_provider.dart';
-import '../data/comment_service.dart';
+import '../../social/screens/other_user_profile_screen.dart';
 import '../data/comment_like_service.dart';
+import '../data/comment_service.dart';
 import '../models/activity_comment.dart';
 import '../widgets/comment_composer.dart';
 import '../widgets/comment_list_item.dart';
-import '../../social/screens/other_user_profile_screen.dart';
 
 /// Full-page comments list + composer for one activity.
 class CommentsScreen extends StatefulWidget {

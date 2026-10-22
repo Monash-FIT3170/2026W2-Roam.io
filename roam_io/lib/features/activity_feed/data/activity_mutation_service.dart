@@ -11,9 +11,8 @@ import 'dart:async';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/foundation.dart';
 
-import '../../../shared/utils/app_date_format.dart';
-
 import '../../../services/storage_service.dart';
+import '../../../shared/utils/app_date_format.dart';
 import '../models/activity_feed_item.dart';
 import 'activity_map_image.dart';
 

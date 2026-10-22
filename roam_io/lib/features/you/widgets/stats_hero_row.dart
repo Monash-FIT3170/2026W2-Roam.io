@@ -5,6 +5,7 @@ import '../../profile/domain/profile_model.dart';
 import '../models/explorer_rank.dart';
 import '../providers/stats_analytics_provider.dart';
 import '../services/stats_aggregation_service.dart';
+import '../../../theme/app_accessibility.dart';
 
 /// Rank and XP context shown above the Statistics category tabs.
 class StatsHeroStrip extends StatelessWidget {
@@ -243,7 +244,9 @@ class _XpProgressBar extends StatelessWidget {
             ColoredBox(color: track),
             TweenAnimationBuilder<double>(
               tween: Tween<double>(begin: 0, end: progress),
-              duration: const Duration(milliseconds: 520),
+              duration: context.motionDuration(
+                const Duration(milliseconds: 520),
+              ),
               curve: Curves.easeOutCubic,
               builder: (context, value, _) => FractionallySizedBox(
                 widthFactor: value,
