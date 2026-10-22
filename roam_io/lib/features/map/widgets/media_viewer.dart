@@ -7,23 +7,29 @@ class MediaViewer extends StatefulWidget {
   const MediaViewer({
     super.key,
     required this.mediaUrls,
+    this.isVideoFlags,
     this.initialIndex = 0,
   });
 
   final List<String> mediaUrls;
+  final List<bool>? isVideoFlags;
   final int initialIndex;
 
   /// Shows the media viewer as a full-screen page.
   static Future<void> show({
     required BuildContext context,
     required List<String> mediaUrls,
+    List<bool>? isVideoFlags,
     int initialIndex = 0,
   }) {
     return Navigator.of(context).push(
       MaterialPageRoute(
         fullscreenDialog: true,
-        builder: (context) =>
-            MediaViewer(mediaUrls: mediaUrls, initialIndex: initialIndex),
+        builder: (context) => MediaViewer(
+          mediaUrls: mediaUrls,
+          isVideoFlags: isVideoFlags,
+          initialIndex: initialIndex,
+        ),
       ),
     );
   }
@@ -49,11 +55,35 @@ class _MediaViewerState extends State<MediaViewer> {
     super.dispose();
   }
 
-  bool _isVideo(String url) {
+  bool _isVideo(int index, String url) {
+    if (widget.isVideoFlags != null &&
+        index >= 0 &&
+        index < widget.isVideoFlags!.length) {
+      return widget.isVideoFlags![index];
+    }
     final lower = url.toLowerCase();
-    return lower.contains('.mp4') ||
-        lower.contains('.mov') ||
-        lower.contains('video');
+    String decoded;
+    try {
+      decoded = Uri.decodeFull(url).toLowerCase();
+    } catch (_) {
+      decoded = lower;
+    }
+    const videoPatterns = [
+      '.mp4',
+      '.mov',
+      '.m4v',
+      '.webm',
+      '.mkv',
+      '.3gp',
+      'video/',
+      'video',
+    ];
+    for (final pattern in videoPatterns) {
+      if (lower.contains(pattern) || decoded.contains(pattern)) {
+        return true;
+      }
+    }
+    return false;
   }
 
   @override
@@ -77,8 +107,11 @@ class _MediaViewerState extends State<MediaViewer> {
         },
         itemBuilder: (context, index) {
           final url = widget.mediaUrls[index];
-          if (_isVideo(url)) {
-            return _VideoViewer(url: url);
+          if (_isVideo(index, url)) {
+            return _VideoViewer(
+              url: url,
+              isActive: index == _currentIndex,
+            );
           }
           return _ImageViewer(url: url);
         },
@@ -137,18 +170,26 @@ class _ImageViewer extends StatelessWidget {
 
 /// Video player with controls.
 class _VideoViewer extends StatefulWidget {
-  const _VideoViewer({required this.url});
+  const _VideoViewer({
+    required this.url,
+    this.isActive = true,
+  });
 
   final String url;
+  final bool isActive;
 
   @override
   State<_VideoViewer> createState() => _VideoViewerState();
 }
 
-class _VideoViewerState extends State<_VideoViewer> {
-  late VideoPlayerController _controller;
+class _VideoViewerState extends State<_VideoViewer>
+    with AutomaticKeepAliveClientMixin<_VideoViewer> {
+  VideoPlayerController? _controller;
   bool _isInitialized = false;
   bool _hasError = false;
+
+  @override
+  bool get wantKeepAlive => true;
 
   @override
   void initState() {
@@ -156,16 +197,34 @@ class _VideoViewerState extends State<_VideoViewer> {
     _initializeVideo();
   }
 
+  @override
+  void didUpdateWidget(covariant _VideoViewer oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (!widget.isActive && oldWidget.isActive && _isInitialized) {
+      _controller?.pause();
+    }
+  }
+
   Future<void> _initializeVideo() async {
-    _controller = VideoPlayerController.networkUrl(Uri.parse(widget.url));
+    final uri = Uri.tryParse(widget.url);
+    if (uri == null) {
+      if (mounted) setState(() => _hasError = true);
+      return;
+    }
+    final controller = VideoPlayerController.networkUrl(uri);
+    _controller = controller;
+    controller.addListener(_onControllerUpdate);
     try {
-      await _controller.initialize();
+      await controller.initialize();
       if (mounted) {
         setState(() {
           _isInitialized = true;
         });
       }
-    } catch (e) {
+    } catch (e, st) {
+      debugPrint(
+        '[MediaViewer] Failed to initialize video player for ${widget.url}: $e\n$st',
+      );
       if (mounted) {
         setState(() {
           _hasError = true;
@@ -174,55 +233,104 @@ class _VideoViewerState extends State<_VideoViewer> {
     }
   }
 
+  void _onControllerUpdate() {
+    if (!mounted) return;
+    final controller = _controller;
+    if (controller != null && controller.value.hasError && !_hasError) {
+      setState(() {
+        _hasError = true;
+      });
+      return;
+    }
+    setState(() {});
+  }
+
   @override
   void dispose() {
-    _controller.dispose();
+    final controller = _controller;
+    if (controller != null) {
+      controller.removeListener(_onControllerUpdate);
+      controller.dispose();
+    }
     super.dispose();
   }
 
   void _togglePlayPause() {
+    final controller = _controller;
+    if (controller == null || !_isInitialized) return;
     setState(() {
-      if (_controller.value.isPlaying) {
-        _controller.pause();
+      if (controller.value.isPlaying) {
+        controller.pause();
       } else {
-        _controller.play();
+        if (controller.value.duration > Duration.zero &&
+            controller.value.position >= controller.value.duration) {
+          controller.seekTo(Duration.zero);
+        }
+        controller.play();
       }
     });
   }
 
   @override
   Widget build(BuildContext context) {
+    super.build(context);
+
     if (_hasError) {
-      return const Center(
+      return Center(
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(Icons.error_outline, size: 64, color: Colors.grey),
-            SizedBox(height: 16),
-            Text('Failed to load video', style: TextStyle(color: Colors.grey)),
+            const Icon(Icons.error_outline, size: 64, color: Colors.grey),
+            const SizedBox(height: 16),
+            const Text(
+              'Failed to load video',
+              style: TextStyle(color: Colors.grey),
+            ),
+            const SizedBox(height: 12),
+            TextButton.icon(
+              onPressed: () {
+                setState(() {
+                  _hasError = false;
+                  _isInitialized = false;
+                });
+                _initializeVideo();
+              },
+              icon: const Icon(Icons.refresh, color: Colors.white),
+              label: const Text('Retry', style: TextStyle(color: Colors.white)),
+            ),
           ],
         ),
       );
     }
 
-    if (!_isInitialized) {
+    final controller = _controller;
+    if (!_isInitialized || controller == null) {
       return const Center(
         child: CircularProgressIndicator(color: Colors.white),
       );
     }
 
+    final isPlaying = controller.value.isPlaying;
+    final isEnded = controller.value.duration > Duration.zero &&
+        controller.value.position >= controller.value.duration;
+
     return GestureDetector(
       onTap: _togglePlayPause,
+      behavior: HitTestBehavior.opaque,
       child: Stack(
         alignment: Alignment.center,
         children: [
-          AspectRatio(
-            aspectRatio: _controller.value.aspectRatio,
-            child: VideoPlayer(_controller),
+          Center(
+            child: AspectRatio(
+              aspectRatio: controller.value.aspectRatio > 0
+                  ? controller.value.aspectRatio
+                  : 16 / 9,
+              child: VideoPlayer(controller),
+            ),
           ),
           // Play/pause overlay
           AnimatedOpacity(
-            opacity: _controller.value.isPlaying ? 0.0 : 1.0,
+            opacity: isPlaying ? 0.0 : 1.0,
             duration: const Duration(milliseconds: 200),
             child: Container(
               padding: const EdgeInsets.all(16),
@@ -230,8 +338,8 @@ class _VideoViewerState extends State<_VideoViewer> {
                 color: Colors.black54,
                 shape: BoxShape.circle,
               ),
-              child: const Icon(
-                Icons.play_arrow,
+              child: Icon(
+                isEnded ? Icons.replay : Icons.play_arrow,
                 size: 48,
                 color: Colors.white,
               ),
@@ -243,7 +351,7 @@ class _VideoViewerState extends State<_VideoViewer> {
             right: 0,
             bottom: 0,
             child: VideoProgressIndicator(
-              _controller,
+              controller,
               allowScrubbing: true,
               colors: const VideoProgressColors(
                 playedColor: Colors.white,

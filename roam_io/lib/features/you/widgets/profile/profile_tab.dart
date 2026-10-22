@@ -233,6 +233,7 @@ class _ProfileTabState extends State<ProfileTab> {
         onOpenPhoto: (index) => MediaViewer.show(
           context: context,
           mediaUrls: [for (final item in media) item.url],
+          isVideoFlags: [for (final item in media) item.isVideo],
           initialIndex: index,
         ),
       ),
