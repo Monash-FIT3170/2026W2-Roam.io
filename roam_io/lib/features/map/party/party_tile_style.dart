@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 
-const Color _teamAFillColor = Color(0x604FC3F7);
-const Color _teamBFillColor = Color(0x60E57373);
+import '../../../theme/app_colours.dart';
+
+final Color _teamAFillColor = AppColors.teamA.withValues(alpha: 0.38);
+final Color _teamBFillColor = AppColors.teamB.withValues(alpha: 0.38);
 
 /// Fill colour for a Party Mode tile, keyed by its owning team ('A'/'B'), or
 /// no fill (transparent) when no team has crossed the claim gate.
@@ -24,9 +26,9 @@ Color partyTileStrokeColor(String? owningTeam) {
     case null:
       return const Color(0x00000000);
     case 'A':
-      return const Color(0xFF0288D1);
+      return AppColors.teamA;
     case 'B':
-      return const Color(0xFFE53935);
+      return AppColors.teamB;
     default:
       throw ArgumentError.value(owningTeam, 'owningTeam');
   }

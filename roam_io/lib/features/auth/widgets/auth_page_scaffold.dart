@@ -16,6 +16,7 @@ class AuthPageScaffold extends StatelessWidget {
     this.footerText,
     this.footerLabel,
     this.onFooterTap,
+    this.centerContent = false,
   });
 
   final String title;
@@ -25,10 +26,16 @@ class AuthPageScaffold extends StatelessWidget {
   final String? footerLabel;
   final VoidCallback? onFooterTap;
 
+  /// Centers a scrollable, width-constrained form when enabled.
+  final bool centerContent;
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final textTheme = theme.textTheme;
+    final linkColor = centerContent
+        ? Color.alphaBlend(AppColors.ink.withValues(alpha: 0.1), AppColors.sage)
+        : AppColors.sage;
 
     return Scaffold(
       backgroundColor: AppColors.cream,
@@ -37,13 +44,29 @@ class AuthPageScaffold extends StatelessWidget {
           const Positioned.fill(child: CloudAuthBackground()),
           Positioned.fill(
             child: SafeArea(
-              child: Column(
-                children: [
-                  const Spacer(),
-                  // Main content at the bottom
-                  Container(
+              child: LayoutBuilder(
+                builder: (context, constraints) {
+                  final compact = centerContent && constraints.maxWidth < 600;
+                  final horizontalPadding = compact ? 16.0 : 24.0;
+                  final verticalPadding =
+                      centerContent && constraints.maxHeight < 500
+                      ? 16.0
+                      : compact
+                      ? 24.0
+                      : 32.0;
+                  final sectionSpacing = compact ? 20.0 : 24.0;
+                  final content = Container(
                     width: double.infinity,
-                    padding: const EdgeInsets.fromLTRB(24, 32, 24, 32),
+                    decoration: centerContent
+                        ? BoxDecoration(
+                            color: AppColors.cream,
+                            borderRadius: BorderRadius.circular(16),
+                          )
+                        : null,
+                    padding: EdgeInsets.symmetric(
+                      horizontal: horizontalPadding,
+                      vertical: verticalPadding,
+                    ),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       mainAxisSize: MainAxisSize.min,
@@ -64,32 +87,59 @@ class AuthPageScaffold extends StatelessWidget {
                             height: 1.5,
                           ),
                         ),
-                        const SizedBox(height: 24),
+                        SizedBox(height: sectionSpacing),
                         child,
                         if (footerText != null &&
                             footerLabel != null &&
                             onFooterTap != null) ...[
-                          const SizedBox(height: 24),
+                          SizedBox(height: sectionSpacing),
                           Center(
                             child: Wrap(
                               alignment: WrapAlignment.center,
+                              crossAxisAlignment: WrapCrossAlignment.center,
                               spacing: 4,
                               children: [
                                 Text(
                                   footerText!,
+                                  textAlign: TextAlign.center,
                                   style: textTheme.bodyMedium?.copyWith(
                                     color: AppColors.ink.withValues(alpha: 0.7),
                                   ),
                                 ),
-                                GestureDetector(
-                                  onTap: onFooterTap,
-                                  child: Text(
-                                    footerLabel!,
-                                    style: textTheme.bodyMedium?.copyWith(
-                                      color: AppColors.sage,
-                                      fontWeight: FontWeight.w700,
-                                    ),
-                                  ),
+                                TextButton(
+                                  onPressed: onFooterTap,
+                                  style:
+                                      TextButton.styleFrom(
+                                        foregroundColor: linkColor,
+                                        padding: const EdgeInsets.symmetric(
+                                          horizontal: 8,
+                                          vertical: 12,
+                                        ),
+                                        textStyle: textTheme.bodyMedium
+                                            ?.copyWith(
+                                              fontWeight: FontWeight.w700,
+                                              decoration:
+                                                  TextDecoration.underline,
+                                              decorationColor: linkColor,
+                                            ),
+                                      ).copyWith(
+                                        side: centerContent
+                                            ? WidgetStateProperty.resolveWith((
+                                                states,
+                                              ) {
+                                                return BorderSide(
+                                                  color:
+                                                      states.contains(
+                                                        WidgetState.focused,
+                                                      )
+                                                      ? AppColors.ink
+                                                      : Colors.transparent,
+                                                  width: 2,
+                                                );
+                                              })
+                                            : null,
+                                      ),
+                                  child: Text(footerLabel!),
                                 ),
                               ],
                             ),
@@ -97,8 +147,26 @@ class AuthPageScaffold extends StatelessWidget {
                         ],
                       ],
                     ),
-                  ),
-                ],
+                  );
+                  if (!centerContent) {
+                    return Column(children: [const Spacer(), content]);
+                  }
+                  return SingleChildScrollView(
+                    keyboardDismissBehavior:
+                        ScrollViewKeyboardDismissBehavior.onDrag,
+                    child: ConstrainedBox(
+                      constraints: BoxConstraints(
+                        minHeight: constraints.maxHeight,
+                      ),
+                      child: Center(
+                        child: ConstrainedBox(
+                          constraints: const BoxConstraints(maxWidth: 480),
+                          child: content,
+                        ),
+                      ),
+                    ),
+                  );
+                },
               ),
             ),
           ),

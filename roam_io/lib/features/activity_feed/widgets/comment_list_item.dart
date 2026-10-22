@@ -8,6 +8,8 @@
 
 import 'package:flutter/material.dart';
 
+import '../../../shared/utils/app_date_format.dart';
+
 import '../../../theme/app_surfaces.dart';
 import '../data/comment_like_service.dart';
 import '../models/activity_comment.dart';
@@ -228,10 +230,5 @@ class _CommentLikeButton extends StatelessWidget {
 }
 
 String _formatTimestamp(DateTime value) {
-  final local = value.toLocal();
-  String two(int n) => n.toString().padLeft(2, '0');
-  final period = local.hour >= 12 ? 'PM' : 'AM';
-  final hour = local.hour % 12 == 0 ? 12 : local.hour % 12;
-  return '${two(local.day)}/${two(local.month)}/${local.year} '
-      '$hour:${two(local.minute)} $period';
+  return formatAppDateTime(value);
 }

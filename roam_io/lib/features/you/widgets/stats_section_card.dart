@@ -1,8 +1,12 @@
 import 'package:flutter/material.dart';
 
+import '../../../theme/app_colours.dart';
 import '../../../theme/app_surfaces.dart';
 
-/// Shared card shell for Statistics page list and insight sections.
+/// Vertical space between sections on Statistics category pages.
+const double kStatsSectionGap = 32;
+
+/// Lightweight section shell for Statistics page lists and insights.
 class StatsSectionCard extends StatelessWidget {
   const StatsSectionCard({
     super.key,
@@ -19,40 +23,38 @@ class StatsSectionCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
 
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: AppSurfaces.card(context),
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: AppSurfaces.border(context)),
-        boxShadow: AppSurfaces.cardShadow(context),
-      ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Divider(
+          height: 1.5,
+          thickness: 1.5,
+          color: AppSurfaces.sectionDivider(context),
+        ),
+        const SizedBox(height: 20),
+        Text(
+          title.toUpperCase(),
+          style: theme.textTheme.labelLarge?.copyWith(
+            color: AppSurfaces.isDark(context)
+                ? AppColors.lightSage
+                : AppColors.sage,
+            fontWeight: FontWeight.w800,
+            letterSpacing: 1.1,
+          ),
+        ),
+        if (subtitle != null) ...[
+          const SizedBox(height: 4),
           Text(
-            title,
-            style: theme.textTheme.titleMedium?.copyWith(
-              color: AppSurfaces.textPrimary(context),
-              fontWeight: FontWeight.w800,
+            subtitle!,
+            style: theme.textTheme.bodyMedium?.copyWith(
+              color: AppSurfaces.textMuted(context),
             ),
           ),
-          if (subtitle != null) ...[
-            const SizedBox(height: 4),
-            Text(
-              subtitle!,
-              style: theme.textTheme.bodySmall?.copyWith(
-                color: AppSurfaces.textMuted(context),
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-          ],
-          const SizedBox(height: 12),
-          child,
         ],
-      ),
+        const SizedBox(height: 14),
+        child,
+      ],
     );
   }
 }

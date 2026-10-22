@@ -5,10 +5,17 @@
  *   Unit tests for MapController proximity checks and visit marking outcomes.
  */
 
+import 'dart:async';
+
 import 'package:fake_cloud_firestore/fake_cloud_firestore.dart';
+import 'package:geolocator/geolocator.dart';
+import 'package:roam_io/features/map/data/geolocator_service.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:roam_io/features/map/data/map_controller.dart';
+import 'package:roam_io/features/map/data/region_polygon.dart';
+import 'package:roam_io/features/map/data/region_polygon_cache.dart';
+import 'package:roam_io/features/map/domain/exploration_overlay_style.dart';
 import 'package:roam_io/features/map/fog/fog_decay_difficulty.dart';
 import 'package:roam_io/services/polygon_service.dart';
 
@@ -88,6 +95,53 @@ class _FakeVisitedRegionService extends FakeVisitedRegionService {
 }
 
 void main() {
+  test(
+    'location result after controller disposal does not notify listeners',
+    () async {
+      final geo = _PendingGeo();
+      final controller = MapController(
+        geoLocatorService: geo,
+        visitService: RecordingVisitService(),
+        visitedRegionService: FakeVisitedRegionService(),
+      );
+      final result = controller.getDistanceToPlace(testPlace());
+      controller.disposeController();
+      controller.dispose();
+      geo.result.complete(testPosition(-37.8136, 144.9631));
+      expect(await result, isNull);
+    },
+  );
+
+  test(
+    'visit feedback follows fixes and clears range when location fails',
+    () async {
+      final geo = FakeGeoLocatorService(testPosition(-37.8136, 144.9631));
+      final controller = MapController(
+        geoLocatorService: geo,
+        visitService: RecordingVisitService(),
+        visitedRegionService: FakeVisitedRegionService(),
+      );
+      final place = testPlace();
+      expect(controller.visitFeedbackFor(place).hasLocation, isFalse);
+      await controller.getDistanceToPlace(place);
+      expect(controller.visitFeedbackFor(place).canVisit, isTrue);
+      var updates = 0;
+      controller.addListener(() => updates++);
+      geo.setPosition(testPosition(-37.82, 144.9631));
+      await controller.getDistanceToPlace(place);
+      expect(controller.visitFeedbackFor(place).isInRange, isFalse);
+      expect(updates, 1);
+      geo.setPosition(null);
+      await controller.getDistanceToPlace(place);
+      expect(controller.visitFeedbackFor(place).hasLocation, isFalse);
+      geo.setPosition(testPosition(-37.8136, 144.9631));
+      await controller.getDistanceToPlace(place);
+      expect(controller.visitFeedbackFor(place).canVisit, isTrue);
+      controller.disposeController();
+      controller.dispose();
+    },
+  );
+
   group('MapController location following', () {
     test(
       'user camera movement pauses following and recenter resumes it',
@@ -188,7 +242,9 @@ void main() {
         await controller.recenterOnUser();
 
         expect(controller.deviceHeading, isNull);
-        expect(listenerCalls, 0);
+        // A usable location still updates visit feedback without a heading.
+        expect(controller.visitFeedbackFor(testPlace()).isInRange, isTrue);
+        expect(listenerCalls, 1);
         expect(controller.isFollowingUser, isTrue);
 
         controller.disposeController();
@@ -557,6 +613,63 @@ void main() {
     });
   });
 
+  group('MapController exploration overlay style', () {
+    test(
+      'rebuilds polygons without changing markers and notifies once',
+      () async {
+        final cache = RegionPolygonCache();
+        final controller = MapController(
+          visitService: RecordingVisitService(),
+          visitedRegionService: _FakeVisitedRegionService(
+            regionIds: <String>{'region-1'},
+          ),
+          regionPolygonCache: cache,
+        );
+        await controller.setUserId('user-1');
+
+        cache.cacheRegion(
+          region: _controllerRegion,
+          isVisited: true,
+          isCurrentRegion: false,
+          onRegionTapped: (_, _) {},
+        );
+        const marker = Marker(
+          markerId: MarkerId('location-marker'),
+          position: LatLng(-37.815, 144.965),
+        );
+        controller.markers = <Marker>{marker};
+        var notificationCount = 0;
+        controller.addListener(() => notificationCount++);
+
+        controller.updateExplorationOverlayStyle(ExplorationOverlayStyle.dark);
+
+        expect(notificationCount, 1);
+        expect(
+          controller.polygons.single.fillColor,
+          ExplorationOverlayStyle.dark.exploredRegionFillColor,
+        );
+        expect(controller.markers, <Marker>{marker});
+        expect(
+          controller.exploredBoundaryPolylines().every(
+            (line) =>
+                line.color ==
+                    ExplorationOverlayStyle.dark.exploredBoundaryColor &&
+                line.width ==
+                    ExplorationOverlayStyle.dark.exploredBoundaryWidth,
+          ),
+          isTrue,
+        );
+
+        controller.updateExplorationOverlayStyle(ExplorationOverlayStyle.dark);
+        expect(notificationCount, 1);
+        expect(controller.markers, <Marker>{marker});
+
+        controller.disposeController();
+        controller.dispose();
+      },
+    );
+  });
+
   group('MapController.toggleHeatmap', () {
     test('loads entry counts and enables heatmap when signed in', () async {
       final polygonService = _FakePolygonService(entryCounts: {'region-1': 3});
@@ -585,4 +698,28 @@ void main() {
       controller.dispose();
     });
   });
+}
+
+const RegionPolygon _controllerRegion = RegionPolygon(
+  id: 'region-1',
+  name: 'Region One',
+  areaSquareMetres: 4000000,
+  geometry: <String, dynamic>{
+    'type': 'Polygon',
+    'coordinates': <dynamic>[
+      <dynamic>[
+        <double>[144.0, -37.0],
+        <double>[145.0, -37.0],
+        <double>[145.0, -38.0],
+        <double>[144.0, -38.0],
+        <double>[144.0, -37.0],
+      ],
+    ],
+  },
+);
+
+class _PendingGeo extends GeoLocatorService {
+  final result = Completer<Position>();
+  @override
+  Future<Position> getCurrentLocation() => result.future;
 }

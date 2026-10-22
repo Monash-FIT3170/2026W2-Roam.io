@@ -49,6 +49,7 @@ dependencies:
   video_player: ^2.8.6
   flutter_native_splash: ^2.4.7
   flutter_local_notifications: ^22.2.0
+  flutter_tts: ^4.2.5
   timezone: ^0.11.1
   cached_network_image: ^3.4.1
   path_provider: ^2.1.5
@@ -71,6 +72,7 @@ dev_dependencies:
 
   # For app icon and launch screen generation
   flutter_launcher_icons:
+  mock_exceptions: ^0.8.2
 
 # For information on the generic Dart part of this file, see the
 # following page: https://dart.dev/tools/pub/pubspec
@@ -90,6 +92,7 @@ flutter:
     - assets/map_styles/visited_tiles.json
     - assets/map_styles/unvisited_tiles.json
     - assets/logos/roam_io_logo.png
+    - assets/logos/roam_io_logo_transparent.png
     - assets/logos/roam_io_logo_with_text.png
     - assets/badges/
     - assets/badges/milestones/clocked_cruiser_1.png

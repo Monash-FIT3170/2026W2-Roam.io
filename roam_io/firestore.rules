@@ -1229,11 +1229,6 @@ service cloud.firestore {
         allow update: if isSignedIn();
         allow delete: if false;
       }
-
-      match /seasons/{seasonId} {
-        allow read: if isSignedIn();
-        allow write: if false;
-      }
     }
 
     match /{document=**} {

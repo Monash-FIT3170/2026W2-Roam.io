@@ -17,7 +17,7 @@ import 'map_controller.dart';
 import 'place_of_interest.dart';
 import 'visit.dart';
 import 'visit_form_sheet.dart';
-import 'visit_service.dart';
+import '../widgets/place_visit_status_card.dart';
 
 /// Bottom sheet displayed when a place marker is tapped.
 /// Shows place details and allows marking the place as visited.
@@ -60,7 +60,8 @@ class PlaceDetailsSheet extends StatefulWidget {
 }
 
 class _PlaceDetailsSheetState extends State<PlaceDetailsSheet> {
-  double? _distance;
+  bool _isCheckingLocation = true;
+  bool _visitLoadFailed = false;
   String? _errorMessage;
   Visit? _visitData;
   bool _isLoadingVisit = false;
@@ -68,19 +69,38 @@ class _PlaceDetailsSheetState extends State<PlaceDetailsSheet> {
   @override
   void initState() {
     super.initState();
+    widget.mapController.addListener(_onMapChanged);
     _loadDistance();
     if (_isVisited) {
       _loadVisitData();
     }
   }
 
+  @override
+  void dispose() {
+    widget.mapController.removeListener(_onMapChanged);
+    super.dispose();
+  }
+
+  void _onMapChanged() {
+    if (!mounted) return;
+    setState(() {});
+    if (_isVisited &&
+        _visitData == null &&
+        !_isLoadingVisit &&
+        !_visitLoadFailed) {
+      _loadVisitData();
+    }
+  }
+
   Future<void> _loadDistance() async {
-    final distance = await widget.mapController.getDistanceToPlace(
-      widget.place,
-    );
+    setState(() {
+      _isCheckingLocation = true;
+    });
+    await widget.mapController.getDistanceToPlace(widget.place);
     if (mounted) {
       setState(() {
-        _distance = distance;
+        _isCheckingLocation = false;
       });
     }
   }
@@ -91,17 +111,17 @@ class _PlaceDetailsSheetState extends State<PlaceDetailsSheet> {
 
     setState(() {
       _isLoadingVisit = true;
+      _visitLoadFailed = false;
     });
 
     try {
-      final visitService = VisitService();
-      final visit = await visitService.getVisit(
-        userId: userId,
-        placeId: widget.place.id,
+      final visit = await widget.mapController.getVisitForPlace(
+        widget.place.id,
       );
       if (mounted) {
         setState(() {
           _visitData = visit;
+          _visitLoadFailed = visit == null;
           _isLoadingVisit = false;
         });
       }
@@ -109,6 +129,7 @@ class _PlaceDetailsSheetState extends State<PlaceDetailsSheet> {
       if (mounted) {
         setState(() {
           _isLoadingVisit = false;
+          _visitLoadFailed = true;
         });
       }
     }
@@ -116,28 +137,12 @@ class _PlaceDetailsSheetState extends State<PlaceDetailsSheet> {
 
   bool get _isVisited => widget.mapController.isPlaceVisited(widget.place.id);
 
-  String _formatDistance(double metres) {
-    if (metres < 1000) {
-      return '${metres.round()}m away';
-    } else {
-      return '${(metres / 1000).toStringAsFixed(1)}km away';
-    }
-  }
-
   Future<void> _handleMarkVisited() async {
     setState(() {
       _errorMessage = null;
     });
 
-    // Check proximity first
-    if (_distance != null &&
-        _distance! > MapController.visitProximityThreshold) {
-      setState(() {
-        _errorMessage =
-            'You need to be within ${MapController.visitProximityThreshold.round()}m to visit this place';
-      });
-      return;
-    }
+    if (!widget.mapController.visitFeedbackFor(widget.place).canVisit) return;
 
     final userId = widget.mapController.userId;
     if (userId == null) {
@@ -152,7 +157,6 @@ class _PlaceDetailsSheetState extends State<PlaceDetailsSheet> {
 
     // Navigate to visit form
     if (!mounted) return;
-    Navigator.of(context).pop(); // Close current sheet
 
     final result = await VisitFormSheet.show(
       context: context,
@@ -172,12 +176,23 @@ class _PlaceDetailsSheetState extends State<PlaceDetailsSheet> {
             );
 
             if (visitResult != VisitResult.success) {
-              throw Exception('Visit failed: $visitResult');
+              throw VisitFormException(switch (visitResult) {
+                VisitResult.tooFar =>
+                  widget.mapController.message ??
+                      'Get within 100m to mark your visit.',
+                VisitResult.notLoggedIn =>
+                  'Please log in to mark places as visited.',
+                VisitResult.alreadyVisited =>
+                  'This place has already been visited.',
+                _ => 'Could not save your visit. Please try again.',
+              });
             }
           },
     );
 
+    if (!mounted) return;
     if (result == VisitFormResult.success) {
+      await _loadVisitData();
       if (messenger != null) {
         WidgetsBinding.instance.addPostFrameCallback((_) {
           if (!messenger.mounted) return;
@@ -195,8 +210,6 @@ class _PlaceDetailsSheetState extends State<PlaceDetailsSheet> {
     final userId = widget.mapController.userId;
     if (userId == null || _visitData == null) return;
 
-    Navigator.of(context).pop(); // Close current sheet
-
     final result = await VisitFormSheet.show(
       context: context,
       place: widget.place,
@@ -204,9 +217,11 @@ class _PlaceDetailsSheetState extends State<PlaceDetailsSheet> {
       existingVisit: _visitData,
     );
 
+    if (!mounted) return;
     if (result == VisitFormResult.success) {
       // Refresh the map controller's visited places
       await widget.mapController.refreshVisitedPlaces();
+      if (mounted) await _loadVisitData();
     }
   }
 
@@ -222,9 +237,7 @@ class _PlaceDetailsSheetState extends State<PlaceDetailsSheet> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final isNearby =
-        _distance != null &&
-        _distance! <= MapController.visitProximityThreshold;
+    final feedback = widget.mapController.visitFeedbackFor(widget.place);
 
     // Use custom name if available, otherwise place name
     final displayName = _visitData?.displayName ?? widget.place.name;
@@ -236,7 +249,7 @@ class _PlaceDetailsSheetState extends State<PlaceDetailsSheet> {
       ),
       child: SafeArea(
         top: false,
-        child: Padding(
+        child: SingleChildScrollView(
           padding: const EdgeInsets.all(20),
           child: Column(
             mainAxisSize: MainAxisSize.min,
@@ -278,75 +291,19 @@ class _PlaceDetailsSheetState extends State<PlaceDetailsSheet> {
                         Text(
                           widget.place.category.displayName,
                           style: theme.textTheme.bodyMedium?.copyWith(
-                            color: Colors.grey[600],
+                            color: theme.colorScheme.onSurfaceVariant,
                           ),
                         ),
                       ],
                     ),
                   ),
-                  // Visited badge
-                  if (_isVisited)
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 10,
-                        vertical: 4,
-                      ),
-                      decoration: BoxDecoration(
-                        color: AppColors.sage.withValues(alpha: 0.15),
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          const Icon(
-                            Icons.check_circle,
-                            size: 16,
-                            color: AppColors.sage,
-                          ),
-                          const SizedBox(width: 4),
-                          Text(
-                            'Visited',
-                            style: theme.textTheme.labelMedium?.copyWith(
-                              color: AppColors.sage,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
                 ],
               ),
-
               const SizedBox(height: 16),
-
-              // Distance row
-              Row(
-                children: [
-                  // Distance
-                  Icon(
-                    Icons.location_on,
-                    size: 18,
-                    color: isNearby ? AppColors.sage : Colors.grey[600],
-                  ),
-                  const SizedBox(width: 4),
-                  if (_distance != null)
-                    Text(
-                      _formatDistance(_distance!),
-                      style: theme.textTheme.bodyMedium?.copyWith(
-                        color: isNearby ? AppColors.sage : Colors.grey[600],
-                        fontWeight: isNearby
-                            ? FontWeight.w600
-                            : FontWeight.normal,
-                      ),
-                    )
-                  else
-                    const SizedBox(
-                      width: 60,
-                      child: LinearProgressIndicator(
-                        backgroundColor: Color(0xFFE0E0E0),
-                        color: AppColors.sage,
-                      ),
-                    ),
-                ],
+              PlaceVisitStatusCard(
+                feedback: feedback,
+                isCheckingLocation: _isCheckingLocation,
+                onRefresh: _loadDistance,
               ),
 
               // Visit details (for visited places)
@@ -360,6 +317,15 @@ class _PlaceDetailsSheetState extends State<PlaceDetailsSheet> {
                       child: CircularProgressIndicator(strokeWidth: 2),
                     ),
                   ),
+                ] else if (_visitLoadFailed) ...[
+                  const SizedBox(height: 12),
+                  const Text(
+                    'Your visit is saved, but its details could not be loaded.',
+                  ),
+                  TextButton(
+                    onPressed: _loadVisitData,
+                    child: const Text('Retry visit details'),
+                  ),
                 ] else if (_visitData != null) ...[
                   // Description
                   if (_visitData!.description != null &&
@@ -370,7 +336,7 @@ class _PlaceDetailsSheetState extends State<PlaceDetailsSheet> {
                     Text(
                       _visitData!.description!,
                       style: theme.textTheme.bodyMedium?.copyWith(
-                        color: Colors.grey[700],
+                        color: theme.colorScheme.onSurfaceVariant,
                       ),
                     ),
                   ],
@@ -493,10 +459,13 @@ class _PlaceDetailsSheetState extends State<PlaceDetailsSheet> {
                 SizedBox(
                   width: double.infinity,
                   child: OutlinedButton.icon(
-                    onPressed: _handleEditVisit,
+                    onPressed: _visitData == null || _isLoadingVisit
+                        ? null
+                        : _handleEditVisit,
                     icon: const Icon(Icons.edit),
                     label: const Text('Edit Visit'),
                     style: OutlinedButton.styleFrom(
+                      foregroundColor: theme.colorScheme.onSurface,
                       padding: const EdgeInsets.symmetric(vertical: 14),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(12),
@@ -509,7 +478,9 @@ class _PlaceDetailsSheetState extends State<PlaceDetailsSheet> {
                 SizedBox(
                   width: double.infinity,
                   child: ElevatedButton.icon(
-                    onPressed: _handleMarkVisited,
+                    onPressed: feedback.canVisit && !_isCheckingLocation
+                        ? _handleMarkVisited
+                        : null,
                     icon: const Icon(Icons.check),
                     label: const Text('Mark as Visited'),
                     style: ElevatedButton.styleFrom(

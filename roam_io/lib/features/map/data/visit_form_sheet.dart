@@ -17,6 +17,12 @@ typedef CreateVisitCallback =
       List<String>? mediaUrls,
     });
 
+/// A user-facing validation failure supplied by the caller's visit checks.
+class VisitFormException implements Exception {
+  const VisitFormException(this.message);
+  final String message;
+}
+
 /// Result of the visit form submission.
 enum VisitFormResult {
   /// Successfully saved the visit.
@@ -372,7 +378,9 @@ class _VisitFormSheetState extends State<VisitFormSheet> {
       if (!mounted) return;
       setState(() {
         _isLoading = false;
-        _errorMessage = 'Failed to save visit. Please try again.';
+        _errorMessage = e is VisitFormException
+            ? e.message
+            : 'Failed to save visit. Please try again.';
       });
     }
   }

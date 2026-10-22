@@ -87,6 +87,34 @@ class StatsAggregationService {
     }).toList();
   }
 
+  List<StatsMetricBucket> weeklyBucketsFromDatesForRange(
+    List<DateTime> dates,
+    StatsTimeRange range,
+  ) {
+    // Ranges describe the period ending now, not the period ending at the
+    // user's most recent activity. Keeping the current week as the anchor is
+    // what correctly shows activity followed by a quiet spell and later
+    // resumptions without shifting history forward to hide the zero weeks.
+    final anchor = startOfWeek(DateTime.now());
+    final count = _weekCountForRange(dates, anchor, range);
+    final starts = List<DateTime>.generate(
+      count,
+      (index) => anchor.subtract(Duration(days: 7 * (count - 1 - index))),
+    );
+    return starts
+        .map((start) {
+          final end = start.add(const Duration(days: 7));
+          return StatsMetricBucket(
+            label: formatWeekAxisLabel(start),
+            value: dates
+                .where((date) => !date.isBefore(start) && date.isBefore(end))
+                .length,
+            weekStart: start,
+          );
+        })
+        .toList(growable: false);
+  }
+
   List<StatsMetricBucket> weeklyBucketsFromXpEvents(List<XpEvent> events) {
     final dates = events.map((event) => event.earnedAt).toList();
     final anchor = dates.isEmpty
@@ -117,6 +145,54 @@ class StatsAggregationService {
     }).toList();
   }
 
+  List<StatsMetricBucket> weeklyBucketsFromXpEventsForRange(
+    List<XpEvent> events,
+    StatsTimeRange range,
+  ) {
+    final dates = events.map((event) => event.earnedAt).toList(growable: false);
+    final anchor = startOfWeek(DateTime.now());
+    final count = _weekCountForRange(dates, anchor, range);
+    final starts = List<DateTime>.generate(
+      count,
+      (index) => anchor.subtract(Duration(days: 7 * (count - 1 - index))),
+    );
+    return starts
+        .map((start) {
+          final end = start.add(const Duration(days: 7));
+          return StatsMetricBucket(
+            label: formatWeekAxisLabel(start),
+            value: events
+                .where(
+                  (event) =>
+                      !event.earnedAt.isBefore(start) &&
+                      event.earnedAt.isBefore(end),
+                )
+                .fold<int>(0, (sum, event) => sum + event.amount),
+            weekStart: start,
+          );
+        })
+        .toList(growable: false);
+  }
+
+  int _weekCountForRange(
+    List<DateTime> dates,
+    DateTime anchor,
+    StatsTimeRange range,
+  ) {
+    final fixedCount = range.weekCount;
+    if (fixedCount != null) return fixedCount;
+    if (dates.isEmpty) return 4;
+    final earliest = startOfWeek(
+      dates.reduce((left, right) => left.isBefore(right) ? left : right),
+    );
+    // Use UTC calendar days so DST transitions cannot shift the inclusive
+    // week span (local Duration math can land on the previous ISO week).
+    final days = DateTime.utc(anchor.year, anchor.month, anchor.day)
+        .difference(DateTime.utc(earliest.year, earliest.month, earliest.day))
+        .inDays;
+    return math.max(1, days ~/ 7 + 1);
+  }
+
   List<StatsMetricBucket> emptyRecentBuckets() {
     final anchor = startOfWeek(DateTime.now());
     return List<DateTime>.generate(
@@ -131,17 +207,39 @@ class StatsAggregationService {
     }).toList();
   }
 
+  List<StatsMetricBucket> emptyBucketsForRange(StatsTimeRange range) {
+    return weeklyBucketsFromDatesForRange(const <DateTime>[], range);
+  }
+
   List<StatsMetricBucket> visitEventBuckets(List<VisitEvent> events) {
     return weeklyBucketsFromDates(
       events.map((event) => event.visitedAt).toList(),
     );
   }
 
+  List<StatsMetricBucket> visitEventBucketsForRange(
+    List<VisitEvent> events,
+    StatsTimeRange range,
+  ) => weeklyBucketsFromDatesForRange(
+    events.map((event) => event.visitedAt).toList(growable: false),
+    range,
+  );
+
   List<StatsMetricBucket> visitSummaryBuckets(List<Visit> visits) {
     return weeklyBucketsFromDates(
       visits.map((visit) => visit.lastVisitedAt ?? visit.visitedAt).toList(),
     );
   }
+
+  List<StatsMetricBucket> visitSummaryBucketsForRange(
+    List<Visit> visits,
+    StatsTimeRange range,
+  ) => weeklyBucketsFromDatesForRange(
+    visits
+        .map((visit) => visit.lastVisitedAt ?? visit.visitedAt)
+        .toList(growable: false),
+    range,
+  );
 
   List<StatsMetricBucket> tileUnlockBuckets(
     List<VisitedPolygonRecord> tileRecords,
@@ -151,11 +249,27 @@ class StatsAggregationService {
     );
   }
 
+  List<StatsMetricBucket> tileUnlockBucketsForRange(
+    List<VisitedPolygonRecord> tileRecords,
+    StatsTimeRange range,
+  ) => weeklyBucketsFromDatesForRange(
+    tileRecords.map((record) => record.visitedAt).toList(growable: false),
+    range,
+  );
+
   List<StatsMetricBucket> journeyBuckets(List<Journey> journeys) {
     return weeklyBucketsFromDates(
       journeys.map((journey) => journey.startTime).toList(),
     );
   }
+
+  List<StatsMetricBucket> journeyBucketsForRange(
+    List<Journey> journeys,
+    StatsTimeRange range,
+  ) => weeklyBucketsFromDatesForRange(
+    journeys.map((journey) => journey.startTime).toList(growable: false),
+    range,
+  );
 
   int totalVisitEvents(List<Visit> visits) {
     return visits.fold<int>(

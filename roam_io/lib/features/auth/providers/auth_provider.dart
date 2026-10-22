@@ -1,6 +1,6 @@
 /*
  * Author: Sanjevan Rajasegar
- * Last Updated: 20 August 2026
+ * Last Updated: 06/10/2026
  * Description:
  *   Manages authentication, profile XP, level-up state, and Settings account
  *   edit actions exposed to the widget tree. XP awards return an explicit
@@ -61,6 +61,8 @@ class AuthProvider extends ChangeNotifier {
   FogDecayDifficulty get fogDecayDifficulty =>
       _currentProfile?.fogDecayDifficulty ?? FogDecayDifficulty.quarterly;
   bool get darkModeEnabled => _currentProfile?.darkModeEnabled ?? false;
+  bool get roammateVoiceEnabled =>
+      _currentProfile?.roammateVoiceEnabled ?? false;
 
   /// Full XP celebration payload (milestone claim or level-up).
   PendingXpCelebration? get pendingXpCelebration => _pendingXpCelebration;
@@ -177,6 +179,20 @@ class AuthProvider extends ChangeNotifier {
     });
   }
 
+  /// Persists completion before allowing the first-time introduction to close.
+  /// Errors propagate to the tutorial so the user can retry without losing place.
+  Future<void> completeOnboarding() async {
+    final uid = _currentUser?.uid;
+    final profile = _currentProfile;
+    if (uid == null || profile == null || profile.uid != uid) {
+      throw StateError('Your profile is not ready. Please try again.');
+    }
+    await _authRepository.completeOnboarding();
+    if (_currentUser?.uid != uid) return;
+    _currentProfile = _currentProfile?.copyWith(onboardingCompleted: true);
+    notifyListeners();
+  }
+
   /// Changes the current user's password through the repository.
   Future<void> changePassword({
     required String currentPassword,
@@ -242,6 +258,17 @@ class AuthProvider extends ChangeNotifier {
       await _authRepository.updateFogDecayDifficulty(difficulty);
       _currentProfile = _currentProfile?.copyWith(
         fogDecayDifficulty: difficulty,
+        updatedAt: DateTime.now(),
+      );
+    });
+  }
+
+  /// Persists the Roammate voice preference and updates local profile state.
+  Future<void> updateRoammateVoicePreference(bool enabled) async {
+    await _runAuthAction(() async {
+      await _authRepository.updateRoammateVoicePreference(enabled);
+      _currentProfile = _currentProfile?.copyWith(
+        roammateVoiceEnabled: enabled,
         updatedAt: DateTime.now(),
       );
     });
@@ -382,6 +409,9 @@ class AuthProvider extends ChangeNotifier {
   }
 
   void _handleAuthState(User? user) {
+    if (_currentUser?.uid != user?.uid) {
+      _currentProfile = null;
+    }
     _currentUser = user;
     _viewState = user == null
         ? AuthViewState.unauthenticated

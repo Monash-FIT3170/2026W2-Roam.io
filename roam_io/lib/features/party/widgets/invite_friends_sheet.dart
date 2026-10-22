@@ -1,10 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 
+import '../../../theme/app_cartoon.dart';
+import '../../../theme/app_colours.dart';
 import '../../../theme/app_surfaces.dart';
 import '../../social/domain/public_profile.dart';
 import '../data/party_invite_service.dart';
 import '../domain/party.dart';
+import 'party_style.dart';
 
 Future<void> showInviteFriendsSheet(
   BuildContext context, {
@@ -16,6 +19,7 @@ Future<void> showInviteFriendsSheet(
     context: context,
     isScrollControlled: true,
     showDragHandle: true,
+    backgroundColor: AppSurfaces.pageBackground(context),
     builder: (_) => _InviteFriendsSheet(
       party: party,
       inviterId: inviterId,
@@ -92,7 +96,13 @@ class _InviteFriendsSheetState extends State<_InviteFriendsSheet> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Text('Invite friends', style: theme.textTheme.headlineSmall),
+            Text(
+              'Invite friends',
+              style: theme.textTheme.headlineSmall?.copyWith(
+                fontWeight: FontWeight.w900,
+                letterSpacing: -0.6,
+              ),
+            ),
             const SizedBox(height: 6),
             Text(
               'Invite a friend to ${widget.party.displayName}. They can choose to join from Notifications.',
@@ -143,18 +153,36 @@ class _InviteFriendsSheetState extends State<_InviteFriendsSheet> {
                                     'Cannot invite because this user is already a member of another party',
                               )
                             : null,
-                        leading: CircleAvatar(
-                          backgroundColor: AppSurfaces.card(context),
+                        leading: Container(
+                          width: 42,
+                          height: 42,
+                          alignment: Alignment.center,
+                          decoration: BoxDecoration(
+                            color: unavailable
+                                ? AppSurfaces.softCard(context)
+                                : AppColors.sand,
+                            shape: BoxShape.circle,
+                            border: Border.all(
+                              color: PartyStyle.outline(context),
+                              width: 2,
+                            ),
+                          ),
                           child: Text(
                             friend.displayName.isEmpty
                                 ? '?'
                                 : friend.displayName[0].toUpperCase(),
-                            style: TextStyle(color: unavailable ? muted : null),
+                            style: TextStyle(
+                              color: unavailable ? muted : AppColors.ink,
+                              fontWeight: FontWeight.w900,
+                            ),
                           ),
                         ),
                         title: Text(
                           friend.displayName,
-                          style: TextStyle(color: unavailable ? muted : null),
+                          style: TextStyle(
+                            color: unavailable ? muted : null,
+                            fontWeight: FontWeight.w800,
+                          ),
                         ),
                         subtitle: unavailable
                             ? Text(
@@ -167,12 +195,26 @@ class _InviteFriendsSheetState extends State<_InviteFriendsSheet> {
                         trailing: unavailable
                             ? Icon(Icons.block_rounded, color: muted)
                             : _sent.contains(friend.uid)
-                            ? const Icon(Icons.check_circle_rounded)
-                            : TextButton(
-                                onPressed: _sending.contains(friend.uid)
-                                    ? null
-                                    : () => _invite(friend),
-                                child: const Text('Invite'),
+                            ? const Icon(
+                                Icons.check_circle_rounded,
+                                color: AppColors.sage,
+                              )
+                            : CartoonPressable(
+                                soft: true,
+                                enabled: !_sending.contains(friend.uid),
+                                offset: 3,
+                                child: TextButton(
+                                  onPressed: _sending.contains(friend.uid)
+                                      ? null
+                                      : () => _invite(friend),
+                                  style: PartyStyle.button(
+                                    context,
+                                    background: AppColors.sage,
+                                    foreground: Colors.white,
+                                    height: 36,
+                                  ),
+                                  child: const Text('Invite'),
+                                ),
                               ),
                       );
                       return row;
@@ -186,9 +228,18 @@ class _InviteFriendsSheetState extends State<_InviteFriendsSheet> {
               Text(_error!, style: TextStyle(color: theme.colorScheme.error)),
             ],
             const SizedBox(height: 12),
-            OutlinedButton(
-              onPressed: () => Navigator.of(context).pop(),
-              child: const Text('Done'),
+            CartoonPressable(
+              soft: true,
+              child: OutlinedButton(
+                onPressed: () => Navigator.of(context).pop(),
+                style: PartyStyle.button(
+                  context,
+                  background: AppSurfaces.softCard(context),
+                  foreground: AppSurfaces.textPrimary(context),
+                  height: 50,
+                ),
+                child: const Text('Done'),
+              ),
             ),
           ],
         ),

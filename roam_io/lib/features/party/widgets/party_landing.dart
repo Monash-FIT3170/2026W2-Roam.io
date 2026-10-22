@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 
+import '../../../theme/app_cartoon.dart';
+import '../../../theme/app_colours.dart';
 import '../../../theme/app_surfaces.dart';
+import 'party_style.dart';
 
 /// Introduction shown before joining a party. The map is illustrative so it
 /// needs neither location access nor a live map connection.
@@ -15,6 +18,7 @@ class PartyLanding extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     return SafeArea(
+      top: false,
       child: Column(
         children: [
           Expanded(
@@ -29,27 +33,29 @@ class PartyLanding extends StatelessWidget {
                       child: Column(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          const SizedBox(height: 20),
+                          const SizedBox(height: 12),
                           Text(
                             'Roam.io,\nreimagined.',
                             textAlign: TextAlign.center,
                             style: theme.textTheme.headlineLarge?.copyWith(
-                              fontSize: 36,
-                              height: 1.12,
-                              letterSpacing: -1,
-                              fontWeight: FontWeight.w800,
+                              color: AppSurfaces.textPrimary(context),
+                              fontSize: 38,
+                              height: 1.08,
+                              letterSpacing: -1.2,
+                              fontWeight: FontWeight.w900,
                             ),
                           ),
-                          const SizedBox(height: 14),
+                          const SizedBox(height: 12),
                           Text(
                             'Team up. Claim tiles.\nMake the map yours.',
                             textAlign: TextAlign.center,
                             style: theme.textTheme.bodyLarge?.copyWith(
                               color: AppSurfaces.textMuted(context),
-                              height: 1.5,
+                              fontWeight: FontWeight.w700,
+                              height: 1.45,
                             ),
                           ),
-                          const SizedBox(height: 28),
+                          const SizedBox(height: 26),
                           const _PartyMapPreview(),
                           const SizedBox(height: 20),
                         ],
@@ -61,10 +67,10 @@ class PartyLanding extends StatelessWidget {
             ),
           ),
           Padding(
-            padding: const EdgeInsets.fromLTRB(24, 16, 24, 20),
+            padding: const EdgeInsets.fromLTRB(24, 12, 24, 20),
             child: Center(
               child: ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 280),
+                constraints: const BoxConstraints(maxWidth: 300),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
@@ -72,31 +78,39 @@ class PartyLanding extends StatelessWidget {
                       Text(
                         error!,
                         textAlign: TextAlign.center,
-                        style: TextStyle(color: theme.colorScheme.error),
+                        style: TextStyle(
+                          color: theme.colorScheme.error,
+                          fontWeight: FontWeight.w700,
+                        ),
                       ),
                       const SizedBox(height: 12),
                     ],
-                    ElevatedButton(
-                      onPressed: onCreate,
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: theme.colorScheme.primary,
-                        foregroundColor: theme.colorScheme.onPrimary,
-                        minimumSize: const Size.fromHeight(50),
-                        shape: const StadiumBorder(),
-                        textStyle: theme.textTheme.titleMedium,
+                    CartoonPressable(
+                      soft: true,
+                      enabled: onCreate != null,
+                      child: ElevatedButton(
+                        onPressed: onCreate,
+                        style: PartyStyle.button(
+                          context,
+                          background: AppColors.sage,
+                          foreground: Colors.white,
+                        ),
+                        child: const Text('Create Party'),
                       ),
-                      child: const Text('Create Party'),
                     ),
-                    const SizedBox(height: 10),
-                    OutlinedButton(
-                      onPressed: onJoin,
-                      style: OutlinedButton.styleFrom(
-                        minimumSize: const Size.fromHeight(50),
-                        side: BorderSide(color: AppSurfaces.border(context)),
-                        shape: const StadiumBorder(),
-                        textStyle: theme.textTheme.titleMedium,
+                    const SizedBox(height: 14),
+                    CartoonPressable(
+                      soft: true,
+                      enabled: onJoin != null,
+                      child: OutlinedButton(
+                        onPressed: onJoin,
+                        style: PartyStyle.button(
+                          context,
+                          background: AppSurfaces.softCard(context),
+                          foreground: AppSurfaces.textPrimary(context),
+                        ),
+                        child: const Text('Join Party'),
                       ),
-                      child: const Text('Join Party'),
                     ),
                   ],
                 ),
@@ -112,8 +126,8 @@ class PartyLanding extends StatelessWidget {
 class _PartyMapPreview extends StatelessWidget {
   const _PartyMapPreview();
 
-  static const blue = Color(0xFF0098D4);
-  static const red = Color(0xFFEF5350);
+  static const blue = AppColors.teamA;
+  static const red = AppColors.teamB;
 
   @override
   Widget build(BuildContext context) {
@@ -123,13 +137,9 @@ class _PartyMapPreview extends StatelessWidget {
       image: true,
       child: ExcludeSemantics(
         child: Container(
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(24),
-            border: Border.all(color: AppSurfaces.border(context)),
-            boxShadow: AppSurfaces.cardShadow(context),
-          ),
+          decoration: PartyStyle.card(context, radius: 26, offset: 6),
           child: ClipRRect(
-            borderRadius: BorderRadius.circular(24),
+            borderRadius: BorderRadius.circular(23.5),
             child: AspectRatio(
               aspectRatio: 1.15,
               child: Stack(
@@ -141,7 +151,8 @@ class _PartyMapPreview extends StatelessWidget {
                       road: AppSurfaces.isDark(context)
                           ? const Color(0xFF454A55)
                           : const Color(0xFFFFFBF1),
-                      park: theme.colorScheme.primary.withValues(alpha: 0.18),
+                      park: theme.colorScheme.primary.withValues(alpha: 0.22),
+                      ink: PartyStyle.outline(context),
                     ),
                   ),
                   Positioned(
@@ -149,15 +160,17 @@ class _PartyMapPreview extends StatelessWidget {
                     left: 14,
                     right: 14,
                     child: Container(
-                      padding: const EdgeInsets.symmetric(vertical: 12),
-                      decoration: BoxDecoration(
-                        color: AppSurfaces.card(context),
-                        borderRadius: BorderRadius.circular(16),
+                      padding: const EdgeInsets.symmetric(vertical: 10),
+                      decoration: PartyStyle.card(
+                        context,
+                        color: AppSurfaces.softCard(context),
+                        radius: 18,
+                        offset: 3,
                       ),
                       child: Row(
                         children: [
                           _score(context, 'Team A', '5 tiles', blue),
-                          Text('vs', style: theme.textTheme.labelMedium),
+                          const PartyVsBadge(),
                           _score(context, 'Team B', '2 tiles', red),
                         ],
                       ),
@@ -178,14 +191,15 @@ class _PartyMapPreview extends StatelessWidget {
         children: [
           Text(
             team,
-            style: TextStyle(color: color, fontWeight: FontWeight.w700),
+            style: TextStyle(color: color, fontWeight: FontWeight.w900),
           ),
           const SizedBox(height: 2),
           Text(
             tiles,
-            style: Theme.of(
-              context,
-            ).textTheme.titleLarge?.copyWith(color: color),
+            style: Theme.of(context).textTheme.titleLarge?.copyWith(
+              color: color,
+              fontWeight: FontWeight.w900,
+            ),
           ),
         ],
       ),
@@ -198,11 +212,13 @@ class _PreviewMapPainter extends CustomPainter {
     required this.background,
     required this.road,
     required this.park,
+    required this.ink,
   });
 
   final Color background;
   final Color road;
   final Color park;
+  final Color ink;
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -216,6 +232,16 @@ class _PreviewMapPainter extends CustomPainter {
       ),
       Paint()..color = park,
     );
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(
+        const Rect.fromLTWH(205, 120, 100, 115),
+        const Radius.circular(32),
+      ),
+      Paint()
+        ..color = ink.withValues(alpha: 0.35)
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 2.5,
+    );
     final streets = Paint()
       ..color = road
       ..strokeWidth = 6
@@ -228,13 +254,14 @@ class _PreviewMapPainter extends CustomPainter {
     }
     void tile(List<Offset> points, Color color) {
       final path = Path()..addPolygon(points, true);
-      canvas.drawPath(path, Paint()..color = color.withValues(alpha: 0.22));
+      canvas.drawPath(path, Paint()..color = color.withValues(alpha: 0.3));
       canvas.drawPath(
         path,
         Paint()
-          ..color = color.withValues(alpha: 0.75)
+          ..color = color
           ..style = PaintingStyle.stroke
-          ..strokeWidth = 2,
+          ..strokeWidth = 3.5
+          ..strokeJoin = StrokeJoin.round,
       );
     }
 
@@ -267,8 +294,9 @@ class _PreviewMapPainter extends CustomPainter {
       18,
       Paint()..color = _PartyMapPreview.blue.withValues(alpha: 0.18),
     );
-    canvas.drawCircle(location, 9, Paint()..color = Colors.white);
-    canvas.drawCircle(location, 6, Paint()..color = _PartyMapPreview.blue);
+    canvas.drawCircle(location, 11, Paint()..color = ink);
+    canvas.drawCircle(location, 8.5, Paint()..color = Colors.white);
+    canvas.drawCircle(location, 5.5, Paint()..color = _PartyMapPreview.blue);
     canvas.restore();
   }
 
@@ -276,5 +304,6 @@ class _PreviewMapPainter extends CustomPainter {
   bool shouldRepaint(_PreviewMapPainter oldDelegate) =>
       background != oldDelegate.background ||
       road != oldDelegate.road ||
-      park != oldDelegate.park;
+      park != oldDelegate.park ||
+      ink != oldDelegate.ink;
 }

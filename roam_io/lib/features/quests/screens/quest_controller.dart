@@ -30,22 +30,51 @@ class QuestController extends ChangeNotifier {
   bool isCompletingQuest = false;
 
   String? errorMessage;
+  String? loadErrorMessage;
   String? completionMessage;
 
   /// null = no latest verification attempt.
   bool? lastVerificationPassed;
 
   QuestCategory? selectedCategory;
+  QuestStatusFilter selectedStatus = QuestStatusFilter.all;
+
+  QuestStatus statusForQuest(Quest quest) {
+    final status = progressForQuest(quest.id)?.status;
+    // Completion and submitted evidence remain meaningful after availability ends.
+    if (status == QuestStatus.completed || status == QuestStatus.submitted) {
+      return status!;
+    }
+    if (!quest.isAvailableAt(DateTime.now())) return QuestStatus.expired;
+    return status ?? QuestStatus.available;
+  }
+
+  Iterable<Quest> get _categoryQuests => _quests.where(
+    (quest) => selectedCategory == null || quest.category == selectedCategory,
+  );
+
+  int countForStatus(QuestStatusFilter filter) => _categoryQuests
+      .where((quest) => filter.includes(statusForQuest(quest)))
+      .length;
+
+  bool get hasQuests => _quests.isNotEmpty;
+
+  void selectStatus(QuestStatusFilter status) {
+    selectedStatus = status;
+    notifyListeners();
+  }
+
+  void resetFilters() {
+    selectedCategory = null;
+    selectedStatus = QuestStatusFilter.all;
+    notifyListeners();
+  }
 
   List<Quest> get quests {
-    final category = selectedCategory;
-
-    if (category == null) {
-      return List<Quest>.unmodifiable(_quests);
-    }
-
     return List<Quest>.unmodifiable(
-      _quests.where((quest) => quest.category == category),
+      _categoryQuests.where(
+        (quest) => selectedStatus.includes(statusForQuest(quest)),
+      ),
     );
   }
 
@@ -70,34 +99,45 @@ class QuestController extends ChangeNotifier {
   Future<void> loadQuests({String? userId, String? regionId}) async {
     isLoading = true;
     errorMessage = null;
+    loadErrorMessage = null;
 
     notifyListeners();
 
     try {
-      _quests = regionId == null
+      final available = regionId == null
           ? await _questService.getAvailableQuests()
           : await _questService.getQuestsForRegion(regionId);
-
-      if (userId != null) {
-        try {
-          _userQuests = await _questService.getUserQuests(userId);
-        } catch (error) {
-          debugPrint(
-            '[QuestController] '
-            'Could not load user quest progress: $error',
-          );
-
-          _userQuests = <UserQuest>[];
+      final progress = userId == null
+          ? <UserQuest>[]
+          : await _questService.getUserQuests(userId);
+      final byId = {for (final quest in available) quest.id: quest};
+      final missingIds = progress
+          .map((entry) => entry.questId)
+          .where((id) => !byId.containsKey(id))
+          .toSet()
+          .toList();
+      // Bounded reads restore historical definitions without querying inactive
+      // quests belonging to everyone. Deleted definitions are safely omitted.
+      for (var offset = 0; offset < missingIds.length; offset += 10) {
+        final history = await Future.wait(
+          missingIds.skip(offset).take(10).map(_questService.getQuestById),
+        );
+        for (final quest in history.whereType<Quest>()) {
+          if (regionId == null || quest.regionId == regionId) {
+            byId[quest.id] = quest;
+          }
         }
-      } else {
-        _userQuests = <UserQuest>[];
       }
+      _quests = byId.values.toList()
+        ..sort((a, b) => b.rewardXp.compareTo(a.rewardXp));
+      _userQuests = progress;
     } catch (error, stackTrace) {
       debugPrint('[QuestController] Failed loading quests: $error');
 
       debugPrintStack(stackTrace: stackTrace);
 
       errorMessage = 'Could not load quests.';
+      loadErrorMessage = 'Could not load quests and their progress. Try again.';
     } finally {
       isLoading = false;
       notifyListeners();
@@ -112,6 +152,12 @@ class QuestController extends ChangeNotifier {
 
     if (existing != null) {
       return true;
+    }
+
+    if (!quest.isAvailableAt(DateTime.now())) {
+      errorMessage = 'This quest is no longer available.';
+      notifyListeners();
+      return false;
     }
 
     isStartingQuest = true;
@@ -160,6 +206,13 @@ class QuestController extends ChangeNotifier {
       lastVerificationPassed = true;
       notifyListeners();
       return true;
+    }
+
+    if (statusForQuest(quest) == QuestStatus.expired) {
+      errorMessage = 'This quest is no longer available to complete.';
+      lastVerificationPassed = false;
+      notifyListeners();
+      return false;
     }
 
     isCompletingQuest = true;

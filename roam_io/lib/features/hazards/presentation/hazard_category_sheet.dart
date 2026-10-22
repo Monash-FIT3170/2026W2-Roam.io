@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../../shared/widgets/liquid_glass.dart';
 import '../../../theme/app_colours.dart';
 import '../../../theme/app_surfaces.dart';
 import '../domain/hazard_category.dart';
@@ -13,6 +14,7 @@ class HazardCategorySheet extends StatelessWidget {
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
+      barrierColor: Colors.black.withValues(alpha: 0.35),
       builder: (_) => const HazardCategorySheet(),
     );
   }
@@ -20,11 +22,7 @@ class HazardCategorySheet extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    return Container(
-      decoration: BoxDecoration(
-        color: AppSurfaces.card(context),
-        borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
-      ),
+    return LiquidGlassSheet(
       child: SafeArea(
         top: false,
         child: Padding(
@@ -60,32 +58,36 @@ class HazardCategorySheet extends StatelessWidget {
                 childAspectRatio: 2.2,
                 children: [
                   for (final category in HazardCategory.values)
-                    Material(
-                      color: AppSurfaces.innerCard(context),
+                    LiquidGlass(
+                      tint: null,
                       borderRadius: BorderRadius.circular(16),
-                      child: InkWell(
-                        key: ValueKey('hazard_category_${category.id}'),
-                        borderRadius: BorderRadius.circular(16),
-                        onTap: () => Navigator.pop(context, category),
-                        child: Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 12),
-                          child: Row(
-                            children: [
-                              HazardCategoryIcon(
-                                category: category,
-                                color: AppColors.sage,
-                                size: 29,
-                              ),
-                              const SizedBox(width: 9),
-                              Expanded(
-                                child: Text(
-                                  category.displayLabel,
-                                  style: theme.textTheme.labelLarge?.copyWith(
-                                    fontWeight: FontWeight.w700,
+                      opacity: AppSurfaces.isDark(context) ? 0.12 : 0.45,
+                      child: Material(
+                        color: Colors.transparent,
+                        child: InkWell(
+                          key: ValueKey('hazard_category_${category.id}'),
+                          borderRadius: BorderRadius.circular(16),
+                          onTap: () => Navigator.pop(context, category),
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 12),
+                            child: Row(
+                              children: [
+                                HazardCategoryIcon(
+                                  category: category,
+                                  color: AppColors.sage,
+                                  size: 29,
+                                ),
+                                const SizedBox(width: 9),
+                                Expanded(
+                                  child: Text(
+                                    category.displayLabel,
+                                    style: theme.textTheme.labelLarge?.copyWith(
+                                      fontWeight: FontWeight.w700,
+                                    ),
                                   ),
                                 ),
-                              ),
-                            ],
+                              ],
+                            ),
                           ),
                         ),
                       ),

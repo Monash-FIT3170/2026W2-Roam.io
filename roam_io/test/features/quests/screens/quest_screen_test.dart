@@ -9,6 +9,7 @@ import 'package:provider/provider.dart';
 import 'package:roam_io/features/auth/data/auth_repository.dart';
 import 'package:roam_io/features/auth/providers/auth_provider.dart';
 import 'package:roam_io/features/quests/screens/quest_controller.dart';
+import 'package:roam_io/features/quests/screens/data/quest.dart';
 import 'package:roam_io/features/quests/screens/quest_enums.dart';
 import 'package:roam_io/features/quests/screens/quest_service.dart';
 import 'package:roam_io/features/quests/screens/quest_verification_service.dart';
@@ -26,6 +27,124 @@ void main() {
   });
 
   group('QuestsScreen', () {
+    testWidgets('status chips filter progress and show category counts', (
+      tester,
+    ) async {
+      final firestore = FakeFirebaseFirestore();
+      for (final entry in {
+        'available': QuestCategory.nature,
+        'active': QuestCategory.nature,
+        'submitted': QuestCategory.nature,
+        'completed': QuestCategory.culture,
+      }.entries) {
+        await _seedQuest(
+          firestore,
+          id: entry.key,
+          title: '${entry.key} quest',
+          category: entry.value,
+        );
+        if (entry.key != 'available') {
+          await firestore.doc('profiles/user/quests/${entry.key}').set({
+            'questId': entry.key,
+            'status': entry.key,
+          });
+        }
+      }
+      final controller = await _controller(firestore: firestore);
+      await tester.pumpWidget(_app(controller));
+      await tester.pumpAndSettle();
+      await controller.loadQuests(userId: 'user');
+      await tester.pumpAndSettle();
+
+      expect(find.text('All (4)'), findsOneWidget);
+      expect(find.text('Available (1)'), findsOneWidget);
+      expect(find.text('Active (2)'), findsOneWidget);
+      expect(find.text('Completed (1)'), findsOneWidget);
+      await tester.tap(find.byKey(const ValueKey('quest-status-active')));
+      await tester.pumpAndSettle();
+      expect(find.text('active quest'), findsOneWidget);
+      expect(find.text('submitted quest'), findsOneWidget);
+      expect(find.text('Awaiting verification'), findsOneWidget);
+      expect(find.text('available quest'), findsNothing);
+      expect(find.text('completed quest'), findsNothing);
+      expect(
+        tester
+            .widget<ChoiceChip>(
+              find.byKey(const ValueKey('quest-status-active')),
+            )
+            .selected,
+        isTrue,
+      );
+
+      await tester.ensureVisible(find.text('Nature'));
+      await tester.tap(find.text('Nature'));
+      await tester.pumpAndSettle();
+      expect(find.text('All (3)'), findsOneWidget);
+      expect(find.text('Completed (0)'), findsOneWidget);
+      await tester.tap(find.byKey(const ValueKey('quest-status-available')));
+      await tester.pumpAndSettle();
+      expect(find.text('available quest'), findsOneWidget);
+      expect(find.text('active quest'), findsNothing);
+    });
+
+    testWidgets(
+      'empty filtered results offer a reset and preserve filters on refresh',
+      (tester) async {
+        final firestore = FakeFirebaseFirestore();
+        await _seedQuest(firestore, id: 'one', title: 'An adventure');
+        final controller = await _controller(firestore: firestore);
+        await tester.pumpWidget(_app(controller));
+        await tester.pumpAndSettle();
+        await tester.tap(find.byKey(const ValueKey('quest-status-completed')));
+        await tester.pumpAndSettle();
+        expect(find.text('No completed quests here'), findsOneWidget);
+        await tester.drag(find.byType(CustomScrollView), const Offset(0, 350));
+        await tester.pumpAndSettle();
+        expect(controller.selectedStatus, QuestStatusFilter.completed);
+        await tester.tap(find.text('Browse all quests'));
+        await tester.pumpAndSettle();
+        expect(controller.selectedStatus, QuestStatusFilter.all);
+        expect(controller.selectedCategory, isNull);
+        expect(find.text('An adventure'), findsOneWidget);
+      },
+    );
+
+    testWidgets('failed loading offers retry without resetting filters', (
+      tester,
+    ) async {
+      final service = _RetryQuestService();
+      final controller = QuestController(
+        questService: service,
+        verificationService: _UnusedQuestVerificationService(),
+      );
+      controller.selectStatus(QuestStatusFilter.active);
+      await tester.pumpWidget(_app(controller));
+      await tester.pumpAndSettle();
+      expect(
+        find.text('Could not load quests and their progress. Try again.'),
+        findsOneWidget,
+      );
+      service.fail = false;
+      await tester.tap(find.text('Try again'));
+      await tester.pumpAndSettle();
+      expect(controller.loadErrorMessage, isNull);
+      expect(controller.selectedStatus, QuestStatusFilter.active);
+      expect(find.text('No quests available yet'), findsOneWidget);
+    });
+
+    testWidgets('action errors do not replace the quest list', (tester) async {
+      final firestore = FakeFirebaseFirestore();
+      await _seedQuest(firestore, id: 'one', title: 'An adventure');
+      final controller = await _controller(firestore: firestore);
+      await tester.pumpWidget(_app(controller));
+      await tester.pumpAndSettle();
+      controller.errorMessage = 'Could not start quest.';
+      controller.selectStatus(QuestStatusFilter.available);
+      await tester.pumpAndSettle();
+      expect(find.text('An adventure'), findsOneWidget);
+      expect(find.text('Could not start quest.'), findsNothing);
+    });
+
     testWidgets('renders Side Quests screen', (tester) async {
       final controller = await _controller();
 
@@ -250,5 +369,15 @@ class _UnauthenticatedAuthRepository implements AuthRepository {
   @override
   dynamic noSuchMethod(Invocation invocation) {
     return super.noSuchMethod(invocation);
+  }
+}
+
+class _RetryQuestService extends QuestService {
+  bool fail = true;
+
+  @override
+  Future<List<Quest>> getAvailableQuests() async {
+    if (fail) throw StateError('offline');
+    return [];
   }
 }

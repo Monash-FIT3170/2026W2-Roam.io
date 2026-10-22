@@ -25,7 +25,7 @@ abstract final class FogPalette {
 
   /// Wash opacity. Kept light enough that map detail remains visible beneath
   /// the cloud texture.
-  static const double washOpacity = 0.46;
+  static const double washOpacity = 0.42;
 
   /// Per-sprite tint, multiplied over the artwork via [BlendMode.modulate].
   ///
@@ -40,7 +40,7 @@ abstract final class FogPalette {
 
   /// Cooler, deeper treatment used while the app is in dark mode.
   static const Color nightWashColor = Color(0xFF4D5D73);
-  static const double nightWashOpacity = 0.56;
+  static const double nightWashOpacity = 0.51;
   static const Color nightSpriteTint = Color(0xFF8190A8);
 
   // ---------------------------------------------------------------------------
@@ -109,8 +109,8 @@ abstract final class FogPalette {
   static const double scaleVariance = 0.1;
 
   /// Per-instance opacity range.
-  static const double opacityMin = 0.42;
-  static const double opacityMax = 0.66;
+  static const double opacityMin = 0.38;
+  static const double opacityMax = 0.60;
 
   /// How strongly sprite size tracks zoom.
   ///

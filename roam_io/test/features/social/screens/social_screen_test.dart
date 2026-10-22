@@ -2,7 +2,7 @@
  * Author: Sanjevan Rajasegar
  * Last Updated: 9 August 2026
  * Description:
- *   Widget tests for the Social destination and its feature entry points.
+ *   Widget tests for the Social destination header and Find People entry.
  */
 
 import 'package:fake_cloud_firestore/fake_cloud_firestore.dart';
@@ -13,12 +13,11 @@ import 'package:provider/provider.dart';
 import 'package:roam_io/features/auth/data/auth_repository.dart';
 import 'package:roam_io/features/auth/providers/auth_provider.dart';
 import 'package:roam_io/features/profile/domain/profile_model.dart';
-import 'package:roam_io/features/party/data/party_service.dart';
-import 'package:roam_io/features/party/screens/party_screen.dart';
 import 'package:roam_io/features/social/data/follow_service.dart';
 import 'package:roam_io/features/social/data/friendship_service.dart';
 import 'package:roam_io/features/social/screens/find_people_screen.dart';
 import 'package:roam_io/features/social/screens/social_screen.dart';
+import 'package:roam_io/features/social/widgets/social_layout.dart';
 
 import '../../../support/fake_firebase_user.dart';
 
@@ -64,31 +63,6 @@ void main() {
     expect(find.text('Search results'), findsNothing);
   });
 
-  testWidgets('Party Mode opens from Social', (tester) async {
-    final auth = AuthProvider(authRepository: _SocialAuthRepository());
-    final partyService = PartyService(firestore: FakeFirebaseFirestore());
-
-    await tester.pumpWidget(
-      ChangeNotifierProvider<AuthProvider>.value(
-        value: auth,
-        child: MaterialApp(
-          home: Scaffold(body: SocialScreen(partyService: partyService)),
-        ),
-      ),
-    );
-    await tester.pump();
-
-    expect(find.text('Party Mode'), findsOneWidget);
-    await tester.tap(find.text('Party Mode'));
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 300));
-
-    expect(find.byType(PartyScreen), findsOneWidget);
-    expect(find.text('Create Party'), findsOneWidget);
-    expect(find.text('Join Party'), findsOneWidget);
-    auth.dispose();
-  });
-
   testWidgets('title and search action share the same header row', (
     tester,
   ) async {
@@ -100,6 +74,39 @@ void main() {
     final searchCenter = tester.getCenter(find.byTooltip('Find people'));
 
     expect((titleCenter.dy - searchCenter.dy).abs(), lessThan(18));
+  });
+
+  testWidgets('destination cards cap their width on wide screens', (
+    tester,
+  ) async {
+    addTearDown(tester.view.reset);
+    tester.view.devicePixelRatio = 1;
+
+    tester.view.physicalSize = const Size(1200, 900);
+    await tester.pumpWidget(
+      const MaterialApp(home: Scaffold(body: SocialScreen())),
+    );
+    final wideCard = tester.getSize(
+      find
+          .ancestor(
+            of: find.text('Leaderboards'),
+            matching: find.byType(DecoratedBox),
+          )
+          .first,
+    );
+    expect(wideCard.width, lessThanOrEqualTo(SocialLayout.maxContentWidth));
+
+    tester.view.physicalSize = const Size(390, 844);
+    await tester.pumpAndSettle();
+    final phoneCard = tester.getSize(
+      find
+          .ancestor(
+            of: find.text('Leaderboards'),
+            matching: find.byType(DecoratedBox),
+          )
+          .first,
+    );
+    expect(phoneCard.width, 390 - SocialLayout.gutter * 2);
   });
 
   testWidgets('search icon uses standard foreground colour not primary green', (

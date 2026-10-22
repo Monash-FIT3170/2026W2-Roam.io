@@ -358,6 +358,8 @@ void main() {
     expect(find.text('Leave Party'), findsOneWidget);
     expect(find.text('Create Party'), findsNothing);
     expect(find.text('Join Party'), findsNothing);
+    await tester.ensureVisible(find.text('Leave Party'));
+    await tester.pumpAndSettle();
     await tester.tap(find.text('Leave Party'));
     await tester.pumpAndSettle();
 
@@ -383,6 +385,8 @@ void main() {
     final party = await partyService.createParty(uid: 'user-1');
     await _pumpPartyScreen(tester, partyService: partyService, uid: 'user-1');
 
+    await tester.ensureVisible(find.text('Leave Party'));
+    await tester.pumpAndSettle();
     await tester.tap(find.text('Leave Party'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('Cancel'));
@@ -433,7 +437,10 @@ void main() {
     await _pumpPartyScreen(tester, partyService: partyService, uid: 'user-1');
 
     expect(find.text('Party #${party.joinCode}'), findsOneWidget);
-    expect(find.text('Join code: ${party.joinCode}'), findsOneWidget);
+    expect(
+      find.byKey(ValueKey('party-join-code-${party.joinCode}')),
+      findsOneWidget,
+    );
     expect(find.byTooltip('Copy join code'), findsOneWidget);
     expect(find.text('Your Party'), findsNothing);
     expect(find.text('Team A'), findsOneWidget);
@@ -461,7 +468,7 @@ void main() {
 
     final sections = [
       find.text('Party #${party.joinCode}'),
-      find.text('Join code: ${party.joinCode}'),
+      find.byKey(ValueKey('party-join-code-${party.joinCode}')),
       find.text('View Map'),
       find.text('Team A'),
       find.text('Team A Members'),
@@ -491,7 +498,10 @@ void main() {
 
       expect(find.text('New Name'), findsOneWidget);
       expect(find.text('Old Name'), findsNothing);
-      expect(find.text('Join code: ${party.joinCode}'), findsOneWidget);
+      expect(
+        find.byKey(ValueKey('party-join-code-${party.joinCode}')),
+        findsOneWidget,
+      );
       final stored = await firestore.collection('parties').doc(party.id).get();
       expect(stored.data()?['name'], 'New Name');
       expect(stored.data()?['joinCode'], party.joinCode);
@@ -523,7 +533,7 @@ void main() {
       ),
     );
 
-    await tester.tap(find.text('Join code: ${party.joinCode}'));
+    await tester.tap(find.byKey(ValueKey('party-join-code-${party.joinCode}')));
     await tester.pumpAndSettle();
 
     expect(copiedCode, party.joinCode);

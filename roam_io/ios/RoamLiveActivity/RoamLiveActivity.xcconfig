@@ -1,0 +1,3 @@
+// Live Activity extension must not inherit Pods-Runner / Flutter app linker flags.
+// Only pull version metadata from Flutter's generated config.
+#include "../Flutter/Generated.xcconfig"

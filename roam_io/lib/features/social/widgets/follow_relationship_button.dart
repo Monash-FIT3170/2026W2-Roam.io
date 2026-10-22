@@ -4,7 +4,8 @@
  * Description:
  *   Shared Follow / Requested / Following control driven by derived Firestore
  *   relationship state. Follow is sage; Following and Requested default to
- *   sand with per-surface overrides.
+ *   sand with per-surface overrides in light mode and use the elevated dark
+ *   surface in dark mode (see SocialButtonStyles).
  *   Unfollowing a private account confirms via shared dialog. Public targets
  *   follow immediately; private targets create cancellable requests.
  */
@@ -13,12 +14,11 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 
 import '../../../shared/widgets/app_toast.dart';
-import '../../../theme/app_colours.dart';
-import '../../../theme/app_surfaces.dart';
 import '../data/follow_service.dart';
 import '../domain/follow_relationship_state.dart';
 import '../domain/public_profile.dart';
 import 'private_follow_confirm.dart';
+import 'social_button_styles.dart';
 
 /// Label modes for the public Follow relationship button.
 enum FollowRelationshipLabelMode {
@@ -51,10 +51,10 @@ class FollowRelationshipButton extends StatefulWidget {
   final bool expandWidth;
   final PublicProfile? followeeProfile;
 
-  /// Background for Following / Requested states.
+  /// Light-mode background for Following / Requested states.
   ///
   /// Profile and search surfaces default to sand; dense list rows can override
-  /// to cream.
+  /// to cream. Dark mode always uses the elevated dark surface.
   final Color? activeBackgroundColor;
 
   @override
@@ -170,37 +170,21 @@ class _FollowRelationshipButtonState extends State<FollowRelationshipButton> {
             !snapshot.hasData;
         final onPressed = _busy || waiting ? null : () => _toggle(state);
         final label = Text(_idleLabel(state.status));
-        final compactPadding = widget.compact
-            ? const EdgeInsets.symmetric(horizontal: 12, vertical: 8)
-            : null;
-        final compactDensity = widget.compact
-            ? VisualDensity.compact
-            : VisualDensity.standard;
 
         // Follow = sage filled; Following / Requested = sand outlined.
         final Widget button =
             state.status == FollowRelationshipStatus.notFollowing
             ? FilledButton(
                 onPressed: onPressed,
-                style: FilledButton.styleFrom(
-                  shape: const StadiumBorder(),
-                  visualDensity: compactDensity,
-                  padding: compactPadding,
-                  backgroundColor: AppColors.sage,
-                  foregroundColor: Colors.white,
-                ),
+                style: SocialButtonStyles.primary(compact: widget.compact),
                 child: label,
               )
             : OutlinedButton(
                 onPressed: onPressed,
-                style: OutlinedButton.styleFrom(
-                  shape: const StadiumBorder(),
-                  visualDensity: compactDensity,
-                  padding: compactPadding,
-                  foregroundColor: AppSurfaces.textPrimary(context),
-                  backgroundColor:
-                      widget.activeBackgroundColor ?? AppColors.sand,
-                  side: BorderSide(color: AppSurfaces.border(context)),
+                style: SocialButtonStyles.secondary(
+                  context,
+                  compact: widget.compact,
+                  backgroundColor: widget.activeBackgroundColor,
                 ),
                 child: label,
               );

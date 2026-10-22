@@ -23,6 +23,10 @@ import '../domain/public_profile.dart';
 import '../widgets/follow_relationship_button.dart';
 import '../widgets/private_follow_confirm.dart';
 import '../widgets/social_avatar.dart';
+import '../widgets/social_button_styles.dart';
+import '../widgets/social_card.dart';
+import '../widgets/social_layout.dart';
+import '../widgets/social_message.dart';
 import 'other_user_profile_screen.dart';
 
 /// Whether the screen lists people the selected user follows or their followers.
@@ -80,7 +84,12 @@ class _FollowConnectionsScreenState extends State<FollowConnectionsScreen> {
 
     return Scaffold(
       backgroundColor: AppSurfaces.pageBackground(context),
-      appBar: AppBar(title: Text(_title)),
+      appBar: AppBar(
+        title: Text(_title),
+        elevation: 0,
+        scrolledUnderElevation: 0,
+        backgroundColor: AppSurfaces.pageBackground(context),
+      ),
       body: StreamBuilder<List<String>>(
         stream: _idsStream,
         builder: (context, snapshot) {
@@ -91,16 +100,10 @@ class _FollowConnectionsScreenState extends State<FollowConnectionsScreen> {
 
           final ids = snapshot.data ?? const <String>[];
           if (ids.isEmpty) {
-            return Center(
-              child: Text(
-                widget.mode == FollowConnectionsMode.following
-                    ? 'Not following anyone yet'
-                    : 'No followers yet',
-                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                  color: AppSurfaces.textMuted(context),
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
+            return SocialMessage(
+              widget.mode == FollowConnectionsMode.following
+                  ? 'Not following anyone yet'
+                  : 'No followers yet',
             );
           }
 
@@ -109,20 +112,28 @@ class _FollowConnectionsScreenState extends State<FollowConnectionsScreen> {
               authUid != null &&
               authUid == widget.selectedUserId;
 
-          return ListView.separated(
-            padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
-            itemCount: ids.length,
-            separatorBuilder: (_, _) => const SizedBox(height: 10),
-            itemBuilder: (context, index) {
-              final listedUserId = ids[index];
-              return _ConnectionRow(
-                listedUserId: listedUserId,
-                authUid: authUid,
-                showRemoveFollower: isOwnFollowers,
-                followService: _followService,
-                friendshipService: _friendshipService,
-              );
-            },
+          return SocialContentWidth(
+            child: ListView.separated(
+              padding: const EdgeInsets.fromLTRB(
+                SocialLayout.gutter,
+                12,
+                SocialLayout.gutter,
+                24,
+              ),
+              itemCount: ids.length,
+              separatorBuilder: (_, _) =>
+                  const SizedBox(height: SocialLayout.rowGap),
+              itemBuilder: (context, index) {
+                final listedUserId = ids[index];
+                return _ConnectionRow(
+                  listedUserId: listedUserId,
+                  authUid: authUid,
+                  showRemoveFollower: isOwnFollowers,
+                  followService: _followService,
+                  friendshipService: _friendshipService,
+                );
+              },
+            ),
           );
         },
       ),
@@ -156,89 +167,89 @@ class _ConnectionRow extends StatelessWidget {
         final photoUrl = profile?.photoUrl;
         final showAction = authUid != null && authUid != listedUserId;
 
-        return Container(
-          padding: const EdgeInsets.all(14),
-          decoration: BoxDecoration(
-            color: AppSurfaces.card(context),
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: AppSurfaces.border(context)),
-          ),
-          child: Row(
-            children: [
-              Expanded(
-                child: InkWell(
-                  borderRadius: BorderRadius.circular(12),
-                  onTap: () {
-                    Navigator.of(context).push(
-                      MaterialPageRoute<void>(
-                        builder: (_) => OtherUserProfileScreen(
-                          selectedUserId: listedUserId,
-                          friendshipService: friendshipService,
-                          followService: followService,
+        return Material(
+          type: MaterialType.transparency,
+          child: Ink(
+            padding: const EdgeInsets.all(SocialLayout.cardPadding),
+            decoration: SocialCard.decoration(context),
+            child: Row(
+              children: [
+                Expanded(
+                  child: InkWell(
+                    borderRadius: BorderRadius.circular(12),
+                    onTap: () {
+                      Navigator.of(context).push(
+                        MaterialPageRoute<void>(
+                          builder: (_) => OtherUserProfileScreen(
+                            selectedUserId: listedUserId,
+                            friendshipService: friendshipService,
+                            followService: followService,
+                          ),
                         ),
-                      ),
-                    );
-                  },
-                  child: Row(
-                    children: [
-                      SocialAvatar(
-                        displayName: displayName,
-                        photoUrl: photoUrl,
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              displayName,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: Theme.of(context).textTheme.titleMedium
-                                  ?.copyWith(
-                                    color: AppSurfaces.textPrimary(context),
-                                    fontWeight: FontWeight.w800,
-                                  ),
-                            ),
-                            const SizedBox(height: 2),
-                            Text(
-                              '@$username',
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: Theme.of(context).textTheme.bodyMedium
-                                  ?.copyWith(
-                                    color: AppSurfaces.textMuted(context),
-                                  ),
-                            ),
-                          ],
+                      );
+                    },
+                    child: Row(
+                      children: [
+                        SocialAvatar(
+                          displayName: displayName,
+                          photoUrl: photoUrl,
+                          borderWidth: 1.5,
                         ),
-                      ),
-                    ],
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                displayName,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: Theme.of(context).textTheme.titleMedium
+                                    ?.copyWith(
+                                      color: AppSurfaces.textPrimary(context),
+                                      fontWeight: FontWeight.w800,
+                                    ),
+                              ),
+                              const SizedBox(height: 2),
+                              Text(
+                                '@$username',
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: Theme.of(context).textTheme.bodyMedium
+                                    ?.copyWith(
+                                      color: AppSurfaces.textMuted(context),
+                                    ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
                 ),
-              ),
-              if (showAction) ...[
-                const SizedBox(width: 10),
-                if (showRemoveFollower) ...[
-                  _RemoveFollowerButton(
-                    followerId: listedUserId,
-                    followeeId: authUid!,
+                if (showAction) ...[
+                  const SizedBox(width: 10),
+                  if (showRemoveFollower) ...[
+                    _RemoveFollowerButton(
+                      followerId: listedUserId,
+                      followeeId: authUid!,
+                      followService: followService,
+                      username: username,
+                      isPrivateAccount: profile?.isPrivateAccount ?? false,
+                    ),
+                    const SizedBox(width: 8),
+                  ],
+                  FollowRelationshipButton(
+                    followerId: authUid!,
+                    followeeId: listedUserId,
                     followService: followService,
-                    username: username,
-                    isPrivateAccount: profile?.isPrivateAccount ?? false,
+                    followeeProfile: profile,
+                    compact: true,
+                    activeBackgroundColor: AppColors.cream,
                   ),
-                  const SizedBox(width: 8),
                 ],
-                FollowRelationshipButton(
-                  followerId: authUid!,
-                  followeeId: listedUserId,
-                  followService: followService,
-                  followeeProfile: profile,
-                  compact: true,
-                  activeBackgroundColor: AppColors.cream,
-                ),
               ],
-            ],
+            ),
           ),
         );
       },
@@ -297,13 +308,10 @@ class _RemoveFollowerButtonState extends State<_RemoveFollowerButton> {
   Widget build(BuildContext context) {
     return OutlinedButton(
       onPressed: _busy ? null : _remove,
-      style: OutlinedButton.styleFrom(
-        shape: const StadiumBorder(),
-        visualDensity: VisualDensity.compact,
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-        foregroundColor: AppSurfaces.textPrimary(context),
+      style: SocialButtonStyles.secondary(
+        context,
+        compact: true,
         backgroundColor: AppColors.cream,
-        side: BorderSide(color: AppSurfaces.border(context)),
       ),
       child: const Text('Remove'),
     );

@@ -45,6 +45,9 @@ import '../../you/screens/you_screen.dart';
 class MainShellScreen extends StatefulWidget {
   final bool requestNotificationPermission;
 
+  /// New explorers arrive on Home; returning sessions retain the Map default.
+  final int initialIndex;
+
   /// Injected for tests; production uses the default [CommentService].
   final CommentService? commentService;
   final CommentLikeService? commentLikeService;
@@ -65,6 +68,7 @@ class MainShellScreen extends StatefulWidget {
   const MainShellScreen({
     super.key,
     this.requestNotificationPermission = true,
+    this.initialIndex = 2,
     this.commentService,
     this.commentLikeService,
     this.kudosService,
@@ -74,14 +78,14 @@ class MainShellScreen extends StatefulWidget {
     this.friendshipService,
     this.followRequestService,
     this.socialNotificationCoordinator,
-  });
+  }) : assert(initialIndex >= 0 && initialIndex < 5);
 
   @override
   State<MainShellScreen> createState() => _MainShellScreenState();
 }
 
 class _MainShellScreenState extends State<MainShellScreen> {
-  int selectedIndex = 2;
+  late int selectedIndex = widget.initialIndex;
 
   StreamSubscription<NotificationActionEvent>? _actionSubscription;
   StreamSubscription<NotificationTapEvent>? _tapSubscription;

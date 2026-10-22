@@ -16,4 +16,15 @@ class AppColors {
   static const sand = Color(0xFFD9C6A3);
   static const cream = Color(0xFFF2EBDC);
   static const clay = Color(0xFFBF573F);
+
+  // Party Mode team colours: an earthy blue / clay pair that stays
+  // distinguishable for red-green colour blindness.
+  static const teamA = Color(0xFF3F7CA6);
+  static const teamB = clay;
+
+  // Warm, green-charcoal dark surfaces that retain the product's earthy tone.
+  static const darkBackground = Color(0xFF111813);
+  static const darkSurface = Color(0xFF18221B);
+  static const darkElevated = Color(0xFF243128);
+  static const darkSoft = Color(0xFF1E2A22);
 }

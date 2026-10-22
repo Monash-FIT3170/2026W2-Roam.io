@@ -10,8 +10,10 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../../shared/widgets/app_toast.dart';
-import '../../../theme/app_surfaces.dart';
+import '../../../theme/app_cartoon.dart';
+import '../../../theme/app_colours.dart';
 import '../providers/auth_provider.dart';
+import '../../settings/widgets/settings_group.dart';
 
 /// Screen for changing the current user's password.
 class ChangePasswordScreen extends StatefulWidget {
@@ -58,116 +60,122 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppSurfaces.pageBackground(context),
-      appBar: AppBar(title: const Text('Change Password')),
+      backgroundColor: SettingsStyle.background(context),
       body: SafeArea(
-        child: Consumer<AuthProvider>(
-          builder: (context, auth, _) {
-            return SingleChildScrollView(
-              padding: const EdgeInsets.fromLTRB(20, 20, 20, 32),
-              child: Form(
-                key: _formKey,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    TextFormField(
-                      controller: _currentPasswordController,
-                      obscureText: true,
-                      textInputAction: TextInputAction.next,
-                      decoration: InputDecoration(
-                        labelText: 'Current password',
-                        filled: true,
-                        fillColor: AppSurfaces.innerCard(context),
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(16),
-                          borderSide: BorderSide(
-                            color: AppSurfaces.border(context),
-                          ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            CartoonPageHeader(
+              title: 'Change Password',
+              outlineWidth: SettingsStyle.outlineWidth,
+              soft: true,
+              outlineColor: SettingsStyle.outline(context),
+            ),
+            Expanded(
+              child: Consumer<AuthProvider>(
+                builder: (context, auth, _) {
+                  return SingleChildScrollView(
+                    padding: const EdgeInsets.fromLTRB(20, 4, 20, 32),
+                    child: Container(
+                      padding: const EdgeInsets.all(18),
+                      decoration: SettingsStyle.card(context),
+                      child: Form(
+                        key: _formKey,
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            TextFormField(
+                              controller: _currentPasswordController,
+                              obscureText: true,
+                              textInputAction: TextInputAction.next,
+                              decoration: SettingsStyle.input(
+                                context,
+                                labelText: 'Current password',
+                              ),
+                              validator: (value) {
+                                if ((value ?? '').isEmpty) {
+                                  return 'Current password is required.';
+                                }
+                                return null;
+                              },
+                            ),
+                            const SizedBox(height: 12),
+                            TextFormField(
+                              controller: _newPasswordController,
+                              obscureText: true,
+                              textInputAction: TextInputAction.next,
+                              decoration: SettingsStyle.input(
+                                context,
+                                labelText: 'New password',
+                              ),
+                              validator: (value) {
+                                final text = value ?? '';
+                                if (text.isEmpty) {
+                                  return 'New password is required.';
+                                }
+                                if (text.length < 8) {
+                                  return 'New password must be at least 8 characters.';
+                                }
+                                return null;
+                              },
+                            ),
+                            const SizedBox(height: 12),
+                            TextFormField(
+                              controller: _confirmPasswordController,
+                              obscureText: true,
+                              textInputAction: TextInputAction.done,
+                              decoration: SettingsStyle.input(
+                                context,
+                                labelText: 'Confirm new password',
+                              ),
+                              validator: (value) {
+                                final text = value ?? '';
+                                if (text.isEmpty) {
+                                  return 'Please confirm your new password.';
+                                }
+                                if (text != _newPasswordController.text) {
+                                  return 'Passwords do not match.';
+                                }
+                                return null;
+                              },
+                              onFieldSubmitted: (_) => _submit(),
+                            ),
+                            const SizedBox(height: 20),
+                            CartoonPressable(
+                              enabled: !auth.isBusy,
+                              soft: true,
+                              child: ElevatedButton(
+                                onPressed: auth.isBusy ? null : _submit,
+                                style:
+                                    SettingsStyle.button(
+                                      context,
+                                      background: AppColors.sage,
+                                      foreground: Colors.white,
+                                    ).copyWith(
+                                      minimumSize: const WidgetStatePropertyAll(
+                                        Size.fromHeight(50),
+                                      ),
+                                    ),
+                                child: auth.isBusy
+                                    ? const SizedBox(
+                                        height: 20,
+                                        width: 20,
+                                        child: CircularProgressIndicator(
+                                          strokeWidth: 2,
+                                        ),
+                                      )
+                                    : const Text('Update password'),
+                              ),
+                            ),
+                          ],
                         ),
                       ),
-                      validator: (value) {
-                        if ((value ?? '').isEmpty) {
-                          return 'Current password is required.';
-                        }
-                        return null;
-                      },
                     ),
-                    const SizedBox(height: 12),
-                    TextFormField(
-                      controller: _newPasswordController,
-                      obscureText: true,
-                      textInputAction: TextInputAction.next,
-                      decoration: InputDecoration(
-                        labelText: 'New password',
-                        filled: true,
-                        fillColor: AppSurfaces.innerCard(context),
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(16),
-                          borderSide: BorderSide(
-                            color: AppSurfaces.border(context),
-                          ),
-                        ),
-                      ),
-                      validator: (value) {
-                        final text = value ?? '';
-                        if (text.isEmpty) return 'New password is required.';
-                        if (text.length < 8) {
-                          return 'New password must be at least 8 characters.';
-                        }
-                        return null;
-                      },
-                    ),
-                    const SizedBox(height: 12),
-                    TextFormField(
-                      controller: _confirmPasswordController,
-                      obscureText: true,
-                      textInputAction: TextInputAction.done,
-                      decoration: InputDecoration(
-                        labelText: 'Confirm new password',
-                        filled: true,
-                        fillColor: AppSurfaces.innerCard(context),
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(16),
-                          borderSide: BorderSide(
-                            color: AppSurfaces.border(context),
-                          ),
-                        ),
-                      ),
-                      validator: (value) {
-                        final text = value ?? '';
-                        if (text.isEmpty) {
-                          return 'Please confirm your new password.';
-                        }
-                        if (text != _newPasswordController.text) {
-                          return 'Passwords do not match.';
-                        }
-                        return null;
-                      },
-                      onFieldSubmitted: (_) => _submit(),
-                    ),
-                    const SizedBox(height: 20),
-                    ElevatedButton(
-                      onPressed: auth.isBusy ? null : _submit,
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Theme.of(context).colorScheme.primary,
-                        foregroundColor: Theme.of(
-                          context,
-                        ).colorScheme.onPrimary,
-                        minimumSize: const Size.fromHeight(48),
-                      ),
-                      child: auth.isBusy
-                          ? const SizedBox(
-                              height: 20,
-                              width: 20,
-                              child: CircularProgressIndicator(strokeWidth: 2),
-                            )
-                          : const Text('Update password'),
-                    ),
-                  ],
-                ),
+                  );
+                },
               ),
-            );
-          },
+            ),
+          ],
         ),
       ),
     );

@@ -7,6 +7,7 @@
 
 import 'package:firebase_auth/firebase_auth.dart' as firebase_auth;
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:provider/provider.dart';
 import 'package:roam_io/features/auth/data/auth_repository.dart';
@@ -14,6 +15,223 @@ import 'package:roam_io/features/auth/providers/auth_provider.dart';
 import 'package:roam_io/features/auth/screens/signup_screen.dart';
 
 void main() {
+  testWidgets('labels fields and follows logical keyboard order', (
+    tester,
+  ) async {
+    final semantics = tester.ensureSemantics();
+    final provider = AuthProvider(authRepository: _SignupAuthRepository());
+    await tester.pumpWidget(
+      MaterialApp(
+        home: ChangeNotifierProvider<AuthProvider>.value(
+          value: provider,
+          child: const SignupScreen(),
+        ),
+      ),
+    );
+    final fields = find.byType(EditableText);
+    for (var i = 0; i < 4; i++) {
+      final label = ['Username', 'Display name', 'Email', 'Password'][i];
+      await tester.ensureVisible(fields.at(i));
+      await tester.pumpAndSettle();
+      expect(tester.getSemantics(fields.at(i)).label, contains(label));
+    }
+    await tester.ensureVisible(fields.first);
+    await tester.tap(fields.first);
+    await tester.pumpAndSettle();
+    for (var i = 1; i < 4; i++) {
+      await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+      await tester.pumpAndSettle();
+      expect(
+        tester.widget<EditableText>(fields.at(i)).focusNode.hasFocus,
+        isTrue,
+      );
+    }
+    for (final control in [
+      find.byTooltip('Show password'),
+      find.byType(FilledButton),
+      find.widgetWithText(TextButton, 'Sign in'),
+    ]) {
+      await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+      await tester.pumpAndSettle();
+      final focusContext = FocusManager.instance.primaryFocus!.context!;
+      expect(
+        focusContext == tester.element(control) ||
+            find
+                .ancestor(
+                  of: find.byElementPredicate((e) => e == focusContext),
+                  matching: control,
+                )
+                .evaluate()
+                .isNotEmpty,
+        isTrue,
+      );
+    }
+    semantics.dispose();
+    provider.dispose();
+  });
+
+  for (final scenario in [
+    (
+      name: 'small mobile',
+      size: const Size(320, 568),
+      scale: 1.0,
+      keyboard: 0.0,
+    ),
+    (name: 'mobile', size: const Size(390, 844), scale: 1.0, keyboard: 0.0),
+    (name: 'tablet', size: const Size(768, 1024), scale: 1.0, keyboard: 0.0),
+    (name: 'desktop', size: const Size(1440, 1000), scale: 1.0, keyboard: 0.0),
+    (name: 'landscape', size: const Size(844, 390), scale: 1.0, keyboard: 0.0),
+    (
+      name: 'mobile keyboard',
+      size: const Size(320, 568),
+      scale: 1.0,
+      keyboard: 280.0,
+    ),
+    (
+      name: 'large mobile text',
+      size: const Size(320, 568),
+      scale: 2.0,
+      keyboard: 0.0,
+    ),
+  ]) {
+    testWidgets('registration fits ${scenario.name}', (tester) async {
+      tester.view.devicePixelRatio = 1;
+      tester.view.physicalSize = scenario.size;
+      addTearDown(tester.view.resetDevicePixelRatio);
+      addTearDown(tester.view.resetPhysicalSize);
+      final provider = AuthProvider(authRepository: _SignupAuthRepository());
+      addTearDown(provider.dispose);
+      await tester.pumpWidget(
+        MaterialApp(
+          builder: (context, child) => MediaQuery(
+            data: MediaQuery.of(context).copyWith(
+              textScaler: TextScaler.linear(scenario.scale),
+              viewInsets: EdgeInsets.only(bottom: scenario.keyboard),
+            ),
+            child: child!,
+          ),
+          home: ChangeNotifierProvider<AuthProvider>.value(
+            value: provider,
+            child: const SignupScreen(),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      final formRect = tester.getRect(find.byType(Form));
+      expect(formRect.width, lessThanOrEqualTo(448));
+      expect(formRect.center.dx, closeTo(scenario.size.width / 2, 0.1));
+      expect(formRect.left, greaterThanOrEqualTo(16));
+      expect(formRect.right, lessThanOrEqualTo(scenario.size.width - 16));
+      for (final field in find.byType(TextFormField).evaluate()) {
+        final rect = tester.getRect(find.byWidget(field.widget));
+        expect(rect.left, formRect.left);
+        expect(rect.right, formRect.right);
+      }
+      final submit = find.byType(FilledButton);
+      await tester.ensureVisible(submit);
+      await tester.pumpAndSettle();
+      expect(tester.getRect(submit).width, formRect.width);
+      expect(submit.hitTestable(), findsOneWidget);
+      await tester.tap(submit);
+      await tester.pumpAndSettle();
+      expect(find.text('Username is required.'), findsOneWidget);
+      expect(find.text('Password is required.'), findsOneWidget);
+      final signIn = find.widgetWithText(TextButton, 'Sign in');
+      await tester.ensureVisible(signIn);
+      await tester.pumpAndSettle();
+      expect(signIn.hitTestable(), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    });
+  }
+
+  testWidgets('toggles password visibility without changing its value', (
+    tester,
+  ) async {
+    final provider = AuthProvider(authRepository: _SignupAuthRepository());
+    final semantics = tester.ensureSemantics();
+    addTearDown(provider.dispose);
+    await tester.pumpWidget(
+      MaterialApp(
+        home: ChangeNotifierProvider<AuthProvider>.value(
+          value: provider,
+          child: const SignupScreen(),
+        ),
+      ),
+    );
+
+    final passwordField = find.byType(TextFormField).at(3);
+    await tester.enterText(passwordField, 'My password 123!');
+    final controller = tester.widget<TextFormField>(passwordField).controller!;
+    final originalValue = controller.value;
+    final editable = find.descendant(
+      of: passwordField,
+      matching: find.byType(EditableText),
+    );
+    expect(tester.widget<EditableText>(editable).obscureText, isTrue);
+
+    for (final label in ['Show password', 'Hide password']) {
+      final toggle = find.byTooltip(label);
+      await tester.ensureVisible(toggle);
+      await tester.pumpAndSettle();
+      expect(
+        tester.getSemantics(toggle),
+        matchesSemantics(
+          label: label,
+          isButton: true,
+          isEnabled: true,
+          hasEnabledState: true,
+          isFocusable: true,
+          hasTapAction: true,
+          hasFocusAction: true,
+        ),
+      );
+      await tester.tap(toggle);
+      await tester.pumpAndSettle();
+      expect(
+        tester.widget<EditableText>(editable).obscureText,
+        label == 'Hide password',
+      );
+      expect(controller.value, originalValue);
+    }
+    semantics.dispose();
+  });
+
+  testWidgets('keeps registration failures visible below the submit button', (
+    tester,
+  ) async {
+    final provider = AuthProvider(authRepository: _SignupAuthRepository());
+    await tester.pumpWidget(
+      MaterialApp(
+        home: ChangeNotifierProvider<AuthProvider>.value(
+          value: provider,
+          child: const SignupScreen(),
+        ),
+      ),
+    );
+    await tester.enterText(find.byType(TextFormField).at(0), 'user');
+    await tester.enterText(find.byType(TextFormField).at(1), 'Name');
+    await tester.enterText(find.byType(TextFormField).at(2), 'a@b.com');
+    await tester.enterText(find.byType(TextFormField).at(3), 'password12');
+    await tester.ensureVisible(find.text('Sign up'));
+    await tester.pumpAndSettle();
+    final buttonPosition = tester.getTopLeft(find.byType(FilledButton));
+    await tester.tap(find.text('Sign up'));
+    await tester.pumpAndSettle();
+
+    final error = find.text('An account with this email already exists.');
+    expect(error, findsOneWidget);
+    expect(tester.getTopLeft(find.byType(FilledButton)), buttonPosition);
+    expect(
+      tester.getTopLeft(error).dy,
+      greaterThan(tester.getBottomLeft(find.byType(FilledButton)).dy),
+    );
+    await tester.ensureVisible(error);
+    await tester.pump(const Duration(seconds: 6));
+    expect(error, findsOneWidget);
+    expect(tester.takeException(), isNull);
+    provider.dispose();
+  });
+
   testWidgets('validates username length', (tester) async {
     final repo = _SignupAuthRepository();
     final provider = AuthProvider(authRepository: repo);
@@ -31,8 +249,12 @@ void main() {
     await tester.enterText(find.byType(TextFormField).at(1), 'Name');
     await tester.enterText(find.byType(TextFormField).at(2), 'a@b.com');
     await tester.enterText(find.byType(TextFormField).at(3), 'password12');
+    await tester.ensureVisible(find.text('Sign up'));
+    await tester.pumpAndSettle();
+    final buttonPosition = tester.getTopLeft(find.byType(FilledButton));
     await tester.tap(find.text('Sign up'));
-    await tester.pump();
+    await tester.pumpAndSettle();
+    expect(tester.getTopLeft(find.byType(FilledButton)), buttonPosition);
 
     expect(
       find.text('Username must be at least 3 characters.'),
@@ -58,8 +280,12 @@ void main() {
     await tester.enterText(find.byType(TextFormField).at(1), 'Name');
     await tester.enterText(find.byType(TextFormField).at(2), 'a@b.com');
     await tester.enterText(find.byType(TextFormField).at(3), 'short');
+    await tester.ensureVisible(find.text('Sign up'));
+    await tester.pumpAndSettle();
+    final buttonPosition = tester.getTopLeft(find.byType(FilledButton));
     await tester.tap(find.text('Sign up'));
-    await tester.pump();
+    await tester.pumpAndSettle();
+    expect(tester.getTopLeft(find.byType(FilledButton)), buttonPosition);
 
     expect(
       find.text('Password must be at least 8 characters.'),
@@ -70,6 +296,16 @@ void main() {
 }
 
 class _SignupAuthRepository implements AuthRepository {
+  @override
+  Future<void> signUp({
+    required String email,
+    required String password,
+    required String username,
+    required String displayName,
+  }) async {
+    throw firebase_auth.FirebaseAuthException(code: 'email-already-in-use');
+  }
+
   @override
   Stream<firebase_auth.User?> authStateChanges() async* {
     yield null;
