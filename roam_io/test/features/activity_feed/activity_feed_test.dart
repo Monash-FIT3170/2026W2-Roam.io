@@ -31,6 +31,7 @@ import 'package:roam_io/features/map/data/region_polygon.dart';
 import 'package:roam_io/features/map/data/visited_region_service.dart';
 import 'package:roam_io/features/map/fog/fog_decay_difficulty.dart';
 import 'package:roam_io/features/map/fog/static_fog.dart';
+import 'package:roam_io/features/map/widgets/media_viewer.dart';
 import 'package:roam_io/features/profile/domain/visited_polygon_meta.dart';
 import 'package:roam_io/features/profile/domain/visited_polygon_record.dart';
 
@@ -299,6 +300,90 @@ void main() {
 
     expect(find.byIcon(Icons.videocam_outlined), findsWidgets);
   });
+
+  testWidgets('tapping media in feed card invokes custom onMediaTap callback', (
+    tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(400, 1200));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+
+    int? tappedMediaIndex;
+    final activity = _testActivity(
+      media: [
+        _testMedia(id: 'video-1', order: 0, type: ActivityMediaType.video),
+      ],
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: SingleChildScrollView(
+            child: ActivityFeedCard.fromItem(
+              activity,
+              showKudos: false,
+              showComments: false,
+              showShare: false,
+              onMediaTap: (index) => tappedMediaIndex = index,
+              mapSnapshotService: _FakeJourneyMapSnapshotService(),
+              visitedRegionService: _FakeVisitedRegionService({
+                'user-1': {'tile_visited'},
+              }),
+              endpointMarkerIcons: _testEndpointIcons,
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    // Swipe past the route slide to the video slide
+    await tester.drag(find.byType(PageView), const Offset(-360, 0));
+    await tester.pumpAndSettle();
+
+    expect(find.byIcon(Icons.play_arrow_rounded), findsOneWidget);
+    await tester.tap(find.byIcon(Icons.play_arrow_rounded));
+    await tester.pumpAndSettle();
+
+    expect(tappedMediaIndex, 0);
+  });
+
+  testWidgets(
+    'tapping media in feed card defaults to pushing MediaViewer route',
+    (tester) async {
+      await tester.binding.setSurfaceSize(const Size(400, 1200));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+
+      final activity = _testActivity(
+        encodedRoute: null,
+        routeBounds: null,
+        media: [
+          _testMedia(id: 'photo-1', order: 0, type: ActivityMediaType.photo),
+        ],
+      );
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: SingleChildScrollView(
+              child: ActivityFeedCard.fromItem(
+                activity,
+                showKudos: false,
+                showComments: false,
+                showShare: false,
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.byType(ActivityMediaCarousel), findsOneWidget);
+      await tester.tap(find.byType(ActivityMediaCarousel));
+      await tester.pumpAndSettle();
+
+      expect(find.byType(MediaViewer), findsOneWidget);
+    },
+  );
 
   testWidgets('edge-to-edge feed card insets and crops its media viewport', (
     tester,

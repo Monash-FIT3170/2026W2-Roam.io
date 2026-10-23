@@ -628,6 +628,9 @@ class ProfileMediaPreviewSection extends StatelessWidget {
                   mediaUrls: entries
                       .map((entry) => entry.media.url)
                       .toList(growable: false),
+                  isVideoFlags: entries
+                      .map((entry) => entry.media.isVideo)
+                      .toList(growable: false),
                   initialIndex: index,
                 ),
               ),

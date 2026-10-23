@@ -69,4 +69,24 @@ void main() {
     expect(find.byType(MediaViewer), findsOneWidget);
     expect(find.byType(InteractiveViewer), findsOneWidget);
   });
+
+  testWidgets('renders video viewer when isVideoFlags is set', (tester) async {
+    await tester.pumpWidget(
+      const MaterialApp(
+        home: MediaViewer(
+          mediaUrls: [
+            'https://example.com/unconventional_url_without_extension',
+          ],
+          isVideoFlags: [true],
+        ),
+      ),
+    );
+    await tester.pump();
+
+    // In widget tests without a video player platform mock, initialization
+    // gracefully fails to error state with a retry option.
+    expect(find.byType(InteractiveViewer), findsNothing);
+    expect(find.text('Failed to load video'), findsOneWidget);
+    expect(find.text('Retry'), findsOneWidget);
+  });
 }

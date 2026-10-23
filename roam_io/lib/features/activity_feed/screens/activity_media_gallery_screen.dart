@@ -117,6 +117,7 @@ class _ActivityMediaGalleryScreenState
     MediaViewer.show(
       context: context,
       mediaUrls: entries.map((entry) => entry.media.url).toList(),
+      isVideoFlags: entries.map((entry) => entry.media.isVideo).toList(),
       initialIndex: index,
     );
   }

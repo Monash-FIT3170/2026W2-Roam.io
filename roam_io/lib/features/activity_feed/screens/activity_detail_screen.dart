@@ -222,6 +222,7 @@ class ActivityDetailScreen extends StatelessWidget {
                 onTap: (index) => MediaViewer.show(
                   context: context,
                   mediaUrls: activity.mediaUrls,
+                  isVideoFlags: activity.media.map((m) => m.isVideo).toList(),
                   initialIndex: index,
                 ),
               ),

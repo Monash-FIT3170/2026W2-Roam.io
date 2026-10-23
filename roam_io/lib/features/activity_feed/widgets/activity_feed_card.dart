@@ -28,6 +28,7 @@ import '../data/kudos_service.dart';
 import '../domain/activity_route.dart';
 import '../models/activity_comment.dart';
 import '../models/activity_feed_item.dart';
+import '../../map/widgets/media_viewer.dart';
 import 'activity_glazers_sheet.dart';
 import 'activity_map_preview.dart';
 import 'activity_media_carousel.dart';
@@ -94,6 +95,7 @@ class ActivityFeedCard extends StatelessWidget {
     VoidCallback? onKudosTap,
     VoidCallback? onCommentTap,
     VoidCallback? onShareTap,
+    ValueChanged<int>? onMediaTap,
     JourneyMapSnapshotService? mapSnapshotService,
     VisitedRegionService? visitedRegionService,
     ActivityMutationService? mutationService,
@@ -133,6 +135,7 @@ class ActivityFeedCard extends StatelessWidget {
       mutationService: mutationService,
       endpointMarkerIcons: endpointMarkerIcons,
       media: item.media,
+      onMediaTap: onMediaTap,
       showKudos: showKudos,
       showComments: showComments,
       showShare: showShare,
@@ -403,7 +406,11 @@ class ActivityFeedCard extends StatelessWidget {
               ),
               child: ActivityMediaCarousel(
                 media: media,
-                onTap: onMediaTap,
+                onTap:
+                    onMediaTap ??
+                    (media.isNotEmpty
+                        ? (index) => _handleMediaTap(context, index)
+                        : null),
                 routeSlide: routeSlide,
                 routeFirst: true,
                 borderRadius: profilePresentation
@@ -443,6 +450,16 @@ class ActivityFeedCard extends StatelessWidget {
             ),
         ],
       ),
+    );
+  }
+
+  void _handleMediaTap(BuildContext context, int index) {
+    if (media.isEmpty) return;
+    MediaViewer.show(
+      context: context,
+      mediaUrls: media.map((item) => item.url).toList(),
+      isVideoFlags: media.map((item) => item.isVideo).toList(),
+      initialIndex: index,
     );
   }
 
